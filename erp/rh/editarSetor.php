@@ -234,7 +234,7 @@ try {
             <ul class="menu-sub">
               <li class="menu-item">
                 <a href="./escalaAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Escalas e Configuração">Adicionadas</div>
+                  <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
               <li class="menu-item">
