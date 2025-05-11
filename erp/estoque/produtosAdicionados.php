@@ -67,7 +67,7 @@
         <ul class="menu-inner py-1">
           <!-- Dashboard -->
           <li class="menu-item ">
-            <a href="index.php" class="menu-link">
+            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -86,7 +86,7 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item active">
-                <a href="./produtosAdicionados.php" class="menu-link">
+                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Produtos">Adicionados</div>
                 </a>
               </li>
@@ -100,12 +100,12 @@
               <div data-i18n="Authentications">B2B</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./produtosSolicitados.php" class="menu-link">
+              <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div> Produtos Solicitados</div>
                 </a></li>
             </ul>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./produtosEnviados.php" class="menu-link">
+              <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?></a>" class="menu-link">
                   <div> Produtos Enviados</div>
                 </a></li>
             </ul>
@@ -120,12 +120,12 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./estoqueAlto.php" class="menu-link">
+                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="BaixoEstoque">Estoque Alto</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./estoqueBaixo.php" class="menu-link">
+                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                 </a>
               </li>
@@ -138,13 +138,13 @@
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
-            <a href="../rh/index.php" class="menu-link ">
+            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">RH</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../financas/index.php" class="menu-link ">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-dollar"></i>
               <div data-i18n="Authentications">Finanças</div>
             </a>
@@ -156,20 +156,20 @@
             </a>
           </li>
           <li class="menu-item">
-            <a href="../delivery/index.php" class="menu-link ">
+            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
             </a>
           </li>
 
           <li class="menu-item">
-            <a href="../clientes/index.php" class="menu-link ">
+            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-user"></i>
               <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../filial/index.php" class="menu-link ">
+            <a href="../filial/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cog"></i>
               <div data-i18n="Authentications">Filial</div>
             </a>
