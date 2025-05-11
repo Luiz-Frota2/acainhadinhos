@@ -53,44 +53,44 @@ $usuario_id = $_SESSION['usuario_id'];
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
 
 try {
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de Admins
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de Funcionários
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    if ($tipoUsuarioSessao === 'Admin') {
+        // Buscar na tabela de Admins
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        // Buscar na tabela de Funcionários
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
 
 
@@ -222,7 +222,7 @@ try {
                         </a>
                     </li>
 
-            
+
                     <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
@@ -235,7 +235,7 @@ try {
                                     <div data-i18n="Basic">Resumo de Vendas</div>
                                 </a>
                             </li>
-                           
+
                         </ul>
                     </li>
                     <!-- END CAIXA -->
@@ -355,31 +355,31 @@ try {
                         </ul>
                     </div>
                 </nav>
-<?php 
-try {
-      // Buscar todos os setores
-  $sql = "SELECT * FROM estoque WHERE empresa_id = :empresa_id";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
-  $stmt->execute();
-  $estoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
-  } catch (PDOException $e) {
-    echo "Erro ao buscar produtos: " . $e->getMessage();
-    exit;
-  }
-  
-  
-// Supondo que esses dados venham da sessão ou variável de sessão
-$responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
-$empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
+                <?php
+                try {
+                    // Buscar todos os setores
+                    $sql = "SELECT * FROM estoque WHERE empresa_id = :empresa_id";
+                    $stmt = $pdo->prepare($sql);
+                    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
+                    $stmt->execute();
+                    $estoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) {
+                    echo "Erro ao buscar produtos: " . $e->getMessage();
+                    exit;
+                }
 
-if (!$responsavel || !$empresa_id) {
-    die("Erro: Dados de sessão ausentes.");
-}
 
-try {
-    // Prepare a consulta SQL para buscar o ID baseado no responsável, empresa e status_abertura = 'aberto'
-    $stmt = $pdo->prepare("
+                // Supondo que esses dados venham da sessão ou variável de sessão
+                $responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
+                $empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
+
+                if (!$responsavel || !$empresa_id) {
+                    die("Erro: Dados de sessão ausentes.");
+                }
+
+                try {
+                    // Prepare a consulta SQL para buscar o ID baseado no responsável, empresa e status_abertura = 'aberto'
+                    $stmt = $pdo->prepare("
         SELECT id 
         FROM aberturas 
         WHERE responsavel = :responsavel 
@@ -388,107 +388,107 @@ try {
         ORDER BY id DESC 
         LIMIT 1
     ");
-    $stmt->execute([
-        'responsavel' => $responsavel,
-        'empresa_id' => $empresa_id
-    ]);
+                    $stmt->execute([
+                        'responsavel' => $responsavel,
+                        'empresa_id' => $empresa_id
+                    ]);
 
-    // Busca o resultado e verifica se existe algum ID
-    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-
-   
-
-?>  
- 
-                <!-- / Navbar -->
-
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="./bancodeHoras.php">Venda Rápida</a></span>
-                    </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Registre uma nova venda</span>
-                    </h5>
-
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="app-brand justify-content-center mb-4">
-                                <a href="#" class="app-brand-link gap-2">
-                                    <span class="app-brand-text demo text-body fw-bolder">Venda Rápida</span>
-                                </a>
-                            </div>
-                            <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
-    Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
-</div>
+                    // Busca o resultado e verifica se existe algum ID
+                    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
-                            <form method="POST" action="../../assets/php/frentedeloja/login/vendaRapidaSubmit.php?id=<?= urlencode($idSelecionado); ?>">
-                                 <!-- Campos ocultos -->
-                                 
-                                <div id="produtos-container">
-                                     <div class="produto-item border rounded p-3 mb-3">
-                                     <div class="fixed-items" id="fixedDisplay">
-                                     <label class="form-label">Nenhum Produto Selecionado</label>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Produto</label>
-                                            <select class="form-select" id="multiSelect" multiple size="5">
-                                             <?php foreach ($estoque as $estoques): ?>
-                                                <option value="<?= $estoques['id'] ?>"  data-nome="<?= htmlspecialchars($estoques['nome_produto']) ?>" data-preco="<?= $estoques['preco_produto'] ?>"><?= htmlspecialchars($estoques['nome_produto']) ?>  - R$ <?= number_format($estoques['preco_produto'], 2, ',', '.') ?></option>
-                                             <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                        <div class="mb-3 total">
-                                            
-                                            <label class="form-label">Valor Total</label><br>
-                                            <input type="hidden" name="totalTotal" id="totalTotal" value="R$ 0.00">
-                                            <span id="total">0.00</span>
-                                        </div>
-                                        <div class="mb-3">
-                                         <label for="forma_pagamento" class="form-label">Forma de Pagamento</label>
-                                         <select id="forma_pagamento" name="forma_pagamento" class="form-select" required>
-                                         <option value="">Selecione...</option>
-                                         <option value="Dinheiro">Dinheiro</option>
-                                         <option value="Cartão de Crédito">Cartão de Crédito</option>
-                                         <option value="Cartão de Débito">Cartão de Débito</option>
-                                         <option value="Pix">PIX</option>
 
-                                         </select>
-                                         </div>
+                ?>
 
-                                        <div class="text-end">
-                                            <button id="removerTodosBtn" type="button" class="btn btn-danger btn-sm remove-produto">Remover</button>
+                    <!-- / Navbar -->
+
+                    <div class="container-xxl flex-grow-1 container-p-y">
+                        <h4 class="fw-bold mb-0">
+                            <span class="text-muted fw-light"><a href="./bancodeHoras.php">Venda Rápida</a></span>
+                        </h4>
+                        <h5 class="fw-bold mt-3 mb-3 custor-font">
+                            <span class="text-muted fw-light">Registre uma nova venda</span>
+                        </h5>
+
+                        <div class="card">
+                            <div class="card-body">
+                                <div class="app-brand justify-content-center mb-4">
+                                    <a href="#" class="app-brand-link gap-2">
+                                        <span class="app-brand-text demo text-body fw-bolder">Venda Rápida</span>
+                                    </a>
+                                </div>
+                                <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
+                                    Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
+                                </div>
+
+
+                                <form method="POST" action="../../assets/php/frentedeloja/login/vendaRapidaSubmit.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <!-- Campos ocultos -->
+
+                                    <div id="produtos-container">
+                                        <div class="produto-item border rounded p-3 mb-3">
+                                            <div class="fixed-items" id="fixedDisplay">
+                                                <label class="form-label">Nenhum Produto Selecionado</label>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Produto</label>
+                                                <select class="form-select" id="multiSelect" multiple size="5">
+                                                    <?php foreach ($estoque as $estoques): ?>
+                                                        <option value="<?= $estoques['id'] ?>" data-nome="<?= htmlspecialchars($estoques['nome_produto']) ?>" data-preco="<?= $estoques['preco_produto'] ?>"><?= htmlspecialchars($estoques['nome_produto']) ?> - R$ <?= number_format($estoques['preco_produto'], 2, ',', '.') ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3 total">
+
+                                                <label class="form-label">Valor Total</label><br>
+                                                <input type="hidden" name="totalTotal" id="totalTotal" value="R$ 0.00">
+                                                <span id="total">0.00</span>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="forma_pagamento" class="form-label">Forma de Pagamento</label>
+                                                <select id="forma_pagamento" name="forma_pagamento" class="form-select" required>
+                                                    <option value="">Selecione...</option>
+                                                    <option value="Dinheiro">Dinheiro</option>
+                                                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                                    <option value="Cartão de Débito">Cartão de Débito</option>
+                                                    <option value="Pix">PIX</option>
+
+                                                </select>
+                                            </div>
+
+                                            <div class="text-end">
+                                                <button id="removerTodosBtn" type="button" class="btn btn-danger btn-sm remove-produto">Remover</button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div class="d-grid mb-3">
-                                    <button id="fixarBtn" disabled type="button" class="btn btn-outline-primary">
-                                        <i class="tf-icons bx bx-plus"></i> Adicionar Produto
-                                    </button>
-                                </div>
+                                    <div class="d-grid mb-3">
+                                        <button id="fixarBtn" disabled type="button" class="btn btn-outline-primary">
+                                            <i class="tf-icons bx bx-plus"></i> Adicionar Produto
+                                        </button>
+                                    </div>
 
-                                <div class="mb-3">
+                                    <div class="mb-3">
                                     <?php
-                                     if ($resultado) {
-                                         $idAbertura = $resultado['id'];
-                                          echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
-                                            } else {
-                                          echo "";
-                                           }
-                                           } catch (PDOException $e) {
-                                          echo "Erro ao buscar ID: " . $e->getMessage();
-                                           }
+                                    if ($resultado) {
+                                        $idAbertura = $resultado['id'];
+                                        echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
+                                    } else {
+                                        echo "";
+                                    }
+                                } catch (PDOException $e) {
+                                    echo "Erro ao buscar ID: " . $e->getMessage();
+                                }
                                     ?>
-                                <input type="hidden" id="responsavel" name="responsavel" value="<?= ucwords($nomeUsuario); ?>" >
-                                <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
-                                <button  type="button" id="finalizarVendaBtn" class="btn btn-primary w-100">Finalizar Venda</button>
+                                    <input type="hidden" id="responsavel" name="responsavel" value="<?= ucwords($nomeUsuario); ?>">
+                                    <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
+                                    <button type="button" id="finalizarVendaBtn" class="btn btn-primary w-100">Finalizar Venda</button>
 
-                                </div>
-                            </form>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
-                </div>
 
             </div>
         </div>
@@ -510,284 +510,288 @@ try {
     const fixedDisplay = document.getElementById('fixedDisplay');
     const totalDisplay = document.getElementById('total');
 
-    const fixedItems = new Map(); 
+    const fixedItems = new Map();
 
     let selectedOption = null;
 
     select.addEventListener('change', () => {
-      selectedOption = select.options[select.selectedIndex];
-      fixarBtn.disabled = false;
+        selectedOption = select.options[select.selectedIndex];
+        fixarBtn.disabled = false;
     });
 
     fixarBtn.addEventListener('click', () => {
-      if (!selectedOption) return;
+        if (!selectedOption) return;
 
-      const id = selectedOption.value;
-      const nome = selectedOption.dataset.nome;
-      const preco = parseFloat(selectedOption.dataset.preco);
+        const id = selectedOption.value;
+        const nome = selectedOption.dataset.nome;
+        const preco = parseFloat(selectedOption.dataset.preco);
 
-      if (!fixedItems.has(id)) {
-        fixedItems.set(id, { nome, preco, quantidade: 1 });
-        updateFixedDisplay();
-      }
+        if (!fixedItems.has(id)) {
+            fixedItems.set(id, {
+                nome,
+                preco,
+                quantidade: 1
+            });
+            updateFixedDisplay();
+        }
 
-      fixarBtn.disabled = true;
-      selectedOption = null;
-      select.selectedIndex = -1;
+        fixarBtn.disabled = true;
+        selectedOption = null;
+        select.selectedIndex = -1;
     });
 
     function updateFixedDisplay() {
-      fixedDisplay.innerHTML = '';
+        fixedDisplay.innerHTML = '';
 
-      if (fixedItems.size === 0) {
-        fixedDisplay.textContent = 'Nenhum item fixado';
-        totalDisplay.textContent = '0.00';
-        return;
-      }
+        if (fixedItems.size === 0) {
+            fixedDisplay.textContent = 'Nenhum item fixado';
+            totalDisplay.textContent = '0.00';
+            return;
+        }
 
-      fixedItems.forEach((item, id) => {
-        const container = document.createElement('span');
-        container.className = 'fixed-item';
+        fixedItems.forEach((item, id) => {
+            const container = document.createElement('span');
+            container.className = 'fixed-item';
 
-        const textNode = document.createTextNode(`${item.nome}`);
-        
+            const textNode = document.createTextNode(`${item.nome}`);
 
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.min = 1;
-        input.value = item.quantidade;
-        input.addEventListener('input', () => {
-          const novaQuantidade = parseInt(input.value) || 1;
-          item.quantidade = novaQuantidade;
-          calcularTotal();
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = 1;
+            input.value = item.quantidade;
+            input.addEventListener('input', () => {
+                const novaQuantidade = parseInt(input.value) || 1;
+                item.quantidade = novaQuantidade;
+                calcularTotal();
+            });
+
+            const btn = document.createElement('button');
+            btn.textContent = '×';
+            btn.className = 'remove-btn';
+            btn.onclick = () => {
+                fixedItems.delete(id);
+                updateFixedDisplay();
+            };
+
+            container.appendChild(textNode);
+            container.appendChild(input);
+            container.appendChild(btn);
+            fixedDisplay.appendChild(container);
+
         });
 
-        const btn = document.createElement('button');
-        btn.textContent = '×';
-        btn.className = 'remove-btn';
-        btn.onclick = () => {
-          fixedItems.delete(id);
-          updateFixedDisplay();
-        };
-
-        container.appendChild(textNode);
-        container.appendChild(input);
-        container.appendChild(btn);
-        fixedDisplay.appendChild(container);
-        
-      });
-
-      calcularTotal();
+        calcularTotal();
     }
-    
+
     function calcularTotal() {
-      let total = 0;
-      fixedItems.forEach(item => {
-        total += item.preco * item.quantidade;
-      });
-      totalDisplay.textContent = total.toFixed(2);
-      document.getElementById('totalTotal').value = total.toFixed(2);
+        let total = 0;
+        fixedItems.forEach(item => {
+            total += item.preco * item.quantidade;
+        });
+        totalDisplay.textContent = total.toFixed(2);
+        document.getElementById('totalTotal').value = total.toFixed(2);
     }
-    
+
     const finalizarVendaBtn = document.getElementById('finalizarVendaBtn');
-const form = document.querySelector('form');
-
-finalizarVendaBtn.addEventListener('click', (event) => {
-  event.preventDefault();
-
-  if (fixedItems.size === 0) {
-    alert('Selecione ao menos um produto antes de finalizar a venda.');
-    return;
-  }
-
-  // Sincroniza os valores dos inputs visuais com os dados antes de enviar
-  const spans = document.querySelectorAll('.fixed-item');
-  spans.forEach(span => {
-    const nomeProduto = span.querySelector('input[type="number"]').previousSibling.textContent.trim();
-    const quantidadeInput = span.querySelector('input[type="number"]');
-    const novaQuantidade = parseInt(quantidadeInput.value) || 1;
-
-    // Atualiza o objeto fixedItems com a nova quantidade
-    fixedItems.forEach((item, id) => {
-      if (item.nome === nomeProduto) {
-        item.quantidade = novaQuantidade;
-      }
-    });
-  });
-
-  // Remove inputs antigos
-  document.querySelectorAll('.input-produto-dinamico').forEach(input => input.remove());
-
-  // Adiciona os produtos fixados como inputs ocultos
- fixedItems.forEach((item, id) => {
-  // Nome
-  const inputNome = document.createElement('input');
-  inputNome.type = 'hidden';
-  inputNome.name = 'produtos[]';
-  inputNome.value = item.nome;
-  inputNome.classList.add('input-produto-dinamico');
-  form.appendChild(inputNome);
-
-  // Quantidade
-  const inputQuantidade = document.createElement('input');
-  inputQuantidade.type = 'hidden';
-  inputQuantidade.name = 'quantidade[]';
-  inputQuantidade.value = item.quantidade;
-  inputQuantidade.classList.add('input-produto-dinamico');
-  form.appendChild(inputQuantidade);
-
-  // Preço
-  const inputPreco = document.createElement('input');
-  inputPreco.type = 'hidden';
-  inputPreco.name = 'precos[]';
-  inputPreco.value = item.preco;
-  inputPreco.classList.add('input-produto-dinamico');
-  form.appendChild(inputPreco);
-});
-
-  form.submit(); // Agora sim, envia de forma controlada
-});
-
-
-const removerTodosBtn = document.getElementById('removerTodosBtn');
-
-removerTodosBtn.addEventListener('click', () => {
-  if (fixedItems.size === 0) {
-    alert('Nenhum produto para remover.');
-    return;
-  }
-
-  if (confirm('Deseja remover todos os produtos fixados?')) {
-    fixedItems.clear();         
-    updateFixedDisplay();        
-  }
-});
-
- 
-document.addEventListener('DOMContentLoaded', function () {
-    const idCaixa = document.getElementById('id_caixa');
     const form = document.querySelector('form');
-    const aviso = document.getElementById('avisoSemCaixa');
 
-    if (!idCaixa || !idCaixa.value.trim()) {
-        form.style.display = 'none';     // Oculta o formulário
-        aviso.style.display = 'block';   // Exibe o alerta
-    }
-});
+    finalizarVendaBtn.addEventListener('click', (event) => {
+        event.preventDefault();
 
-document.addEventListener("DOMContentLoaded", function () {
-    const formaPagamentoSelect = document.getElementById("forma_pagamento");
-    const finalizarBtn = document.getElementById("finalizarVendaBtn");
-
-    function verificarFormaPagamento() {
-        if (formaPagamentoSelect.value === "") {
-            finalizarBtn.disabled = true;
-        } else {
-            finalizarBtn.disabled = false;
+        if (fixedItems.size === 0) {
+            alert('Selecione ao menos um produto antes de finalizar a venda.');
+            return;
         }
-    }
 
-    // Verifica ao carregar a página
-    verificarFormaPagamento();
+        // Sincroniza os valores dos inputs visuais com os dados antes de enviar
+        const spans = document.querySelectorAll('.fixed-item');
+        spans.forEach(span => {
+            const nomeProduto = span.querySelector('input[type="number"]').previousSibling.textContent.trim();
+            const quantidadeInput = span.querySelector('input[type="number"]');
+            const novaQuantidade = parseInt(quantidadeInput.value) || 1;
 
-    // Verifica toda vez que o usuário mudar a forma de pagamento
-    formaPagamentoSelect.addEventListener("change", verificarFormaPagamento);
-});
+            // Atualiza o objeto fixedItems com a nova quantidade
+            fixedItems.forEach((item, id) => {
+                if (item.nome === nomeProduto) {
+                    item.quantidade = novaQuantidade;
+                }
+            });
+        });
+
+        // Remove inputs antigos
+        document.querySelectorAll('.input-produto-dinamico').forEach(input => input.remove());
+
+        // Adiciona os produtos fixados como inputs ocultos
+        fixedItems.forEach((item, id) => {
+            // Nome
+            const inputNome = document.createElement('input');
+            inputNome.type = 'hidden';
+            inputNome.name = 'produtos[]';
+            inputNome.value = item.nome;
+            inputNome.classList.add('input-produto-dinamico');
+            form.appendChild(inputNome);
+
+            // Quantidade
+            const inputQuantidade = document.createElement('input');
+            inputQuantidade.type = 'hidden';
+            inputQuantidade.name = 'quantidade[]';
+            inputQuantidade.value = item.quantidade;
+            inputQuantidade.classList.add('input-produto-dinamico');
+            form.appendChild(inputQuantidade);
+
+            // Preço
+            const inputPreco = document.createElement('input');
+            inputPreco.type = 'hidden';
+            inputPreco.name = 'precos[]';
+            inputPreco.value = item.preco;
+            inputPreco.classList.add('input-produto-dinamico');
+            form.appendChild(inputPreco);
+        });
+
+        form.submit(); // Agora sim, envia de forma controlada
+    });
 
 
+    const removerTodosBtn = document.getElementById('removerTodosBtn');
+
+    removerTodosBtn.addEventListener('click', () => {
+        if (fixedItems.size === 0) {
+            alert('Nenhum produto para remover.');
+            return;
+        }
+
+        if (confirm('Deseja remover todos os produtos fixados?')) {
+            fixedItems.clear();
+            updateFixedDisplay();
+        }
+    });
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const idCaixa = document.getElementById('id_caixa');
+        const form = document.querySelector('form');
+        const aviso = document.getElementById('avisoSemCaixa');
+
+        if (!idCaixa || !idCaixa.value.trim()) {
+            form.style.display = 'none'; // Oculta o formulário
+            aviso.style.display = 'block'; // Exibe o alerta
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const formaPagamentoSelect = document.getElementById("forma_pagamento");
+        const finalizarBtn = document.getElementById("finalizarVendaBtn");
+
+        function verificarFormaPagamento() {
+            if (formaPagamentoSelect.value === "") {
+                finalizarBtn.disabled = true;
+            } else {
+                finalizarBtn.disabled = false;
+            }
+        }
+
+        // Verifica ao carregar a página
+        verificarFormaPagamento();
+
+        // Verifica toda vez que o usuário mudar a forma de pagamento
+        formaPagamentoSelect.addEventListener("change", verificarFormaPagamento);
+    });
 </script>
 
 
-  <style>
-     h2 {
-      margin-top: 20px;
+<style>
+    h2 {
+        margin-top: 20px;
     }
 
     .fixed-items {
-      margin-bottom: 10px;
-      padding: 10px;
-      background-color: #c8e6c9;
-      border: 1px solid rgb(146, 100, 231);
-      border-radius: 5px;
+        margin-bottom: 10px;
+        padding: 10px;
+        background-color: #c8e6c9;
+        border: 1px solid rgb(146, 100, 231);
+        border-radius: 5px;
     }
 
     .fixed-item {
-      background-color:rgb(146, 100, 231);;
-      color: white;
-      padding: 5px 10px;
-      margin: 5px 5px 0 0;
-      border-radius: 20px;
-      display: inline-flex;
-      align-items: center;
-      position: relative;
-      flex-wrap: wrap;
+        background-color: rgb(146, 100, 231);
+        ;
+        color: white;
+        padding: 5px 10px;
+        margin: 5px 5px 0 0;
+        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        position: relative;
+        flex-wrap: wrap;
     }
 
     .fixed-item input {
-      margin-left: 10px;
-      width: 50px;
-      border-radius: 5px;
-      border: none;
-      padding: 3px;
+        margin-left: 10px;
+        width: 50px;
+        border-radius: 5px;
+        border: none;
+        padding: 3px;
     }
 
     .remove-btn {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      background: #f44336;
-      border: none;
-      color: white;
-      border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      font-size: 12px;
-      cursor: pointer;
-      line-height: 14px;
-      padding: 0;
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #f44336;
+        border: none;
+        color: white;
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        font-size: 12px;
+        cursor: pointer;
+        line-height: 14px;
+        padding: 0;
     }
 
     .total {
-      margin-top: 20px;
-      font-size: 1.2em;
-      font-weight: bold;
+        margin-top: 20px;
+        font-size: 1.2em;
+        font-weight: bold;
     }
 
     select {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
     }
 
     #fixarBtn {
-      margin-top: 10px;
-      padding: 10px 15px;
-      font-size: 16px;
-      background-color:rgb(146, 100, 231);;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
+        margin-top: 10px;
+        padding: 10px 15px;
+        font-size: 16px;
+        background-color: rgb(146, 100, 231);
+        ;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
     }
 
     #fixarBtn:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
+        background-color: #ccc;
+        cursor: not-allowed;
     }
 
     @media (max-width: 600px) {
-      .fixed-item {
-        flex-direction: column;
-        align-items: flex-start;
-      }
+        .fixed-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
 
-      .fixed-item input {
-        margin-top: 5px;
-        margin-left: 0;
-      }
+        .fixed-item input {
+            margin-top: 5px;
+            margin-left: 0;
+        }
 
-      #fixarBtn {
-        width: 100%;
-      }
+        #fixarBtn {
+            width: 100%;
+        }
     }
-  </style>
+</style>

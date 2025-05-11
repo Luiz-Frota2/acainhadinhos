@@ -59,7 +59,7 @@
         <div class="app-brand demo">
           <a href="./dashboard.phpindex.php" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaídinhos</span>
+             <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
