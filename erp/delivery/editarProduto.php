@@ -154,7 +154,7 @@ if (isset($id_produto) && !empty($id_produto)) {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
