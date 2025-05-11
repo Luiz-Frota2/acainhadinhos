@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cupom Fiscal</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #f0f0f0;
+      padding: 20px;
+      margin: 0;
+    }
+
+    .cupom {
+      width: 100%;
+      max-width: 340px;
+      margin: auto;
+      background: #fff;
+      padding: 16px;
+      border: 1px dashed #aaa;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .logo img {
+      max-width: 100px;
+      height: auto;
+    }
+
+    .cupom h2 {
+      text-align: center;
+      font-size: 20px;
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+
+    .cupom h4 {
+      text-align: center;
+      font-size: 13px;
+      font-weight: normal;
+      margin-bottom: 8px;
+    }
+
+    .cupom p {
+      font-size: 13px;
+      margin: 4px 0;
+      text-align: center;
+    }
+
+    .linha {
+      border-top: 1px dashed #aaa;
+      margin: 10px 0;
+    }
+
+    .item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin: 4px 0;
+    }
+
+    .totais {
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 15px;
+    }
+
+    .totais span:last-child {
+      font-size: 16px;
+    }
+
+    .qrcode {
+      text-align: center;
+      margin-top: 18px;
+    }
+
+    .qrcode img {
+      width: 120px;
+      height: 120px;
+      max-width: 100%;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: #444;
+      margin-top: 16px;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+
+      .cupom {
+        box-shadow: none;
+        border: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="cupom">
+    <div class="logo">
+      <img src="../../img/favicon/logo.png" alt="Logo da Empresa" />
+    </div>
+
+    <h2>AÇAIDINHOS MATRIZ</h2>
+    <h4>CNPJ: 12.345.678/0001-99</h4>
+    <p>Rua Central, 123 - Centro</p>
+    <p>Coari - AM</p>
+
+    <div class="linha"></div>
+
+    <div class="item"><span>Açaí 500ml x2</span><span>R$ 20,00</span></div>
+    <div class="item"><span>Leite Ninho x2</span><span>R$ 4,00</span></div>
+
+    <div class="linha"></div>
+
+    <div class="item totais"><span>TOTAL:</span><span>R$ 24,00</span></div>
+    <div class="item"><span>Desconto:</span><span>R$ 0,00</span></div>
+    <div class="item"><span>Forma de Pagamento:</span><span>Pix</span></div>
+
+    <div class="linha"></div>
+
+    <div class="item"><span>Data:</span><span>07/04/2025</span></div>
+    <div class="item"><span>Hora:</span><span>14:32</span></div>
+    <div class="item"><span>Caixa:</span><span>01</span></div>
+
+    <div class="linha"></div>
+
+    <div class="qrcode">
+      <img
+        src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https://codegeek.dev.br/assets/php/delivery/teste.html"
+        alt="QR Code Nota Fiscal"
+      />
+    </div>
+
+    <div class="footer">
+      <p>Consulte sua nota em:</p>
+      <p>nfce.fazenda.gov.br</p>
+      <p>Obrigado pela preferência!</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Açaidinhos</title>
+
+        <link rel="stylesheet" href="./assets/css/cardapio/animate.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+        <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
+        <link rel="stylesheet" href="./assets/css/cardapio/main.css"/>
+        
+    <body>
+
+        <div class="bg-top pedido"></div>
+
+        <header class="width-fix mt-3">
+            <div class="card">
+
+                <div class="d-flex">
+
+                    <a href="./index.php" class="container-voltar">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <div class="infos text-center">
+                        <h1 class="mb-0"><b>Acompanhar pedido</b></h1>
+                    </div>
+
+                </div>
+
+            </div>
+        </header>
+
+        <section class="pedido width-fix mt-4 hidden">
+            <div class="card card-status-pedido">
+                <div class="img-icon-details">
+                    <i class="fas fa-utensils"></i>
+                </div>
+                <div class="infos">
+                    <p class="name mb-1"><b>Nenhum pedido realizado</b></p>
+                    <span class="text mb-0">Faça um pedido e o status dele aparecerá aqui</span>
+                </div>
+            </div>  
+        </section>
+
+        <section class="pedido width-fix mt-4">
+            
+            <div class="card card-status-pedido mb-4">
+                <div class="detalhes-produto">
+                    <div class="infos-produto">
+                        <p class="name-total mb-0"><b>Total</b></p>
+                        <p class="price-total mb-0"><b>R$ 105,50</b></p>
+                    </div>
+                </div>
+                <div class="detalhes-produto-acoes">
+                    <i class="fab fa-whatsapp"></i>
+                    <p class="mb-0 mt-1">Mensagem</p>
+                </div>
+                <div class="detalhes-produto-acoes">
+                    <i class="far fa-file-alt"></i>
+                    <p class="mb-0 mt-1">Ver pedido</p>
+                </div>
+            </div>
+
+            <div class="card card-status-pedido mt-2 cancelado">
+                <div class="img-icon-details">
+                    <i class="fas fa-times"></i>
+                </div>
+                <div class="infos">
+                    <p class="name mb-1"><b>Pedido cancelado!</b></p>
+                    <span class="text mb-0">O restaurante cancelou o seu pedido. Entre em contato para mais informações.</span>
+                </div>
+            </div>
+
+            <div class="card card-status-pedido mt-2 active">
+                <div class="img-icon-details">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="infos">
+                    <p class="name mb-1"><b>Pedido enviado!</b></p>
+                    <span class="text mb-0">Aguardando a confirmação da loja</span>
+                </div>
+            </div>
+
+            <div class="card card-status-pedido mt-2 pending">
+                <div class="img-icon-details">
+                    <i class="fas fa-utensils"></i>
+                </div>
+                <div class="infos">
+                    <p class="name mb-0"><b>Preparando</b></p>
+                </div>
+            </div>
+
+            <div class="card card-status-pedido mt-2 pending">
+                <div class="img-icon-details">
+                    <i class="fas fa-motorcycle"></i>
+                </div>
+                <div class="infos">
+                    <p class="name mb-0"><b>Indo até você</b></p>
+                </div>
+            </div>
+
+            <div class="card card-status-pedido mt-2 pending">
+                <div class="img-icon-details">
+                    <i class="fas fa-box"></i>
+                </div>
+                <div class="infos">
+                    <p class="name mb-0"><b>Pronto para retirada</b></p>
+                </div>
+            </div>
+
+
+        </section>
+
+        
+        <section class="menu-bottom" id="menu-bottom">
+            <a href="./index.php" class="menu-bottom-item">
+                <i class="fas fa-book-open"></i>&nbsp; Cardápio
+            </a>
+            <a href="./pedido.php" class="menu-bottom-item active">
+                <i class="fas fa-utensils"></i>&nbsp; Pedido
+            </a>
+            <a href="./carrinho.php" class="menu-bottom-item">
+                <span class="badge-total-carrinho">2</span>
+                <!-- <i class="fas fa-shopping-cart"></i> -->
+                Carrinho
+            </a>
+        </section>
+
+        <section class="menu-bottom disabled hidden" id="menu-bottom-closed">
+            <p class="mb-0"><b>Loja fechada no momento.</b></p>
+        </section>
+
+        <script type="text/javascript" src="./js/bootstrap.bundle.min.js"></script>
+        <script type="text/javascript" src="./js/item.js"></script>
+
+    </body>
+</html>
