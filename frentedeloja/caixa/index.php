@@ -243,7 +243,7 @@ try {
           <li class="menu-item">
             <a href="../sistemadeponto/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
-              <div data-i18n="Authentications">SIstema de Ponto</div>
+              <div data-i18n="Authentications">Sistema de Ponto</div>
             </a>
           </li>
           <li class="menu-item">
