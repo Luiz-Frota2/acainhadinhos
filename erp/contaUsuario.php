@@ -321,7 +321,7 @@ try {
 
             <div class="row">
               <div class="col-md-12">
-  
+
                 <div class="card mb-4">
                   <h5 class="card-header">Detalhes do perfil</h5>
                   <!-- Account -->
@@ -504,8 +504,13 @@ try {
                 <script>
                   document.write(new Date().getFullYear());
                 </script>
-                , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-                Desenvolvido por <strong>Lucas Correa</strong>.
+                , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
+                Desenvolvido por
+                <a href="https://wa.me/92991515710" target="_blank"
+                  style="text-decoration: none; color: inherit;"><strong>
+                    Lucas Correa
+                  </strong>.</a>
+
               </div>
             </div>
           </footer>

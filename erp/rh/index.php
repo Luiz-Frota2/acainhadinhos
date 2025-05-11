@@ -877,15 +877,20 @@ try {
         <!-- / Content -->
 
         <!-- Footer -->
-        <footer class="content-footer footer bg-footer-theme text-center">
+         <footer class="content-footer footer bg-footer-theme text-center">
           <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
             <div class="mb-2 mb-md-0">
               &copy;
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>CodeGeek</strong>.
+              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por
+              <a href="https://wa.me/92991515710" target="_blank"
+                style="text-decoration: none; color: inherit;"><strong>
+                  Lucas Correa
+                </strong>.</a>
+
             </div>
           </div>
         </footer>

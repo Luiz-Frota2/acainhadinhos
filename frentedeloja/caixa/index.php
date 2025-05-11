@@ -232,7 +232,7 @@ try {
                   <div data-i18n="Basic">Resumo de Vendas</div>
                 </a>
               </li>
-              
+
             </ul>
           </li>
           <!-- END CAIXA -->
@@ -845,8 +845,13 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>CodeGeek</strong>.
+              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por
+              <a href="https://wa.me/92991515710" target="_blank"
+                style="text-decoration: none; color: inherit;"><strong>
+                  Lucas Correa
+                </strong>.</a>
+
             </div>
           </div>
         </footer>
