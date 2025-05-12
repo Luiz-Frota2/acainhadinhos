@@ -166,6 +166,7 @@ if ($func) {
 }
 
 echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 'Não') . "');</script>";
+
 ?>
 
 <!DOCTYPE html>
@@ -221,6 +222,7 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
                 <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf) ?>">
                 <input type="hidden" name="data" value="<?= htmlspecialchars($dataAtual) ?>">
                 <input type="hidden" id="hora_atual" name="hora_atual" value="<?= htmlspecialchars($horaAtual) ?>">
+                <input type="hidden" name="localizacao" id="localizacao" value="">
 
                 <div class="mb-3">
                   <label class="form-label">Funcionário</label>
@@ -273,6 +275,28 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
                 Voltar
               </a>
             </div>
+
+            <script>
+              document.addEventListener("DOMContentLoaded", () => {
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                      const lat = position.coords.latitude;
+                      const lon = position.coords.longitude;
+                      document.getElementById("localizacao").value = `${lat},${lon}`;
+                    },
+                    function (error) {
+                      console.warn("Erro ao obter localização:", error.message);
+                      document.getElementById("localizacao").value = "Localização não disponível";
+                    }
+                  );
+                } else {
+                  document.getElementById("localizacao").value = "Geolocalização não suportada";
+                }
+              });
+            </script>
+
+
           </div>
           <!-- Fim do Card -->
         </div>
