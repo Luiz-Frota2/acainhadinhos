@@ -400,7 +400,6 @@ try {
             </ul>
           </div>
         </nav>
-
         <!-- / Navbar -->
 
         <!-- Content -->
