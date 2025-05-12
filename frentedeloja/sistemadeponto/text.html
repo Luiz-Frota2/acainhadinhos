@@ -8,18 +8,21 @@
       font-family: Arial, sans-serif;
       padding: 20px;
     }
-    .mensagem-aviso {
-      display: none;
+
+    .mensagem-aviso, .mensagem-carregando {
       background-color: #fff3cd;
       color: #856404;
       padding: 15px;
       border: 1px solid #ffeeba;
       border-radius: 5px;
       margin-bottom: 20px;
+      display: none;
     }
+
     .info-localizacao p {
       margin: 5px 0;
     }
+
     .info-localizacao strong {
       color: #333;
     }
@@ -27,27 +30,33 @@
 </head>
 <body>
 
+  <div id="mensagemCarregando" class="mensagem-carregando">
+    🔄 Buscando localização... Por favor, aguarde.
+  </div>
+
   <div id="mensagemAviso" class="mensagem-aviso">
-    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador para capturar seu ponto corretamente.
+    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador.
   </div>
 
   <form action="">
     <input type="hidden" name="localizacao" id="localizacao">
 
     <div class="info-localizacao">
-      <p><strong>Rua:</strong> <span id="rua"></span></p>
-      <p><strong>Bairro:</strong> <span id="bairro"></span></p>
-      <p><strong>Cidade:</strong> <span id="cidade"></span></p>
-      <p><strong>Estado:</strong> <span id="estado"></span></p>
-      <p><strong>CEP:</strong> <span id="cep"></span></p>
-      <p><strong>Latitude:</strong> <span id="lat"></span></p>
-      <p><strong>Longitude:</strong> <span id="lon"></span></p>
+      <p><strong>Rua:</strong> <span id="rua">...</span></p>
+      <p><strong>Bairro:</strong> <span id="bairro">...</span></p>
+      <p><strong>Cidade:</strong> <span id="cidade">...</span></p>
+      <p><strong>Estado:</strong> <span id="estado">...</span></p>
+      <p><strong>CEP:</strong> <span id="cep">...</span></p>
+      <p><strong>Latitude:</strong> <span id="lat">...</span></p>
+      <p><strong>Longitude:</strong> <span id="lon">...</span></p>
     </div>
   </form>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const aviso = document.getElementById("mensagemAviso");
+      const carregando = document.getElementById("mensagemCarregando");
+      carregando.style.display = "block";
 
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(async (position) => {
@@ -59,28 +68,40 @@
           document.getElementById("localizacao").value = `${lat},${lon}`;
 
           try {
-            const response = await fetch(`https://www.geoplugin.net/extras/location.gp?lat=${lat}&lon=${lon}&format=json`);
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&zoom=18`);
             const data = await response.json();
+            const address = data.address;
 
-            document.getElementById("rua").textContent = data.street || 'N/A';
-            document.getElementById("bairro").textContent = data.suburb || 'N/A';
-            document.getElementById("cidade").textContent = data.city || 'N/A';
-            document.getElementById("estado").textContent = data.region || 'N/A';
-            document.getElementById("cep").textContent = data.postcode || 'N/A';
+            console.log("Endereço completo:", address); // para depuração
+
+            document.getElementById("rua").textContent = address.road || address.residential || address.path || 'N/A';
+            document.getElementById("bairro").textContent =
+              address.suburb ||
+              address.neighbourhood ||
+              address.residential ||
+              address.village ||
+              address.hamlet ||
+              'N/A';
+            document.getElementById("cidade").textContent = address.city || address.town || address.village || 'N/A';
+            document.getElementById("estado").textContent = address.state || 'N/A';
+            document.getElementById("cep").textContent = address.postcode || 'N/A';
 
           } catch (error) {
             console.error("Erro ao consultar endereço:", error);
-            aviso.textContent = "Erro ao buscar dados da localização.";
-            aviso.style.display = "block";
+          } finally {
+            carregando.style.display = "none";
           }
+
         }, function (error) {
           console.warn("Erro ao obter localização:", error.message);
           document.getElementById("localizacao").value = "Localização não disponível";
           aviso.style.display = "block";
+          carregando.style.display = "none";
         });
       } else {
         document.getElementById("localizacao").value = "Geolocalização não suportada";
         aviso.style.display = "block";
+        carregando.style.display = "none";
       }
     });
   </script>
