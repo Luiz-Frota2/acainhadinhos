@@ -15983,7 +15983,7 @@ html:not(.layout-footer-fixed) .content-wrapper {
 }
 
 .app-brand-text {
- 
+  text-transform: capitalize !important;
   opacity: 1;
   transition: opacity 0.15s ease-in-out;
 }
@@ -16010,10 +16010,11 @@ html:not(.layout-footer-fixed) .content-wrapper {
 :not(.layout-menu) > .menu-vertical.menu-collapsed:not(.layout-menu):not(:hover) .app-brand-text {
   margin-right: auto;
   margin-left: auto;
+  text-transform: capitalize !important;
 }
 :not(.layout-menu) > .menu-vertical.menu-collapsed:not(.layout-menu):not(:hover) .app-brand-logo ~ .app-brand-text {
   overflow: hidden;
-
+  text-transform: capitalize !important;
   white-space: nowrap;
   opacity: 0;
 }
@@ -16036,10 +16037,12 @@ html:not(.layout-footer-fixed) .content-wrapper {
 .layout-menu-collapsed:not(.layout-menu-hover):not(.layout-menu-offcanvas):not(.layout-menu-fixed-offcanvas) .layout-menu .app-brand-text {
     margin-right: auto;
     margin-left: auto;
+    text-transform: capitalize !important;
+
   }
   .layout-menu-collapsed:not(.layout-menu-hover):not(.layout-menu-offcanvas):not(.layout-menu-fixed-offcanvas) .layout-menu .app-brand-logo ~ .app-brand-text {
     overflow: hidden;
-   
+    text-transform: capitalize !important;
     white-space: nowrap;
     opacity: 0;
   }
