@@ -412,7 +412,7 @@ try {
                   <div class="col-sm-7">
                     <div class="card-body">
                       <h5 class="card-title text-primary saudacao" data-setor="Finanças"></h5>
-                      <p class="mb-4">Suas configurações do delivery foram atualizadas em seu perfil. Continue explorando e ajustando-as conforme suas preferências.</p>
+                      <p class="mb-4">Suas configurações do Finanças foram atualizadas em seu perfil. Continue explorando e ajustando-as conforme suas preferências.</p>
 
                     </div>
                   </div>
