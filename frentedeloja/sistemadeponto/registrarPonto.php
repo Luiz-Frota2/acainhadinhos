@@ -222,7 +222,7 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
                 <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf) ?>">
                 <input type="hidden" name="data" value="<?= htmlspecialchars($dataAtual) ?>">
                 <input type="hidden" id="hora_atual" name="hora_atual" value="<?= htmlspecialchars($horaAtual) ?>">
-                <input type="hidden" name="localizacao" id="localizacao" value="">
+                <input type="text" name="localizacao" id="localizacao" value="">
 
                 <div class="mb-3">
                   <label class="form-label">Funcionário</label>
