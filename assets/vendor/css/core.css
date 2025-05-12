@@ -5285,6 +5285,10 @@ textarea.form-control-lg {
   border-left-color: #233446;
 }
 
+.menu-text{
+  text-transform: capitalize !important;
+}
+
 .tooltip-inner {
   max-width: 200px;
   padding: 0.25rem 0.7rem;
