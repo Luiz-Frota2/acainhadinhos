@@ -110,8 +110,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon"
-    href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -169,7 +168,7 @@ try {
 
           <!-- DASHBOARD -->
           <li class="menu-item">
-            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -304,7 +303,7 @@ try {
               <div data-i18n="Authentications"><?= $titulo ?></div>
             </a>
           </li>
-         <li class="menu-item">
+          <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">Usuários </div>
@@ -377,13 +376,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -415,25 +414,27 @@ try {
         <!-- / Navbar -->
         <?php
 
-require '../../assets/php/conexao.php';
+        require '../../assets/php/conexao.php';
 
-try {
+        try {
 
-      // Buscar todos os setores
-  $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id AND status_abertura = 'fechado'";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
-  $stmt->execute();
-  $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-  echo "Erro ao buscar caixa: " . $e->getMessage();
-  exit;
-}
-?>
+          // Buscar todos os setores
+          $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id AND status_abertura = 'fechado'";
+          $stmt = $pdo->prepare($sql);
+          $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
+          $stmt->execute();
+          $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+          echo "Erro ao buscar caixa: " . $e->getMessage();
+          exit;
+        }
+
+        ?>
         <!-- Content -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Caixas Fechados</h4>
+          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Caixas
+            Fechados</h4>
           <div class="card">
             <h5 class="card-header">Lista de Caixa Fechados</h5>
             <div class="table-responsive text-nowrap">
@@ -448,14 +449,14 @@ try {
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                <?php foreach ($aberturas as $abertura): ?>
-                  <tr>
-                  <input type="hidden" value="<?= htmlspecialchars($abertura['id']) ?>">
-                  <td><?= htmlspecialchars($abertura['numeroCaixa']) ?></td>
-                    <td><strong><?= htmlspecialchars($abertura['responsavel']) ?></strong></td>
-                    <td><?= htmlspecialchars($abertura['hora_abertura']) ?></td>
-                    <td>R$ <?= number_format($abertura['valor_abertura'], 2, ',', '.') ?></td>
-                    <td>
+                  <?php foreach ($aberturas as $abertura): ?>
+                    <tr>
+                      <input type="hidden" value="<?= htmlspecialchars($abertura['id']) ?>">
+                      <td><?= htmlspecialchars($abertura['numeroCaixa']) ?></td>
+                      <td><strong><?= htmlspecialchars($abertura['responsavel']) ?></strong></td>
+                      <td><?= htmlspecialchars($abertura['hora_abertura']) ?></td>
+                      <td>R$ <?= number_format($abertura['valor_abertura'], 2, ',', '.') ?></td>
+                      <td>
                         <?php if ($abertura['status_abertura'] == 'aberto'): ?>
                           <span class="badge bg-label-success me-1">Aberto</span>
                         <?php elseif ($abertura['status_abertura'] == 'fechado'): ?>
@@ -464,7 +465,7 @@ try {
                           <span class="badge bg-warning"> nao identificada</span>
                         <?php endif; ?>
                       </td>
-                  </tr>
+                    </tr>
                   <?php endforeach; ?>
                 </tbody>
               </table>
@@ -483,7 +484,7 @@ try {
                 document.write(new Date().getFullYear());
               </script>
               , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>Lucas Correa</strong>.
+              Desenvolvido por <strong>CodeGeek</strong>.
             </div>
           </div>
         </footer>
