@@ -329,12 +329,7 @@ try {
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
-                <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
-                  aria-label="Search..." />
+                
               </div>
             </div>
             <!-- /Search -->
@@ -405,7 +400,6 @@ try {
             </ul>
           </div>
         </nav>
-
         <!-- / Navbar -->
 
         <!-- Content -->
@@ -418,7 +412,7 @@ try {
                   <div class="col-sm-7">
                     <div class="card-body">
                       <h5 class="card-title text-primary saudacao" data-setor="Finanças"></h5>
-                      <p class="mb-4">Suas configurações do delivery foram atualizadas em seu perfil. Continue explorando e ajustando-as conforme suas preferências.</p>
+                      <p class="mb-4">Suas configurações do Finanças foram atualizadas em seu perfil. Continue explorando e ajustando-as conforme suas preferências.</p>
 
                     </div>
                   </div>
