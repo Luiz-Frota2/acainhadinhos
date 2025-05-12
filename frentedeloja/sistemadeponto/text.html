@@ -9,14 +9,14 @@
       padding: 20px;
     }
 
-    .mensagem-aviso, .mensagem-carregando {
+    .mensagem-aviso {
+      display: none;
       background-color: #fff3cd;
       color: #856404;
       padding: 15px;
       border: 1px solid #ffeeba;
       border-radius: 5px;
       margin-bottom: 20px;
-      display: none;
     }
 
     .info-localizacao p {
@@ -30,12 +30,8 @@
 </head>
 <body>
 
-  <div id="mensagemCarregando" class="mensagem-carregando">
-    🔄 Buscando localização... Por favor, aguarde.
-  </div>
-
   <div id="mensagemAviso" class="mensagem-aviso">
-    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador.
+    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador para capturar seu ponto corretamente.
   </div>
 
   <form action="">
@@ -55,8 +51,6 @@
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const aviso = document.getElementById("mensagemAviso");
-      const carregando = document.getElementById("mensagemCarregando");
-      carregando.style.display = "block";
 
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(async (position) => {
@@ -68,17 +62,18 @@
           document.getElementById("localizacao").value = `${lat},${lon}`;
 
           try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1&zoom=18`);
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`);
             const data = await response.json();
             const address = data.address;
 
-            console.log("Endereço completo:", address); // para depuração
+            console.log("Endereço retornado:", address); // para debug
 
-            document.getElementById("rua").textContent = address.road || address.residential || address.path || 'N/A';
+            document.getElementById("rua").textContent = address.road || 'N/A';
             document.getElementById("bairro").textContent =
               address.suburb ||
               address.neighbourhood ||
               address.residential ||
+              address.quarter ||
               address.village ||
               address.hamlet ||
               'N/A';
@@ -88,20 +83,16 @@
 
           } catch (error) {
             console.error("Erro ao consultar endereço:", error);
-          } finally {
-            carregando.style.display = "none";
           }
 
         }, function (error) {
           console.warn("Erro ao obter localização:", error.message);
           document.getElementById("localizacao").value = "Localização não disponível";
           aviso.style.display = "block";
-          carregando.style.display = "none";
         });
       } else {
         document.getElementById("localizacao").value = "Geolocalização não suportada";
         aviso.style.display = "block";
-        carregando.style.display = "none";
       }
     });
   </script>
