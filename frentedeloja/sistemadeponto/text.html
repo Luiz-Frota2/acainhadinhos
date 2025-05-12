@@ -1,11 +1,90 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8">
+  <title>Captura de Localização</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .mensagem-aviso {
+      display: none;
+      background-color: #fff3cd;
+      color: #856404;
+      padding: 15px;
+      border: 1px solid #ffeeba;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    .info-localizacao p {
+      margin: 5px 0;
+    }
+
+    .info-localizacao strong {
+      color: #333;
+    }
+  </style>
 </head>
 <body>
-    <link rel="stylesheet" href="../php/sistemaPonto/adicionarAtestado.php">
+
+  <div id="mensagemAviso" class="mensagem-aviso">
+    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador para capturar seu ponto corretamente.
+  </div>
+
+  <form action="">
+    <input type="hidden" name="localizacao" id="localizacao">
+
+    <div class="info-localizacao">
+      <p><strong>Rua:</strong> <span id="rua"></span></p>
+      <p><strong>Bairro:</strong> <span id="bairro"></span></p>
+      <p><strong>Cidade:</strong> <span id="cidade"></span></p>
+      <p><strong>Estado:</strong> <span id="estado"></span></p>
+      <p><strong>CEP:</strong> <span id="cep"></span></p>
+      <p><strong>Latitude:</strong> <span id="lat"></span></p>
+      <p><strong>Longitude:</strong> <span id="lon"></span></p>
+    </div>
+  </form>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const aviso = document.getElementById("mensagemAviso");
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+
+          document.getElementById("lat").textContent = lat;
+          document.getElementById("lon").textContent = lon;
+          document.getElementById("localizacao").value = `${lat},${lon}`;
+
+          try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`);
+            const data = await response.json();
+            const address = data.address;
+
+            document.getElementById("rua").textContent = address.road || 'N/A';
+            document.getElementById("bairro").textContent = address.suburb || address.neighbourhood || 'N/A';
+            document.getElementById("cidade").textContent = address.city || address.town || address.village || 'N/A';
+            document.getElementById("estado").textContent = address.state || 'N/A';
+            document.getElementById("cep").textContent = address.postcode || 'N/A';
+          } catch (error) {
+            console.error("Erro ao consultar endereço:", error);
+          }
+        }, function (error) {
+          console.warn("Erro ao obter localização:", error.message);
+          document.getElementById("localizacao").value = "Localização não disponível";
+          aviso.style.display = "block";
+        });
+      } else {
+        document.getElementById("localizacao").value = "Geolocalização não suportada";
+        aviso.style.display = "block";
+      }
+    });
+  </script>
+
 </body>
 </html>
