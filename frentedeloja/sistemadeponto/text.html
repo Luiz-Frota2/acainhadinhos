@@ -6,54 +6,51 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 30px;
-      background-color: #f4f4f4;
-      color: #333;
-    }
-
-    form {
-      background: #fff;
       padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      max-width: 600px;
-      margin: auto;
     }
 
-    p {
-      margin: 10px 0;
-    }
-
-    .mensagem-erro {
-      color: red;
-      font-weight: bold;
-      margin-bottom: 15px;
-    }
-
-    .oculto {
+    .mensagem-aviso {
       display: none;
+      background-color: #fff3cd;
+      color: #856404;
+      padding: 15px;
+      border: 1px solid #ffeeba;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+
+    .info-localizacao p {
+      margin: 5px 0;
+    }
+
+    .info-localizacao strong {
+      color: #333;
     }
   </style>
 </head>
 <body>
-  <form action="">
-    <div id="msgErro" class="mensagem-erro oculto">
-      ⚠️ Ative o localizador/GPS para capturar sua localização.
-    </div>
 
-    <input type="text" name="localizacao" id="localizacao">
-    <p><strong>Rua:</strong> <span id="rua">...</span></p>
-    <p><strong>Bairro:</strong> <span id="bairro">...</span></p>
-    <p><strong>Cidade:</strong> <span id="cidade">...</span></p>
-    <p><strong>Estado:</strong> <span id="estado">...</span></p>
-    <p><strong>CEP:</strong> <span id="cep">...</span></p>
-    <p><strong>Latitude:</strong> <span id="lat">...</span></p>
-    <p><strong>Longitude:</strong> <span id="lon">...</span></p>
+  <div id="mensagemAviso" class="mensagem-aviso">
+    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador para capturar seu ponto corretamente.
+  </div>
+
+  <form action="">
+    <input type="hidden" name="localizacao" id="localizacao">
+
+    <div class="info-localizacao">
+      <p><strong>Rua:</strong> <span id="rua">...</span></p>
+      <p><strong>Bairro:</strong> <span id="bairro">...</span></p>
+      <p><strong>Cidade:</strong> <span id="cidade">...</span></p>
+      <p><strong>Estado:</strong> <span id="estado">...</span></p>
+      <p><strong>CEP:</strong> <span id="cep">...</span></p>
+      <p><strong>Latitude:</strong> <span id="lat">...</span></p>
+      <p><strong>Longitude:</strong> <span id="lon">...</span></p>
+    </div>
   </form>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const msgErro = document.getElementById("msgErro");
+      const aviso = document.getElementById("mensagemAviso");
 
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(async (position) => {
@@ -69,7 +66,7 @@
             const data = await response.json();
             const address = data.address;
 
-            console.log("Endereço completo retornado pela API:", address); // Para debug
+            console.log("Endereço retornado:", address); // para debug
 
             document.getElementById("rua").textContent = address.road || 'N/A';
             document.getElementById("bairro").textContent =
@@ -78,6 +75,7 @@
               address.residential ||
               address.quarter ||
               address.village ||
+              address.hamlet ||
               'N/A';
             document.getElementById("cidade").textContent = address.city || address.town || address.village || 'N/A';
             document.getElementById("estado").textContent = address.state || 'N/A';
@@ -85,21 +83,19 @@
 
           } catch (error) {
             console.error("Erro ao consultar endereço:", error);
-            msgErro.textContent = "Erro ao consultar o endereço.";
-            msgErro.classList.remove("oculto");
           }
 
         }, function (error) {
           console.warn("Erro ao obter localização:", error.message);
           document.getElementById("localizacao").value = "Localização não disponível";
-          msgErro.classList.remove("oculto");
+          aviso.style.display = "block";
         });
       } else {
         document.getElementById("localizacao").value = "Geolocalização não suportada";
-        msgErro.textContent = "Seu navegador não suporta geolocalização.";
-        msgErro.classList.remove("oculto");
+        aviso.style.display = "block";
       }
     });
   </script>
+
 </body>
 </html>
