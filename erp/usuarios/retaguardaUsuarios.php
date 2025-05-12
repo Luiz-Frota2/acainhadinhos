@@ -180,7 +180,7 @@ try {
                     <!-- Recursos Humanos (RH) -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Usuários</span></li>
 
-                    <li class="menu-item">
+                    <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-shield"></i>
                             <div data-i18n="Permissão Retaguarda">Retaguarda</div>
@@ -191,14 +191,14 @@ try {
                                     <div data-i18n="Permissões">Permissões</div>
                                 </a>
                             </li>
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./retaguardaUsuarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Usuários Permitidos">Usuários Permitidos</div>
                                 </a>
                             </li>
                         </ul>
                     </li>
-                    <li class="menu-item active open">
+                    <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-store"></i>
                             <div data-i18n="Permissão Frente de Loja">Frente de Loja</div>
@@ -209,7 +209,7 @@ try {
                                     <div data-i18n="Permissões">Permissões</div>
                                 </a>
                             </li>
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./frenteLojaUsuarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Usuários Permitidos">Usuários Permitidos</div>
                                 </a>
@@ -231,7 +231,7 @@ try {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -334,13 +334,13 @@ try {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>

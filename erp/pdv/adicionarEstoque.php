@@ -140,7 +140,7 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                       <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
@@ -483,13 +483,8 @@ try {
                             <script>
                                 document.write(new Date().getFullYear());
                             </script>
-                            , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por
-                            <a href="https://wa.me/92991515710" target="_blank"
-                                style="text-decoration: none; color: inherit;"><strong>
-                                    Lucas Correa
-                                </strong>.</a>
-
+                            , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+                            Desenvolvido por <strong>Lucas Correa</strong>.
                         </div>
                     </div>
                 </footer>

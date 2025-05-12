@@ -139,7 +139,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -172,7 +172,7 @@ try {
 
             <ul class="menu-sub">
 
-              <li class="menu-item active">
+              <li class="menu-item">
                 <a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Adicionadas</div>
                 </a>
@@ -189,7 +189,7 @@ try {
                   <div>Pagas</div>
                 </a>
               </li>
-              <li class="menu-item">
+              <li class="menu-item active">
                 <a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pendentes</div>
                 </a>

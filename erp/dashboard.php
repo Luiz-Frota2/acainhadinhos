@@ -146,7 +146,7 @@ try {
         <div class="app-brand demo">
           <a href="./dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -279,13 +279,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -805,12 +805,7 @@ try {
                 document.write(new Date().getFullYear());
               </script>
               , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              Desenvolvido por <strong>CodeGeek</strong>.
             </div>
           </div>
         </footer>

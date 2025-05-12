@@ -15983,7 +15983,7 @@ html:not(.layout-footer-fixed) .content-wrapper {
 }
 
 .app-brand-text {
-  flex-shrink: 0;
+ 
   opacity: 1;
   transition: opacity 0.15s ease-in-out;
 }
@@ -16013,7 +16013,7 @@ html:not(.layout-footer-fixed) .content-wrapper {
 }
 :not(.layout-menu) > .menu-vertical.menu-collapsed:not(.layout-menu):not(:hover) .app-brand-logo ~ .app-brand-text {
   overflow: hidden;
-  text-overflow: ellipsis;
+
   white-space: nowrap;
   opacity: 0;
 }
@@ -16039,7 +16039,7 @@ html:not(.layout-footer-fixed) .content-wrapper {
   }
   .layout-menu-collapsed:not(.layout-menu-hover):not(.layout-menu-offcanvas):not(.layout-menu-fixed-offcanvas) .layout-menu .app-brand-logo ~ .app-brand-text {
     overflow: hidden;
-    text-overflow: ellipsis;
+   
     white-space: nowrap;
     opacity: 0;
   }

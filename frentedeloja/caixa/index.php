@@ -153,7 +153,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-             <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -232,7 +232,7 @@ try {
                   <div data-i18n="Basic">Resumo de Vendas</div>
                 </a>
               </li>
-
+              
             </ul>
           </li>
           <!-- END CAIXA -->
@@ -243,7 +243,7 @@ try {
           <li class="menu-item">
             <a href="../sistemadeponto/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
-              <div data-i18n="Authentications">Sistema de Ponto</div>
+              <div data-i18n="Authentications">SIstema de Ponto</div>
             </a>
           </li>
           <li class="menu-item">
@@ -845,13 +845,8 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>CodeGeek</strong>.
             </div>
           </div>
         </footer>

@@ -9,14 +9,14 @@ $idSelecionado = $_GET['id'] ?? '';
 
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) ||
-    !isset($_SESSION['nivel']) // Garante que o nível do usuário esteja presente
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel']) // Garante que o nível do usuário esteja presente
 ) {
-    header("Location: ../index.php?id=$idSelecionado");
-    exit;
+  header("Location: ../index.php?id=$idSelecionado");
+  exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -29,79 +29,79 @@ $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
 
 // ✅ Buscar nome e tipo de usuário
 try {
-    if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    } else {
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-    }
+  if ($tipoUsuarioSessao === 'Admin') {
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  } else {
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+  }
 
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $tipoUsuario = ucfirst($usuario['nivel']);
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
 $idEmpresaSessao = $_SESSION['tipo_empresa'] . '_' . $_SESSION['empresa_id'];
 
 if ($idSelecionado === $idEmpresaSessao) {
-    // Acesso permitido, define $id com base no ID da sessão
-    $id = $_SESSION['empresa_id'];
+  // Acesso permitido, define $id com base no ID da sessão
+  $id = $_SESSION['empresa_id'];
 } else {
-    echo "<script>
+  echo "<script>
           alert('Acesso negado! Empresa não corresponde à sessão.');
           window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-    exit;
+  exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
-    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-    $stmt->bindParam(':id_selecionado', $idSelecionado);
-    $stmt->execute();
-    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
+  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($empresa && !empty($empresa['imagem'])) {
-        $iconeEmpresa = $empresa['imagem'];
-    }
+  if ($empresa && !empty($empresa['imagem'])) {
+    $iconeEmpresa = $empresa['imagem'];
+  }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
 
 // ✅ Buscar CPF do usuário logado
 $cpfUsuario = '';
 
 try {
-    if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id");
-    } else {
-        $stmt = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id");
-    }
+  if ($tipoUsuarioSessao === 'Admin') {
+    $stmt = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id");
+  } else {
+    $stmt = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id");
+  }
 
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($resultado && !empty($resultado['cpf'])) {
-        $cpfUsuario = $resultado['cpf'];
-    } else {
-        echo "<script>alert('CPF do usuário não encontrado.');</script>";
-    }
+  if ($resultado && !empty($resultado['cpf'])) {
+    $cpfUsuario = $resultado['cpf'];
+  } else {
+    echo "<script>alert('CPF do usuário não encontrado.');</script>";
+  }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao obter CPF do usuário: " . $e->getMessage() . "');</script>";
+  echo "<script>alert('Erro ao obter CPF do usuário: " . $e->getMessage() . "');</script>";
 }
 
 // ✅ Consultar atestados do usuário logado com base no CPF e empresa
@@ -109,13 +109,13 @@ $idEmpresaAtestado = $idEmpresaSessao;
 $atestados = [];
 
 try {
-    $stmt = $pdo->prepare("SELECT * FROM atestados WHERE cpf_usuario = :cpf_usuario AND id_empresa = :id_empresa");
-    $stmt->bindParam(':cpf_usuario', $cpfUsuario);
-    $stmt->bindParam(':id_empresa', $idEmpresaAtestado);
-    $stmt->execute();
-    $atestados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $stmt = $pdo->prepare("SELECT * FROM atestados WHERE cpf_usuario = :cpf_usuario AND id_empresa = :id_empresa");
+  $stmt->bindParam(':cpf_usuario', $cpfUsuario);
+  $stmt->bindParam(':id_empresa', $idEmpresaAtestado);
+  $stmt->execute();
+  $atestados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar os atestados: " . $e->getMessage() . "');</script>";
+  echo "<script>alert('Erro ao carregar os atestados: " . $e->getMessage() . "');</script>";
 }
 ?>
 
@@ -177,7 +177,7 @@ try {
                 <div class="app-brand demo">
                     <a href="./dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
@@ -425,6 +425,7 @@ try {
                         <span>Adicionar novo Atestado</span>
                     </div>
                 </div>
+
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
@@ -433,12 +434,7 @@ try {
                                 document.write(new Date().getFullYear());
                             </script>
                             , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por
-                            <a href="https://wa.me/92991515710" target="_blank"
-                                style="text-decoration: none; color: inherit;"><strong>
-                                    Lucas Correa
-                                </strong>.</a>
-
+                            Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
                 </footer>
