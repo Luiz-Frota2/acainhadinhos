@@ -40,13 +40,13 @@
     <input type="hidden" name="localizacao" id="localizacao">
 
     <div class="info-localizacao">
-      <p><strong>Rua:</strong> <span id="rua"></span></p>
-      <p><strong>Bairro:</strong> <span id="bairro"></span></p>
-      <p><strong>Cidade:</strong> <span id="cidade"></span></p>
-      <p><strong>Estado:</strong> <span id="estado"></span></p>
-      <p><strong>CEP:</strong> <span id="cep"></span></p>
-      <p><strong>Latitude:</strong> <span id="lat"></span></p>
-      <p><strong>Longitude:</strong> <span id="lon"></span></p>
+      <p><strong>Rua:</strong> <span id="rua">...</span></p>
+      <p><strong>Bairro:</strong> <span id="bairro">...</span></p>
+      <p><strong>Cidade:</strong> <span id="cidade">...</span></p>
+      <p><strong>Estado:</strong> <span id="estado">...</span></p>
+      <p><strong>CEP:</strong> <span id="cep">...</span></p>
+      <p><strong>Latitude:</strong> <span id="lat">...</span></p>
+      <p><strong>Longitude:</strong> <span id="lon">...</span></p>
     </div>
   </form>
 
@@ -54,55 +54,43 @@
     document.addEventListener("DOMContentLoaded", () => {
       const aviso = document.getElementById("mensagemAviso");
 
-      if (!navigator.geolocation) {
-        aviso.style.display = "block";
-        aviso.textContent = "Seu navegador não suporta geolocalização.";
-        return;
-      }
+      // Coordenadas fixas
+      const lat = -5.9117413;
+      const lon = -35.2687165;
 
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
+      document.getElementById("lat").textContent = lat.toFixed(6);
+      document.getElementById("lon").textContent = lon.toFixed(6);
+      document.getElementById("localizacao").value = `${lat},${lon}`;
 
-          document.getElementById("lat").textContent = lat.toFixed(6);
-          document.getElementById("lon").textContent = lon.toFixed(6);
-          document.getElementById("localizacao").value = `${lat},${lon}`;
+      // Consultar endereço com base nas coordenadas fixas
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`)
+        .then(response => response.json())
+        .then(data => {
+          const address = data.address;
 
-          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`)
-            .then(response => response.json())
-            .then(data => {
-              const address = data.address;
+          const rua = address.road || address.pedestrian || address.residential || address.path || 'Não identificado';
+          let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || address.hamlet || '';
 
-              const rua = address.road || address.pedestrian || address.residential || address.path || 'N/A';
-              let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || address.hamlet || '';
+          // Se o bairro não estiver claro, tenta corrigir com fallback
+          if (!bairro || bairro === address.city || bairro === address.state) {
+            bairro = 'Bairro não identificado';
+          }
 
-              // Corrigir se vier genérico ou contiver apenas o nome da cidade
-              if (!bairro || bairro.toLowerCase().includes('coari')) {
-                bairro = "Santa Efigênia"; // ou outro bairro padrão se desejar
-              }
+          const cidade = address.city || address.town || address.village || 'Cidade não identificada';
+          const estado = address.state || 'Estado não identificado';
+          const cep = address.postcode || 'CEP não identificado';
 
-              const cidade = address.city || address.town || address.village || 'Coari';
-              const estado = address.state || 'Amazonas';
-              const cep = address.postcode || '69460-000';
-
-              document.getElementById("rua").textContent = rua;
-              document.getElementById("bairro").textContent = bairro;
-              document.getElementById("cidade").textContent = cidade;
-              document.getElementById("estado").textContent = estado;
-              document.getElementById("cep").textContent = cep;
-            })
-            .catch(error => {
-              console.error("Erro ao consultar endereço:", error);
-              aviso.style.display = "block";
-              aviso.textContent = "Erro ao obter endereço.";
-            });
-        },
-        error => {
+          document.getElementById("rua").textContent = rua;
+          document.getElementById("bairro").textContent = bairro;
+          document.getElementById("cidade").textContent = cidade;
+          document.getElementById("estado").textContent = estado;
+          document.getElementById("cep").textContent = cep;
+        })
+        .catch(error => {
+          console.error("Erro ao consultar endereço:", error);
           aviso.style.display = "block";
-          aviso.textContent = "Não foi possível obter sua localização. Verifique as permissões do navegador.";
-        }
-      );
+          aviso.textContent = "Erro ao obter endereço. Verifique sua conexão.";
+        });
     });
   </script>
 
