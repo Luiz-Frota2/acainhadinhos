@@ -77,9 +77,9 @@
               const rua = address.road || address.pedestrian || address.residential || address.path || 'Não identificado';
               let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || address.hamlet || '';
 
-              // Se o bairro não estiver claro, tenta corrigir com fallback
+              // Se o bairro não estiver claro, deixa vazio
               if (!bairro || bairro === address.city || bairro === address.state) {
-                bairro = 'Bairro não identificado';
+                bairro = '';
               }
 
               const cidade = address.city || address.town || address.village || 'Cidade não identificada';
