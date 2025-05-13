@@ -54,43 +54,55 @@
     document.addEventListener("DOMContentLoaded", () => {
       const aviso = document.getElementById("mensagemAviso");
 
-      // Coordenadas fixas
-      const lat = -5.9117413;
-      const lon = -35.2687165;
+      if (!navigator.geolocation) {
+        aviso.style.display = "block";
+        aviso.textContent = "Seu navegador não suporta geolocalização.";
+        return;
+      }
 
-      document.getElementById("lat").textContent = lat.toFixed(6);
-      document.getElementById("lon").textContent = lon.toFixed(6);
-      document.getElementById("localizacao").value = `${lat},${lon}`;
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
 
-      // Consultar endereço com base nas coordenadas fixas
-      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`)
-        .then(response => response.json())
-        .then(data => {
-          const address = data.address;
+          document.getElementById("lat").textContent = lat.toFixed(6);
+          document.getElementById("lon").textContent = lon.toFixed(6);
+          document.getElementById("localizacao").value = `${lat},${lon}`;
 
-          const rua = address.road || address.pedestrian || address.residential || address.path || 'Não identificado';
-          let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || address.hamlet || '';
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`)
+            .then(response => response.json())
+            .then(data => {
+              const address = data.address;
 
-          // Se o bairro não estiver claro, tenta corrigir com fallback
-          if (!bairro || bairro === address.city || bairro === address.state) {
-            bairro = 'Bairro não identificado';
-          }
+              const rua = address.road || address.pedestrian || address.residential || address.path || 'Não identificado';
+              let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || address.hamlet || '';
 
-          const cidade = address.city || address.town || address.village || 'Cidade não identificada';
-          const estado = address.state || 'Estado não identificado';
-          const cep = address.postcode || 'CEP não identificado';
+              // Se o bairro não estiver claro, tenta corrigir com fallback
+              if (!bairro || bairro === address.city || bairro === address.state) {
+                bairro = 'Bairro não identificado';
+              }
 
-          document.getElementById("rua").textContent = rua;
-          document.getElementById("bairro").textContent = bairro;
-          document.getElementById("cidade").textContent = cidade;
-          document.getElementById("estado").textContent = estado;
-          document.getElementById("cep").textContent = cep;
-        })
-        .catch(error => {
-          console.error("Erro ao consultar endereço:", error);
+              const cidade = address.city || address.town || address.village || 'Cidade não identificada';
+              const estado = address.state || 'Estado não identificado';
+              const cep = address.postcode || 'CEP não identificado';
+
+              document.getElementById("rua").textContent = rua;
+              document.getElementById("bairro").textContent = bairro;
+              document.getElementById("cidade").textContent = cidade;
+              document.getElementById("estado").textContent = estado;
+              document.getElementById("cep").textContent = cep;
+            })
+            .catch(error => {
+              console.error("Erro ao consultar endereço:", error);
+              aviso.style.display = "block";
+              aviso.textContent = "Erro ao obter endereço. Verifique sua conexão.";
+            });
+        },
+        error => {
           aviso.style.display = "block";
-          aviso.textContent = "Erro ao obter endereço. Verifique sua conexão.";
-        });
+          aviso.textContent = "Não foi possível obter sua localização. Verifique as permissões do navegador.";
+        }
+      );
     });
   </script>
 
