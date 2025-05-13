@@ -74,12 +74,12 @@
             .then(data => {
               const address = data.address;
 
-              const rua = address.road || address.pedestrian || address.residential || 'N/A';
-              let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || '';
+              const rua = address.road || address.pedestrian || address.residential || address.path || 'N/A';
+              let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || address.hamlet || '';
 
-              // Corrigir bairro se retornar genérico ou ausente
+              // Corrigir se vier genérico ou contiver apenas o nome da cidade
               if (!bairro || bairro.toLowerCase().includes('coari')) {
-                bairro = "Santa Helena";
+                bairro = "Santa Efigênia"; // ou outro bairro padrão se desejar
               }
 
               const cidade = address.city || address.town || address.village || 'Coari';
