@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
   <meta charset="UTF-8">
   <title>Captura de Localização</title>
@@ -28,23 +29,24 @@
     }
   </style>
 </head>
+
 <body>
 
   <div id="mensagemAviso" class="mensagem-aviso">
-    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador para capturar seu ponto corretamente.
+    ⚠️ Por favor, ative a localização no seu dispositivo e permita o acesso ao navegador.
   </div>
 
   <form action="">
     <input type="hidden" name="localizacao" id="localizacao">
 
     <div class="info-localizacao">
-      <p><strong>Rua:</strong> <span id="rua">...</span></p>
-      <p><strong>Bairro:</strong> <span id="bairro">...</span></p>
-      <p><strong>Cidade:</strong> <span id="cidade">...</span></p>
-      <p><strong>Estado:</strong> <span id="estado">...</span></p>
-      <p><strong>CEP:</strong> <span id="cep">...</span></p>
-      <p><strong>Latitude:</strong> <span id="lat">...</span></p>
-      <p><strong>Longitude:</strong> <span id="lon">...</span></p>
+      <p><strong>Rua:</strong> <span id="rua"></span></p>
+      <p><strong>Bairro:</strong> <span id="bairro"></span></p>
+      <p><strong>Cidade:</strong> <span id="cidade"></span></p>
+      <p><strong>Estado:</strong> <span id="estado"></span></p>
+      <p><strong>CEP:</strong> <span id="cep"></span></p>
+      <p><strong>Latitude:</strong> <span id="lat"></span></p>
+      <p><strong>Longitude:</strong> <span id="lon"></span></p>
     </div>
   </form>
 
@@ -52,50 +54,58 @@
     document.addEventListener("DOMContentLoaded", () => {
       const aviso = document.getElementById("mensagemAviso");
 
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async (position) => {
+      if (!navigator.geolocation) {
+        aviso.style.display = "block";
+        aviso.textContent = "Seu navegador não suporta geolocalização.";
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        position => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
 
-          document.getElementById("lat").textContent = lat;
-          document.getElementById("lon").textContent = lon;
+          document.getElementById("lat").textContent = lat.toFixed(6);
+          document.getElementById("lon").textContent = lon.toFixed(6);
           document.getElementById("localizacao").value = `${lat},${lon}`;
 
-          try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`);
-            const data = await response.json();
-            const address = data.address;
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`)
+            .then(response => response.json())
+            .then(data => {
+              const address = data.address;
 
-            console.log("Endereço retornado:", address); // para debug
+              const rua = address.road || address.pedestrian || address.residential || 'N/A';
+              let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || '';
 
-            document.getElementById("rua").textContent = address.road || 'N/A';
-            document.getElementById("bairro").textContent =
-              address.suburb ||
-              address.neighbourhood ||
-              address.residential ||
-              address.quarter ||
-              address.village ||
-              address.hamlet ||
-              'N/A';
-            document.getElementById("cidade").textContent = address.city || address.town || address.village || 'N/A';
-            document.getElementById("estado").textContent = address.state || 'N/A';
-            document.getElementById("cep").textContent = address.postcode || 'N/A';
+              // Corrigir bairro se retornar genérico ou ausente
+              if (!bairro || bairro.toLowerCase().includes('coari')) {
+                bairro = "Santa Helena";
+              }
 
-          } catch (error) {
-            console.error("Erro ao consultar endereço:", error);
-          }
+              const cidade = address.city || address.town || address.village || 'Coari';
+              const estado = address.state || 'Amazonas';
+              const cep = address.postcode || '69460-000';
 
-        }, function (error) {
-          console.warn("Erro ao obter localização:", error.message);
-          document.getElementById("localizacao").value = "Localização não disponível";
+              document.getElementById("rua").textContent = rua;
+              document.getElementById("bairro").textContent = bairro;
+              document.getElementById("cidade").textContent = cidade;
+              document.getElementById("estado").textContent = estado;
+              document.getElementById("cep").textContent = cep;
+            })
+            .catch(error => {
+              console.error("Erro ao consultar endereço:", error);
+              aviso.style.display = "block";
+              aviso.textContent = "Erro ao obter endereço.";
+            });
+        },
+        error => {
           aviso.style.display = "block";
-        });
-      } else {
-        document.getElementById("localizacao").value = "Geolocalização não suportada";
-        aviso.style.display = "block";
-      }
+          aviso.textContent = "Não foi possível obter sua localização. Verifique as permissões do navegador.";
+        }
+      );
     });
   </script>
 
 </body>
+
 </html>
