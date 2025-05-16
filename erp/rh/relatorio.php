@@ -14,6 +14,7 @@ if (
   exit;
 }
 
+// Verifica tipo de empresa
 if (str_starts_with($idSelecionado, 'principal_')) {
   if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
     echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=$idSelecionado';</script>";
@@ -46,7 +47,7 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// Buscar usuário logado
+// Buscar dados do usuário logado
 $nomeUsuario = 'Usuário';
 $nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
@@ -66,7 +67,7 @@ try {
   $nivelUsuario = 'Erro';
 }
 
-// Buscar registros de ponto com nome do funcionário
+// Buscar registros de ponto com nome do funcionário + foto/localização
 try {
   $stmtPonto = $pdo->prepare("
     SELECT r.*, f.nome AS nome_funcionario
@@ -83,7 +84,7 @@ try {
   exit;
 }
 
-// Agrupar por funcionário e data
+// Agrupamento
 $pontosAgrupados = [];
 $diasSemana = [
   'Monday' => 'Segunda-feira',
@@ -102,6 +103,12 @@ foreach ($pontos as $registro) {
   $entrada = strtotime($registro['entrada']);
   $saida = $registro['saida'] ? strtotime($registro['saida']) : null;
 
+  // Novo: campos adicionais
+  $fotoEntrada = $registro['foto_entrada'] ?? null;
+  $fotoSaida = $registro['foto_saida'] ?? null;
+  $localEntrada = $registro['localizacao_entrada'] ?? null;
+  $localSaida = $registro['localizacao_saida'] ?? null;
+
   if (!isset($pontosAgrupados[$cpf])) {
     $pontosAgrupados[$cpf] = [];
   }
@@ -116,6 +123,11 @@ foreach ($pontos as $registro) {
       'saida_pm' => '-',
       'entrada_noite' => '-',
       'saida_noite' => '-',
+      // Adicionais
+      'foto_entrada' => $fotoEntrada,
+      'foto_saida' => $fotoSaida,
+      'localizacao_entrada' => $localEntrada,
+      'localizacao_saida' => $localSaida,
     ];
   }
 
@@ -191,7 +203,8 @@ foreach ($pontos as $registro) {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -281,7 +294,7 @@ foreach ($pontos as $registro) {
                 <a href="./bancoHoras.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
-              </li>  
+              </li>
 
             </ul>
           </li>
@@ -356,7 +369,7 @@ foreach ($pontos as $registro) {
           </div>
 
           <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-            
+
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
@@ -456,6 +469,8 @@ foreach ($pontos as $registro) {
                     <th>Saída PM</th>
                     <th>Entrada Noite</th>
                     <th>Saída Noite</th>
+                    <th>Foto</th>
+                    <th>Mapa</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaFuncionarios" class="table-border-bottom-0">
@@ -471,12 +486,27 @@ foreach ($pontos as $registro) {
                         <td><?= $turnos['saida_pm'] ?></td>
                         <td><?= $turnos['entrada_noite'] ?></td>
                         <td><?= $turnos['saida_noite'] ?></td>
+                        <td>
+                          <i class="bx bx-camera cursor-pointer text-primary" data-bs-toggle="modal"
+                            data-bs-target="#modalFoto"
+                            data-fotoentrada="<?= base64_encode($turnos['foto_entrada'] ?? '') ?>"
+                            data-fotosaida="<?= base64_encode($turnos['foto_saida'] ?? '') ?>">
+                          </i>
+                        </td>
+                        <td>
+                          <i class="bx bx-map cursor-pointer text-success" data-bs-toggle="modal"
+                            data-bs-target="#modalMapa"
+                            data-localentrada="<?= htmlspecialchars($turnos['localizacao_entrada'] ?? '') ?>"
+                            data-localsaida="<?= htmlspecialchars($turnos['localizacao_saida'] ?? '') ?>">
+                          </i>
+                        </td>
                       </tr>
                     <?php endforeach; ?>
                   <?php endforeach; ?>
                 </tbody>
               </table>
             </div>
+
             <!-- Controles de paginação -->
             <div class="d-flex justify-content-start align-items-center gap-2 m-3">
               <button class="btn btn-sm btn-outline-primary" id="prevPage">&laquo; Anterior</button>
@@ -485,7 +515,55 @@ foreach ($pontos as $registro) {
             </div>
           </div>
 
-          <!-- Script de Pesquisa e Paginação -->
+          <!-- Modal de Fotos -->
+          <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Fotos do Registro</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body d-flex flex-column flex-md-row justify-content-around align-items-center gap-3">
+                  <div class="text-center">
+                    <p><strong>Entrada</strong></p>
+                    <img id="imgEntrada" src="" alt="Foto Entrada" class="img-fluid rounded border"
+                      style="max-height: 300px;">
+                  </div>
+                  <div class="text-center">
+                    <p><strong>Saída</strong></p>
+                    <img id="imgSaida" src="" alt="Foto Saída" class="img-fluid rounded border"
+                      style="max-height: 300px;">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal de Mapa -->
+          <div class="modal fade" id="modalMapa" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Localização do Registro</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body d-flex flex-column flex-md-row justify-content-around align-items-center gap-3">
+                  <div class="text-center">
+                    <p><strong>Entrada</strong></p>
+                    <iframe id="mapEntrada" width="100%" height="250" style="max-width: 300px; border:0;"
+                      loading="lazy"></iframe>
+                  </div>
+                  <div class="text-center">
+                    <p><strong>Saída</strong></p>
+                    <iframe id="mapSaida" width="100%" height="250" style="max-width: 300px; border:0;"
+                      loading="lazy"></iframe>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Script de Pesquisa, Paginação e Modais -->
           <script>
             const searchInput = document.getElementById('searchInput');
             const linhas = Array.from(document.querySelectorAll('#tabelaFuncionarios tr'));
@@ -493,12 +571,12 @@ foreach ($pontos as $registro) {
             let currentPage = 1;
 
             function renderTable() {
-              const filtro = searchInput.value.toLowerCase();
-              const linhasFiltradas = linhas.filter(linha => {
-                return Array.from(linha.querySelectorAll('td')).some(td =>
+              const filtro = searchInput ? searchInput.value.toLowerCase() : '';
+              const linhasFiltradas = linhas.filter(linha =>
+                Array.from(linha.querySelectorAll('td')).some(td =>
                   td.textContent.toLowerCase().includes(filtro)
-                );
-              });
+                )
+              );
 
               const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
               const inicio = (currentPage - 1) * rowsPerPage;
@@ -507,7 +585,6 @@ foreach ($pontos as $registro) {
               linhas.forEach(linha => linha.style.display = 'none');
               linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
 
-              // Atualiza os botões de paginação
               const paginacao = document.getElementById('paginacao');
               paginacao.innerHTML = '';
               for (let i = 1; i <= totalPages; i++) {
@@ -521,15 +598,16 @@ foreach ($pontos as $registro) {
                 paginacao.appendChild(btn);
               }
 
-              // Ativa/desativa botões
               document.getElementById('prevPage').disabled = currentPage === 1;
               document.getElementById('nextPage').disabled = currentPage === totalPages;
             }
 
-            searchInput.addEventListener('input', () => {
-              currentPage = 1;
-              renderTable();
-            });
+            if (searchInput) {
+              searchInput.addEventListener('input', () => {
+                currentPage = 1;
+                renderTable();
+              });
+            }
 
             document.getElementById('prevPage').addEventListener('click', () => {
               if (currentPage > 1) {
@@ -539,12 +617,12 @@ foreach ($pontos as $registro) {
             });
 
             document.getElementById('nextPage').addEventListener('click', () => {
-              const filtro = searchInput.value.toLowerCase();
-              const linhasFiltradas = linhas.filter(linha => {
-                return Array.from(linha.querySelectorAll('td')).some(td =>
+              const filtro = searchInput ? searchInput.value.toLowerCase() : '';
+              const linhasFiltradas = linhas.filter(linha =>
+                Array.from(linha.querySelectorAll('td')).some(td =>
                   td.textContent.toLowerCase().includes(filtro)
-                );
-              });
+                )
+              );
               const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
               if (currentPage < totalPages) {
                 currentPage++;
@@ -552,8 +630,27 @@ foreach ($pontos as $registro) {
               }
             });
 
-            // Inicializa a tabela
             renderTable();
+
+            // Popula modal de foto
+            document.querySelectorAll('[data-bs-target="#modalFoto"]').forEach(icon => {
+              icon.addEventListener('click', () => {
+                const entrada = icon.getAttribute('data-fotoentrada');
+                const saida = icon.getAttribute('data-fotosaida');
+                document.getElementById('imgEntrada').src = entrada ? 'data:image/jpeg;base64,' + entrada : '';
+                document.getElementById('imgSaida').src = saida ? 'data:image/jpeg;base64,' + saida : '';
+              });
+            });
+
+            // Popula modal de mapa
+            document.querySelectorAll('[data-bs-target="#modalMapa"]').forEach(icon => {
+              icon.addEventListener('click', () => {
+                const entrada = icon.getAttribute('data-localentrada');
+                const saida = icon.getAttribute('data-localsaida');
+                document.getElementById('mapEntrada').src = entrada ? `https://www.google.com/maps?q=${entrada}&output=embed` : '';
+                document.getElementById('mapSaida').src = saida ? `https://www.google.com/maps?q=${saida}&output=embed` : '';
+              });
+            });
           </script>
 
           <!-- build:js assets/vendor/js/core.js -->
