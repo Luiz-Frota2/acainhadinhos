@@ -1,29 +1,13 @@
-#sumir {
-  display: none;
-  display: flex;
-  flex-direction: column;
-  gap: 10px; /* já funciona como espaçamento entre os botões */
-  justify-content: center;
-  align-items: stretch; /* ocupa toda a largura do contêiner */
-  width: 100%;
-}
 
-/* Botões: ocupam 100% da largura do card */
-#sumir button {
-  padding: 10px 20px;
-  font-size: 1rem;
-  width: 100%;
-  margin-bottom: 0.5rem; /* equivalente ao Bootstrap's mb-2 */
-}
-
-/* Responsivo: lado a lado em telas maiores */
-@media (min-width: 576px) {
+/* Em telas maiores que 576px (sm) */
+@media (min-width: 768px) {
   #sumir {
     flex-direction: row;
-    gap: 10px;
+    gap: 40px !important /* espaçamento horizontal menor */
   }
 
   #sumir button {
-    margin-bottom: 0; /* remove espaço vertical ao lado a lado */
+    width: auto; /* largura automática para ficar lado a lado */
+    margin-bottom: 0; /* sem margem vertical */
   }
 }

@@ -4,6 +4,7 @@ error_reporting(E_ALL);
 session_start();
 
 require '../../assets/php/conexao.php';
+date_default_timezone_set('America/Manaus');
 
 $idSelecionado = $_GET['id'] ?? '';
 
@@ -18,12 +19,15 @@ if (
   exit;
 }
 
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
+// Buscar imagem da empresa para favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // ícone padrão
+
 try {
   $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
   $stmt->bindParam(':id_selecionado', $idSelecionado);
   $stmt->execute();
   $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
   if ($empresa && !empty($empresa['imagem'])) {
     $iconeEmpresa = $empresa['imagem'];
   }
@@ -61,8 +65,22 @@ try {
 }
 
 $dataAtual = date('Y-m-d');
+$horaAtual = date('H:i:s');
+$horaAgoraTimestamp = strtotime($horaAtual);
 
-$exibirFormulario = true; // padrão exibir formulário
+$diaAtualSemana = strtolower(date('l'));
+$diasSemana = [
+  'sunday' => 'domingo',
+  'monday' => 'segunda',
+  'tuesday' => 'terca',
+  'wednesday' => 'quarta',
+  'thursday' => 'quinta',
+  'friday' => 'sexta',
+  'saturday' => 'sabado'
+];
+$diaTraduzido = $diasSemana[$diaAtualSemana];
+
+$exibirFormulario = false;
 $mensagemTurno = '';
 $horaEntradaReferencial = '';
 $horaSaidaReferencial = '';
@@ -76,34 +94,97 @@ $func = $stmt->fetch(PDO::FETCH_ASSOC);
 if ($func) {
   $nomeFuncionario = $func['nome'];
 
-  $manhaEntrada = $func['hora_entrada_primeiro_turno'];
-  $manhaSaida = $func['hora_saida_primeiro_turno'];
-  $tardeEntrada = $func['hora_entrada_segundo_turno'];
-  $tardeSaida = $func['hora_saida_segundo_turno'];
+  $diaInicio = strtolower($func['dia_inicio']);
+  $diaTermino = strtolower($func['dia_termino']);
+  $diasSemanaNumerico = [
+    'domingo' => 0,
+    'segunda' => 1,
+    'terca' => 2,
+    'quarta' => 3,
+    'quinta' => 4,
+    'sexta' => 5,
+    'sabado' => 6
+  ];
 
-  // Define as horas referenciais conforme turno disponível
-  $horaEntradaReferencial = $manhaEntrada ?: $tardeEntrada;
-  $horaSaidaReferencial = $manhaSaida ?: $tardeSaida;
+  $numeroDiaAtual = $diasSemanaNumerico[$diaTraduzido];
+  $numeroDiaInicio = $diasSemanaNumerico[$diaInicio];
+  $numeroDiaTermino = $diasSemanaNumerico[$diaTermino];
 
-  if ($horaEntradaReferencial) {
-    $horaEntradaTolerancia = date('H:i:s', strtotime('+10 minutes', strtotime($horaEntradaReferencial)));
-  }
+  // Verifica se hoje é dia útil do funcionário
+  if (
+    ($numeroDiaInicio <= $numeroDiaTermino && $numeroDiaAtual >= $numeroDiaInicio && $numeroDiaAtual <= $numeroDiaTermino) ||
+    ($numeroDiaInicio > $numeroDiaTermino && ($numeroDiaAtual >= $numeroDiaInicio || $numeroDiaAtual <= $numeroDiaTermino))
+  ) {
+    $manhaEntrada = $func['hora_entrada_primeiro_turno'];
+    $manhaSaida = $func['hora_saida_primeiro_turno'];
+    $tardeEntrada = $func['hora_entrada_segundo_turno'];
+    $tardeSaida = $func['hora_saida_segundo_turno'];
 
-  $stmt = $pdo->prepare("SELECT id, entrada, saida, status, horas_pendentes FROM registros_ponto WHERE cpf = :cpf AND data = :data LIMIT 1");
-  $stmt->execute([':cpf' => $cpf, ':data' => $dataAtual]);
-  $registroPonto = $stmt->fetch(PDO::FETCH_ASSOC);
+    $manhaInicio = $manhaEntrada ? strtotime($manhaEntrada) : null;
+    $manhaFim = $manhaSaida ? strtotime($manhaSaida) : null;
+    $tardeInicio = $tardeEntrada ? strtotime($tardeEntrada) : null;
+    $tardeFim = $tardeSaida ? strtotime($tardeSaida) : null;
 
-  if ($registroPonto && $registroPonto['saida'] !== NULL) {
-    $mensagemTurno = "<div class='alert alert-success text-center'>Ponto já registrado. Você ainda pode visualizar ou ajustar.</div>";
-  } elseif (!$registroPonto) {
-    $mensagemTurno = "<div class='alert alert-warning text-center'>Nenhum ponto registrado hoje. Você pode registrar agora.</div>";
+    // Define turno ativo ou último turno para exibir horários sempre
+    if ($manhaInicio && $horaAgoraTimestamp <= $manhaFim) {
+      // Ainda dentro ou até o fim do primeiro turno
+      $horaEntradaReferencial = $manhaEntrada;
+      $horaSaidaReferencial = $manhaSaida;
+    } elseif ($tardeInicio && $horaAgoraTimestamp <= $tardeFim) {
+      // Ainda dentro ou até o fim do segundo turno
+      $horaEntradaReferencial = $tardeEntrada;
+      $horaSaidaReferencial = $tardeSaida;
+    } else {
+      // Passou do horário de saída do último turno - mostrar último turno para referência
+      if ($tardeFim) {
+        $horaEntradaReferencial = $tardeEntrada;
+        $horaSaidaReferencial = $tardeSaida;
+      } else {
+        $horaEntradaReferencial = $manhaEntrada;
+        $horaSaidaReferencial = $manhaSaida;
+      }
+    }
+
+    // Define tolerância (20 minutos após entrada)
+    if ($horaEntradaReferencial) {
+      $horaEntradaTolerancia = date('H:i:s', strtotime('+20 minutes', strtotime($horaEntradaReferencial)));
+    }
+
+    // Buscar registro de ponto do dia
+    $stmt = $pdo->prepare("SELECT id, entrada, saida, status, horas_pendentes FROM registros_ponto WHERE cpf = :cpf AND data = :data LIMIT 1");
+    $stmt->execute([':cpf' => $cpf, ':data' => $dataAtual]);
+    $registroPonto = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($registroPonto) {
+      if ($registroPonto['saida'] === NULL) {
+        $mensagemTurno = "<div class='alert alert-warning text-center'>
+                          Saída ainda não registrada.<br> 
+                          Se você optar por continuar trabalhando além do horário previsto do turno, o tempo adicional será registrado como <strong>hora extra</strong>.
+                          </div>";
+        $exibirFormulario = true; // Permite registrar saída
+      } else {
+        $mensagemTurno = "<div class='alert alert-success text-center'>Ponto fechado para o dia de hoje.</div>";
+        $exibirFormulario = false; // Fecha formulário pois já registrou saída
+      }
+    } else {
+      $mensagemTurno = "<div class='alert alert-warning text-center'>Nenhum ponto registrado hoje. Você pode registrar agora.</div>";
+      $exibirFormulario = true; // Permite registrar entrada
+    }
+
+  } else {
+    $mensagemTurno = "<div class='alert alert-warning text-center'>Hoje não é dia de trabalho para este funcionário.</div>";
+    $exibirFormulario = false;
   }
 } else {
-  // Funcionário não encontrado - não exibe formulário
   $mensagemTurno = "<div class='alert alert-danger text-center'>Funcionário não encontrado com este CPF.</div>";
   $exibirFormulario = false;
 }
+
+echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 'Não') . "');</script>";
+
+// Exibir informações (exemplo básico - adapte à sua view)
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
@@ -180,22 +261,20 @@ if ($func) {
 
                 <div class="mb-3">
                   <label class="form-label">Hora de Entrada</label>
-                  <input type="text" class="form-control" readonly
-                    value="<?= htmlspecialchars($horaEntradaReferencial) ?>" />
+                  <input type="text" class="form-control" readonly value="<?= htmlspecialchars($horaEntradaReferencial) ?>" />
                 </div>
 
                 <div class="mb-3">
                   <label class="form-label">Entrada com Tolerância</label>
-                  <input type="text" class="form-control" readonly
-                    value="<?= htmlspecialchars($horaEntradaTolerancia) ?>" />
+                  <input type="text" class="form-control" readonly value="<?= htmlspecialchars($horaEntradaTolerancia) ?>" />
                 </div>
 
                 <div class="mb-4">
                   <label class="form-label">Hora de Saída</label>
-                  <input type="text" id="hora_saida" class="form-control" readonly
-                    value="<?= htmlspecialchars($horaSaidaReferencial) ?>" />
+                  <input type="text" class="form-control" readonly value="<?= htmlspecialchars($horaSaidaReferencial) ?>" />
                 </div>
 
+                <!-- Modal de Preview da Foto -->
                 <div id="modalPreview"
                   style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:#000000dd; justify-content:center; align-items:center; flex-direction:column; z-index:10000;">
                   <img id="previewImagem" style="max-width: 90%; border-radius: 10px; margin-bottom: 15px;" />
@@ -205,24 +284,26 @@ if ($func) {
                   </div>
                 </div>
 
+                <!-- Mensagem de Sucesso da Foto -->
                 <div id="mensagemSucesso" class="alert alert-success text-center mt-3" style="display:none;">
                   Imagem processada com sucesso!
                 </div>
 
+                <!-- Botões de Registro -->
                 <div id="sumir" class="mb-3 text-center" style="display:none;">
                   <button type="submit" name="acao" value="entrada" class="btn btn-primary">Registrar Entrada</button>
+
                   <?php if ($registroPonto && $registroPonto['saida'] === NULL): ?>
-                    <button type="submit" name="acao" value="saida" class="btn btn-warning" id="btnRegistrarSaida">Registrar
-                      Saída</button>
+                    <button type="submit" name="acao" value="saida" class="btn btn-warning" id="btnRegistrarSaida">Registrar Saída</button>
                   <?php else: ?>
                     <button type="submit" class="btn btn-warning" id="btnRegistrarSaida" disabled>Registrar Saída</button>
                   <?php endif; ?>
                 </div>
-                
               </form>
 
+              <!-- Botão para Abrir Câmera -->
               <div id="butao" style="display:block;" class="text-center mb-4">
-                <button id="abrirCameraBtn" class="btn btn-primary w-100">📷 Tirar Foto</button>
+                <button id="abrirCameraBtn" type="button" class="btn btn-primary w-100">📷 Tirar Foto</button>
               </div>
             <?php endif; ?>
 
@@ -280,7 +361,9 @@ if ($func) {
     async function abrirCamera() {
       modalCamera.style.display = 'flex';
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true
+        });
         previewCamera.srcObject = stream;
       } catch (error) {
         alert('Erro ao acessar a câmera: ' + error.message);
@@ -309,10 +392,10 @@ if ($func) {
 
     // Confirmar foto (no preview)
     btnConfirmarPreview.addEventListener('click', () => {
-      mensagemSucesso.style.display = 'block';  // Mostra mensagem
-      modalPreview.style.display = 'none';      // Fecha modal de preview
-      sumir.style.display = 'block';            // Mostra botão de registrar ponto
-      butao.style.display = 'none';             // Oculta botão de tirar foto
+      mensagemSucesso.style.display = 'block'; // Mostra mensagem
+      modalPreview.style.display = 'none'; // Fecha modal de preview
+      sumir.style.display = 'block'; // Mostra botão de registrar ponto
+      butao.style.display = 'none'; // Oculta botão de tirar foto
 
       // Atualiza input hidden com base64 da imagem
       fotoBase64.value = window.imagemCapturada;
@@ -348,8 +431,7 @@ if ($func) {
             mensagemLocalizacao.className = 'alert alert-danger text-center mb-3';
             mensagemLocalizacao.innerText = 'Erro: Ative a localização do seu dispositivo.';
             localizacaoObtida = false;
-          },
-          {
+          }, {
             enableHighAccuracy: true,
             timeout: 10000
           }
@@ -369,7 +451,9 @@ if ($func) {
       const horaFormatada = agora.toTimeString().split(' ')[0]; // Ex: "08:41:15"
 
       // Formato legível para exibir no input 'hora'
-      const horaLegivel = agora.toLocaleTimeString('pt-BR', { hour12: false });
+      const horaLegivel = agora.toLocaleTimeString('pt-BR', {
+        hour12: false
+      });
 
       const campoHora = document.getElementById('hora');
       const campoHoraAtual = document.getElementById('hora_atual');
