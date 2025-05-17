@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../assets/php/conexao.php';
+date_default_timezone_set('America/Manaus');
 
 $idSelecionado = $_GET['id'] ?? '';
 
@@ -10,26 +11,25 @@ if (
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: ../login.php?id=$idSelecionado");
   exit;
 }
 
 // Verifica tipo de empresa
 if (str_starts_with($idSelecionado, 'principal_')) {
   if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=$idSelecionado';</script>";
+    echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
     exit;
   }
-  $id = 1;
+  $empresaId = 1;
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=$idSelecionado';</script>";
+  $empresaId = (int) str_replace('filial_', '', $idSelecionado);
+  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $empresaId) {
+    echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
     exit;
   }
-  $id = $idFilial;
 } else {
-  echo "<script>alert('Empresa não identificada!'); window.location.href = '.././login.php?id=$idSelecionado';</script>";
+  echo "<script>alert('Empresa não identificada!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
   exit;
 }
 
@@ -67,24 +67,23 @@ try {
   $nivelUsuario = 'Erro';
 }
 
-// Buscar registros de ponto com nome do funcionário + foto/localização
+// Buscar registros de ponto
 try {
-  $stmtPonto = $pdo->prepare("
+  $stmt = $pdo->prepare("
     SELECT r.*, f.nome AS nome_funcionario
     FROM registros_ponto r
     INNER JOIN funcionarios f ON r.cpf = f.cpf
-    WHERE r.empresa_id = :empresa_id
+    WHERE r.empresa_id = :eid
     ORDER BY r.data DESC, r.entrada ASC
   ");
-  $stmtPonto->bindParam(':empresa_id', $idSelecionado);
-  $stmtPonto->execute();
-  $pontos = $stmtPonto->fetchAll(PDO::FETCH_ASSOC);
+  $stmt->execute([':eid' => $idSelecionado]);
+  $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar registros de ponto: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar registros: {$e->getMessage()}'); history.back();</script>";
   exit;
 }
 
-// Agrupamento
+// Agrupamento em AM / PM (tarde + noite juntos)
 $pontosAgrupados = [];
 $diasSemana = [
   'Monday' => 'Segunda-feira',
@@ -96,53 +95,45 @@ $diasSemana = [
   'Sunday' => 'Domingo'
 ];
 
-foreach ($pontos as $registro) {
-  $cpf = $registro['cpf'];
-  $nomeFuncionario = $registro['nome_funcionario'];
-  $data = $registro['data'];
-  $entrada = strtotime($registro['entrada']);
-  $saida = $registro['saida'] ? strtotime($registro['saida']) : null;
+foreach ($pontos as $rec) {
+  $cpf    = $rec['cpf'];
+  $data   = $rec['data'];
+  $entTS  = strtotime($rec['entrada']);
+  $saiTS  = $rec['saida'] ? strtotime($rec['saida']) : null;
 
-  // Novo: campos adicionais
-  $fotoEntrada = $registro['foto_entrada'] ?? null;
-  $fotoSaida = $registro['foto_saida'] ?? null;
-  $localEntrada = $registro['localizacao_entrada'] ?? null;
-  $localSaida = $registro['localizacao_saida'] ?? null;
-
-  if (!isset($pontosAgrupados[$cpf])) {
-    $pontosAgrupados[$cpf] = [];
-  }
+  // Campos adicionais
+  $fotoEnt  = $rec['foto_entrada']   ?? null;
+  $fotoSai  = $rec['foto_saida']     ?? null;
+  $locEnt   = $rec['localizacao_entrada'] ?? null;
+  $locSai   = $rec['localizacao_saida']   ?? null;
 
   if (!isset($pontosAgrupados[$cpf][$data])) {
     $pontosAgrupados[$cpf][$data] = [
-      'nome_funcionario' => $nomeFuncionario,
-      'dia_semana' => $diasSemana[(new DateTime($data))->format('l')],
-      'entrada_am' => '-',
-      'saida_am' => '-',
-      'entrada_pm' => '-',
-      'saida_pm' => '-',
-      'entrada_noite' => '-',
-      'saida_noite' => '-',
-      // Adicionais
-      'foto_entrada' => $fotoEntrada,
-      'foto_saida' => $fotoSaida,
-      'localizacao_entrada' => $localEntrada,
-      'localizacao_saida' => $localSaida,
+      'nome_funcionario'    => $rec['nome_funcionario'],
+      'dia_semana'          => $diasSemana[(new DateTime($data))->format('l')],
+      'entrada_am'          => '-',
+      'saida_am'            => '-',
+      'entrada_pm'          => '-',
+      'saida_pm'            => '-',
+      'foto_entrada'        => $fotoEnt,
+      'foto_saida'          => $fotoSai,
+      'localizacao_entrada' => $locEnt,
+      'localizacao_saida'   => $locSai,
     ];
   }
 
-  if ($entrada < strtotime('12:00:00')) {
-    $pontosAgrupados[$cpf][$data]['entrada_am'] = date('H:i', $entrada);
-    if ($saida)
-      $pontosAgrupados[$cpf][$data]['saida_am'] = date('H:i', $saida);
-  } elseif ($entrada < strtotime('18:00:00')) {
-    $pontosAgrupados[$cpf][$data]['entrada_pm'] = date('H:i', $entrada);
-    if ($saida)
-      $pontosAgrupados[$cpf][$data]['saida_pm'] = date('H:i', $saida);
+  if ($entTS < strtotime('12:00:00')) {
+    // manhã
+    $pontosAgrupados[$cpf][$data]['entrada_am'] = date('H:i', $entTS);
+    if ($saiTS) {
+      $pontosAgrupados[$cpf][$data]['saida_am'] = date('H:i', $saiTS);
+    }
   } else {
-    $pontosAgrupados[$cpf][$data]['entrada_noite'] = date('H:i', $entrada);
-    if ($saida)
-      $pontosAgrupados[$cpf][$data]['saida_noite'] = date('H:i', $saida);
+    // tarde ou noite
+    $pontosAgrupados[$cpf][$data]['entrada_pm'] = date('H:i', $entTS);
+    if ($saiTS) {
+      $pontosAgrupados[$cpf][$data]['saida_pm'] = date('H:i', $saiTS);
+    }
   }
 }
 ?>
@@ -156,7 +147,7 @@ foreach ($pontos as $registro) {
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-  <title>ERP - Administração</title>
+  <title>ERP - Recursos Humanos</title>
 
   <meta name="description" content="" />
 
@@ -462,42 +453,43 @@ foreach ($pontos as $registro) {
                   <tr>
                     <th>Funcionário</th>
                     <th>Data</th>
-                    <th>Dia da Semana</th>
+                    <th>Dia</th>
                     <th>Entrada AM</th>
                     <th>Saída AM</th>
+                    <th>Entrada Intervalo</th>
+                    <th>Saída Intervalo</th>
                     <th>Entrada PM</th>
                     <th>Saída PM</th>
-                    <th>Entrada Noite</th>
-                    <th>Saída Noite</th>
                     <th>Foto</th>
                     <th>Mapa</th>
+
                   </tr>
                 </thead>
                 <tbody id="tabelaFuncionarios" class="table-border-bottom-0">
-                  <?php foreach ($pontosAgrupados as $cpf => $dias): ?>
-                    <?php foreach ($dias as $data => $turnos): ?>
+                  <?php foreach ($pontosAgrupados as $cpf => $datas): ?>
+                    <?php foreach ($datas as $data => $t): ?>
                       <tr>
-                        <td><?= htmlspecialchars($turnos['nome_funcionario']) ?></td>
+                        <td><?= htmlspecialchars($t['nome_funcionario']) ?></td>
                         <td><?= date('d/m/Y', strtotime($data)) ?></td>
-                        <td><?= $turnos['dia_semana'] ?></td>
-                        <td><?= $turnos['entrada_am'] ?></td>
-                        <td><?= $turnos['saida_am'] ?></td>
-                        <td><?= $turnos['entrada_pm'] ?></td>
-                        <td><?= $turnos['saida_pm'] ?></td>
-                        <td><?= $turnos['entrada_noite'] ?></td>
-                        <td><?= $turnos['saida_noite'] ?></td>
-                        <td>
-                          <i class="bx bx-camera cursor-pointer text-primary" data-bs-toggle="modal"
-                            data-bs-target="#modalFoto"
-                            data-fotoentrada="<?= base64_encode($turnos['foto_entrada'] ?? '') ?>"
-                            data-fotosaida="<?= base64_encode($turnos['foto_saida'] ?? '') ?>">
+                        <td><?= $t['dia_semana'] ?></td>
+                        <td><?= $t['entrada_am'] ?></td>
+                        <td><?= $t['saida_am'] ?></td>
+                        <td><?= $t['saida_am'] /* Entrada do intervalo */ ?></td>
+                        <td><?= $t['entrada_pm'] /* Saída do intervalo */ ?></td>
+                        <td><?= $t['entrada_pm'] ?></td>
+                        <td><?= $t['saida_pm'] ?></td>
+                        <td class="text-center">
+                          <i class="bx bx-camera text-primary" style="cursor:pointer"
+                            data-bs-toggle="modal" data-bs-target="#modalFoto"
+                            data-fotoentrada="<?= base64_encode($t['foto_entrada'] ?? '') ?>"
+                            data-fotosaida="<?= base64_encode($t['foto_saida']   ?? '') ?>">
                           </i>
                         </td>
-                        <td>
-                          <i class="bx bx-map cursor-pointer text-success" data-bs-toggle="modal"
-                            data-bs-target="#modalMapa"
-                            data-localentrada="<?= htmlspecialchars($turnos['localizacao_entrada'] ?? '') ?>"
-                            data-localsaida="<?= htmlspecialchars($turnos['localizacao_saida'] ?? '') ?>">
+                        <td class="text-center">
+                          <i class="bx bx-map text-success" style="cursor:pointer"
+                            data-bs-toggle="modal" data-bs-target="#modalMapa"
+                            data-localentrada="<?= htmlspecialchars($t['localizacao_entrada'] ?? '') ?>"
+                            data-localsaida="<?= htmlspecialchars($t['localizacao_saida']   ?? '') ?>">
                           </i>
                         </td>
                       </tr>
