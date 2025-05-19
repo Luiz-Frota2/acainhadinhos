@@ -96,29 +96,29 @@ $diasSemana = [
 ];
 
 foreach ($pontos as $rec) {
-  $cpf    = $rec['cpf'];
-  $data   = $rec['data'];
-  $entTS  = strtotime($rec['entrada']);
-  $saiTS  = $rec['saida'] ? strtotime($rec['saida']) : null;
+  $cpf = $rec['cpf'];
+  $data = $rec['data'];
+  $entTS = strtotime($rec['entrada']);
+  $saiTS = $rec['saida'] ? strtotime($rec['saida']) : null;
 
   // Campos adicionais
-  $fotoEnt  = $rec['foto_entrada']   ?? null;
-  $fotoSai  = $rec['foto_saida']     ?? null;
-  $locEnt   = $rec['localizacao_entrada'] ?? null;
-  $locSai   = $rec['localizacao_saida']   ?? null;
+  $fotoEnt = $rec['foto_entrada'] ?? null;
+  $fotoSai = $rec['foto_saida'] ?? null;
+  $locEnt = $rec['localizacao_entrada'] ?? null;
+  $locSai = $rec['localizacao_saida'] ?? null;
 
   if (!isset($pontosAgrupados[$cpf][$data])) {
     $pontosAgrupados[$cpf][$data] = [
-      'nome_funcionario'    => $rec['nome_funcionario'],
-      'dia_semana'          => $diasSemana[(new DateTime($data))->format('l')],
-      'entrada_am'          => '-',
-      'saida_am'            => '-',
-      'entrada_pm'          => '-',
-      'saida_pm'            => '-',
-      'foto_entrada'        => $fotoEnt,
-      'foto_saida'          => $fotoSai,
+      'nome_funcionario' => $rec['nome_funcionario'],
+      'dia_semana' => $diasSemana[(new DateTime($data))->format('l')],
+      'entrada_am' => '-',
+      'saida_am' => '-',
+      'entrada_pm' => '-',
+      'saida_pm' => '-',
+      'foto_entrada' => $fotoEnt,
+      'foto_saida' => $fotoSai,
       'localizacao_entrada' => $locEnt,
-      'localizacao_saida'   => $locSai,
+      'localizacao_saida' => $locSai,
     ];
   }
 
@@ -479,17 +479,16 @@ foreach ($pontos as $rec) {
                         <td><?= $t['entrada_pm'] ?></td>
                         <td><?= $t['saida_pm'] ?></td>
                         <td class="text-center">
-                          <i class="bx bx-camera text-primary" style="cursor:pointer"
-                            data-bs-toggle="modal" data-bs-target="#modalFoto"
-                            data-fotoentrada="<?= base64_encode($t['foto_entrada'] ?? '') ?>"
-                            data-fotosaida="<?= base64_encode($t['foto_saida']   ?? '') ?>">
+                          <i class="bx bx-camera text-primary" style="cursor:pointer" data-bs-toggle="modal"
+                            data-bs-target="#modalFoto" data-fotoentrada="<?= base64_encode($t['foto_entrada'] ?? '') ?>"
+                            data-fotosaida="<?= base64_encode($t['foto_saida'] ?? '') ?>">
                           </i>
                         </td>
                         <td class="text-center">
-                          <i class="bx bx-map text-success" style="cursor:pointer"
-                            data-bs-toggle="modal" data-bs-target="#modalMapa"
+                          <i class="bx bx-map text-success" style="cursor:pointer" data-bs-toggle="modal"
+                            data-bs-target="#modalMapa"
                             data-localentrada="<?= htmlspecialchars($t['localizacao_entrada'] ?? '') ?>"
-                            data-localsaida="<?= htmlspecialchars($t['localizacao_saida']   ?? '') ?>">
+                            data-localsaida="<?= htmlspecialchars($t['localizacao_saida'] ?? '') ?>">
                           </i>
                         </td>
                       </tr>
@@ -583,6 +582,7 @@ foreach ($pontos as $rec) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
                 btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                btn.style.marginRight = '6px'; // Adiciona espaçamento entre os botões
                 btn.addEventListener('click', () => {
                   currentPage = i;
                   renderTable();

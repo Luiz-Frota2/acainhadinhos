@@ -153,7 +153,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-           <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -406,8 +407,7 @@ try {
         </nav>
         <!-- / Navbar -->
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                href="#">Funcionários</a>/</span>Adicionados
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Funcionários</a>/</span>Adicionados
           </h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Funcionário
               Adicionados da sua Empresa</span></h5>
@@ -460,7 +460,8 @@ try {
                             <div class="modal-dialog">
                               <div class="modal-content">
                                 <div class="modal-header">
-                                  <h5 class="modal-title" id="modalExcluirLabel_<?= $funcionario['id'] ?>">Excluir Funcionário</h5>
+                                  <h5 class="modal-title" id="modalExcluirLabel_<?= $funcionario['id'] ?>">Excluir
+                                    Funcionário</h5>
                                   <button type="button" class="btn-close" data-bs-dismiss="modal"
                                     aria-label="Close"></button>
                                 </div>
@@ -524,6 +525,10 @@ try {
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
+
+                // Adiciona espaçamento horizontal entre os botões
+                btn.style.marginRight = "6px";
+
                 btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
                 btn.addEventListener('click', () => {
                   currentPage = i;
