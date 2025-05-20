@@ -2,68 +2,29 @@
 session_start();
 require_once '../../assets/php/conexao.php';
 
-$idSelecionado = $_GET['id'] ?? '';
-if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
-) {
-  header("Location: .././login.php?id=$idSelecionado");
+// Verificação de sessão e acesso
+if (!isset($_SESSION['usuario_id'])) {
+  header("Location: ./index.html");
   exit;
 }
 
-if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    header("Location: .././login.php?id=$idSelecionado");
-    exit;
-  }
-  $empresa_id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $empresa_id = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $empresa_id) {
-    header("Location: .././login.php?id=$idSelecionado");
-    exit;
-  }
-} else {
-  header("Location: .././login.php?id=$idSelecionado");
-  exit;
-}
-
-// Buscar imagem da empresa
-try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
-} catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
-}
-
-// ✅ Buscar nome e nível do usuário logado
-$nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
 $usuario_id = $_SESSION['usuario_id'];
 
-try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+// Buscar informações do usuário
+$stmt = $pdo->prepare("SELECT usuario, acesso, nivel FROM usuarios WHERE id = :id");
+$stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+$stmt->execute();
+$usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
-  }
-} catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+if (!$usuario || $usuario['acesso'] !== 'SIM') {
+  header("Location: ./index.html");
+  exit;
 }
 
+$nomeUsuario = $usuario['usuario'];
+$nivelUsuario = $usuario['nivel'];
+
+// Funções auxiliares
 function calcularHoras($inicio, $fim)
 {
   return (strtotime($fim) - strtotime($inicio)) / 3600;
@@ -83,13 +44,27 @@ function contarDiasUteis($ano, $mes, $diasPermitidos)
   return $uteis;
 }
 
+function formatarHoras($horasFloat)
+{
+  $horas = floor($horasFloat);
+  $minutos = round(($horasFloat - $horas) * 60);
+  return sprintf("%02dh %02dm", $horas, $minutos);
+}
+
+// Buscar registros de ponto
+$idSelecionado = $_GET['id'] ?? '';
+if (empty($idSelecionado)) {
+  header("Location: ./index.html");
+  exit;
+}
+
 $stmt = $pdo->prepare("
-  SELECT r.*, f.nome, f.dia_inicio, f.dia_termino,
-         f.hora_entrada_primeiro_turno, f.hora_saida_primeiro_turno,
-         f.hora_entrada_segundo_turno, f.hora_saida_segundo_turno
-  FROM registros_ponto r
-  JOIN funcionarios f ON r.cpf = f.cpf
-  WHERE r.empresa_id = :empresa_id
+    SELECT r.*, f.nome, f.dia_inicio, f.dia_termino,
+           f.hora_entrada_primeiro_turno, f.hora_saida_primeiro_turno,
+           f.hora_entrada_segundo_turno, f.hora_saida_segundo_turno
+    FROM registros_ponto r
+    JOIN funcionarios f ON r.cpf = f.cpf
+    WHERE r.empresa_id = :empresa_id
 ");
 $stmt->bindParam(':empresa_id', $idSelecionado);
 $stmt->execute();
@@ -155,18 +130,27 @@ foreach ($registros as $registro) {
   }
 }
 
-function formatarHoras($horasFloat)
-{
-  $horas = floor($horasFloat);
-  $minutos = round(($horasFloat - $horas) * 60);
-  return sprintf("%02dh %02dm", $horas, $minutos);
-}
+// Processar compensação entre horas extras e pendentes
+foreach ($dadosAgrupados as $chave => $dados) {
+  $horasDevidas = $dados['horas_devidas'];
+  $horasTrabalhadas = $dados['horas_trabalhadas'];
+  $horasExtras = $dados['horas_extras'];
 
-function formatarHorasMinutos($horas)
-{
-  return formatarHoras($horas);
+  $horasPendentes = max(0, $horasDevidas - $horasTrabalhadas);
+
+  if ($horasExtras >= $horasPendentes) {
+    $horasExtras -= $horasPendentes;
+    $horasPendentes = 0;
+  } else {
+    $horasPendentes -= $horasExtras;
+    $horasExtras = 0;
+  }
+
+  $dadosAgrupados[$chave]['horas_extras'] = $horasExtras;
+  $dadosAgrupados[$chave]['horas_pendentes'] = $horasPendentes;
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -485,18 +469,14 @@ function formatarHorasMinutos($horas)
                 </thead>
                 <tbody class="table-border-bottom-0" id="tabelaBancoHoras">
                   <?php foreach ($dadosAgrupados as $key => $dados): ?>
-                    <?php
-                    $horasExtras = $dados['horas_extras'];
-                    $horasPendentes = max(0, $dados['horas_devidas'] - $dados['horas_trabalhadas']);
-                    ?>
                     <tr>
                       <td><strong><?= htmlspecialchars($dados['nome']) ?></strong></td>
                       <td><?= $dados['mes'] ?></td>
                       <td hidden><?= ucfirst($dados['dia_inicio']) ?></td>
                       <td hidden><?= ucfirst($dados['dia_termino']) ?></td>
-                      <td><?= formatarHorasMinutos($dados['horas_trabalhadas']) ?></td>
-                      <td><?= formatarHorasMinutos($horasExtras) ?></td>
-                      <td><?= formatarHorasMinutos($horasPendentes) ?></td>
+                      <td><?= formatarHoras($dados['horas_trabalhadas']) ?></td>
+                      <td><?= formatarHoras($dados['horas_extras']) ?></td>
+                      <td><?= formatarHoras($dados['horas_pendentes']) ?></td>
                       <td>
                         <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal"
                           data-bs-target="#modal_<?= md5($key) ?>">Visualizar</button>
@@ -531,9 +511,9 @@ function formatarHorasMinutos($horas)
                         </div>
                       </div>
                     </div>
-
                   <?php endforeach; ?>
                 </tbody>
+
               </table>
             </div>
 
