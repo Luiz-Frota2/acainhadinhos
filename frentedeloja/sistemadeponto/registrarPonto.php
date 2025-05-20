@@ -19,8 +19,8 @@ if (
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
+// Buscar imagem da empresa para favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // ícone padrão
 
 try {
   $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
@@ -110,6 +110,7 @@ if ($func) {
   $numeroDiaInicio = $diasSemanaNumerico[$diaInicio];
   $numeroDiaTermino = $diasSemanaNumerico[$diaTermino];
 
+  // Verifica se hoje é dia útil do funcionário
   if (
     ($numeroDiaInicio <= $numeroDiaTermino && $numeroDiaAtual >= $numeroDiaInicio && $numeroDiaAtual <= $numeroDiaTermino) ||
     ($numeroDiaInicio > $numeroDiaTermino && ($numeroDiaAtual >= $numeroDiaInicio || $numeroDiaAtual <= $numeroDiaTermino))
@@ -124,18 +125,29 @@ if ($func) {
     $tardeInicio = $tardeEntrada ? strtotime($tardeEntrada) : null;
     $tardeFim = $tardeSaida ? strtotime($tardeSaida) : null;
 
-    if ($manhaInicio && $horaAgoraTimestamp >= $manhaInicio && $horaAgoraTimestamp <= $manhaFim) {
+    // Define turno ativo ou último turno para exibir horários sempre
+    if ($manhaInicio && $horaAgoraTimestamp <= $manhaFim) {
+      // Ainda dentro ou até o fim do primeiro turno
       $horaEntradaReferencial = $manhaEntrada;
       $horaSaidaReferencial = $manhaSaida;
-      $exibirFormulario = true;
-    } elseif ($tardeInicio && $horaAgoraTimestamp >= $tardeInicio && $horaAgoraTimestamp <= $tardeFim) {
+    } elseif ($tardeInicio && $horaAgoraTimestamp <= $tardeFim) {
+      // Ainda dentro ou até o fim do segundo turno
       $horaEntradaReferencial = $tardeEntrada;
       $horaSaidaReferencial = $tardeSaida;
-      $exibirFormulario = true;
+    } else {
+      // Passou do horário de saída do último turno - mostrar último turno para referência
+      if ($tardeFim) {
+        $horaEntradaReferencial = $tardeEntrada;
+        $horaSaidaReferencial = $tardeSaida;
+      } else {
+        $horaEntradaReferencial = $manhaEntrada;
+        $horaSaidaReferencial = $manhaSaida;
+      }
     }
 
-    if ($exibirFormulario && $horaEntradaReferencial) {
-      $horaEntradaTolerancia = date('H:i:s', strtotime('+20 minutes', strtotime($horaEntradaReferencial)));
+    // Define tolerância (20 minutos após entrada)
+    if ($horaEntradaReferencial) {
+      $horaEntradaTolerancia = date('H:i:s', strtotime('+10 minutes', strtotime($horaEntradaReferencial)));
     }
 
     // Buscar registro de ponto do dia
@@ -149,24 +161,30 @@ if ($func) {
                           Saída ainda não registrada.<br> 
                           Se você optar por continuar trabalhando além do horário previsto do turno, o tempo adicional será registrado como <strong>hora extra</strong>.
                           </div>";
-
+        $exibirFormulario = true; // Permite registrar saída
       } else {
         $mensagemTurno = "<div class='alert alert-success text-center'>Ponto fechado para o dia de hoje.</div>";
-        $exibirFormulario = false; // Fecha formulário se saída já registrada
+        $exibirFormulario = false; // Fecha formulário pois já registrou saída
       }
     } else {
       $mensagemTurno = "<div class='alert alert-warning text-center'>Nenhum ponto registrado hoje. Você pode registrar agora.</div>";
+      $exibirFormulario = true; // Permite registrar entrada
     }
 
   } else {
     $mensagemTurno = "<div class='alert alert-warning text-center'>Hoje não é dia de trabalho para este funcionário.</div>";
+    $exibirFormulario = false;
   }
 } else {
   $mensagemTurno = "<div class='alert alert-danger text-center'>Funcionário não encontrado com este CPF.</div>";
+  $exibirFormulario = false;
 }
 
 echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 'Não') . "');</script>";
+
+// Exibir informações (exemplo básico - adapte à sua view)
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
@@ -191,6 +209,7 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
   <link rel="stylesheet" href="../../../assets/vendor/css/core.css" class="template-customizer-core-css" />
   <link rel="stylesheet" href="../../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
   <link rel="stylesheet" href="../../../assets/css/demo.css" />
+  <link rel="stylesheet" href="../../../assets/css/button-responsive.css" />
   <link rel="stylesheet" href="../../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
   <link rel="stylesheet" href="../../../assets/vendor/css/pages/page-auth.css" />
 
@@ -199,6 +218,7 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
 </head>
 
 <body>
+
   <div class="container-xxl">
     <div class="authentication-wrapper authentication-basic container-p-y">
       <div class="authentication-inner">
@@ -214,13 +234,20 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
               </a>
             </div>
 
-            <!-- Exibição do Formulário de Registro de Ponto -->
+            <!-- Alerta de localização -->
+            <div id="mensagemLocalizacao" class="alert alert-secondary text-center mb-4" role="alert"
+              style="<?= $exibirFormulario ? '' : 'display:none;' ?>">
+              Por favor, ative a localização do seu dispositivo.
+            </div>
+
             <?php if ($exibirFormulario): ?>
               <form id="formRegistroPonto" action="../php/sistemaPonto/registrarPonto.php" method="POST" class="mb-3">
                 <input type="hidden" name="id_selecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
                 <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf) ?>">
                 <input type="hidden" name="data" value="<?= htmlspecialchars($dataAtual) ?>">
-                <input type="hidden" id="hora_atual" name="hora_atual" value="<?= htmlspecialchars($horaAtual) ?>">
+                <input type="hidden" id="hora_atual" name="hora_atual">
+                <input type="hidden" id="fotoBase64" name="fotoBase64">
+                <input type="hidden" id="inputLocalizacao" name="localizacao">
 
                 <div class="mb-3">
                   <label class="form-label">Funcionário</label>
@@ -229,63 +256,228 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
 
                 <div class="mb-3">
                   <label class="form-label">Hora Atual</label>
-                  <input type="text" id="hora" class="form-control" readonly
-                    value="<?= htmlspecialchars($horaAtual) ?>" />
+                  <input type="text" id="hora" class="form-control" readonly />
                 </div>
 
                 <div class="mb-3">
                   <label class="form-label">Hora de Entrada</label>
-                  <input type="text" class="form-control" readonly
-                    value="<?= htmlspecialchars($horaEntradaReferencial) ?>" />
+                  <input type="text" class="form-control" readonly value="<?= htmlspecialchars($horaEntradaReferencial) ?>" />
                 </div>
 
                 <div class="mb-3">
                   <label class="form-label">Entrada com Tolerância</label>
-                  <input type="text" class="form-control" readonly
-                    value="<?= htmlspecialchars($horaEntradaTolerancia) ?>" />
+                  <input type="text" class="form-control" readonly value="<?= htmlspecialchars($horaEntradaTolerancia) ?>" />
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-4">
                   <label class="form-label">Hora de Saída</label>
-                  <input type="text" id="hora_saida" class="form-control" readonly
-                    value="<?= htmlspecialchars($horaSaidaReferencial) ?>" />
+                  <input type="text" class="form-control" readonly value="<?= htmlspecialchars($horaSaidaReferencial) ?>" />
                 </div>
 
-                <div class="mb-3 text-center">
+                <!-- Modal de Preview da Foto -->
+                <div id="modalPreview"
+                  style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:#000000dd; justify-content:center; align-items:center; flex-direction:column; z-index:10000;">
+                  <img id="previewImagem" style="max-width: 90%; border-radius: 10px; margin-bottom: 15px;" />
+                  <div class="d-flex gap-2">
+                    <button type="button" id="btnConfirmarPreview" class="btn btn-success">Confirmar</button>
+                    <button type="button" id="btnRefazerFoto" class="btn btn-secondary">Tirar Novamente</button>
+                  </div>
+                </div>
+
+                <!-- Mensagem de Sucesso da Foto -->
+                <div id="mensagemSucesso" class="alert alert-success text-center mt-3" style="display:none;">
+                  Imagem processada com sucesso!
+                </div>
+
+                <!-- Botões de Registro -->
+                <div id="sumir" class="mb-3 text-center" style="display:none;">
                   <button type="submit" name="acao" value="entrada" class="btn btn-primary">Registrar Entrada</button>
 
                   <?php if ($registroPonto && $registroPonto['saida'] === NULL): ?>
-                    <button type="submit" name="acao" value="saida" class="btn btn-warning" id="btnRegistrarSaida">Registrar
-                      Saída</button>
+                    <button type="submit" name="acao" value="saida" class="btn btn-warning" id="btnRegistrarSaida">Registrar Saída</button>
                   <?php else: ?>
                     <button type="submit" class="btn btn-warning" id="btnRegistrarSaida" disabled>Registrar Saída</button>
                   <?php endif; ?>
                 </div>
               </form>
+
+              <!-- Botão para Abrir Câmera -->
+              <div id="butao" style="display:block;" class="text-center mb-4">
+                <button id="abrirCameraBtn" type="button" class="btn btn-primary w-100">📷 Tirar Foto</button>
+              </div>
             <?php endif; ?>
 
-            <?= $mensagemTurno ?>
 
-            <div class="text-center">
+            <!-- Mensagem de turno -->
+            <div class="text-center mb-3">
+              <?= $mensagemTurno ?>
+            </div>
+
+            <!-- Link voltar -->
+            <div class="text-center mt-3">
               <a href="./pontoRegistrado.php?id=<?= htmlspecialchars($idSelecionado) ?>"
                 class="d-flex align-items-center justify-content-center">
-                <i class="bx bx-chevron-left scaleX-n1-rtl bx-sm"></i>
-                Voltar
+                <i class="bx bx-chevron-left scaleX-n1-rtl bx-sm"></i> Voltar
               </a>
             </div>
+
+            <!-- Modal da Câmera -->
+            <div id="modalCamera"
+              style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:#000000dd; justify-content:center; align-items:center; flex-direction:column; z-index:9999;">
+              <video id="previewCamera" autoplay playsinline
+                style="width: 90%; max-width: 400px; border-radius: 10px;"></video>
+              <button id="capturarFoto" style="margin-top: 10px;" class="btn btn-primary">📸 Capturar</button>
+            </div>
+
           </div>
-          <!-- Fim do Card -->
         </div>
       </div>
-    </div>
 
-    <!-- Scripts -->
-    <script src="../../../assets/vendor/libs/jquery/jquery.js"></script>
-    <script src="../../../assets/vendor/libs/popper/popper.js"></script>
-    <script src="../../../assets/vendor/js/bootstrap.js"></script>
-    <script src="../../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-    <script src="../../../assets/vendor/js/menu.js"></script>
-    <script src="../../../assets/js/main.js"></script>
+    </div>
+  </div>
+  </div>
+
+
+  <!-- JavaScript da câmera, localização e horário -->
+  <script>
+    const abrirCameraBtn = document.getElementById('abrirCameraBtn');
+    const modalCamera = document.getElementById('modalCamera');
+    const previewCamera = document.getElementById('previewCamera');
+    const capturarFoto = document.getElementById('capturarFoto');
+    const fotoBase64 = document.getElementById('fotoBase64');
+    const sumir = document.getElementById('sumir');
+    const butao = document.getElementById('butao');
+    const mensagemSucesso = document.getElementById('mensagemSucesso');
+    const modalPreview = document.getElementById('modalPreview');
+    const btnConfirmarPreview = document.getElementById('btnConfirmarPreview');
+    const btnRefazerFoto = document.getElementById('btnRefazerFoto');
+    const inputLocalizacao = document.getElementById('inputLocalizacao');
+    const mensagemLocalizacao = document.getElementById('mensagemLocalizacao');
+
+    let stream;
+    let localizacaoObtida = false;
+
+    // Abrir câmera
+    async function abrirCamera() {
+      modalCamera.style.display = 'flex';
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true
+        });
+        previewCamera.srcObject = stream;
+      } catch (error) {
+        alert('Erro ao acessar a câmera: ' + error.message);
+      }
+    }
+
+    // Capturar foto
+    capturarFoto.addEventListener('click', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = previewCamera.videoWidth;
+      canvas.height = previewCamera.videoHeight;
+      canvas.getContext('2d').drawImage(previewCamera, 0, 0);
+      const imageData = canvas.toDataURL('image/jpeg');
+
+      // Salva imagem
+      window.imagemCapturada = imageData;
+
+      // Mostra preview
+      document.getElementById('previewImagem').src = imageData;
+      modalCamera.style.display = 'none';
+      modalPreview.style.display = 'flex';
+
+      // Para a câmera
+      if (stream) stream.getTracks().forEach(track => track.stop());
+    });
+
+    // Confirmar foto (no preview)
+    btnConfirmarPreview.addEventListener('click', () => {
+      mensagemSucesso.style.display = 'block'; // Mostra mensagem
+      modalPreview.style.display = 'none'; // Fecha modal de preview
+      sumir.style.display = 'block'; // Mostra botão de registrar ponto
+      butao.style.display = 'none'; // Oculta botão de tirar foto
+
+      // Atualiza input hidden com base64 da imagem
+      fotoBase64.value = window.imagemCapturada;
+    });
+
+    // Refazer foto (reabrir câmera)
+    btnRefazerFoto.addEventListener('click', () => {
+      modalPreview.style.display = 'none';
+      abrirCamera();
+    });
+
+    // Botão principal para abrir a câmera
+    abrirCameraBtn.addEventListener('click', abrirCamera);
+
+    // Obter localização
+    function obterLocalizacao() {
+      if (!mensagemLocalizacao) return; // Evita erro se não existir elemento
+      mensagemLocalizacao.className = 'alert alert-info text-center mb-3';
+      mensagemLocalizacao.innerText = 'Aguardando localização...';
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const latitude = position.coords.latitude.toFixed(6);
+            const longitude = position.coords.longitude.toFixed(6);
+            inputLocalizacao.value = `${latitude},${longitude}`;
+            localizacaoObtida = true;
+
+            mensagemLocalizacao.className = 'alert alert-success text-center mb-3';
+            mensagemLocalizacao.innerText = 'Localização capturada com sucesso.';
+          },
+          (error) => {
+            mensagemLocalizacao.className = 'alert alert-danger text-center mb-3';
+            mensagemLocalizacao.innerText = 'Erro: Ative a localização do seu dispositivo.';
+            localizacaoObtida = false;
+          }, {
+            enableHighAccuracy: true,
+            timeout: 10000
+          }
+        );
+      } else {
+        mensagemLocalizacao.className = 'alert alert-warning text-center mb-3';
+        mensagemLocalizacao.innerText = 'Seu navegador não suporta geolocalização.';
+        localizacaoObtida = false;
+      }
+    }
+
+    // Atualizar hora nos campos 'hora' e 'hora_atual' a cada segundo
+    function atualizarHora() {
+      const agora = new Date();
+
+      // Formato HH:MM:SS (usado no backend para salvar)
+      const horaFormatada = agora.toTimeString().split(' ')[0]; // Ex: "08:41:15"
+
+      // Formato legível para exibir no input 'hora'
+      const horaLegivel = agora.toLocaleTimeString('pt-BR', {
+        hour12: false
+      });
+
+      const campoHora = document.getElementById('hora');
+      const campoHoraAtual = document.getElementById('hora_atual');
+
+      if (campoHora) campoHora.value = horaLegivel;
+      if (campoHoraAtual) campoHoraAtual.value = horaFormatada;
+    }
+
+    // Executa ao carregar a página e atualiza a hora a cada segundo
+    window.onload = () => {
+      obterLocalizacao();
+      atualizarHora();
+      setInterval(atualizarHora, 1000);
+    };
+  </script>
+
+
+  <!-- Scripts -->
+  <script src="../../../assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="../../../assets/vendor/libs/popper/popper.js"></script>
+  <script src="../../../assets/vendor/js/bootstrap.js"></script>
+  <script src="../../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <script src="../../../assets/vendor/js/menu.js"></script>
+  <script src="../../../assets/js/main.js"></script>
 
 </body>
 

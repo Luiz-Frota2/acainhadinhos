@@ -332,6 +332,10 @@ CREATE TABLE registros_ponto (
   status                              VARCHAR(20),
   horas_pendentes                     TIME,
   hora_extra                          TIME DEFAULT '00:00:00',
+  foto_entrada                        LONGBLOB,
+  foto_saida                          LONGBLOB,
+  localizacao_entrada                 VARCHAR(100),
+  localizacao_saida                   VARCHAR(100),
   criado_em                           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

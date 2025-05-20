@@ -1,0 +1,13 @@
+
+/* Em telas maiores que 576px (sm) */
+@media (min-width: 768px) {
+  #sumir {
+    flex-direction: row;
+    gap: 40px !important /* espaçamento horizontal menor */
+  }
+
+  #sumir button {
+    width: auto; /* largura automática para ficar lado a lado */
+    margin-bottom: 0; /* sem margem vertical */
+  }
+}

@@ -155,7 +155,7 @@ try {
 
                     <!-- DASHBOARD -->
                     <li class="menu-item">
-                        <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
                             <div data-i18n="Analytics">Dashboard</div>
                         </a>
@@ -373,13 +373,13 @@ try {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>
@@ -483,8 +483,8 @@ try {
                             <script>
                                 document.write(new Date().getFullYear());
                             </script>
-                            , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por <strong>Lucas Correa</strong>.
+                            , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
+                            Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
                 </footer>

@@ -154,7 +154,7 @@ try {
 
           <!-- DASHBOARD -->
           <li class="menu-item active">
-            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -362,13 +362,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -409,7 +409,7 @@ try {
                   <div class="col-sm-7">
                     <div class="card-body">
                       <h5 class="card-title text-primary saudacao" data-setor="PDV"></h5>
-                      <p class="mb-4">Suas configurações do delivery foram atualizadas em seu perfil. Continue
+                      <p class="mb-4">Suas configurações do PDV foram atualizadas em seu perfil. Continue
                         explorando e ajustando-as conforme suas preferências.</p>
 
                     </div>
