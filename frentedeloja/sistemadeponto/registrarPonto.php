@@ -185,7 +185,6 @@ echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 
 // Exibir informações (exemplo básico - adapte à sua view)
 ?>
 
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
   data-assets-path="../../../assets/" data-template="vertical-menu-template-free">

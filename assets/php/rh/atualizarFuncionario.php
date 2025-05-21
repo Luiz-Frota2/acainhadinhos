@@ -23,13 +23,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $endereco = trim($_POST["endereco"] ?? '');
     $cidade = trim($_POST["cidade"] ?? '');
 
-    // Verifica se todos os campos obrigatórios estão preenchidos
+    // Verifica campos obrigatórios (os campos do segundo turno foram removidos da verificação)
     if (
         empty($empresa_id) || empty($nome) || empty($data_nascimento) || empty($cpf) || empty($rg) ||
         empty($cargo) || empty($setor) || empty($salario) || empty($escala) ||
         empty($dia_inicio) || empty($dia_termino) ||
         empty($hora_entrada_primeiro_turno) || empty($hora_saida_primeiro_turno) ||
-        empty($hora_entrada_segundo_turno) || empty($hora_saida_segundo_turno) ||
         empty($email) || empty($telefone) || empty($endereco) || empty($cidade)
     ) {
         echo "<script>
@@ -63,6 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 WHERE id = :id";
 
         $stmt = $pdo->prepare($sql);
+
         $stmt->bindParam(":empresa_id", $empresa_id);
         $stmt->bindParam(":nome", $nome);
         $stmt->bindParam(":data_nascimento", $data_nascimento);
@@ -76,8 +76,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt->bindParam(":dia_termino", $dia_termino);
         $stmt->bindParam(":hora_entrada_primeiro_turno", $hora_entrada_primeiro_turno);
         $stmt->bindParam(":hora_saida_primeiro_turno", $hora_saida_primeiro_turno);
-        $stmt->bindParam(":hora_entrada_segundo_turno", $hora_entrada_segundo_turno);
-        $stmt->bindParam(":hora_saida_segundo_turno", $hora_saida_segundo_turno);
+
+        // Agora envia NULL se o campo estiver vazio
+        if ($hora_entrada_segundo_turno === '') {
+            $stmt->bindValue(":hora_entrada_segundo_turno", null, PDO::PARAM_NULL);
+        } else {
+            $stmt->bindParam(":hora_entrada_segundo_turno", $hora_entrada_segundo_turno);
+        }
+
+        if ($hora_saida_segundo_turno === '') {
+            $stmt->bindValue(":hora_saida_segundo_turno", null, PDO::PARAM_NULL);
+        } else {
+            $stmt->bindParam(":hora_saida_segundo_turno", $hora_saida_segundo_turno);
+        }
+
         $stmt->bindParam(":email", $email);
         $stmt->bindParam(":telefone", $telefone);
         $stmt->bindParam(":endereco", $endereco);

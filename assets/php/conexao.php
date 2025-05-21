@@ -2,9 +2,9 @@
 //POR FAVOR USAR ESSE ESQUEMA DE CONEXAO 
 
 $host = 'localhost'; // ou o IP do servidor de banco de dados
-$dbname = 'u922223647_erp'; // Nome do banco de dados
-$username = 'u922223647_erp'; // Seu nome de usuário do banco de dados
-$password = '*V5z7GqLfa~E'; // Sua senha do banco de dados
+$dbname = 'u920914488_ERP'; // Nome do banco de dados
+$username = 'u920914488_ERP'; // Seu nome de usuário do banco de dados
+$password = 'N8r=$&Wrs$'; // Sua senha do banco de dados
 
 try {
     // Cria uma instância PDO para conexão com o banco de dados
