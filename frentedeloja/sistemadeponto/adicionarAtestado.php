@@ -398,7 +398,7 @@ try {
                                 <!-- Campos ocultos -->
                                 <input type="hidden" name="nomeFuncionario"
                                     value="<?= htmlspecialchars($nomeFuncionario); ?>">
-                                <input type="text" name="idSelecionado"
+                                <input type="hidden" name="idSelecionado"
                                     value="<?= htmlspecialchars($idSelecionado); ?>">
                                 <input type="hidden" name="cpfUsuario" value="<?= htmlspecialchars($cpfUsuario); ?>">
 

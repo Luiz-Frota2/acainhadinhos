@@ -427,8 +427,10 @@ try {
                     $pontosPorDia = [];
                     foreach ($pontos as $registro) {
                       $data = $registro['data'];
-                      $entrada = strtotime($registro['entrada']);
-                      $saida = $registro['saida'] ? strtotime($registro['saida']) : null;
+
+                      // Verificar se 'entrada' e 'saida' não são nulos antes de usar strtotime
+                      $entrada = isset($registro['entrada']) && !empty($registro['entrada']) ? strtotime($registro['entrada']) : null;
+                      $saida = isset($registro['saida']) && !empty($registro['saida']) ? strtotime($registro['saida']) : null; // Verificação para 'saida'
 
                       if (!isset($pontosPorDia[$data])) {
                         $pontosPorDia[$data] = [
@@ -442,18 +444,26 @@ try {
                         ];
                       }
 
-                      if ($entrada < strtotime('12:00:00')) {
+                      // Se o horário de entrada for antes de 12:00
+                      if ($entrada && $entrada < strtotime('12:00:00')) {
                         $pontosPorDia[$data]['entrada_am'] = date('H:i', $entrada);
-                        if ($saida)
+                        if ($saida) {
                           $pontosPorDia[$data]['saida_am'] = date('H:i', $saida);
-                      } elseif ($entrada < strtotime('18:00:00')) {
+                        }
+                      }
+                      // Se o horário de entrada for entre 12:00 e 18:00
+                      elseif ($entrada && $entrada < strtotime('18:00:00')) {
                         $pontosPorDia[$data]['entrada_pm'] = date('H:i', $entrada);
-                        if ($saida)
+                        if ($saida) {
                           $pontosPorDia[$data]['saida_pm'] = date('H:i', $saida);
-                      } else {
+                        }
+                      }
+                      // Se o horário de entrada for após 18:00
+                      else {
                         $pontosPorDia[$data]['entrada_noite'] = date('H:i', $entrada);
-                        if ($saida)
+                        if ($saida) {
                           $pontosPorDia[$data]['saida_noite'] = date('H:i', $saida);
+                        }
                       }
                     }
 
@@ -470,6 +480,7 @@ try {
                       </tr>
                     <?php endforeach; ?>
                   </tbody>
+
                 </table>
               </div>
 

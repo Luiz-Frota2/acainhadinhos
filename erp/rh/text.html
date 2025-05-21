@@ -1,13 +1,8 @@
 <?php
-
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
 session_start();
-
 require_once '../../assets/php/conexao.php';
 
 $idSelecionado = $_GET['id'] ?? '';
-
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
@@ -18,7 +13,7 @@ if (
   exit;
 }
 
-// Validação da empresa
+// Validação da empresa selecionada x sessão
 if (str_starts_with($idSelecionado, 'principal_')) {
   if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
     header("Location: .././login.php?id=$idSelecionado");
@@ -36,7 +31,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Função para converter TIME (HH:MM:SS) para minutos inteiros
+// Função para converter TIME (HH:MM:SS) para minutos inteiros
 function timeToMinutes($time)
 {
   if ($time === null || $time === '' || $time === '00:00:00')
@@ -45,7 +40,7 @@ function timeToMinutes($time)
   return intval($h) * 60 + intval($m) + round(intval($s) / 60);
 }
 
-// ✅ Função para converter minutos inteiros para formato "XXh YYm"
+// Função para converter minutos inteiros para formato "XXh YYm"
 function minutesToHoursMinutes($minutes)
 {
   $h = floor($minutes / 60);
@@ -53,53 +48,7 @@ function minutesToHoursMinutes($minutes)
   return sprintf("%02dh %02dm", $h, $m);
 }
 
-// ✅ Função para calcular horas entre dois horários (em horas decimais)
-function calcularHorasTurno($entrada, $saida)
-{
-  if ($entrada && $saida) {
-    $entradaSeg = strtotime($entrada);
-    $saidaSeg = strtotime($saida);
-    $diff = max(0, $saidaSeg - $entradaSeg);
-    return $diff / 3600;
-  }
-  return 0;
-}
-
-// Buscar imagem da empresa
-try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
-} catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
-}
-
-// Buscar dados do usuário logado
-$nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
-
-try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
-    $cpfUsuario = $usuario['cpf'];
-  }
-} catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar';
-  $nivelUsuario = 'Erro';
-}
-
-// 🔍 Buscar registros
+// Buscar registros do banco com dados dos funcionários
 try {
   $sql = "
     SELECT r.*, f.nome, f.dia_inicio, f.dia_termino,
@@ -117,7 +66,7 @@ try {
   die("Erro ao buscar registros: " . $e->getMessage());
 }
 
-// 📊 Agrupar dados
+// Agrupar dados por funcionário, mês e ano
 $dadosAgrupados = [];
 
 foreach ($registros as $registro) {
@@ -129,11 +78,13 @@ foreach ($registros as $registro) {
   $chave = "$cpf|$mes|$ano";
 
   if (!isset($dadosAgrupados[$chave])) {
+    // Calcular dias úteis para o mês com base no dia_inicio e dia_termino da semana
     $diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
 
     $diaInicio = array_search(strtolower($registro['dia_inicio']), $diasSemana);
     $diaTermino = array_search(strtolower($registro['dia_termino']), $diasSemana);
 
+    // Obter dias úteis na semana (de diaInicio até diaTermino circularmente)
     $diasPermitidos = [];
     $i = $diaInicio;
     do {
@@ -143,6 +94,7 @@ foreach ($registros as $registro) {
       $i = ($i + 1) % 7;
     } while (true);
 
+    // Função para contar dias úteis no mês
     $diasNoMes = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
     $diasUteis = 0;
     for ($dia = 1; $dia <= $diasNoMes; $dia++) {
@@ -153,15 +105,21 @@ foreach ($registros as $registro) {
       }
     }
 
-    $horasTurno1 = calcularHorasTurno(
-      $registro['hora_entrada_primeiro_turno'],
-      $registro['hora_saida_primeiro_turno']
-    );
-    $horasTurno2 = calcularHorasTurno(
-      $registro['hora_entrada_segundo_turno'],
-      $registro['hora_saida_segundo_turno']
-    );
-    $minutosDevidos = ($horasTurno1 + $horasTurno2) * 60 * $diasUteis;
+    // Calcular horas devidas por dia (soma dos turnos)
+    function calcularHorasTurno($entrada, $saida)
+    {
+      if ($entrada && $saida) {
+        $entradaSeg = strtotime($entrada);
+        $saidaSeg = strtotime($saida);
+        $diff = max(0, $saidaSeg - $entradaSeg);
+        return $diff / 3600;
+      }
+      return 0;
+    }
+
+    $horasTurno1 = calcularHorasTurno($registro['hora_entrada_primeiro_turno'], $registro['hora_saida_primeiro_turno']);
+    $horasTurno2 = calcularHorasTurno($registro['hora_entrada_segundo_turno'], $registro['hora_saida_segundo_turno']);
+    $horasDevidas = ($horasTurno1 + $horasTurno2) * $diasUteis;
 
     $dadosAgrupados[$chave] = [
       'nome' => $nome,
@@ -170,15 +128,19 @@ foreach ($registros as $registro) {
       'horas_devidas' => round($minutosDevidos),
       'horas_pendentes' => 0,
       'hora_extra' => 0,
-      'dia_inicio' => $registro['dia_inicio'],
-      'dia_termino' => $registro['dia_termino'],
-      'turno1_entrada' => $registro['hora_entrada_primeiro_turno'],
-      'turno1_saida' => $registro['hora_saida_primeiro_turno'],
-      'turno2_entrada' => $registro['hora_entrada_segundo_turno'],
-      'turno2_saida' => $registro['hora_saida_segundo_turno'],
+
+      // ** Campos de Escala obrigatórios **
+      'dia_inicio' => $reg['dia_inicio'],
+      'dia_termino' => $reg['dia_termino'],
+      'turno1_entrada' => $reg['hora_entrada_primeiro_turno'],
+      'turno1_saida' => $reg['hora_saida_primeiro_turno'],
+      'turno2_entrada' => $reg['hora_entrada_segundo_turno'],
+      'turno2_saida' => $reg['hora_saida_segundo_turno'],
     ];
+
   }
 
+  // Somar horas trabalhadas (diferença entre entrada e saída)
   if ($registro['entrada'] && $registro['saida']) {
     $entradaSeg = strtotime($registro['entrada']);
     $saidaSeg = strtotime($registro['saida']);
@@ -186,11 +148,14 @@ foreach ($registros as $registro) {
     $dadosAgrupados[$chave]['horas_trabalhadas'] += $horasDia / 60;
   }
 
+  // Somar horas pendentes (convertendo TIME para minutos)
   $dadosAgrupados[$chave]['horas_pendentes'] += timeToMinutes($registro['horas_pendentes']);
+
+  // Somar horas extras
   $dadosAgrupados[$chave]['hora_extra'] += timeToMinutes($registro['hora_extra']);
 }
 
-// ✅ Ajustar saldo final
+// Ajustar horas pendentes e extras para compensar e mostrar a diferença líquida
 foreach ($dadosAgrupados as &$dados) {
   $pendentes = $dados['horas_pendentes'];
   $extras = $dados['hora_extra'];
@@ -206,13 +171,26 @@ foreach ($dadosAgrupados as &$dados) {
     $dados['horas_pendentes_liquida'] = 0;
   }
 
+  // Convertendo horas trabalhadas para minutos (estava em segundos)
   $dados['horas_trabalhadas'] = round($dados['horas_trabalhadas']);
 }
 
-unset($dados);
+// Função para formatar segundos em HHh MMm
+function formatarSegundosParaHorasMinutos($segundos)
+{
+  $h = floor($segundos / 3600);
+  $m = floor(($segundos % 3600) / 60);
+  return sprintf("%02dh %02dm", $h, $m);
+}
 
+// Função para formatar minutos em HHh MMm
+function formatarMinutosParaHorasMinutos($minutos)
+{
+  $h = floor($minutos / 60);
+  $m = $minutos % 60;
+  return sprintf("%02dh %02dm", $h, $m);
+}
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -226,33 +204,24 @@ unset($dados);
   <meta name="description" content="" />
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
- <!-- Fonts -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
     rel="stylesheet" />
-
-  <!-- Icons. Uncomment required icon fonts -->
+  <!-- Icons -->
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-
   <!-- Core CSS -->
   <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
   <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
   <link rel="stylesheet" href="../../assets/css/demo.css" />
-
   <!-- Vendors CSS -->
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
   <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-  <!-- Page CSS -->
-
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <!-- Helpers -->
   <script src="../../assets/vendor/js/helpers.js"></script>
-
-  <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-  <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../../assets/js/config.js"></script>
 </head>
 
@@ -487,7 +456,7 @@ unset($dados);
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Configurações</span>
+                      <span class="align-middle">COnfigurações</span>
                     </a>
                   </li>
                   <li>
@@ -539,18 +508,19 @@ unset($dados);
                   </tr>
                 </thead>
                 <tbody id="tabelaBancoHoras">
-                  <?php foreach ($dadosAgrupados as $key => $d): ?>
+                  <?php foreach ($dadosAgrupados as $key => $dados): ?>
                     <tr>
-                      <td><?= htmlspecialchars($d['nome']) ?></td>
-                      <td><?= $d['mes_ano'] ?></td>
-                      <td><?= minutesToHoursMinutes($d['horas_trabalhadas']) ?></td>
-                      <td><?= minutesToHoursMinutes($d['hora_extra_liquida']) ?></td>
-                      <td><?= minutesToHoursMinutes($d['horas_pendentes_liquida']) ?></td>
+                      <td><?= htmlspecialchars($dados['nome']) ?></td>
+                      <td><?= $dados['mes_ano'] ?></td>
+                      <td><?= formatarMinutosParaHorasMinutos($dados['horas_trabalhadas']) ?></td>
+                      <td><?= formatarMinutosParaHorasMinutos($dados['hora_extra_liquida']) ?></td>
+                      <td><?= formatarMinutosParaHorasMinutos($dados['horas_pendentes_liquida']) ?></td>
                       <td>
                         <button class="btn btn-primary btn-sm" data-bs-toggle="modal"
                           data-bs-target="#modalUnificado<?= md5($key) ?>">
                           Visualizar
                         </button>
+
                       </td>
                     </tr>
                   <?php endforeach; ?>
@@ -564,56 +534,59 @@ unset($dados);
               <div id="paginacaoHoras" class="mx-2"></div>
               <button class="btn btn-sm btn-outline-primary" id="nextPageHoras">Próxima &raquo;</button>
             </div>
-
           </div>
 
-          <!-- Modais Unificados -->
-          <?php foreach ($dadosAgrupados as $key => $d): ?>
+          <!-- Modais unificados -->
+          <?php foreach ($dadosAgrupados as $key => $dados): ?>
             <div class="modal fade" id="modalUnificado<?= md5($key) ?>" tabindex="-1"
               aria-labelledby="modalUnificadoLabel<?= md5($key) ?>" aria-hidden="true">
               <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
                   <div class="modal-header">
                     <h5 class="modal-title" id="modalUnificadoLabel<?= md5($key) ?>">
-                      Banco de Horas - <?= htmlspecialchars($d['nome']) ?>
+                      Banco de Horas - <?= htmlspecialchars($dados['nome']) ?>
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                   </div>
                   <div class="modal-body">
 
                     <!-- Seção Escala -->
                     <h6 class="fw-bold">Escala</h6>
-                    <p><strong>Dia início:</strong> <?= ucfirst($d['dia_inicio']) ?></p>
-                    <p><strong>Dia término:</strong> <?= ucfirst($d['dia_termino']) ?></p>
+                    <p><strong>Dia início:</strong> <?= ucfirst($dados['dia_inicio']) ?></p>
+                    <p><strong>Dia término:</strong> <?= ucfirst($dados['dia_termino']) ?></p>
                     <p><strong>1º Turno:</strong>
-                      <?= date('H:i', strtotime($d['turno1_entrada'])) ?> às
-                      <?= date('H:i', strtotime($d['turno1_saida'])) ?>
+                      <?= date('H:i', strtotime($dados['turno1_entrada'])) ?> às
+                      <?= date('H:i', strtotime($dados['turno1_saida'])) ?>
                     </p>
                     <p><strong>2º Turno:</strong>
-                      <?= ($d['turno2_entrada'] && $d['turno2_saida'])
-                        ? date('H:i', strtotime($d['turno2_entrada'])) . ' às ' .
-                        date('H:i', strtotime($d['turno2_saida']))
+                      <?= ($dados['turno2_entrada'] && $dados['turno2_saida'])
+                        ? date('H:i', strtotime($dados['turno2_entrada'])) . ' às ' .
+                        date('H:i', strtotime($dados['turno2_saida']))
                         : 'Não definido' ?>
                     </p>
                     <hr>
 
                     <!-- Seção Detalhes de Horas -->
                     <h6 class="fw-bold">Detalhes do Banco de Horas</h6>
-                    <p><strong>Mês/Ano:</strong> <?= $d['mes_ano'] ?></p>
+                    <p><strong>Mês/Ano:</strong> <?= $dados['mes_ano'] ?></p>
                     <p><strong>Horas Trabalhadas:</strong>
-                      <?= minutesToHoursMinutes($d['horas_trabalhadas']) ?></p>
+                      <?= formatarMinutosParaHorasMinutos($dados['horas_trabalhadas']) ?></p>
                     <p><strong>Horas Extras Líquidas:</strong>
-                      <?= minutesToHoursMinutes($d['hora_extra_liquida']) ?></p>
+                      <?= formatarMinutosParaHorasMinutos($dados['hora_extra_liquida']) ?></p>
                     <p><strong>Horas Pendentes Líquidas:</strong>
-                      <?= minutesToHoursMinutes($d['horas_pendentes_liquida']) ?></p>
+                      <?= formatarMinutosParaHorasMinutos($dados['horas_pendentes_liquida']) ?></p>
+                    <p><strong>Horas a Cumprir no Mês:</strong>
+                      <?= formatarMinutosParaHorasMinutos($dados['horas_devidas']) ?></p>
+
                   </div>
                   <div class="modal-footer">
-                    <button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                   </div>
                 </div>
               </div>
             </div>
           <?php endforeach; ?>
+          <!-- Fim dos modais unificados -->
 
           <!-- Script de pesquisa e paginação -->
           <script>
@@ -695,28 +668,205 @@ unset($dados);
   </div>
 
 
-
-  <!-- build:js assets/vendor/js/core.js -->
-  <script src="../../js/saudacao.js"></script>
   <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../../assets/vendor/libs/popper/popper.js"></script>
   <script src="../../assets/vendor/js/bootstrap.js"></script>
+  <!-- Carregue o Bootstrap após este script -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
   <script src="../../assets/vendor/js/menu.js"></script>
-  <!-- endbuild -->
-
-  <!-- Vendors JS -->
   <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-  <!-- Main JS -->
   <script src="../../assets/js/main.js"></script>
-
-  <!-- Page JS -->
-  <script src="../../assets/js/dashboards-analytics.js"></script>
-
-  <!-- Place this tag in your head or just before your close body tag. -->
-  <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 
 </html>
+
+
+<!-- codigo de registro de ponto do frente de loja -->
+
+<?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+session_start();
+
+require '../../assets/php/conexao.php';
+date_default_timezone_set('America/Manaus');
+
+$idSelecionado = $_GET['id'] ?? '';
+
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel'])
+) {
+  header("Location: ../index.php?id=$idSelecionado");
+  exit;
+}
+
+// Buscar imagem da empresa para favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // ícone padrão
+
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
+  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($empresa && !empty($empresa['imagem'])) {
+    $iconeEmpresa = $empresa['imagem'];
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+$usuario_id = $_SESSION['usuario_id'];
+$tipoUsuarioSessao = $_SESSION['nivel'];
+$cpf = '';
+$nomeFuncionario = 'Desconhecido';
+$tipoUsuario = 'Comum';
+
+try {
+  $stmt = $pdo->prepare(
+    $tipoUsuarioSessao === 'Admin'
+    ? "SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id"
+    : "SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id"
+  );
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeFuncionario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+    $cpf = $usuario['cpf'];
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "');</script>";
+  exit;
+}
+
+$dataAtual = date('Y-m-d');
+$horaAtual = date('H:i:s');
+$horaAgoraTimestamp = strtotime($horaAtual);
+
+$diaAtualSemana = strtolower(date('l'));
+$diasSemana = [
+  'sunday' => 'domingo',
+  'monday' => 'segunda',
+  'tuesday' => 'terca',
+  'wednesday' => 'quarta',
+  'thursday' => 'quinta',
+  'friday' => 'sexta',
+  'saturday' => 'sabado'
+];
+$diaTraduzido = $diasSemana[$diaAtualSemana];
+
+$exibirFormulario = false;
+$mensagemTurno = '';
+$horaEntradaReferencial = '';
+$horaSaidaReferencial = '';
+$horaEntradaTolerancia = '';
+$registroPonto = null;
+
+$stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE cpf = :cpf LIMIT 1");
+$stmt->execute([':cpf' => $cpf]);
+$func = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($func) {
+  $nomeFuncionario = $func['nome'];
+
+  $diaInicio = strtolower($func['dia_inicio']);
+  $diaTermino = strtolower($func['dia_termino']);
+  $diasSemanaNumerico = [
+    'domingo' => 0,
+    'segunda' => 1,
+    'terca' => 2,
+    'quarta' => 3,
+    'quinta' => 4,
+    'sexta' => 5,
+    'sabado' => 6
+  ];
+
+  $numeroDiaAtual = $diasSemanaNumerico[$diaTraduzido];
+  $numeroDiaInicio = $diasSemanaNumerico[$diaInicio];
+  $numeroDiaTermino = $diasSemanaNumerico[$diaTermino];
+
+  // Verifica se hoje é dia útil do funcionário
+  if (
+    ($numeroDiaInicio <= $numeroDiaTermino && $numeroDiaAtual >= $numeroDiaInicio && $numeroDiaAtual <= $numeroDiaTermino) ||
+    ($numeroDiaInicio > $numeroDiaTermino && ($numeroDiaAtual >= $numeroDiaInicio || $numeroDiaAtual <= $numeroDiaTermino))
+  ) {
+    $manhaEntrada = $func['hora_entrada_primeiro_turno'];
+    $manhaSaida = $func['hora_saida_primeiro_turno'];
+    $tardeEntrada = $func['hora_entrada_segundo_turno'];
+    $tardeSaida = $func['hora_saida_segundo_turno'];
+
+    $manhaInicio = $manhaEntrada ? strtotime($manhaEntrada) : null;
+    $manhaFim = $manhaSaida ? strtotime($manhaSaida) : null;
+    $tardeInicio = $tardeEntrada ? strtotime($tardeEntrada) : null;
+    $tardeFim = $tardeSaida ? strtotime($tardeSaida) : null;
+
+    // Define turno ativo ou último turno para exibir horários sempre
+    if ($manhaInicio && $horaAgoraTimestamp <= $manhaFim) {
+      // Ainda dentro ou até o fim do primeiro turno
+      $horaEntradaReferencial = $manhaEntrada;
+      $horaSaidaReferencial = $manhaSaida;
+    } elseif ($tardeInicio && $horaAgoraTimestamp <= $tardeFim) {
+      // Ainda dentro ou até o fim do segundo turno
+      $horaEntradaReferencial = $tardeEntrada;
+      $horaSaidaReferencial = $tardeSaida;
+    } else {
+      // Passou do horário de saída do último turno - mostrar último turno para referência
+      if ($tardeFim) {
+        $horaEntradaReferencial = $tardeEntrada;
+        $horaSaidaReferencial = $tardeSaida;
+      } else {
+        $horaEntradaReferencial = $manhaEntrada;
+        $horaSaidaReferencial = $manhaSaida;
+      }
+    }
+
+    // Define tolerância (20 minutos após entrada)
+    if ($horaEntradaReferencial) {
+      $horaEntradaTolerancia = date('H:i:s', strtotime('+10 minutes', strtotime($horaEntradaReferencial)));
+    }
+
+    // Buscar registro de ponto do dia
+    $stmt = $pdo->prepare("SELECT id, entrada, saida, status, horas_pendentes FROM registros_ponto WHERE cpf = :cpf AND data = :data LIMIT 1");
+    $stmt->execute([':cpf' => $cpf, ':data' => $dataAtual]);
+    $registroPonto = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($registroPonto) {
+      if ($registroPonto['saida'] === NULL) {
+        $mensagemTurno = "<div class='alert alert-warning text-center'>
+                          Saída ainda não registrada.<br> 
+                          Se você optar por continuar trabalhando além do horário previsto do turno, o tempo adicional será registrado como <strong>hora extra</strong>.
+                          </div>";
+        $exibirFormulario = true; // Permite registrar saída
+      } else {
+        $mensagemTurno = "<div class='alert alert-success text-center'>Ponto fechado para o dia de hoje.</div>";
+        $exibirFormulario = false; // Fecha formulário pois já registrou saída
+      }
+    } else {
+      $mensagemTurno = "<div class='alert alert-warning text-center'>Nenhum ponto registrado hoje. Você pode registrar agora.</div>";
+      $exibirFormulario = true; // Permite registrar entrada
+    }
+
+  } else {
+    $mensagemTurno = "<div class='alert alert-warning text-center'>Hoje não é dia de trabalho para este funcionário.</div>";
+    $exibirFormulario = false;
+  }
+} else {
+  $mensagemTurno = "<div class='alert alert-danger text-center'>Funcionário não encontrado com este CPF.</div>";
+  $exibirFormulario = false;
+}
+
+echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 'Não') . "');</script>";
+
+// Exibir informações (exemplo básico - adapte à sua view)
+?>

@@ -1,9 +1,11 @@
 <?php
 session_start();
 require_once '../../assets/php/conexao.php';
+date_default_timezone_set('America/Manaus');
 
-
-$idSelecionado = $_GET['id'] ?? '';
+// CORREÇÃO: capturar os valores da URL corretamente
+$idSelecionado = $_GET['empresa_id'] ?? '';
+$cpfFuncionario = $_GET['cpf'] ?? '';
 
 if (
   !isset($_SESSION['usuario_logado']) ||
@@ -11,25 +13,16 @@ if (
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: ../login.php?id=$idSelecionado");
+  header("Location: ../login.php?empresa_id=$idSelecionado");
   exit;
 }
 
 // Verifica tipo de empresa
-if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
-    exit;
-  }
-  $empresaId = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $empresaId = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $empresaId) {
-    echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
-    exit;
-  }
-} else {
-  echo "<script>alert('Empresa não identificada!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
+$tipoEsperado = str_starts_with($idSelecionado, 'principal_') ? 'principal' : 'filial';
+$numeroEsperado = (int) filter_var($idSelecionado, FILTER_SANITIZE_NUMBER_INT);
+
+if ($_SESSION['tipo_empresa'] !== $tipoEsperado || $_SESSION['empresa_id'] != $numeroEsperado) {
+  echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?empresa_id=$idSelecionado';</script>";
   exit;
 }
 
@@ -67,18 +60,84 @@ try {
   $nivelUsuario = 'Erro';
 }
 
+// Buscar registros de ponto apenas do CPF informado
 try {
-  $stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE empresa_id = :empresa_id");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $funcionarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $stmt = $pdo->prepare("
+    SELECT r.*, f.nome AS nome_funcionario
+    FROM registros_ponto r
+    INNER JOIN funcionarios f ON r.cpf = f.cpf
+    WHERE r.empresa_id = :eid AND r.cpf = :cpf
+    ORDER BY r.data DESC, r.entrada ASC
+  ");
+  $stmt->execute([
+    ':eid' => $idSelecionado,
+    ':cpf' => $cpfFuncionario
+  ]);
+  $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  echo "Erro ao buscar funcionários: " . $e->getMessage();
+  echo "<script>alert('Erro ao carregar registros: {$e->getMessage()}'); history.back();</script>";
   exit;
 }
 
+// Agrupar os pontos por data e CPF
+$pontosAgrupados = [];
+$diasSemana = [
+  'Monday' => 'Segunda-feira',
+  'Tuesday' => 'Terça-feira',
+  'Wednesday' => 'Quarta-feira',
+  'Thursday' => 'Quinta-feira',
+  'Friday' => 'Sexta-feira',
+  'Saturday' => 'Sábado',
+  'Sunday' => 'Domingo'
+];
 
+foreach ($pontos as $rec) {
+  $cpf = $rec['cpf'];
+  $data = $rec['data'];
+  $entTS = strtotime($rec['entrada']);
+  $saiTS = $rec['saida'] ? strtotime($rec['saida']) : null;
+
+  if (!isset($pontosAgrupados[$cpf][$data])) {
+    $pontosAgrupados[$cpf][$data] = [
+      'nome_funcionario' => $rec['nome_funcionario'],
+      'dia_semana' => $diasSemana[(new DateTime($data))->format('l')],
+      'entrada_am' => '-',
+      'saida_am' => '-',
+      'entrada_pm' => '-',
+      'saida_pm' => '-',
+      'foto_entrada_am' => null,
+      'foto_saida_am' => null,
+      'loc_entrada_am' => null,
+      'loc_saida_am' => null,
+      'foto_entrada_pm' => null,
+      'foto_saida_pm' => null,
+      'loc_entrada_pm' => null,
+      'loc_saida_pm' => null,
+    ];
+  }
+
+  if ($entTS < strtotime('12:00:00')) {
+    $pontosAgrupados[$cpf][$data]['entrada_am'] = date('H:i', $entTS);
+    $pontosAgrupados[$cpf][$data]['foto_entrada_am'] = $rec['foto_entrada'];
+    $pontosAgrupados[$cpf][$data]['loc_entrada_am'] = $rec['localizacao_entrada'];
+    if ($saiTS) {
+      $pontosAgrupados[$cpf][$data]['saida_am'] = date('H:i', $saiTS);
+      $pontosAgrupados[$cpf][$data]['foto_saida_am'] = $rec['foto_saida'];
+      $pontosAgrupados[$cpf][$data]['loc_saida_am'] = $rec['localizacao_saida'];
+    }
+  } else {
+    $pontosAgrupados[$cpf][$data]['entrada_pm'] = date('H:i', $entTS);
+    $pontosAgrupados[$cpf][$data]['foto_entrada_pm'] = $rec['foto_entrada'];
+    $pontosAgrupados[$cpf][$data]['loc_entrada_pm'] = $rec['localizacao_entrada'];
+    if ($saiTS) {
+      $pontosAgrupados[$cpf][$data]['saida_pm'] = date('H:i', $saiTS);
+      $pontosAgrupados[$cpf][$data]['foto_saida_pm'] = $rec['foto_saida'];
+      $pontosAgrupados[$cpf][$data]['loc_saida_pm'] = $rec['localizacao_saida'];
+    }
+  }
+}
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -124,7 +183,6 @@ try {
   <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
   <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../../assets/js/config.js"></script>
-  
 </head>
 
 <body>
@@ -219,9 +277,14 @@ try {
             </a>
 
             <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./relatorio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Visualização Geral">Visualização Geral</div>
+                </a>
+              </li>
               <li class="menu-item active">
                 <a href="#" class="menu-link">
-                  <div data-i18n="Visualização Geral">Visualização Geral</div>
+                  <div data-i18n="Visualização Geral">Pontos Registrados</div>
                 </a>
               </li>
               <li class="menu-item">
@@ -378,46 +441,77 @@ try {
               </li>
               <!--/ User -->
             </ul>
-
           </div>
         </nav>
         <!-- / Navbar -->
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Relatório</a>/</span>Visualização
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="./relatorio.php?id=<?= urlencode($idSelecionado); ?>">Relatório</a>/</span>Visualização
             Geral</h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize todos os
               Registros</span></h5>
 
           <!-- Card com tabela e paginação -->
           <div class="card">
-            <h5 class="card-header">Registros de pontos</h5>
+            <h5 class="card-header">
+                Registros de pontos - <?= htmlspecialchars($pontos[0]['nome_funcionario'] ?? 'Funcionário não encontrado') ?>
+            </h5>
+
             <div class="table-responsive text-nowrap">
               <table class="table table-hover">
                 <thead>
                   <tr>
                     <th>Funcionário</th>
-                    <th>Escala</th>
-                    <th>Cargo</th>
-                    <th>Setor</th>
-                    <th>Visualizar Pontos</th>
+                    <th>Data</th>
+                    <th>Dia</th>
+                    <th>Entrada AM</th>
+                    <th>Entrada Intervalo</th>
+                    <th>Saída Intervalo</th>
+                    <th>Saída PM</th>
+                    <th>Fotos</th>
+                    <th>Mapa</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaFuncionarios" class="table-border-bottom-0">
-                  <?php foreach ($funcionarios as $func): ?>
-                    <tr>
-                      <td><?= htmlspecialchars($func['nome']) ?></td>
-                      <!-- Exibindo dados adicionais -->
-                      <td><?= htmlspecialchars($func['escala']) ?></td>
-                      <td><?= htmlspecialchars($func['cargo']) ?></td>
-                      <td><?= htmlspecialchars($func['setor']) ?></td>
+                  <?php foreach ($pontosAgrupados as $cpf => $datas): ?>
+                    <?php foreach ($datas as $data => $t): ?>
+                      <?php $temDoisTurnos = $t['entrada_am'] !== '-' && $t['entrada_pm'] !== '-'; ?>
+                      <tr>
+                        <td><?= htmlspecialchars($t['nome_funcionario']) ?></td>
+                        <td><?= date('d/m/Y', strtotime($data)) ?></td>
+                        <td><?= $t['dia_semana'] ?></td>
 
-                      <!-- Link para visualizar os pontos do funcionário -->
-                      <td>
-                        <a href="ponto.php?cpf=<?= $func['cpf'] ?>&empresa_id=<?= $idSelecionado ?>" class="btn btn-info btn-sm">Ver Pontos</a>
-                      </td>
-                    </tr>
+                        <?php if ($temDoisTurnos): ?>
+                          <td><?= $t['entrada_am'] ?></td>
+                          <td><?= $t['saida_am'] ?></td>
+
+                        <?php else: ?>
+                          <td colspan="4">-</td>
+                        <?php endif; ?>
+
+                        <td><?= $t['entrada_pm'] ?></td>
+                        <td><?= $t['saida_pm'] ?></td>
+
+                        <td class="text-center">
+                          <i class="bx bx-camera text-primary" style="cursor:pointer" data-bs-toggle="modal"
+                            data-bs-target="#modalFoto" data-fotoam="<?= base64_encode($t['foto_entrada_am'] ?? '') ?>"
+                            data-fotoam-s="<?= base64_encode($t['foto_saida_am'] ?? '') ?>"
+                            data-fotopm="<?= base64_encode($t['foto_entrada_pm'] ?? '') ?>"
+                            data-fotopm-s="<?= base64_encode($t['foto_saida_pm'] ?? '') ?>">
+                          </i>
+                        </td>
+                        <td class="text-center">
+                          <i class="bx bx-map text-success" style="cursor:pointer" data-bs-toggle="modal"
+                            data-bs-target="#modalMapa" data-locam="<?= htmlspecialchars($t['loc_entrada_am'] ?? '') ?>"
+                            data-locam-s="<?= htmlspecialchars($t['loc_saida_am'] ?? '') ?>"
+                            data-locpm="<?= htmlspecialchars($t['loc_entrada_pm'] ?? '') ?>"
+                            data-locpm-s="<?= htmlspecialchars($t['loc_saida_pm'] ?? '') ?>">
+                          </i>
+                        </td>
+                      </tr>
+                    <?php endforeach; ?>
                   <?php endforeach; ?>
                 </tbody>
+
               </table>
             </div>
 
@@ -429,6 +523,62 @@ try {
             </div>
           </div>
 
+          <!-- Modal de Fotos -->
+          <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Fotos do Registro</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body d-flex flex-column flex-md-row justify-content-around align-items-center gap-3">
+                  <div class="text-center">
+                    <p><strong>Entrada AM</strong></p>
+                    <img id="imgEntradaAM" class="img-fluid rounded border" style="max-height:300px">
+                    <p><strong>Saída AM</strong></p>
+                    <img id="imgSaidaAM" class="img-fluid rounded border" style="max-height:300px">
+                  </div>
+                  <div class="text-center">
+                    <p><strong>Entrada PM</strong></p>
+                    <img id="imgEntradaPM" class="img-fluid rounded border" style="max-height:300px">
+                    <p><strong>Saída PM</strong></p>
+                    <img id="imgSaidaPM" class="img-fluid rounded border" style="max-height:300px">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal de Mapa -->
+          <div class="modal fade" id="modalMapa" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Localização do Registro</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body d-flex flex-column flex-md-row justify-content-around align-items-center gap-3">
+                  <div class="text-center">
+                    <p><strong>AM - Entrada</strong></p>
+                    <iframe id="mapEntradaAM" width="100%" height="250" style="max-width:300px;border:0;"
+                      loading="lazy"></iframe>
+                    <p><strong>AM - Saída</strong></p>
+                    <iframe id="mapSaidaAM" width="100%" height="250" style="max-width:300px;border:0;"
+                      loading="lazy"></iframe>
+                  </div>
+                  <div class="text-center">
+                    <p><strong>PM - Entrada</strong></p>
+                    <iframe id="mapEntradaPM" width="100%" height="250" style="max-width:300px;border:0;"
+                      loading="lazy"></iframe>
+                    <p><strong>PM - Saída</strong></p>
+                    <iframe id="mapSaidaPM" width="100%" height="250" style="max-width:300px;border:0;"
+                      loading="lazy"></iframe>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <script>
             const searchInput = document.getElementById('searchInput');
             const allRows = Array.from(document.querySelectorAll('#tabelaFuncionarios tr'));
@@ -436,68 +586,85 @@ try {
             let currentPage = 1;
 
             function renderTable() {
+              // 1) Filtrar pelas colunas de texto do <td>, usando o valor do searchInput
               const filtro = searchInput.value.trim().toLowerCase();
-
-              // 1. Filtra as linhas com base no texto das colunas
-              const filteredRows = allRows.filter(row => {
+              const filtered = allRows.filter(row => {
                 if (!filtro) return true;
-                return Array.from(row.cells).some(cell =>
-                  cell.textContent.toLowerCase().includes(filtro)
+                return Array.from(row.cells).some(td =>
+                  td.textContent.toLowerCase().includes(filtro)
                 );
               });
 
-              // 2. Calcula paginação
-              const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
-              const startIndex = (currentPage - 1) * rowsPerPage;
-              const endIndex = startIndex + rowsPerPage;
+              // 2) Paginação sobre filtered
+              const totalPages = Math.ceil(filtered.length / rowsPerPage);
+              const start = (currentPage - 1) * rowsPerPage;
+              const end = start + rowsPerPage;
 
-              // 3. Oculta todas as linhas
-              allRows.forEach(row => row.style.display = 'none');
+              // 3) Esconder todas
+              allRows.forEach(r => r.style.display = 'none');
+              // 4) Mostrar só o slice atual
+              filtered.slice(start, end).forEach(r => r.style.display = '');
 
-              // 4. Exibe apenas as filtradas da página atual
-              filteredRows.slice(startIndex, endIndex).forEach(row => row.style.display = '');
-
-              // 5. Renderiza botões de paginação
-              const paginacao = document.getElementById('paginacao');
-              paginacao.innerHTML = '';
+              // 5) Renderizar botões de página
+              const pg = document.getElementById('paginacao');
+              pg.innerHTML = '';
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
-                btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-                btn.style.marginRight = '5px';
                 btn.textContent = i;
+                btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                btn.style.marginRight = '6px';
                 btn.onclick = () => {
                   currentPage = i;
                   renderTable();
                 };
-                paginacao.appendChild(btn);
+                pg.appendChild(btn);
               }
 
-              // 6. Atualiza botões de navegação
+              // 6) Ajusta estado dos Next/Prev
               document.getElementById('prevPage').disabled = currentPage === 1;
               document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
             }
 
-            // Eventos dos botões
+            // Eventos de paginação
             document.getElementById('prevPage').addEventListener('click', () => {
               if (currentPage > 1) {
                 currentPage--;
                 renderTable();
               }
             });
-
             document.getElementById('nextPage').addEventListener('click', () => {
               currentPage++;
               renderTable();
             });
 
-            // Evento da pesquisa
+            // Pesquisa em tempo real
             searchInput.addEventListener('input', () => {
               currentPage = 1;
               renderTable();
             });
 
-            // Inicializa a tabela
+            // Inicia a tabela
             renderTable();
+
+            // popula modal de fotos
+            document.querySelectorAll('[data-bs-target="#modalFoto"]').forEach(icon => {
+              icon.addEventListener('click', () => {
+                document.getElementById('imgEntradaAM').src = icon.dataset.fotoam ? 'data:image/jpeg;base64,' + icon.dataset.fotoam : '';
+                document.getElementById('imgSaidaAM').src = icon.dataset.fotoamS ? 'data:image/jpeg;base64,' + icon.dataset.fotoamS : '';
+                document.getElementById('imgEntradaPM').src = icon.dataset.fotopm ? 'data:image/jpeg;base64,' + icon.dataset.fotopm : '';
+                document.getElementById('imgSaidaPM').src = icon.dataset.fotopmS ? 'data:image/jpeg;base64,' + icon.dataset.fotopmS : '';
+              });
+            });
+
+            // popula modal de mapa
+            document.querySelectorAll('[data-bs-target="#modalMapa"]').forEach(icon => {
+              icon.addEventListener('click', () => {
+                document.getElementById('mapEntradaAM').src = icon.dataset.locam ? `https://www.google.com/maps?q=${icon.dataset.locam}&output=embed` : '';
+                document.getElementById('mapSaidaAM').src = icon.dataset.locamS ? `https://www.google.com/maps?q=${icon.dataset.locamS}&output=embed` : '';
+                document.getElementById('mapEntradaPM').src = icon.dataset.locpm ? `https://www.google.com/maps?q=${icon.dataset.locpm}&output=embed` : '';
+                document.getElementById('mapSaidaPM').src = icon.dataset.locpmS ? `https://www.google.com/maps?q=${icon.dataset.locpmS}&output=embed` : '';
+              });
+            });
           </script>
 
 
