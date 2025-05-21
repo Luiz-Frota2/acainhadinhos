@@ -124,7 +124,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-           <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -376,6 +376,7 @@ try {
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos registrados</span></h5>
 
           <!-- Tabela de Ajuste de Ponto -->
+
           <div class="card">
             <h5 class="card-header">Lista de Registros de Ponto</h5>
             <div class="table-responsive text-nowrap">
@@ -385,6 +386,8 @@ try {
                     <th>Funcionário</th>
                     <th>Data</th>
                     <th>Entrada</th>
+                    <th>Saída para Intervalo</th>
+                    <th>Entrada do Intervalo</th>
                     <th>Saída</th>
                     <th>Ações</th>
                   </tr>
@@ -394,91 +397,113 @@ try {
                     <td><strong>João Silva</strong></td>
                     <td>01/04/2025</td>
                     <td>08:00</td>
+                    <td>12:00</td>
+                    <td>13:00</td>
                     <td>17:00</td>
                     <td>
                       <!-- Ícone de Editar -->
-                      <button class="btn btn-link text-primary p-0" title="Editar" onclick="openEditModal();">
+                      <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editModal">
                         <i class="tf-icons bx bx-edit"></i>
                       </button>
-
-                      <!-- Espaço entre os ícones -->
-                      <span class="mx-2">|</span>
-
-                      <!-- Ícone de Excluir -->
-                      <button class="btn btn-link text-danger p-0" title="Excluir" onclick="openDeleteModal();">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
+                     
                     </td>
                   </tr>
-                  <!-- More rows can be added here -->
+                  <tr>
+                    <td><strong>Maria Souza</strong></td>
+                    <td>01/04/2025</td>
+                    <td>09:00</td>
+                    <td>12:30</td>
+                    <td>13:30</td>
+                    <td>18:00</td>
+                    <td>
+                      <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editModal">
+                        <i class="tf-icons bx bx-edit"></i>
+                      </button>
+                    
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Carlos Lima</strong></td>
+                    <td>01/04/2025</td>
+                    <td>07:30</td>
+                    <td>12:00</td>
+                    <td>13:00</td>
+                    <td>16:30</td>
+                    <td>
+                      <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editModal">
+                        <i class="tf-icons bx bx-edit"></i>
+                      </button>
+                      
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
+        </div>
 
-          <!-- Modal de Edição de Ponto -->
-          <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="editModalLabel">Editar Registro de Ponto</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <form id="editPontoForm">
-                    <div class="mb-3">
-                      <label for="editEntrada" class="form-label">Entrada</label>
-                      <input type="time" class="form-control" id="editEntrada" value="08:00" />
-                    </div>
-                    <div class="mb-3">
-                      <label for="editSaida" class="form-label">Saída</label>
-                      <input type="time" class="form-control" id="editSaida" value="17:00" />
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                      <button type="submit" class="btn btn-primary">Salvar</button>
-                    </div>
-                  </form>
-                </div>
+        <!-- Modal de Edição de Ponto -->
+        <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Editar Registro de Ponto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+              <div class="modal-body">
+                <form id="editPontoForm">
+                  <div class="mb-3">
+                    <label for="editEntrada" class="form-label">Entrada</label>
+                    <input type="time" class="form-control" id="editEntrada" value="08:00">
+                  </div>
+                  <div class="mb-3">
+                    <label for="editSaidaIntervalo" class="form-label">Saída para Intervalo</label>
+                    <input type="time" class="form-control" id="editSaidaIntervalo" value="12:00">
+                  </div>
+                  <div class="mb-3">
+                    <label for="editEntradaIntervalo" class="form-label">Entrada do Intervalo</label>
+                    <input type="time" class="form-control" id="editEntradaIntervalo" value="13:00">
+                  </div>
+                  <div class="mb-3">
+                    <label for="editSaida" class="form-label">Saída</label>
+                    <input type="time" class="form-control" id="editSaida" value="17:00">
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Modal de Exclusão de Ponto -->
-          <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="deleteModalLabel">Excluir Registro de Ponto</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <p>Tem certeza de que deseja excluir este registro de ponto?</p>
-                  <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Sim, excluir</button>
+        <!-- Modal de Exclusão de Ponto -->
+        <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Excluir Registro de Ponto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+              </div>
+              <div class="modal-body">
+                <p>Tem certeza de que deseja excluir este registro de ponto?</p>
+                <div class="d-flex justify-content-end">
+                  <button type="button" class="btn btn-danger me-2" data-bs-dismiss="modal">Sim, excluir</button>
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 </div>
               </div>
             </div>
           </div>
-
-          <!-- Botão para adicionar novo ajuste -->
-          <div id="addPonto" class="mt-3 add-category justify-content-center d-flex text-center align-items-center" onclick="window.location.href='adicionarAjustePonto.php?id=<?= urlencode($idSelecionado); ?>';" style="cursor: pointer;">
-            <i class="tf-icons bx bx-plus me-2"></i>
-            <span>Adicionar Novo Ajuste de Ponto</span>
-          </div>
-
         </div>
-      </div>
-    </div>
-  </div>
 
-  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-  <script src="../../assets/vendor/libs/popper/popper.js"></script>
-  <script src="../../assets/vendor/js/bootstrap.js"></script>
-  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-  <script src="../../assets/vendor/js/menu.js"></script>
-  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-  <script src="../../assets/js/main.js"></script>
+        <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+        <script src="../../assets/vendor/libs/popper/popper.js"></script>
+        <script src="../../assets/vendor/js/bootstrap.js"></script>
+        <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+        <script src="../../assets/vendor/js/menu.js"></script>
+        <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+        <script src="../../assets/js/main.js"></script>
 </body>
 
 </html>
