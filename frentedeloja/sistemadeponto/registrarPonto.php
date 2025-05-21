@@ -20,7 +20,7 @@ if (
 }
 
 // Buscar imagem da empresa para favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // ícone padrão
 
 try {
   $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
@@ -110,6 +110,7 @@ if ($func) {
   $numeroDiaInicio = $diasSemanaNumerico[$diaInicio];
   $numeroDiaTermino = $diasSemanaNumerico[$diaTermino];
 
+  // Verifica se hoje é dia útil do funcionário
   if (
     ($numeroDiaInicio <= $numeroDiaTermino && $numeroDiaAtual >= $numeroDiaInicio && $numeroDiaAtual <= $numeroDiaTermino) ||
     ($numeroDiaInicio > $numeroDiaTermino && ($numeroDiaAtual >= $numeroDiaInicio || $numeroDiaAtual <= $numeroDiaTermino))
@@ -119,62 +120,29 @@ if ($func) {
     $tardeEntrada = $func['hora_entrada_segundo_turno'];
     $tardeSaida = $func['hora_saida_segundo_turno'];
 
-    $turnos = [];
+    $manhaInicio = $manhaEntrada ? strtotime($manhaEntrada) : null;
+    $manhaFim = $manhaSaida ? strtotime($manhaSaida) : null;
+    $tardeInicio = $tardeEntrada ? strtotime($tardeEntrada) : null;
+    $tardeFim = $tardeSaida ? strtotime($tardeSaida) : null;
 
-    // Turno manhã
-    if ($manhaEntrada && $manhaSaida) {
-      $manhaInicio = strtotime($manhaEntrada);
-      $manhaFim = strtotime($manhaSaida);
-      $turnos[] = [
-        'entrada' => $manhaEntrada,
-        'saida' => $manhaSaida,
-        'inicio_ts' => $manhaInicio,
-        'fim_ts' => $manhaFim
-      ];
-    }
-
-    // Turno tarde/noite (inclusive noturno cruzando a meia-noite)
-    if ($tardeEntrada && $tardeSaida) {
-      $tardeInicio = strtotime($tardeEntrada);
-      $tardeFim = strtotime($tardeSaida);
-
-      // Se saída for menor que entrada, considera que cruza a meia-noite
-      if ($tardeFim <= $tardeInicio) {
-        $tardeFim += 86400; // adiciona 24h em segundos
+    // Define turno ativo ou último turno para exibir horários sempre
+    if ($manhaInicio && $horaAgoraTimestamp <= $manhaFim) {
+      // Ainda dentro ou até o fim do primeiro turno
+      $horaEntradaReferencial = $manhaEntrada;
+      $horaSaidaReferencial = $manhaSaida;
+    } elseif ($tardeInicio && $horaAgoraTimestamp <= $tardeFim) {
+      // Ainda dentro ou até o fim do segundo turno
+      $horaEntradaReferencial = $tardeEntrada;
+      $horaSaidaReferencial = $tardeSaida;
+    } else {
+      // Passou do horário de saída do último turno - mostrar último turno para referência
+      if ($tardeFim) {
+        $horaEntradaReferencial = $tardeEntrada;
+        $horaSaidaReferencial = $tardeSaida;
+      } else {
+        $horaEntradaReferencial = $manhaEntrada;
+        $horaSaidaReferencial = $manhaSaida;
       }
-
-      $horaAgoraReal = $horaAgoraTimestamp;
-      if ($horaAgoraTimestamp < $tardeInicio) {
-        $horaAgoraReal += 86400; // se ainda antes da meia-noite, ajusta hora para comparar corretamente
-      }
-
-      $turnos[] = [
-        'entrada' => $tardeEntrada,
-        'saida' => $tardeSaida,
-        'inicio_ts' => $tardeInicio,
-        'fim_ts' => $tardeFim,
-        'horaAgoraReal' => $horaAgoraReal
-      ];
-    }
-
-    // Determina qual turno está ativo ou mais próximo
-    foreach ($turnos as $turno) {
-      $inicio = $turno['inicio_ts'];
-      $fim = $turno['fim_ts'];
-      $agora = $turno['horaAgoraReal'] ?? $horaAgoraTimestamp;
-
-      if ($agora >= $inicio && $agora <= $fim) {
-        $horaEntradaReferencial = $turno['entrada'];
-        $horaSaidaReferencial = $turno['saida'];
-        break;
-      }
-    }
-
-    // Se não estiver em nenhum turno, assume último turno como referência
-    if (!$horaEntradaReferencial && !empty($turnos)) {
-      $ultimo = end($turnos);
-      $horaEntradaReferencial = $ultimo['entrada'];
-      $horaSaidaReferencial = $ultimo['saida'];
     }
 
     // Define tolerância (20 minutos após entrada)
@@ -193,14 +161,14 @@ if ($func) {
                           Saída ainda não registrada.<br> 
                           Se você optar por continuar trabalhando além do horário previsto do turno, o tempo adicional será registrado como <strong>hora extra</strong>.
                           </div>";
-        $exibirFormulario = true;
+        $exibirFormulario = true; // Permite registrar saída
       } else {
         $mensagemTurno = "<div class='alert alert-success text-center'>Ponto fechado para o dia de hoje.</div>";
-        $exibirFormulario = false;
+        $exibirFormulario = false; // Fecha formulário pois já registrou saída
       }
     } else {
       $mensagemTurno = "<div class='alert alert-warning text-center'>Nenhum ponto registrado hoje. Você pode registrar agora.</div>";
-      $exibirFormulario = true;
+      $exibirFormulario = true; // Permite registrar entrada
     }
 
   } else {
@@ -213,8 +181,9 @@ if ($func) {
 }
 
 echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 'Não') . "');</script>";
-?>
 
+// Exibir informações (exemplo básico - adapte à sua view)
+?>
 
 
 <!DOCTYPE html>
