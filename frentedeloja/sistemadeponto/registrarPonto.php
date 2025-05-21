@@ -147,7 +147,7 @@ if ($func) {
 
     // Define tolerância (20 minutos após entrada)
     if ($horaEntradaReferencial) {
-      $horaEntradaTolerancia = date('H:i:s', strtotime('+20 minutes', strtotime($horaEntradaReferencial)));
+      $horaEntradaTolerancia = date('H:i:s', strtotime('+10 minutes', strtotime($horaEntradaReferencial)));
     }
 
     // Buscar registro de ponto do dia

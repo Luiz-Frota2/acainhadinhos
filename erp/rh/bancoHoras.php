@@ -211,7 +211,8 @@ function formatarHorasMinutos($horas)
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -462,8 +463,7 @@ function formatarHorasMinutos($horas)
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                href="#">Sistema de Ponto</a>/</span>Ajuste de
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de
             Ponto</h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos
               registrados</span></h5>
@@ -571,13 +571,15 @@ function formatarHorasMinutos($horas)
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
-                btn.className = 'btn btn-sm mx-1 ' + (i === currentPageHoras ? 'btn-primary' : 'btn-outline-primary');
+                btn.className = 'btn btn-sm ' + (i === currentPageHoras ? 'btn-primary' : 'btn-outline-primary');
+                btn.style.marginRight = '6px'; // Espaçamento entre botões
                 btn.addEventListener('click', () => {
                   currentPageHoras = i;
                   renderTabelaBancoHoras();
                 });
                 paginacao.appendChild(btn);
               }
+
 
               document.getElementById('prevPageHoras').disabled = currentPageHoras === 1;
               document.getElementById('nextPageHoras').disabled = currentPageHoras === totalPages || totalPages === 0;
