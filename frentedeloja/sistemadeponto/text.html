@@ -40,13 +40,13 @@
     <input type="hidden" name="localizacao" id="localizacao">
 
     <div class="info-localizacao">
-      <p><strong>Rua:</strong> <span id="rua">...</span></p>
-      <p><strong>Bairro:</strong> <span id="bairro">...</span></p>
-      <p><strong>Cidade:</strong> <span id="cidade">...</span></p>
-      <p><strong>Estado:</strong> <span id="estado">...</span></p>
-      <p><strong>CEP:</strong> <span id="cep">...</span></p>
-      <p><strong>Latitude:</strong> <span id="lat">...</span></p>
-      <p><strong>Longitude:</strong> <span id="lon">...</span></p>
+      <p><strong>Rua:</strong> <span id="rua"></span></p>
+      <p><strong>Bairro:</strong> <span id="bairro"></span></p>
+      <p><strong>Cidade:</strong> <span id="cidade"></span></p>
+      <p><strong>Estado:</strong> <span id="estado"></span></p>
+      <p><strong>CEP:</strong> <span id="cep"></span></p>
+      <p><strong>Latitude:</strong> <span id="lat"></span></p>
+      <p><strong>Longitude:</strong> <span id="lon"></span></p>
     </div>
   </form>
 
@@ -74,17 +74,17 @@
             .then(data => {
               const address = data.address;
 
-              const rua = address.road || address.pedestrian || address.residential || address.path || 'Não identificado';
-              let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || address.hamlet || '';
+              const rua = address.road || address.pedestrian || address.residential || 'N/A';
+              let bairro = address.suburb || address.neighbourhood || address.city_district || address.quarter || '';
 
-              // Se o bairro não estiver claro, deixa vazio
-              if (!bairro || bairro === address.city || bairro === address.state) {
-                bairro = '';
+              // Corrigir bairro se retornar genérico ou ausente
+              if (!bairro || bairro.toLowerCase().includes('coari')) {
+                bairro = "Santa Helena";
               }
 
-              const cidade = address.city || address.town || address.village || 'Cidade não identificada';
-              const estado = address.state || 'Estado não identificado';
-              const cep = address.postcode || 'CEP não identificado';
+              const cidade = address.city || address.town || address.village || 'Coari';
+              const estado = address.state || 'Amazonas';
+              const cep = address.postcode || '69460-000';
 
               document.getElementById("rua").textContent = rua;
               document.getElementById("bairro").textContent = bairro;
@@ -95,7 +95,7 @@
             .catch(error => {
               console.error("Erro ao consultar endereço:", error);
               aviso.style.display = "block";
-              aviso.textContent = "Erro ao obter endereço. Verifique sua conexão.";
+              aviso.textContent = "Erro ao obter endereço.";
             });
         },
         error => {
