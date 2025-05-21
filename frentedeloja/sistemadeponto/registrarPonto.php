@@ -4,7 +4,6 @@ error_reporting(E_ALL);
 session_start();
 
 require '../../assets/php/conexao.php';
-date_default_timezone_set('America/Manaus');
 
 $idSelecionado = $_GET['id'] ?? '';
 
@@ -19,157 +18,135 @@ if (
   exit;
 }
 
-// Buscar imagem da empresa para favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // ícone padrão
-
+// Ícone da empresa
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
+  $stmt->execute([':id' => $idSelecionado]);
   $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($empresa && !empty($empresa['imagem'])) {
+  if (!empty($empresa['imagem'])) {
     $iconeEmpresa = $empresa['imagem'];
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  echo "<script>alert('Erro ao carregar ícone: " . addslashes($e->getMessage()) . "');</script>";
 }
 
+// === Dados do usuário ===
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel'];
+$tipoSessao = $_SESSION['nivel'];
 $cpf = '';
 $nomeFuncionario = 'Desconhecido';
-$tipoUsuario = 'Comum';
 
 try {
-  $stmt = $pdo->prepare(
-    $tipoUsuarioSessao === 'Admin'
-    ? "SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id"
-    : "SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id"
-  );
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
+  $sql = $tipoSessao === 'Admin'
+    ? "SELECT usuario, cpf FROM contas_acesso WHERE id = :id"
+    : "SELECT usuario, cpf FROM funcionarios_acesso WHERE id = :id";
+  $stmt = $pdo->prepare($sql);
+  $stmt->execute([':id' => $usuario_id]);
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
   if ($usuario) {
-    $nomeFuncionario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
     $cpf = $usuario['cpf'];
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "');</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . addslashes($e->getMessage()) . "');</script>";
   exit;
 }
 
+// Nome do funcionário
+try {
+  $stmt = $pdo->prepare("SELECT nome FROM funcionarios WHERE cpf = :cpf LIMIT 1");
+  $stmt->execute([':cpf' => $cpf]);
+  $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
+  if ($funcionario) {
+    $nomeFuncionario = $funcionario['nome'];
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao buscar nome do funcionário: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+// === Registro de ponto ===
 $dataAtual = date('Y-m-d');
 $horaAtual = date('H:i:s');
-$horaAgoraTimestamp = strtotime($horaAtual);
+$horaAgoraTs = strtotime($horaAtual);
 
-$diaAtualSemana = strtolower(date('l'));
-$diasSemana = [
-  'sunday' => 'domingo',
-  'monday' => 'segunda',
-  'tuesday' => 'terca',
-  'wednesday' => 'quarta',
-  'thursday' => 'quinta',
-  'friday' => 'sexta',
+$diaSemanaIng = strtolower(date('l'));
+$mapaDias = [
+  'sunday' => 'domingo', 'monday' => 'segunda', 'tuesday' => 'terca',
+  'wednesday' => 'quarta', 'thursday' => 'quinta', 'friday' => 'sexta',
   'saturday' => 'sabado'
 ];
-$diaTraduzido = $diasSemana[$diaAtualSemana];
-
-$exibirFormulario = false;
-$mensagemTurno = '';
-$horaEntradaReferencial = '';
-$horaSaidaReferencial = '';
-$horaEntradaTolerancia = '';
-$registroPonto = null;
+$diaTraduzido = $mapaDias[$diaSemanaIng];
 
 $stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE cpf = :cpf LIMIT 1");
 $stmt->execute([':cpf' => $cpf]);
 $func = $stmt->fetch(PDO::FETCH_ASSOC);
 
+$exibirFormulario = false;
+$mensagemTurno = '';
+$horaEntradaRef = '';
+$horaSaidaRef = '';
+$horaEntradaToleran = '';
+$registroPontoHoje = null;
+
 if ($func) {
-  $nomeFuncionario = $func['nome'];
+  $numDias = ['domingo' => 0, 'segunda' => 1, 'terca' => 2, 'quarta' => 3, 'quinta' => 4, 'sexta' => 5, 'sabado' => 6];
+  $numHoje = $numDias[$diaTraduzido];
+  $numInicio = $numDias[strtolower($func['dia_inicio'])];
+  $numTermino = $numDias[strtolower($func['dia_termino'])];
 
-  $diaInicio = strtolower($func['dia_inicio']);
-  $diaTermino = strtolower($func['dia_termino']);
-  $diasSemanaNumerico = [
-    'domingo' => 0,
-    'segunda' => 1,
-    'terca' => 2,
-    'quarta' => 3,
-    'quinta' => 4,
-    'sexta' => 5,
-    'sabado' => 6
-  ];
+  $trabalhaHoje = (
+    ($numInicio <= $numTermino && $numHoje >= $numInicio && $numHoje <= $numTermino) ||
+    ($numInicio > $numTermino && ($numHoje >= $numInicio || $numHoje <= $numTermino))
+  );
 
-  $numeroDiaAtual = $diasSemanaNumerico[$diaTraduzido];
-  $numeroDiaInicio = $diasSemanaNumerico[$diaInicio];
-  $numeroDiaTermino = $diasSemanaNumerico[$diaTermino];
+  if ($trabalhaHoje) {
+    $mEnt = $func['hora_entrada_primeiro_turno'];
+    $mSai = $func['hora_saida_primeiro_turno'];
+    $tEnt = $func['hora_entrada_segundo_turno'];
+    $tSai = $func['hora_saida_segundo_turno'];
 
-  // Verifica se hoje é dia útil do funcionário
-  if (
-    ($numeroDiaInicio <= $numeroDiaTermino && $numeroDiaAtual >= $numeroDiaInicio && $numeroDiaAtual <= $numeroDiaTermino) ||
-    ($numeroDiaInicio > $numeroDiaTermino && ($numeroDiaAtual >= $numeroDiaInicio || $numeroDiaAtual <= $numeroDiaTermino))
-  ) {
-    $manhaEntrada = $func['hora_entrada_primeiro_turno'];
-    $manhaSaida = $func['hora_saida_primeiro_turno'];
-    $tardeEntrada = $func['hora_entrada_segundo_turno'];
-    $tardeSaida = $func['hora_saida_segundo_turno'];
+    // Converte para timestamp
+    $tsAgora = strtotime($horaAtual);
+    $turnos = [];
 
-    $manhaInicio = $manhaEntrada ? strtotime($manhaEntrada) : null;
-    $manhaFim = $manhaSaida ? strtotime($manhaSaida) : null;
-    $tardeInicio = $tardeEntrada ? strtotime($tardeEntrada) : null;
-    $tardeFim = $tardeSaida ? strtotime($tardeSaida) : null;
+    if ($mEnt && $mSai) {
+      $tsInicio = strtotime($mEnt);
+      $tsFim = strtotime($mSai);
+      if ($tsFim < $tsInicio) {
+        $tsFim = strtotime('+1 day', $tsFim); // atravessa a meia-noite
+      }
+      $turnos[] = ['inicio' => $tsInicio, 'fim' => $tsFim, 'refEnt' => $mEnt, 'refSai' => $mSai];
+    }
 
-    // Define turno ativo ou último turno para exibir horários sempre
-    if ($manhaInicio && $horaAgoraTimestamp <= $manhaFim) {
-      // Ainda dentro ou até o fim do primeiro turno
-      $horaEntradaReferencial = $manhaEntrada;
-      $horaSaidaReferencial = $manhaSaida;
-    } elseif ($tardeInicio && $horaAgoraTimestamp <= $tardeFim) {
-      // Ainda dentro ou até o fim do segundo turno
-      $horaEntradaReferencial = $tardeEntrada;
-      $horaSaidaReferencial = $tardeSaida;
-    } else {
-      // Passou do horário de saída do último turno - mostrar último turno para referência
-      if ($tardeFim) {
-        $horaEntradaReferencial = $tardeEntrada;
-        $horaSaidaReferencial = $tardeSaida;
-      } else {
-        $horaEntradaReferencial = $manhaEntrada;
-        $horaSaidaReferencial = $manhaSaida;
+    if ($tEnt && $tSai) {
+      $tsInicio = strtotime($tEnt);
+      $tsFim = strtotime($tSai);
+      if ($tsFim < $tsInicio) {
+        $tsFim = strtotime('+1 day', $tsFim); // atravessa a meia-noite
+      }
+      $turnos[] = ['inicio' => $tsInicio, 'fim' => $tsFim, 'refEnt' => $tEnt, 'refSai' => $tSai];
+    }
+
+    foreach ($turnos as $turno) {
+      if (
+        $horaAgoraTs >= $turno['inicio'] ||
+        ($turno['fim'] > $turno['inicio'] && $horaAgoraTs <= $turno['fim']) ||
+        ($turno['fim'] < $turno['inicio'] && ($horaAgoraTs <= $turno['fim'] || $horaAgoraTs >= $turno['inicio']))
+      ) {
+        $horaEntradaRef = $turno['refEnt'];
+        $horaSaidaRef = $turno['refSai'];
+        break;
       }
     }
 
-    // Define tolerância (20 minutos após entrada)
-    if ($horaEntradaReferencial) {
-      $horaEntradaTolerancia = date('H:i:s', strtotime('+10 minutes', strtotime($horaEntradaReferencial)));
+    // Define tolerância
+    if ($horaEntradaRef) {
+      $horaEntradaToleran = date('H:i:s', strtotime($horaEntradaRef) + 10 * 60);
     }
 
-    // Buscar registro de ponto do dia
-    $stmt = $pdo->prepare("SELECT id, entrada, saida, status, horas_pendentes FROM registros_ponto WHERE cpf = :cpf AND data = :data LIMIT 1");
-    $stmt->execute([':cpf' => $cpf, ':data' => $dataAtual]);
-    $registroPonto = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($registroPonto) {
-      if ($registroPonto['saida'] === NULL) {
-        $mensagemTurno = "<div class='alert alert-warning text-center'>
-                          Saída ainda não registrada.<br> 
-                          Se você optar por continuar trabalhando além do horário previsto do turno, o tempo adicional será registrado como <strong>hora extra</strong>.
-                          </div>";
-        $exibirFormulario = true; // Permite registrar saída
-      } else {
-        $mensagemTurno = "<div class='alert alert-success text-center'>Ponto fechado para o dia de hoje.</div>";
-        $exibirFormulario = false; // Fecha formulário pois já registrou saída
-      }
-    } else {
-      $mensagemTurno = "<div class='alert alert-warning text-center'>Nenhum ponto registrado hoje. Você pode registrar agora.</div>";
-      $exibirFormulario = true; // Permite registrar entrada
-    }
+    // Sempre permite exibir o formulário, independentemente do status do ponto
+    $mensagemTurno = "<div class='alert alert-warning text-center'>Você pode registrar ponto agora.</div>";
+    $exibirFormulario = true;
 
   } else {
     $mensagemTurno = "<div class='alert alert-warning text-center'>Hoje não é dia de trabalho para este funcionário.</div>";
@@ -179,11 +156,8 @@ if ($func) {
   $mensagemTurno = "<div class='alert alert-danger text-center'>Funcionário não encontrado com este CPF.</div>";
   $exibirFormulario = false;
 }
-
-echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 'Não') . "');</script>";
-
-// Exibir informações (exemplo básico - adapte à sua view)
 ?>
+
 
 
 <!DOCTYPE html>
