@@ -3,10 +3,11 @@ session_start();
 require_once '../../assets/php/conexao.php';
 date_default_timezone_set('America/Manaus');
 
-// CORREÇÃO: capturar os valores da URL corretamente
+// Captura parâmetros da URL
 $idSelecionado = $_GET['empresa_id'] ?? '';
 $cpfFuncionario = $_GET['cpf'] ?? '';
 
+// Verifica sessão
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
@@ -14,15 +15,6 @@ if (
   !isset($_SESSION['usuario_id'])
 ) {
   header("Location: ../login.php?empresa_id=$idSelecionado");
-  exit;
-}
-
-// Verifica tipo de empresa
-$tipoEsperado = str_starts_with($idSelecionado, 'principal_') ? 'principal' : 'filial';
-$numeroEsperado = (int) filter_var($idSelecionado, FILTER_SANITIZE_NUMBER_INT);
-
-if ($_SESSION['tipo_empresa'] !== $tipoEsperado || $_SESSION['empresa_id'] != $numeroEsperado) {
-  echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?empresa_id=$idSelecionado';</script>";
   exit;
 }
 
@@ -60,82 +52,49 @@ try {
   $nivelUsuario = 'Erro';
 }
 
-// Buscar registros de ponto apenas do CPF informado
-try {
-  $stmt = $pdo->prepare("
-    SELECT r.*, f.nome AS nome_funcionario
-    FROM registros_ponto r
-    INNER JOIN funcionarios f ON r.cpf = f.cpf
-    WHERE r.empresa_id = :eid AND r.cpf = :cpf
-    ORDER BY r.data DESC, r.entrada ASC
-  ");
-  $stmt->execute([
-    ':eid' => $idSelecionado,
-    ':cpf' => $cpfFuncionario
-  ]);
-  $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar registros: {$e->getMessage()}'); history.back();</script>";
+// Verifica tipo de empresa esperado (principal ou filial)
+$tipoEsperado = str_starts_with($idSelecionado, 'principal_') ? 'principal' : 'filial';
+$numeroEsperado = (int) filter_var($idSelecionado, FILTER_SANITIZE_NUMBER_INT);
+
+// Validação de acesso
+if ($_SESSION['tipo_empresa'] !== $tipoEsperado || $_SESSION['empresa_id'] != $numeroEsperado) {
+  echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?empresa_id=$idSelecionado';</script>";
   exit;
 }
 
-// Agrupar os pontos por data e CPF
-$pontosAgrupados = [];
-$diasSemana = [
-  'Monday' => 'Segunda-feira',
-  'Tuesday' => 'Terça-feira',
-  'Wednesday' => 'Quarta-feira',
-  'Thursday' => 'Quinta-feira',
-  'Friday' => 'Sexta-feira',
-  'Saturday' => 'Sábado',
-  'Sunday' => 'Domingo'
-];
+try {
+  $sql = "SELECT 
+            p.data,
+            p.nome AS registro_nome,        -- nome do ponto (caso use)
+            f.nome AS nome_funcionario,     -- nome do funcionário
+            p.entrada,
+            p.foto_entrada,
+            p.localizacao_entrada,
+            p.saida_intervalo,
+            p.foto_saida_intervalo,
+            p.localizacao_saida_intervalo,
+            p.retorno_intervalo,
+            p.foto_retorno_intervalo,
+            p.localizacao_retorno_intervalo,
+            p.saida_final,
+            p.foto_saida_final,
+            p.localizacao_saida_final
+          FROM pontos p
+          INNER JOIN funcionarios f ON p.cpf = f.cpf
+          WHERE p.cpf = :cpf 
+            AND p.empresa_id = :empresa_id
+          ORDER BY p.data DESC";
 
-foreach ($pontos as $rec) {
-  $cpf = $rec['cpf'];
-  $data = $rec['data'];
-  $entTS = strtotime($rec['entrada']);
-  $saiTS = $rec['saida'] ? strtotime($rec['saida']) : null;
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':cpf', $cpfFuncionario);
+  $stmt->bindParam(':empresa_id', $idSelecionado);
+  $stmt->execute();
 
-  if (!isset($pontosAgrupados[$cpf][$data])) {
-    $pontosAgrupados[$cpf][$data] = [
-      'nome_funcionario' => $rec['nome_funcionario'],
-      'dia_semana' => $diasSemana[(new DateTime($data))->format('l')],
-      'entrada_am' => '-',
-      'saida_am' => '-',
-      'entrada_pm' => '-',
-      'saida_pm' => '-',
-      'foto_entrada_am' => null,
-      'foto_saida_am' => null,
-      'loc_entrada_am' => null,
-      'loc_saida_am' => null,
-      'foto_entrada_pm' => null,
-      'foto_saida_pm' => null,
-      'loc_entrada_pm' => null,
-      'loc_saida_pm' => null,
-    ];
-  }
-
-  if ($entTS < strtotime('12:00:00')) {
-    $pontosAgrupados[$cpf][$data]['entrada_am'] = date('H:i', $entTS);
-    $pontosAgrupados[$cpf][$data]['foto_entrada_am'] = $rec['foto_entrada'];
-    $pontosAgrupados[$cpf][$data]['loc_entrada_am'] = $rec['localizacao_entrada'];
-    if ($saiTS) {
-      $pontosAgrupados[$cpf][$data]['saida_am'] = date('H:i', $saiTS);
-      $pontosAgrupados[$cpf][$data]['foto_saida_am'] = $rec['foto_saida'];
-      $pontosAgrupados[$cpf][$data]['loc_saida_am'] = $rec['localizacao_saida'];
-    }
-  } else {
-    $pontosAgrupados[$cpf][$data]['entrada_pm'] = date('H:i', $entTS);
-    $pontosAgrupados[$cpf][$data]['foto_entrada_pm'] = $rec['foto_entrada'];
-    $pontosAgrupados[$cpf][$data]['loc_entrada_pm'] = $rec['localizacao_entrada'];
-    if ($saiTS) {
-      $pontosAgrupados[$cpf][$data]['saida_pm'] = date('H:i', $saiTS);
-      $pontosAgrupados[$cpf][$data]['foto_saida_pm'] = $rec['foto_saida'];
-      $pontosAgrupados[$cpf][$data]['loc_saida_pm'] = $rec['localizacao_saida'];
-    }
-  }
+  $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  die("Erro ao buscar pontos: " . $e->getMessage());
 }
+
 ?>
 
 
@@ -453,66 +412,93 @@ foreach ($pontos as $rec) {
           <!-- Card com tabela e paginação -->
           <div class="card">
             <h5 class="card-header">
-                Registros de pontos - <?= htmlspecialchars($pontos[0]['nome_funcionario'] ?? 'Funcionário não encontrado') ?>
+              Registros de pontos –
+              <?= htmlspecialchars($pontos[0]['nome_funcionario'] ?? 'Funcionário não encontrado') ?>
             </h5>
 
             <div class="table-responsive text-nowrap">
-              <table class="table table-hover">
+              <table class="table" id="tabelaFuncionarios">
                 <thead>
                   <tr>
-                    <th>Funcionário</th>
                     <th>Data</th>
-                    <th>Dia</th>
+                    <th>Funcionário</th>
                     <th>Entrada AM</th>
-                    <th>Entrada Intervalo</th>
                     <th>Saída Intervalo</th>
+                    <th>Retorno Intervalo</th>
                     <th>Saída PM</th>
                     <th>Fotos</th>
-                    <th>Mapa</th>
+                    <th>Localizações</th>
                   </tr>
                 </thead>
-                <tbody id="tabelaFuncionarios" class="table-border-bottom-0">
-                  <?php foreach ($pontosAgrupados as $cpf => $datas): ?>
-                    <?php foreach ($datas as $data => $t): ?>
-                      <?php $temDoisTurnos = $t['entrada_am'] !== '-' && $t['entrada_pm'] !== '-'; ?>
+                <tbody>
+                  <?php if (count($pontos) > 0): ?>
+                    <?php foreach ($pontos as $registro): ?>
                       <tr>
-                        <td><?= htmlspecialchars($t['nome_funcionario']) ?></td>
-                        <td><?= date('d/m/Y', strtotime($data)) ?></td>
-                        <td><?= $t['dia_semana'] ?></td>
-
-                        <?php if ($temDoisTurnos): ?>
-                          <td><?= $t['entrada_am'] ?></td>
-                          <td><?= $t['saida_am'] ?></td>
-
-                        <?php else: ?>
-                          <td colspan="4">-</td>
-                        <?php endif; ?>
-
-                        <td><?= $t['entrada_pm'] ?></td>
-                        <td><?= $t['saida_pm'] ?></td>
-
-                        <td class="text-center">
-                          <i class="bx bx-camera text-primary" style="cursor:pointer" data-bs-toggle="modal"
-                            data-bs-target="#modalFoto" data-fotoam="<?= base64_encode($t['foto_entrada_am'] ?? '') ?>"
-                            data-fotoam-s="<?= base64_encode($t['foto_saida_am'] ?? '') ?>"
-                            data-fotopm="<?= base64_encode($t['foto_entrada_pm'] ?? '') ?>"
-                            data-fotopm-s="<?= base64_encode($t['foto_saida_pm'] ?? '') ?>">
-                          </i>
+                        <!-- Data no formato DD/MM/AAAA -->
+                        <td>
+                          <?= date('d/m/Y', strtotime($registro['data'])) ?>
                         </td>
+
+                        <td><?= htmlspecialchars($registro['nome_funcionario']) ?></td>
+
+                        <!-- Horários formatados como HH:MM -->
+                        <td>
+                          <?= !empty($registro['entrada'])
+                            ? date('H:i', strtotime($registro['entrada']))
+                            : '-' ?>
+                        </td>
+                        <td>
+                          <?= !empty($registro['saida_intervalo'])
+                            ? date('H:i', strtotime($registro['saida_intervalo']))
+                            : '-' ?>
+                        </td>
+                        <td>
+                          <?= !empty($registro['retorno_intervalo'])
+                            ? date('H:i', strtotime($registro['retorno_intervalo']))
+                            : '-' ?>
+                        </td>
+                        <td>
+                          <?= !empty($registro['saida_final'])
+                            ? date('H:i', strtotime($registro['saida_final']))
+                            : '-' ?>
+                        </td>
+
                         <td class="text-center">
-                          <i class="bx bx-map text-success" style="cursor:pointer" data-bs-toggle="modal"
-                            data-bs-target="#modalMapa" data-locam="<?= htmlspecialchars($t['loc_entrada_am'] ?? '') ?>"
-                            data-locam-s="<?= htmlspecialchars($t['loc_saida_am'] ?? '') ?>"
-                            data-locpm="<?= htmlspecialchars($t['loc_entrada_pm'] ?? '') ?>"
-                            data-locpm-s="<?= htmlspecialchars($t['loc_saida_pm'] ?? '') ?>">
-                          </i>
+                          <button
+                            class="btn btn-sm btn-info"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalFoto"
+                            data-fotoam="<?= base64_encode($registro['foto_entrada'] ?? '') ?>"
+                            data-fotoamS="<?= base64_encode($registro['foto_saida_intervalo'] ?? '') ?>"
+                            data-fotopm="<?= base64_encode($registro['foto_retorno_intervalo'] ?? '') ?>"
+                            data-fotopmS="<?= base64_encode($registro['foto_saida_final'] ?? '') ?>">
+                            📷
+                          </button>
+                        </td>
+
+                        <td class="text-center">
+                          <button
+                            class="btn btn-sm btn-primary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalMapa"
+                            data-locam="<?= htmlspecialchars($registro['localizacao_entrada']) ?>"
+                            data-locamS="<?= htmlspecialchars($registro['localizacao_saida_intervalo']) ?>"
+                            data-locpm="<?= htmlspecialchars($registro['localizacao_retorno_intervalo']) ?>"
+                            data-locpmS="<?= htmlspecialchars($registro['localizacao_saida_final']) ?>">
+                            🗺️
+                          </button>
                         </td>
                       </tr>
                     <?php endforeach; ?>
-                  <?php endforeach; ?>
+                  <?php else: ?>
+                    <tr>
+                      <td colspan="8" class="text-center">Nenhum registro encontrado para este CPF e empresa.</td>
+                    </tr>
+                  <?php endif; ?>
                 </tbody>
 
               </table>
+
             </div>
 
             <!-- Controles de paginação -->
@@ -523,150 +509,185 @@ foreach ($pontos as $rec) {
             </div>
           </div>
 
-          <!-- Modal de Fotos -->
-          <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
+          <!-- Modal Fotos -->
+          <div class="modal fade" id="modalFoto" tabindex="-1" aria-labelledby="modalFotoLabel" aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-centered">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title">Fotos do Registro</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  <h5 class="modal-title">Fotos do Ponto</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div class="modal-body d-flex flex-column flex-md-row justify-content-around align-items-center gap-3">
-                  <div class="text-center">
-                    <p><strong>Entrada AM</strong></p>
-                    <img id="imgEntradaAM" class="img-fluid rounded border" style="max-height:300px">
-                    <p><strong>Saída AM</strong></p>
-                    <img id="imgSaidaAM" class="img-fluid rounded border" style="max-height:300px">
-                  </div>
-                  <div class="text-center">
-                    <p><strong>Entrada PM</strong></p>
-                    <img id="imgEntradaPM" class="img-fluid rounded border" style="max-height:300px">
-                    <p><strong>Saída PM</strong></p>
-                    <img id="imgSaidaPM" class="img-fluid rounded border" style="max-height:300px">
+                <div class="modal-body">
+                  <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                      <h6>Entrada AM</h6>
+                      <div class="ratio ratio-4x3">
+                        <img id="fotoEntradaAM" src="" alt="Foto Entrada AM" class="img-fluid rounded" style="object-fit: cover;">
+                      </div>
+                      <h6 class="mt-3">Saída Intervalo</h6>
+                      <div class="ratio ratio-4x3">
+                        <img id="fotoSaidaIntervalo" src="" alt="" class="img-fluid rounded" style="object-fit: cover;">
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <h6>Retorno Intervalo</h6>
+                      <div class="ratio ratio-4x3">
+                        <img id="fotoRetornoIntervalo" src="" alt="Foto Retorno Intervalo" class="img-fluid rounded" style="object-fit: cover;">
+                      </div>
+                      <h6 class="mt-3">Saída Final</h6>
+                      <div class="ratio ratio-4x3">
+                        <img id="fotoSaidaFinal" src="" alt="Foto Saída Final" class="img-fluid rounded" style="object-fit: cover;">
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Modal de Mapa -->
-          <div class="modal fade" id="modalMapa" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
+
+          <!-- Modal do Mapa -->
+          <div class="modal fade" id="modalMapa" tabindex="-1" aria-labelledby="modalMapaLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-xl">
               <div class="modal-content">
                 <div class="modal-header">
-                  <h5 class="modal-title">Localização do Registro</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  <h5 class="modal-title">Localizações do Ponto</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div class="modal-body d-flex flex-column flex-md-row justify-content-around align-items-center gap-3">
-                  <div class="text-center">
-                    <p><strong>AM - Entrada</strong></p>
-                    <iframe id="mapEntradaAM" width="100%" height="250" style="max-width:300px;border:0;"
-                      loading="lazy"></iframe>
-                    <p><strong>AM - Saída</strong></p>
-                    <iframe id="mapSaidaAM" width="100%" height="250" style="max-width:300px;border:0;"
-                      loading="lazy"></iframe>
-                  </div>
-                  <div class="text-center">
-                    <p><strong>PM - Entrada</strong></p>
-                    <iframe id="mapEntradaPM" width="100%" height="250" style="max-width:300px;border:0;"
-                      loading="lazy"></iframe>
-                    <p><strong>PM - Saída</strong></p>
-                    <iframe id="mapSaidaPM" width="100%" height="250" style="max-width:300px;border:0;"
-                      loading="lazy"></iframe>
+                <div class="modal-body">
+                  <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                      <h6>Entrada AM</h6>
+                      <div class="ratio ratio-4x3">
+                        <iframe id="mapEntradaAM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <h6>Saída Intervalo</h6>
+                      <div class="ratio ratio-4x3">
+                        <iframe id="mapSaidaAM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <h6>Retorno Intervalo</h6>
+                      <div class="ratio ratio-4x3">
+                        <iframe id="mapEntradaPM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                      </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <h6>Saída Final</h6>
+                      <div class="ratio ratio-4x3">
+                        <iframe id="mapSaidaPM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+          <!-- Scripts -->
+
+          <!-- Certifique-se que você tenha incluído o CSS e JS do Leaflet no seu HTML, por exemplo: -->
+          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
           <script>
+            // Modal de Fotos
+            const modalFoto = document.getElementById('modalFoto');
+            modalFoto.addEventListener('show.bs.modal', function(event) {
+              const button = event.relatedTarget;
+              const fotoEntradaAM = button.getAttribute('data-fotoam') || '';
+              const fotoSaidaIntervalo = button.getAttribute('data-fotoamS') || '';
+              const fotoRetornoIntervalo = button.getAttribute('data-fotopm') || '';
+              const fotoSaidaFinal = button.getAttribute('data-fotopmS') || '';
+
+              document.getElementById('fotoEntradaAM').src = fotoEntradaAM ? `data:image/jpeg;base64,${fotoEntradaAM}` : 'https://via.placeholder.com/300x200?text=Sem+Foto';
+              document.getElementById('fotoSaidaIntervalo').src = fotoSaidaIntervalo ? `data:image/jpeg;base64,${fotoSaidaIntervalo}` : 'https://via.placeholder.com/300x200?text=Sem+Foto';
+              document.getElementById('fotoRetornoIntervalo').src = fotoRetornoIntervalo ? `data:image/jpeg;base64,${fotoRetornoIntervalo}` : 'https://via.placeholder.com/300x200?text=Sem+Foto';
+              document.getElementById('fotoSaidaFinal').src = fotoSaidaFinal ? `data:image/jpeg;base64,${fotoSaidaFinal}` : 'https://via.placeholder.com/300x200?text=Sem+Foto';
+            });
+
+            // Modal de Mapas (Google Maps embed)
+            const modalMapa = document.getElementById('modalMapa');
+            modalMapa.addEventListener('show.bs.modal', function(event) {
+              const button = event.relatedTarget;
+              const locam = button.getAttribute('data-locam') || '';
+              const locamS = button.getAttribute('data-locamS') || '';
+              const locpm = button.getAttribute('data-locpm') || '';
+              const locpmS = button.getAttribute('data-locpmS') || '';
+
+              function isValidLatLng(str) {
+                if (!str) return false;
+                const parts = str.split(',');
+                if (parts.length !== 2) return false;
+                return !isNaN(parseFloat(parts[0])) && !isNaN(parseFloat(parts[1]));
+              }
+
+              document.getElementById('mapEntradaAM').src = isValidLatLng(locam) ? `https://www.google.com/maps?q=${locam}&output=embed` : '';
+              document.getElementById('mapSaidaAM').src = isValidLatLng(locamS) ? `https://www.google.com/maps?q=${locamS}&output=embed` : '';
+              document.getElementById('mapEntradaPM').src = isValidLatLng(locpm) ? `https://www.google.com/maps?q=${locpm}&output=embed` : '';
+              document.getElementById('mapSaidaPM').src = isValidLatLng(locpmS) ? `https://www.google.com/maps?q=${locpmS}&output=embed` : '';
+            });
+
+            modalMapa.addEventListener('hidden.bs.modal', () => {
+              ['mapEntradaAM', 'mapSaidaAM', 'mapEntradaPM', 'mapSaidaPM'].forEach(id => {
+                document.getElementById(id).src = '';
+              });
+            });
+
+            // Busca em tempo real + Paginação
             const searchInput = document.getElementById('searchInput');
-            const allRows = Array.from(document.querySelectorAll('#tabelaFuncionarios tr'));
+            const allRows = Array.from(document.querySelectorAll('#tabelaFuncionarios tbody tr'));
             const rowsPerPage = 10;
             let currentPage = 1;
 
             function renderTable() {
-              // 1) Filtrar pelas colunas de texto do <td>, usando o valor do searchInput
               const filtro = searchInput.value.trim().toLowerCase();
               const filtered = allRows.filter(row => {
-                if (!filtro) return true;
-                return Array.from(row.cells).some(td =>
-                  td.textContent.toLowerCase().includes(filtro)
-                );
+                return !filtro || Array.from(row.cells).some(td => td.textContent.toLowerCase().includes(filtro));
               });
 
-              // 2) Paginação sobre filtered
-              const totalPages = Math.ceil(filtered.length / rowsPerPage);
+              const totalPages = Math.ceil(filtered.length / rowsPerPage) || 1;
+              currentPage = Math.min(currentPage, totalPages);
+
               const start = (currentPage - 1) * rowsPerPage;
               const end = start + rowsPerPage;
 
-              // 3) Esconder todas
               allRows.forEach(r => r.style.display = 'none');
-              // 4) Mostrar só o slice atual
               filtered.slice(start, end).forEach(r => r.style.display = '');
 
-              // 5) Renderizar botões de página
               const pg = document.getElementById('paginacao');
               pg.innerHTML = '';
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
-                btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-                btn.style.marginRight = '6px';
-                btn.onclick = () => {
+                btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
+                btn.addEventListener('click', () => {
                   currentPage = i;
                   renderTable();
-                };
+                });
                 pg.appendChild(btn);
               }
 
-              // 6) Ajusta estado dos Next/Prev
               document.getElementById('prevPage').disabled = currentPage === 1;
-              document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+              document.getElementById('nextPage').disabled = currentPage === totalPages;
             }
 
-            // Eventos de paginação
             document.getElementById('prevPage').addEventListener('click', () => {
-              if (currentPage > 1) {
-                currentPage--;
-                renderTable();
-              }
+              if (currentPage > 1) currentPage--, renderTable();
             });
             document.getElementById('nextPage').addEventListener('click', () => {
-              currentPage++;
-              renderTable();
+              currentPage++, renderTable();
             });
-
-            // Pesquisa em tempo real
             searchInput.addEventListener('input', () => {
               currentPage = 1;
               renderTable();
             });
 
-            // Inicia a tabela
-            renderTable();
-
-            // popula modal de fotos
-            document.querySelectorAll('[data-bs-target="#modalFoto"]').forEach(icon => {
-              icon.addEventListener('click', () => {
-                document.getElementById('imgEntradaAM').src = icon.dataset.fotoam ? 'data:image/jpeg;base64,' + icon.dataset.fotoam : '';
-                document.getElementById('imgSaidaAM').src = icon.dataset.fotoamS ? 'data:image/jpeg;base64,' + icon.dataset.fotoamS : '';
-                document.getElementById('imgEntradaPM').src = icon.dataset.fotopm ? 'data:image/jpeg;base64,' + icon.dataset.fotopm : '';
-                document.getElementById('imgSaidaPM').src = icon.dataset.fotopmS ? 'data:image/jpeg;base64,' + icon.dataset.fotopmS : '';
-              });
-            });
-
-            // popula modal de mapa
-            document.querySelectorAll('[data-bs-target="#modalMapa"]').forEach(icon => {
-              icon.addEventListener('click', () => {
-                document.getElementById('mapEntradaAM').src = icon.dataset.locam ? `https://www.google.com/maps?q=${icon.dataset.locam}&output=embed` : '';
-                document.getElementById('mapSaidaAM').src = icon.dataset.locamS ? `https://www.google.com/maps?q=${icon.dataset.locamS}&output=embed` : '';
-                document.getElementById('mapEntradaPM').src = icon.dataset.locpm ? `https://www.google.com/maps?q=${icon.dataset.locpm}&output=embed` : '';
-                document.getElementById('mapSaidaPM').src = icon.dataset.locpmS ? `https://www.google.com/maps?q=${icon.dataset.locpmS}&output=embed` : '';
-              });
-            });
+            // Inicializa ao carregar
+            document.addEventListener('DOMContentLoaded', renderTable);
           </script>
-
 
           <!-- build:js assets/vendor/js/core.js -->
           <script src="../../js/saudacao.js"></script>

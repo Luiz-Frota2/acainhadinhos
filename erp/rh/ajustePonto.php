@@ -83,7 +83,30 @@ try {
   $nivelUsuario = 'Erro ao carregar nível';
 }
 
+try {
+  $stmt = $pdo->prepare("
+    SELECT 
+      p.id AS ponto_id,
+      p.cpf,
+      f.nome AS nome_funcionario,
+      p.data,
+      p.entrada,
+      p.saida_intervalo,
+      p.retorno_intervalo,
+      p.saida_final
+    FROM pontos p
+    LEFT JOIN funcionarios f ON f.cpf = p.cpf
+    WHERE p.empresa_id = :empresa_id
+    ORDER BY p.data DESC
+  ");
+  $stmt->bindParam(':empresa_id', $idSelecionado);
+  $stmt->execute();
+  $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  echo "<tr><td colspan='7'>Erro ao buscar pontos: " . $e->getMessage() . "</td></tr>";
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
 
@@ -386,81 +409,87 @@ try {
                     <th>Funcionário</th>
                     <th>Data</th>
                     <th>Entrada</th>
+                    <th>Saída para Intervalo</th>
+                    <th>Entrada do Intervalo</th>
                     <th>Saída</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                  <tr>
-                    <td><strong>João Silva</strong></td>
-                    <td>01/04/2025</td>
-                    <td>08:00</td>
-                    <td>17:00</td>
-                    <td>
-                      <!-- Ícone de Editar -->
-                      <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editModal">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
+                  <?php foreach ($registros as $registro): ?>
+                    <tr>
+                      <td><strong><?= htmlspecialchars($registro['nome_funcionario'] ?? 'Desconhecido') ?></strong></td>
+                      <td><?= date('d/m/Y', strtotime($registro['data'])) ?></td>
+                      <td>
+                        <?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '--:--' ?>
+                      </td>
+                      <td>
+                        <?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '--:--' ?>
+                      </td>
+                      <td>
+                        <?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '--:--' ?>
+                      </td>
+                      <td>
+                        <?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '--:--' ?>
+                      </td>
 
-                      <!-- Espaço entre os ícones -->
-                      <span class="mx-2">|</span>
+                      <td>
+                        <button class="btn btn-link text-primary p-0"
+                          title="Editar"
+                          data-bs-toggle="modal"
+                          data-bs-target="#editModal-<?= $registro['ponto_id'] ?>">
+                          <i class="tf-icons bx bx-edit"></i>
+                        </button>
 
-                      <!-- Ícone de Excluir -->
-                      <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal" data-bs-target="#deleteModal">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  <!-- Mais linhas podem ser adicionadas aqui -->
+                        <!-- Modal -->
+                        <div class="modal fade" id="editModal-<?= $registro['ponto_id'] ?>" tabindex="-1" aria-labelledby="editModalLabel-<?= $registro['ponto_id'] ?>" aria-hidden="true">
+                          <div class="modal-dialog">
+                            <div class="modal-content">
+                              <form method="POST" action="../../assets/php/rh/atualizarAjustePonto.php">
+                                <input type="hidden" name="id" value="<?= $registro['ponto_id'] ?>">
+                                <input type="hidden" name="cpf" value="<?= $registro['cpf'] ?>">
+                                <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
+                                <input type="hidden" name="data" value="<?= $registro['data'] ?>">
+
+                                <div class="modal-header">
+                                  <h5 class="modal-title">Editar Ponto</h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                  <div class="mb-3">
+                                    <label for="entrada" class="form-label">Entrada</label>
+                                    <input type="time" class="form-control" name="entrada" value="<?= $registro['entrada'] ?>">
+                                  </div>
+                                  <div class="mb-3">
+                                    <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
+                                    <input type="time" class="form-control" name="saida_intervalo" value="<?= $registro['saida_intervalo'] ?>">
+                                  </div>
+                                  <div class="mb-3">
+                                    <label for="retorno_intervalo" class="form-label">Entrada do Intervalo</label>
+                                    <input type="time" class="form-control" name="retorno_intervalo" value="<?= $registro['retorno_intervalo'] ?>">
+                                  </div>
+                                  <div class="mb-3">
+                                    <label for="saida_final" class="form-label">Saída</label>
+                                    <input type="time" class="form-control" name="saida_final" value="<?= $registro['saida_final'] ?>">
+                                  </div>
+                                </div>
+
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="submit" class="btn btn-primary">Salvar</button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
                 </tbody>
+
               </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal de Edição de Ponto -->
-        <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="editModalLabel">Editar Registro de Ponto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-              </div>
-              <div class="modal-body">
-                <form id="editPontoForm">
-                  <div class="mb-3">
-                    <label for="editEntrada" class="form-label">Entrada</label>
-                    <input type="time" class="form-control" id="editEntrada" value="08:00">
-                  </div>
-                  <div class="mb-3">
-                    <label for="editSaida" class="form-label">Saída</label>
-                    <input type="time" class="form-control" id="editSaida" value="17:00">
-                  </div>
-                  <div class="d-flex justify-content-between">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal de Exclusão de Ponto -->
-        <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalLabel">Excluir Registro de Ponto</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-              </div>
-              <div class="modal-body">
-                <p>Tem certeza de que deseja excluir este registro de ponto?</p>
-                <div class="d-flex justify-content-end">
-                  <button type="button" class="btn btn-danger me-2" data-bs-dismiss="modal">Sim, excluir</button>
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                </div>
-              </div>
             </div>
           </div>
         </div>

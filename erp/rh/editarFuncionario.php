@@ -223,7 +223,7 @@ try {
                   <div data-i18n="Basic">Adicionados </div>
                 </a>
               </li>
-             
+
             </ul>
             <ul class="menu-sub">
               <li class="menu-item active">
@@ -255,7 +255,7 @@ try {
                   <div data-i18n="Basic">Atestados</div>
                 </a>
               </li>
-             
+
             </ul>
           </li>
 
@@ -477,7 +477,7 @@ try {
                         <div class="mb-3 col-md-6">
                           <label class="form-label">RG</label>
                           <input type="text" class="form-control" name="rg"
-                            value="<?= htmlspecialchars($funcionario['rg']) ?>" required />
+                            value="<?= htmlspecialchars($funcionario['rg']) ?>"  />
                         </div>
                       </div>
                       <div class="d-flex justify-content-end mt-3">
@@ -498,7 +498,7 @@ try {
                         </div>
                         <div class="col-12 col-md-6 mb-3">
                           <label class="form-label" for="setor">Setor</label>
-                          <select class="form-control input-custom" name="setor" id="setor" required>
+                          <select class="form-control input-custom" name="setor" id="setor" >
                             <option value="" disabled <?= empty($funcionario['setor']) ? 'selected' : '' ?>>Selecione o
                               Setor</option>
                             <?php foreach ($setores as $setor): ?>
@@ -520,7 +520,7 @@ try {
                         </div>
                         <div class="col-12 col-md-6 mb-3">
                           <label class="form-label" for="escala">Escala</label>
-                          <select class="form-control input-custom" name="escala" id="escala" required>
+                          <select class="form-control input-custom" name="escala" id="escala" >
                             <option value="" disabled <?= empty($funcionario['escala']) ? 'selected' : '' ?>>Selecione a
                               escala</option>
                             <?php foreach ($escalas as $escala): ?>
@@ -536,11 +536,11 @@ try {
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
                           <label for="dia_inicio" class="form-label">De</label>
-                          <select id="dia_inicio" name="dia_inicio" class="form-control" required>
+                          <select id="dia_inicio" name="dia_inicio" class="form-control" >
                             <?php
                             $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
                             foreach ($dias as $dia) {
-                              $selected = $funcionario['dia_inicio'] == $dia ? 'selected' : '';
+                              $selected = isset($funcionario['dia_inicio']) && $funcionario['dia_inicio'] == $dia ? 'selected' : '';
                               echo "<option value=\"$dia\" $selected>" . ucfirst($dia) . "</option>";
                             }
                             ?>
@@ -548,10 +548,10 @@ try {
                         </div>
                         <div class="col-md-6 col-12 mb-3">
                           <label for="dia_termino" class="form-label">Até</label>
-                          <select id="dia_termino" name="dia_termino" class="form-control" required>
+                          <select id="dia_termino" name="dia_termino" class="form-control" >
                             <?php
                             foreach ($dias as $dia) {
-                              $selected = $funcionario['dia_termino'] == $dia ? 'selected' : '';
+                              $selected = isset($funcionario['dia_termino']) && $funcionario['dia_termino'] == $dia ? 'selected' : '';
                               echo "<option value=\"$dia\" $selected>" . ucfirst($dia) . "</option>";
                             }
                             ?>
@@ -561,31 +561,27 @@ try {
 
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_entrada_primeiro_turno" class="form-label">Hora de Entrada (1° Turno)</label>
-                          <input type="time" id="hora_entrada_primeiro_turno" name="hora_entrada_primeiro_turno"
-                            class="form-control"
-                            value="<?= htmlspecialchars($funcionario['hora_entrada_primeiro_turno'] ?? '') ?>" />
+                          <label for="entrada" class="form-label">Início / Entrada</label>
+                          <input type="time" id="entrada" name="entrada" class="form-control"
+                            value="<?= htmlspecialchars($funcionario['entrada'] ?? '') ?>"  />
                         </div>
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_saida_primeiro_turno" class="form-label">Hora de Saída (1° Turno)</label>
-                          <input type="time" id="hora_saida_primeiro_turno" name="hora_saida_primeiro_turno"
-                            class="form-control"
-                            value="<?= htmlspecialchars($funcionario['hora_saida_primeiro_turno'] ?? '') ?>" />
+                          <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
+                          <input type="time" id="saida_intervalo" name="saida_intervalo" class="form-control"
+                            value="<?= htmlspecialchars($funcionario['saida_intervalo'] ?? '') ?>"  />
                         </div>
                       </div>
 
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_entrada_segundo_turno" class="form-label">Hora de Entrada (2° Turno)</label>
-                          <input type="time" id="hora_entrada_segundo_turno" name="hora_entrada_segundo_turno"
-                            class="form-control"
-                            value="<?= htmlspecialchars($funcionario['hora_entrada_segundo_turno'] ?? '') ?>" />
+                          <label for="retorno_intervalo" class="form-label">Retorno do Intervalo</label>
+                          <input type="time" id="retorno_intervalo" name="retorno_intervalo" class="form-control"
+                            value="<?= htmlspecialchars($funcionario['retorno_intervalo'] ?? '') ?>"  />
                         </div>
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_saida_segundo_turno" class="form-label">Hora de Saída (2° Turno)</label>
-                          <input type="time" id="hora_saida_segundo_turno" name="hora_saida_segundo_turno"
-                            class="form-control"
-                            value="<?= htmlspecialchars($funcionario['hora_saida_segundo_turno'] ?? '') ?>" />
+                          <label for="saida_final" class="form-label">Fim / Saída</label>
+                          <input type="time" id="saida_final" name="saida_final" class="form-control"
+                            value="<?= htmlspecialchars($funcionario['saida_final'] ?? '') ?>"  />
                         </div>
                       </div>
 
@@ -606,24 +602,24 @@ try {
                         <div class="mb-3 col-md-6">
                           <label class="form-label">E-mail</label>
                           <input type="email" class="form-control" name="email"
-                            value="<?= htmlspecialchars($funcionario['email']) ?>" required />
+                            value="<?= htmlspecialchars($funcionario['email']) ?>"  />
                         </div>
                         <div class="mb-3 col-md-6">
                           <label class="form-label">Telefone</label>
                           <input type="tel" class="form-control" name="telefone"
-                            value="<?= htmlspecialchars($funcionario['telefone']) ?>" required />
+                            value="<?= htmlspecialchars($funcionario['telefone']) ?>"  />
                         </div>
                       </div>
                       <div class="row">
                         <div class="mb-3 col-md-6">
                           <label class="form-label">Endereço</label>
                           <input type="text" class="form-control" name="endereco"
-                            value="<?= htmlspecialchars($funcionario['endereco']) ?>" required />
+                            value="<?= htmlspecialchars($funcionario['endereco']) ?>"  />
                         </div>
                         <div class="mb-3 col-md-6">
                           <label class="form-label">Cidade</label>
                           <input type="text" class="form-control" name="cidade"
-                            value="<?= htmlspecialchars($funcionario['cidade']) ?>" required />
+                            value="<?= htmlspecialchars($funcionario['cidade']) ?>"  />
                         </div>
                       </div>
                       <div class="row justify-content-between mt-3">
