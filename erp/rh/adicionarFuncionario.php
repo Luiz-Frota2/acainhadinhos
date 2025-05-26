@@ -508,7 +508,7 @@ try {
                       </div>
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="dia_inicio" class="form-label">De</label>
+                          <label for="dia_inicio" class="form-label">Inicio</label>
                           <select id="dia_inicio" name="dia_inicio" class="form-control">
                             <option value="">Selecione um Dia</option>
                             <option value="domingo">Domingo</option>
@@ -521,8 +521,8 @@ try {
                           </select>
                         </div>
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="dia_termino" class="form-label">Até</label>
-                          <select id="dia_termino" name="dia_termino" class="form-control">
+                          <label for="dia_termino" class="form-label">Folga da Semana</label>
+                          <select id="dia_folga" name="dia_folga" class="form-control">
                             <option value="">Selecione um Dia</option>
                             <option value="domingo">Domingo</option>
                             <option value="segunda">Segunda-feira</option>

@@ -78,7 +78,7 @@ try {
     SELECT 
       p.*,
       f.nome,
-      f.dia_inicio, f.dia_termino,
+      f.dia_inicio, f.dia_folga,
       f.entrada         AS f_entrada,
       f.saida_intervalo AS f_saida_intervalo,
       f.retorno_intervalo AS f_retorno_intervalo,
@@ -119,7 +119,7 @@ foreach ($registros as $r) {
       'minPendentes'    => 0,
       'minExtras'       => 0,
       'dia_inicio'      => $r['dia_inicio'],
-      'dia_termino'     => $r['dia_termino'],
+      'dia_folga'     => $r['dia_folga'],
       'entrada'         => $refE,
       'saida_intervalo' => $refSI,
       'retorno_intervalo' => $refR,
@@ -474,8 +474,6 @@ unset($d);
                   </div>
                   <div class="modal-body">
                     <h6 class="fw-bold">Escala</h6>
-                    <p><strong>Dia início:</strong> <?= ucfirst($d['dia_inicio']) ?></p>
-                    <p><strong>Dia término:</strong> <?= ucfirst($d['dia_termino']) ?></p>
                     <p><strong>Entrada:</strong> <?= date('H:i', strtotime($d['entrada'])) ?></p>
                     <p><strong>Saída Intervalo:</strong> <?= !empty($d['saida_intervalo']) ? date('H:i', strtotime($d['saida_intervalo'])) : '--:--' ?></p>
                     <p><strong>Retorno Intervalo:</strong> <?= !empty($d['retorno_intervalo']) ? date('H:i', strtotime($d['retorno_intervalo'])) : '--:--' ?></p>

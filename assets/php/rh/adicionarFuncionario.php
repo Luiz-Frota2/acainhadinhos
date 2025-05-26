@@ -13,7 +13,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $salario_funcionario = trim($_POST["salario"]);
     $escala_funcionario = trim($_POST["escala"]);
     $dia_inicio = trim($_POST["dia_inicio"]);
-    $dia_termino = trim($_POST["dia_termino"]);
+    $dia_folga = trim($_POST["dia_folga"]);
     
     // Novos campos de horário
     $entrada = trim($_POST["entrada"]);
@@ -47,13 +47,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $sql = "INSERT INTO funcionarios (
             empresa_id, nome, data_nascimento, cpf, rg,
             cargo, setor, salario, escala,
-            dia_inicio, dia_termino, 
+            dia_inicio, dia_folga, 
             entrada, saida_intervalo, retorno_intervalo, saida_final,
             email, telefone, endereco, cidade
         ) VALUES (
             :empresa_id, :nome, :data_nascimento, :cpf, :rg,
             :cargo, :setor, :salario, :escala,
-            :dia_inicio, :dia_termino, 
+            :dia_inicio, :dia_folga, 
             :entrada, :saida_intervalo, :retorno_intervalo, :saida_final,
             :email, :telefone, :endereco, :cidade
         )";
@@ -69,7 +69,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->bindParam(":salario", $salario_funcionario);
         $stmt->bindParam(":escala", $escala_funcionario);
         $stmt->bindParam(":dia_inicio", $dia_inicio);
-        $stmt->bindParam(":dia_termino", $dia_termino);
+        $stmt->bindParam(":dia_folga", $dia_folga);
         $stmt->bindParam(":entrada", $entrada);
         $stmt->bindParam(":saida_intervalo", $saida_intervalo);
         $stmt->bindParam(":retorno_intervalo", $retorno_intervalo);

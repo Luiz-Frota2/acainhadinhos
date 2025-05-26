@@ -85,7 +85,7 @@ try {
   $sql = "
     SELECT 
       p.*,
-      f.dia_inicio, f.dia_termino,
+      f.dia_inicio, f.dia_folga,
       f.entrada   AS f_entrada,
       f.saida_intervalo   AS f_saida_intervalo,
       f.retorno_intervalo AS f_retorno_intervalo,
@@ -115,7 +115,7 @@ foreach ($registros as $r) {
     // calcula dias úteis
     $sem = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
     $i0 = array_search($r['dia_inicio'], $sem);
-    $i1 = array_search($r['dia_termino'], $sem);
+    $i1 = array_search($r['dia_folga'], $sem);
     $perm = [];
     for ($i = $i0;; $i = ($i + 1) % 7) {
       $perm[] = $sem[$i];
@@ -144,7 +144,7 @@ foreach ($registros as $r) {
       'minDevidos'                 => $minDevidos,
       // escala
       'dia_inicio'                 => $r['dia_inicio'],
-      'dia_termino'                => $r['dia_termino'],
+      'dia_folga'                => $r['dia_folga'],
       'entrada'                    => $refE,
       'saida_intervalo'            => $refSI,
       'retorno_intervalo'          => $refR,
@@ -557,8 +557,6 @@ unset($d);
                   </div>
                   <div class="modal-body">
                     <h6 class="fw-bold">Escala</h6>
-                    <p><strong>Dia início:</strong> <?= ucfirst($d['dia_inicio']) ?></p>
-                    <p><strong>Dia término:</strong> <?= ucfirst($d['dia_termino']) ?></p>
                     <p><strong>Entrada:</strong>
                       <?= !empty($d['entrada'])
                         ? date('H:i', strtotime($d['entrada']))

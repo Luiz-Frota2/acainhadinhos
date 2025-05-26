@@ -535,7 +535,7 @@ try {
 
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="dia_inicio" class="form-label">De</label>
+                          <label for="dia_inicio" class="form-label">Inicio</label>
                           <select id="dia_inicio" name="dia_inicio" class="form-control" >
                             <?php
                             $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
@@ -547,11 +547,11 @@ try {
                           </select>
                         </div>
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="dia_termino" class="form-label">Até</label>
-                          <select id="dia_termino" name="dia_termino" class="form-control" >
+                          <label for="dia_folga" class="form-label">Folga da Semana</label>
+                          <select id="dia_folga" name="dia_folga" class="form-control" >
                             <?php
                             foreach ($dias as $dia) {
-                              $selected = isset($funcionario['dia_termino']) && $funcionario['dia_termino'] == $dia ? 'selected' : '';
+                              $selected = isset($funcionario['dia_folga']) && $funcionario['dia_folga'] == $dia ? 'selected' : '';
                               echo "<option value=\"$dia\" $selected>" . ucfirst($dia) . "</option>";
                             }
                             ?>

@@ -13,7 +13,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $salario = trim($_POST["salario"] ?? '');
     $escala = trim($_POST["escala"] ?? '');
     $dia_inicio = trim($_POST["dia_inicio"] ?? '');
-    $dia_termino = trim($_POST["dia_termino"] ?? '');
+    $dia_folga = trim($_POST["dia_folga"] ?? '');
     $entrada = trim($_POST["entrada"] ?? '');
     $saida_intervalo = trim($_POST["saida_intervalo"] ?? '');
     $retorno_intervalo = trim($_POST["retorno_intervalo"] ?? '');
@@ -44,7 +44,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     salario = :salario,
                     escala = :escala,
                     dia_inicio = :dia_inicio,
-                    dia_termino = :dia_termino,
+                    dia_folga = :dia_folga,
                     entrada = :entrada,
                     saida_intervalo = :saida_intervalo,
                     retorno_intervalo = :retorno_intervalo,
@@ -72,7 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             "salario" => $salario,
             "escala" => $escala,
             "dia_inicio" => $dia_inicio,
-            "dia_termino" => $dia_termino,
+            "dia_folga" => $dia_folga,
             "entrada" => $entrada,
             "saida_intervalo" => $saida_intervalo,
             "retorno_intervalo" => $retorno_intervalo,
