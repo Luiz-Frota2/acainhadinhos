@@ -1,13 +1,8 @@
 <?php
-
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
 session_start();
-
 require_once '../../assets/php/conexao.php';
 
 $idSelecionado = $_GET['id'] ?? '';
-
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
@@ -18,7 +13,6 @@ if (
   exit;
 }
 
-// Validação da empresa
 if (str_starts_with($idSelecionado, 'principal_')) {
   if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
     header("Location: .././login.php?id=$idSelecionado");
@@ -36,35 +30,6 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Função para converter TIME (HH:MM:SS) para minutos inteiros
-function timeToMinutes($time)
-{
-  if ($time === null || $time === '' || $time === '00:00:00')
-    return 0;
-  list($h, $m, $s) = explode(':', $time);
-  return intval($h) * 60 + intval($m) + round(intval($s) / 60);
-}
-
-// ✅ Função para converter minutos inteiros para formato "XXh YYm"
-function minutesToHoursMinutes($minutes)
-{
-  $h = floor($minutes / 60);
-  $m = $minutes % 60;
-  return sprintf("%02dh %02dm", $h, $m);
-}
-
-// ✅ Função para calcular horas entre dois horários (em horas decimais)
-function calcularHorasTurno($entrada, $saida)
-{
-  if ($entrada && $saida) {
-    $entradaSeg = strtotime($entrada);
-    $saidaSeg = strtotime($saida);
-    $diff = max(0, $saidaSeg - $entradaSeg);
-    return $diff / 3600;
-  }
-  return 0;
-}
-
 // Buscar imagem da empresa
 try {
   $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
@@ -79,45 +44,57 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// Buscar dados do usuário logado
+// ✅ Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
+$nivelUsuario = 'Comum'; // Valor padrão
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id);
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
   $stmt->execute();
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
     $nivelUsuario = $usuario['nivel'];
-    $cpfUsuario = $usuario['cpf'];
   }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar';
-  $nivelUsuario = 'Erro';
+  $nomeUsuario = 'Erro ao carregar nome';
+  $nivelUsuario = 'Erro ao carregar nível';
 }
 
-// 🔍 Buscar registros
-try {
-  $sql = "
-    SELECT r.*, f.nome, f.dia_inicio, f.dia_termino,
-           f.hora_entrada_primeiro_turno, f.hora_saida_primeiro_turno,
-           f.hora_entrada_segundo_turno, f.hora_saida_segundo_turno
-    FROM registros_ponto r
-    JOIN funcionarios f ON r.cpf = f.cpf
-    WHERE r.empresa_id = :empresa_id
-  ";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':empresa_id', $idSelecionado);
-  $stmt->execute();
-  $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-  die("Erro ao buscar registros: " . $e->getMessage());
+function calcularHoras($inicio, $fim)
+{
+  return (strtotime($fim) - strtotime($inicio)) / 3600;
 }
 
-// 📊 Agrupar dados
+function contarDiasUteis($ano, $mes, $diasPermitidos)
+{
+  $diasNoMes = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
+  $uteis = 0;
+  for ($dia = 1; $dia <= $diasNoMes; $dia++) {
+    $data = "$ano-$mes-$dia";
+    $diaSemana = strtolower(date('l', strtotime($data)));
+    if (in_array($diaSemana, $diasPermitidos)) {
+      $uteis++;
+    }
+  }
+  return $uteis;
+}
+
+$stmt = $pdo->prepare("
+  SELECT r.*, f.nome, f.dia_inicio, f.dia_termino,
+         f.hora_entrada_primeiro_turno, f.hora_saida_primeiro_turno,
+         f.hora_entrada_segundo_turno, f.hora_saida_segundo_turno
+  FROM registros_ponto r
+  JOIN funcionarios f ON r.cpf = f.cpf
+  WHERE r.empresa_id = :empresa_id
+");
+$stmt->bindParam(':empresa_id', $idSelecionado);
+$stmt->execute();
+$registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 $dadosAgrupados = [];
 
 foreach ($registros as $registro) {
@@ -130,89 +107,66 @@ foreach ($registros as $registro) {
 
   if (!isset($dadosAgrupados[$chave])) {
     $diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-
-    $diaInicio = array_search(strtolower($registro['dia_inicio']), $diasSemana);
-    $diaTermino = array_search(strtolower($registro['dia_termino']), $diasSemana);
-
+    $diaInicio = array_search($registro['dia_inicio'], $diasSemana);
+    $diaTermino = array_search($registro['dia_termino'], $diasSemana);
     $diasPermitidos = [];
+
     $i = $diaInicio;
     do {
       $diasPermitidos[] = $diasSemana[$i];
-      if ($i === $diaTermino)
+      if ($i == $diaTermino)
         break;
       $i = ($i + 1) % 7;
     } while (true);
 
-    $diasNoMes = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
-    $diasUteis = 0;
-    for ($dia = 1; $dia <= $diasNoMes; $dia++) {
-      $dataAtual = "$ano-$mes-$dia";
-      $diaSemanaAtual = strtolower(date('l', strtotime($dataAtual)));
-      if (in_array($diaSemanaAtual, $diasPermitidos)) {
-        $diasUteis++;
-      }
+    $diasUteis = contarDiasUteis($ano, $mes, $diasPermitidos);
+
+    $horasTurno1 = calcularHoras($registro['hora_entrada_primeiro_turno'], $registro['hora_saida_primeiro_turno']);
+    $horasTurno2 = 0;
+    if (!empty($registro['hora_entrada_segundo_turno']) && !empty($registro['hora_saida_segundo_turno'])) {
+      $horasTurno2 = calcularHoras($registro['hora_entrada_segundo_turno'], $registro['hora_saida_segundo_turno']);
     }
 
-    $horasTurno1 = calcularHorasTurno(
-      $registro['hora_entrada_primeiro_turno'],
-      $registro['hora_saida_primeiro_turno']
-    );
-    $horasTurno2 = calcularHorasTurno(
-      $registro['hora_entrada_segundo_turno'],
-      $registro['hora_saida_segundo_turno']
-    );
-    $minutosDevidos = ($horasTurno1 + $horasTurno2) * 60 * $diasUteis;
+    $horasDevidas = ($horasTurno1 + $horasTurno2) * $diasUteis;
 
     $dadosAgrupados[$chave] = [
       'nome' => $nome,
-      'mes_ano' => "$mes/$ano",
+      'mes' => "$mes/$ano",
       'horas_trabalhadas' => 0,
-      'horas_devidas' => round($minutosDevidos),
-      'horas_pendentes' => 0,
-      'hora_extra' => 0,
+      'horas_devidas' => round($horasDevidas, 2),
+      'horas_extras' => 0,
+      'cpf' => $cpf,
       'dia_inicio' => $registro['dia_inicio'],
       'dia_termino' => $registro['dia_termino'],
       'turno1_entrada' => $registro['hora_entrada_primeiro_turno'],
       'turno1_saida' => $registro['hora_saida_primeiro_turno'],
       'turno2_entrada' => $registro['hora_entrada_segundo_turno'],
-      'turno2_saida' => $registro['hora_saida_segundo_turno'],
+      'turno2_saida' => $registro['hora_saida_segundo_turno']
     ];
   }
 
   if ($registro['entrada'] && $registro['saida']) {
-    $entradaSeg = strtotime($registro['entrada']);
-    $saidaSeg = strtotime($registro['saida']);
-    $horasDia = max(0, $saidaSeg - $entradaSeg);
-    $dadosAgrupados[$chave]['horas_trabalhadas'] += $horasDia / 60;
+    $dadosAgrupados[$chave]['horas_trabalhadas'] += calcularHoras($registro['entrada'], $registro['saida']);
   }
 
-  $dadosAgrupados[$chave]['horas_pendentes'] += timeToMinutes($registro['horas_pendentes']);
-  $dadosAgrupados[$chave]['hora_extra'] += timeToMinutes($registro['hora_extra']);
-}
-
-// ✅ Ajustar saldo final
-foreach ($dadosAgrupados as &$dados) {
-  $pendentes = $dados['horas_pendentes'];
-  $extras = $dados['hora_extra'];
-
-  if ($extras > $pendentes) {
-    $dados['hora_extra_liquida'] = $extras - $pendentes;
-    $dados['horas_pendentes_liquida'] = 0;
-  } elseif ($pendentes > $extras) {
-    $dados['horas_pendentes_liquida'] = $pendentes - $extras;
-    $dados['hora_extra_liquida'] = 0;
-  } else {
-    $dados['hora_extra_liquida'] = 0;
-    $dados['horas_pendentes_liquida'] = 0;
+  if (!empty($registro['hora_extra']) && $registro['hora_extra'] !== '00:00:00') {
+    $tempo = strtotime($registro['hora_extra']) - strtotime('00:00:00');
+    $dadosAgrupados[$chave]['horas_extras'] += $tempo / 3600;
   }
-
-  $dados['horas_trabalhadas'] = round($dados['horas_trabalhadas']);
 }
 
-unset($dados);
+function formatarHoras($horasFloat)
+{
+  $horas = floor($horasFloat);
+  $minutos = round(($horasFloat - $horas) * 60);
+  return sprintf("%02dh %02dm", $horas, $minutos);
+}
 
+function formatarHorasMinutos($horas)
+{
+  return formatarHoras($horas);
+}
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -226,33 +180,24 @@ unset($dados);
   <meta name="description" content="" />
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
- <!-- Fonts -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
     rel="stylesheet" />
-
-  <!-- Icons. Uncomment required icon fonts -->
+  <!-- Icons -->
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-
   <!-- Core CSS -->
   <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
   <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
   <link rel="stylesheet" href="../../assets/css/demo.css" />
-
   <!-- Vendors CSS -->
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
   <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-  <!-- Page CSS -->
-
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <!-- Helpers -->
   <script src="../../assets/vendor/js/helpers.js"></script>
-
-  <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-  <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../../assets/js/config.js"></script>
 </head>
 
@@ -487,7 +432,7 @@ unset($dados);
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Configurações</span>
+                      <span class="align-middle">COnfigurações</span>
                     </a>
                   </li>
                   <li>
@@ -538,21 +483,55 @@ unset($dados);
                     <th>Ações</th>
                   </tr>
                 </thead>
-                <tbody id="tabelaBancoHoras">
-                  <?php foreach ($dadosAgrupados as $key => $d): ?>
+                <tbody class="table-border-bottom-0" id="tabelaBancoHoras">
+                  <?php foreach ($dadosAgrupados as $key => $dados): ?>
+                    <?php
+                    $horasExtras = $dados['horas_extras'];
+                    $horasPendentes = max(0, $dados['horas_devidas'] - $dados['horas_trabalhadas']);
+                    ?>
                     <tr>
-                      <td><?= htmlspecialchars($d['nome']) ?></td>
-                      <td><?= $d['mes_ano'] ?></td>
-                      <td><?= minutesToHoursMinutes($d['horas_trabalhadas']) ?></td>
-                      <td><?= minutesToHoursMinutes($d['hora_extra_liquida']) ?></td>
-                      <td><?= minutesToHoursMinutes($d['horas_pendentes_liquida']) ?></td>
+                      <td><strong><?= htmlspecialchars($dados['nome']) ?></strong></td>
+                      <td><?= $dados['mes'] ?></td>
+                      <td hidden><?= ucfirst($dados['dia_inicio']) ?></td>
+                      <td hidden><?= ucfirst($dados['dia_termino']) ?></td>
+                      <td><?= formatarHorasMinutos($dados['horas_trabalhadas']) ?></td>
+                      <td><?= formatarHorasMinutos($horasExtras) ?></td>
+                      <td><?= formatarHorasMinutos($horasPendentes) ?></td>
                       <td>
-                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal"
-                          data-bs-target="#modalUnificado<?= md5($key) ?>">
-                          Visualizar
-                        </button>
+                        <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal"
+                          data-bs-target="#modal_<?= md5($key) ?>">Visualizar</button>
                       </td>
                     </tr>
+
+                    <!-- Modal de detalhes -->
+                    <div class="modal fade" id="modal_<?= md5($key) ?>" tabindex="-1"
+                      aria-labelledby="modalLabel_<?= md5($key) ?>" aria-hidden="true">
+                      <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title" id="modalLabel_<?= md5($key) ?>">Escala de
+                              <?= htmlspecialchars($dados['nome']) ?>
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                          </div>
+                          <div class="modal-body">
+                            <p><strong>Dia início:</strong> <?= ucfirst($dados['dia_inicio']) ?></p>
+                            <p><strong>Dia término:</strong> <?= ucfirst($dados['dia_termino']) ?></p>
+                            <p><strong>1º Turno:</strong>
+                              <?= date('H:i', strtotime($dados['turno1_entrada'])) ?> às
+                              <?= date('H:i', strtotime($dados['turno1_saida'])) ?>
+                            </p>
+
+                            <p><strong>2º Turno:</strong>
+                              <?= $dados['turno2_entrada'] && $dados['turno2_saida']
+                                ? date('H:i', strtotime($dados['turno2_entrada'])) . ' às ' . date('H:i', strtotime($dados['turno2_saida']))
+                                : 'Não definido' ?>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                   <?php endforeach; ?>
                 </tbody>
               </table>
@@ -564,127 +543,73 @@ unset($dados);
               <div id="paginacaoHoras" class="mx-2"></div>
               <button class="btn btn-sm btn-outline-primary" id="nextPageHoras">Próxima &raquo;</button>
             </div>
-
           </div>
-
-          <!-- Modais Unificados -->
-          <?php foreach ($dadosAgrupados as $key => $d): ?>
-            <div class="modal fade" id="modalUnificado<?= md5($key) ?>" tabindex="-1"
-              aria-labelledby="modalUnificadoLabel<?= md5($key) ?>" aria-hidden="true">
-              <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title" id="modalUnificadoLabel<?= md5($key) ?>">
-                      Banco de Horas - <?= htmlspecialchars($d['nome']) ?>
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                  </div>
-                  <div class="modal-body">
-
-                    <!-- Seção Escala -->
-                    <h6 class="fw-bold">Escala</h6>
-                    <p><strong>Dia início:</strong> <?= ucfirst($d['dia_inicio']) ?></p>
-                    <p><strong>Dia término:</strong> <?= ucfirst($d['dia_termino']) ?></p>
-                    <p><strong>1º Turno:</strong>
-                      <?= date('H:i', strtotime($d['turno1_entrada'])) ?> às
-                      <?= date('H:i', strtotime($d['turno1_saida'])) ?>
-                    </p>
-                    <p><strong>2º Turno:</strong>
-                      <?= ($d['turno2_entrada'] && $d['turno2_saida'])
-                        ? date('H:i', strtotime($d['turno2_entrada'])) . ' às ' .
-                        date('H:i', strtotime($d['turno2_saida']))
-                        : 'Não definido' ?>
-                    </p>
-                    <hr>
-
-                    <!-- Seção Detalhes de Horas -->
-                    <h6 class="fw-bold">Detalhes do Banco de Horas</h6>
-                    <p><strong>Mês/Ano:</strong> <?= $d['mes_ano'] ?></p>
-                    <p><strong>Horas Trabalhadas:</strong>
-                      <?= minutesToHoursMinutes($d['horas_trabalhadas']) ?></p>
-                    <p><strong>Horas Extras Líquidas:</strong>
-                      <?= minutesToHoursMinutes($d['hora_extra_liquida']) ?></p>
-                    <p><strong>Horas Pendentes Líquidas:</strong>
-                      <?= minutesToHoursMinutes($d['horas_pendentes_liquida']) ?></p>
-                  </div>
-                  <div class="modal-footer">
-                    <button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          <?php endforeach; ?>
 
           <!-- Script de pesquisa e paginação -->
           <script>
             const searchInput = document.getElementById('searchInput');
+            const linhasHoras = Array.from(document.querySelectorAll('#tabelaBancoHoras tr'));
             const rowsPerPageHoras = 10;
             let currentPageHoras = 1;
 
             function renderTabelaBancoHoras() {
-              // Captura sempre as linhas atuais do tbody
-              const linhasHoras = Array.from(document.querySelectorAll('#tabelaBancoHoras tr'));
               const filtro = searchInput.value.toLowerCase();
-
-              // Filtra as linhas que contenham o texto do filtro
               const linhasFiltradas = linhasHoras.filter(linha => {
-                return Array.from(linha.cells)
-                  .some(td => td.textContent.toLowerCase().includes(filtro));
+                const tds = linha.querySelectorAll('td');
+                return Array.from(tds).some(td => td.textContent.toLowerCase().includes(filtro));
               });
 
               const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPageHoras);
-              const start = (currentPageHoras - 1) * rowsPerPageHoras;
-              const end = start + rowsPerPageHoras;
+              const inicio = (currentPageHoras - 1) * rowsPerPageHoras;
+              const fim = inicio + rowsPerPageHoras;
 
-              // Esconde todas as linhas e mostra só as da página atual
               linhasHoras.forEach(linha => linha.style.display = 'none');
-              linhasFiltradas.slice(start, end)
-                .forEach(linha => linha.style.display = '');
+              linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
 
-              // Monta os botões de paginação
-              const pagContainer = document.getElementById('paginacaoHoras');
-              pagContainer.innerHTML = '';
+              const paginacao = document.getElementById('paginacaoHoras');
+              paginacao.innerHTML = '';
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
                 btn.className = 'btn btn-sm ' + (i === currentPageHoras ? 'btn-primary' : 'btn-outline-primary');
-                btn.style.marginRight = '6px';
-                btn.onclick = () => {
+                btn.style.marginRight = '6px'; // Espaçamento entre botões
+                btn.addEventListener('click', () => {
                   currentPageHoras = i;
                   renderTabelaBancoHoras();
-                };
-                pagContainer.appendChild(btn);
+                });
+                paginacao.appendChild(btn);
               }
 
               document.getElementById('prevPageHoras').disabled = currentPageHoras === 1;
               document.getElementById('nextPageHoras').disabled = currentPageHoras === totalPages || totalPages === 0;
             }
 
-            // Eventos de navegação e busca
             searchInput.addEventListener('input', () => {
               currentPageHoras = 1;
               renderTabelaBancoHoras();
             });
-            document.getElementById('prevPageHoras').onclick = () => {
+
+            document.getElementById('prevPageHoras').addEventListener('click', () => {
               if (currentPageHoras > 1) {
                 currentPageHoras--;
                 renderTabelaBancoHoras();
               }
-            };
-            document.getElementById('nextPageHoras').onclick = () => {
-              // Recalcula totalPages antes de avançar
-              const linhasHoras = Array.from(document.querySelectorAll('#tabelaBancoHoras tr'));
-              const linhasFiltradas = linhasHoras.filter(linha =>
-                Array.from(linha.cells).some(td => td.textContent.toLowerCase().includes(searchInput.value.toLowerCase()))
-              );
+            });
+
+            document.getElementById('nextPageHoras').addEventListener('click', () => {
+              const filtro = searchInput.value.toLowerCase();
+              const linhasFiltradas = linhasHoras.filter(linha => {
+                const tds = linha.querySelectorAll('td');
+                return Array.from(tds).some(td => td.textContent.toLowerCase().includes(filtro));
+              });
               const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPageHoras);
               if (currentPageHoras < totalPages) {
                 currentPageHoras++;
                 renderTabelaBancoHoras();
               }
-            };
+            });
 
-            // Inicializa tudo
+            // Inicializa a exibição
             renderTabelaBancoHoras();
           </script>
 
@@ -695,28 +620,13 @@ unset($dados);
   </div>
 
 
-
-  <!-- build:js assets/vendor/js/core.js -->
-  <script src="../../js/saudacao.js"></script>
   <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../../assets/vendor/libs/popper/popper.js"></script>
   <script src="../../assets/vendor/js/bootstrap.js"></script>
   <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
   <script src="../../assets/vendor/js/menu.js"></script>
-  <!-- endbuild -->
-
-  <!-- Vendors JS -->
   <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-  <!-- Main JS -->
   <script src="../../assets/js/main.js"></script>
-
-  <!-- Page JS -->
-  <script src="../../assets/js/dashboards-analytics.js"></script>
-
-  <!-- Place this tag in your head or just before your close body tag. -->
-  <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 
 </html>

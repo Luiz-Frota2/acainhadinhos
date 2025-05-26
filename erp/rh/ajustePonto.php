@@ -386,8 +386,6 @@ try {
                     <th>Funcionário</th>
                     <th>Data</th>
                     <th>Entrada</th>
-                    <th>Saída para Intervalo</th>
-                    <th>Entrada do Intervalo</th>
                     <th>Saída</th>
                     <th>Ações</th>
                   </tr>
@@ -397,45 +395,23 @@ try {
                     <td><strong>João Silva</strong></td>
                     <td>01/04/2025</td>
                     <td>08:00</td>
-                    <td>12:00</td>
-                    <td>13:00</td>
                     <td>17:00</td>
                     <td>
                       <!-- Ícone de Editar -->
                       <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editModal">
                         <i class="tf-icons bx bx-edit"></i>
                       </button>
-                     
-                    </td>
-                  </tr>
-                  <tr>
-                    <td><strong>Maria Souza</strong></td>
-                    <td>01/04/2025</td>
-                    <td>09:00</td>
-                    <td>12:30</td>
-                    <td>13:30</td>
-                    <td>18:00</td>
-                    <td>
-                      <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editModal">
-                        <i class="tf-icons bx bx-edit"></i>
+
+                      <!-- Espaço entre os ícones -->
+                      <span class="mx-2">|</span>
+
+                      <!-- Ícone de Excluir -->
+                      <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                        <i class="tf-icons bx bx-trash"></i>
                       </button>
-                    
                     </td>
                   </tr>
-                  <tr>
-                    <td><strong>Carlos Lima</strong></td>
-                    <td>01/04/2025</td>
-                    <td>07:30</td>
-                    <td>12:00</td>
-                    <td>13:00</td>
-                    <td>16:30</td>
-                    <td>
-                      <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editModal">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
-                      
-                    </td>
-                  </tr>
+                  <!-- Mais linhas podem ser adicionadas aqui -->
                 </tbody>
               </table>
             </div>
@@ -455,14 +431,6 @@ try {
                   <div class="mb-3">
                     <label for="editEntrada" class="form-label">Entrada</label>
                     <input type="time" class="form-control" id="editEntrada" value="08:00">
-                  </div>
-                  <div class="mb-3">
-                    <label for="editSaidaIntervalo" class="form-label">Saída para Intervalo</label>
-                    <input type="time" class="form-control" id="editSaidaIntervalo" value="12:00">
-                  </div>
-                  <div class="mb-3">
-                    <label for="editEntradaIntervalo" class="form-label">Entrada do Intervalo</label>
-                    <input type="time" class="form-control" id="editEntradaIntervalo" value="13:00">
                   </div>
                   <div class="mb-3">
                     <label for="editSaida" class="form-label">Saída</label>

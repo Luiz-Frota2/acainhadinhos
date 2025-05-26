@@ -559,9 +559,6 @@ try {
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
-
-                btn.style.marginRight = '6px';
-
                 btn.className = 'btn btn-sm ' + (i === currentPageSetor ? 'btn-primary' : 'btn-outline-primary');
                 btn.addEventListener('click', () => {
                   currentPageSetor = i;
