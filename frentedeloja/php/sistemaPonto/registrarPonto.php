@@ -4,7 +4,7 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 require_once '../../../assets/php/conexao.php';
-date_default_timezone_set('America/Sao_Paulo');
+
 
 $cpf = $_POST['cpf'];
 $data = $_POST['data'];
@@ -97,6 +97,10 @@ switch ($acao) {
             $campos['horas_pendentes'] = gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['entrada']));
         }
 
+        if (!isset($campos['horas_pendentes'])) {
+            $campos['horas_pendentes'] = null;
+        }
+
         if ($registro) {
             $sqlUpdate = "UPDATE pontos SET entrada = :entrada, foto_entrada = :foto_entrada, localizacao_entrada = :localizacao_entrada, horas_pendentes = COALESCE(horas_pendentes, :horas_pendentes) WHERE id = :id AND empresa_id = :empresa_id";
             $stmt = $pdo->prepare($sqlUpdate);
@@ -104,8 +108,6 @@ switch ($acao) {
         } else {
             $sqlInsert = "INSERT INTO pontos (cpf, nome, data, entrada, foto_entrada, localizacao_entrada, horas_pendentes, empresa_id) VALUES (:cpf, :nome, :data, :entrada, :foto_entrada, :localizacao_entrada, :horas_pendentes, :empresa_id)";
             $stmt = $pdo->prepare($sqlInsert);
-            if (!isset($campos['horas_pendentes']))
-                $campos['horas_pendentes'] = null;
         }
 
         $stmt->execute($campos);
