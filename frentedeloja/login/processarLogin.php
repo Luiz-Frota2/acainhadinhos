@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Tenta encontrar na tabela de contas_acesso (Admin)
+        // Busca Admin
         $stmtAdmin = $pdo->prepare("SELECT * FROM contas_acesso WHERE (usuario = ? OR cpf = ?) AND empresa_id = ? AND tipo = ?");
         $stmtAdmin->execute([$usuario_cpf, $usuario_cpf, $empresa_id, $tipo]);
         $admin = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
@@ -38,7 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
 
-                // Verifica se é Admin
                 if ($admin['nivel'] === 'Admin') {
                     session_start();
                     $_SESSION['usuario_logado'] = true;
@@ -47,15 +46,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['empresa_id'] = $admin['empresa_id'];
                     $_SESSION['tipo_empresa'] = $admin['tipo'];
                     $_SESSION['nivel'] = $admin['nivel'];
-                    $_SESSION['usuario_cpf'] = $admin['cpf']; // Armazena o CPF do admin na sessão
+                    $_SESSION['usuario_cpf'] = $admin['cpf'];
 
                     echo "<script>window.location.href = '../../../../frentedeloja/dashboard.php?id={$empresa_identificador}';</script>";
                     exit;
                 }
+            } else {
+                echo "<script>alert('Senha incorreta.'); history.back();</script>";
+                exit;
             }
         }
 
-        // Se não for Admin ou Admin inválido, tenta em funcionarios_acesso
+        // Busca Funcionário
         $stmtFunc = $pdo->prepare("SELECT * FROM funcionarios_acesso WHERE (usuario = ? OR cpf = ?) AND empresa_id = ? AND tipo = ?");
         $stmtFunc->execute([$usuario_cpf, $usuario_cpf, $empresa_id, $tipo]);
         $funcionario = $stmtFunc->fetch(PDO::FETCH_ASSOC);
@@ -76,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['empresa_id'] = $funcionario['empresa_id'];
                 $_SESSION['tipo_empresa'] = $funcionario['tipo'];
                 $_SESSION['nivel'] = $funcionario['nivel'];
-                $_SESSION['usuario_cpf'] = $funcionario['cpf']; // Armazena o CPF do funcionário na sessão
+                $_SESSION['usuario_cpf'] = $funcionario['cpf'];
 
                 echo "<script>window.location.href = '../../../../frentedeloja/dashboard.php?id={$empresa_identificador}';</script>";
                 exit;
@@ -84,10 +86,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 echo "<script>alert('Senha incorreta.'); history.back();</script>";
                 exit;
             }
-        } else {
-            echo "<script>alert('Usuário não encontrado.'); history.back();</script>";
-            exit;
         }
+
+        // Se não encontrou nem admin nem funcionário
+        echo "<script>alert('Usuário não encontrado.'); history.back();</script>";
+        exit;
 
     } catch (PDOException $e) {
         echo "<script>alert('Erro ao verificar login.'); history.back();</script>";
