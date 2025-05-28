@@ -160,7 +160,7 @@
 
             <p class="text-center">
               <span>Já tem uma conta?</span>
-              <a href="login.php?id=<?= htmlspecialchars($idSelecionado) ?>">
+              <a href="index.php?id=<?= htmlspecialchars($idSelecionado) ?>">
                 <span>Faça login em vez disso</span>
               </a>
             </p>
