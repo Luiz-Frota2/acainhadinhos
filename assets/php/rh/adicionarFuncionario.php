@@ -14,17 +14,41 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $escala_funcionario = trim($_POST["escala"]);
     $dia_inicio = trim($_POST["dia_inicio"]);
     $dia_folga = trim($_POST["dia_folga"]);
-    
-    // Novos campos de horário
     $entrada = trim($_POST["entrada"]);
     $saida_intervalo = trim($_POST["saida_intervalo"]);
     $retorno_intervalo = trim($_POST["retorno_intervalo"]);
     $saida_final = trim($_POST["saida_final"]);
-    
     $email_funcionario = trim($_POST["email"]);
     $telefone_funcionario = trim($_POST["telefone"]);
     $endereco_funcionario = trim($_POST["endereco"]);
     $cidade_funcionario = trim($_POST["cidade"]);
+
+    // Validação obrigatória
+    if (empty($nome_funcionario) || empty($cpf_funcionario)) {
+        echo "<script>
+            alert('Os campos Nome e CPF são obrigatórios.');
+            history.back();
+        </script>";
+        exit();
+    }
+
+    // Campos opcionais: se vazio, envia NULL
+    $data_nascimento = $data_nascimento !== "" ? $data_nascimento : null;
+    $rg_funcionario = $rg_funcionario !== "" ? $rg_funcionario : null;
+    $cargo_funcionario = $cargo_funcionario !== "" ? $cargo_funcionario : null;
+    $setor_funcionario = $setor_funcionario !== "" ? $setor_funcionario : null;
+    $salario_funcionario = $salario_funcionario !== "" ? $salario_funcionario : null;
+    $escala_funcionario = $escala_funcionario !== "" ? $escala_funcionario : null;
+    $dia_inicio = $dia_inicio !== "" ? $dia_inicio : null;
+    $dia_folga = $dia_folga !== "" ? $dia_folga : null;
+    $entrada = $entrada !== "" ? $entrada : null;
+    $saida_intervalo = $saida_intervalo !== "" ? $saida_intervalo : null;
+    $retorno_intervalo = $retorno_intervalo !== "" ? $retorno_intervalo : null;
+    $saida_final = $saida_final !== "" ? $saida_final : null;
+    $email_funcionario = $email_funcionario !== "" ? $email_funcionario : null;
+    $telefone_funcionario = $telefone_funcionario !== "" ? $telefone_funcionario : null;
+    $endereco_funcionario = $endereco_funcionario !== "" ? $endereco_funcionario : null;
+    $cidade_funcionario = $cidade_funcionario !== "" ? $cidade_funcionario : null;
 
     try {
         // Verifica se o CPF já está cadastrado
