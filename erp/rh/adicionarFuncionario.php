@@ -455,12 +455,27 @@ try {
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="cpf">CPF</label>
                           <input type="text" class="form-control input-custom" name="cpf" id="cpf"
-                            placeholder="Informe o CPF" required />
+                            placeholder="Informe o CPF" required maxlength="14" />
                         </div>
+                        <script>
+                          // Máscara CPF: 000.000.000-00
+                          document.addEventListener('DOMContentLoaded', function() {
+                            const cpfInput = document.getElementById('cpf');
+                            cpfInput.addEventListener('input', function(e) {
+                              let value = cpfInput.value.replace(/\D/g, '');
+                              if (value.length > 11) value = value.slice(0, 11);
+                              value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                              value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                              value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                              cpfInput.value = value;
+                            });
+                          });
+                        </script>
+
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="rg">RG</label>
                           <input type="text" class="form-control input-custom" name="rg" id="rg"
-                            placeholder="Informe o RG"  />
+                            placeholder="Informe o RG" />
                         </div>
                       </div>
 
@@ -574,12 +589,12 @@ try {
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="email">E-mail</label>
                           <input type="email" class="form-control input-custom" name="email" id="email"
-                            placeholder="Informe o e-mail"  />
+                            placeholder="Informe o e-mail" />
                         </div>
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="telefone">Telefone</label>
                           <input type="tel" class="form-control input-custom" name="telefone" id="telefone"
-                            placeholder="Informe o telefone"  />
+                            placeholder="Informe o telefone" />
                         </div>
                       </div>
 
@@ -587,12 +602,12 @@ try {
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="endereco">Endereço</label>
                           <input type="text" class="form-control input-custom" name="endereco" id="endereco"
-                            placeholder="Informe o endereço"  />
+                            placeholder="Informe o endereço" />
                         </div>
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="cidade">Cidade</label>
                           <input type="text" class="form-control input-custom" name="cidade" id="cidade"
-                            placeholder="Informe a cidade"  />
+                            placeholder="Informe a cidade" />
                         </div>
                       </div>
 

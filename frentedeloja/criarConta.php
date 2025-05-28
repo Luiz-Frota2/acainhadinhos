@@ -106,10 +106,23 @@
                   placeholder="Digite seu nome de usuário" autofocus />
               </div>
 
-              <div class="mb-3">
+                <div class="mb-3">
                 <label for="cpf" class="form-label">CPF</label>
-                <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF" required />
-              </div>
+                <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF" required maxlength="14" />
+                </div>
+                <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                  const cpfInput = document.getElementById('cpf');
+                  cpfInput.addEventListener('input', function (e) {
+                  let value = cpfInput.value.replace(/\D/g, '');
+                  if (value.length > 11) value = value.slice(0, 11);
+                  value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                  value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                  value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                  cpfInput.value = value;
+                  });
+                });
+                </script>
 
               <div class="mb-3">
                 <label for="email" class="form-label">E-mail</label>
@@ -144,7 +157,6 @@
 
               <button class="btn btn-primary d-grid w-100">Cadastrar</button>
             </form>
-
 
             <p class="text-center">
               <span>Já tem uma conta?</span>

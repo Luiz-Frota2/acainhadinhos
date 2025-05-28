@@ -471,13 +471,28 @@ try {
                       <div class="row">
                         <div class="mb-3 col-md-6">
                           <label class="form-label">CPF</label>
-                          <input type="text" class="form-control" name="cpf"
-                            value="<?= htmlspecialchars($funcionario['cpf']) ?>" required />
+                          <input type="text" class="form-control" name="cpf" id="cpf"
+                            value="<?= htmlspecialchars($funcionario['cpf']) ?>" required maxlength="14" />
                         </div>
+                        <script>
+                          document.addEventListener("DOMContentLoaded", function() {
+                            const cpfInput = document.getElementById('cpf');
+                            if (cpfInput) {
+                              cpfInput.addEventListener('input', function(e) {
+                                let v = cpfInput.value.replace(/\D/g, '');
+                                if (v.length > 11) v = v.slice(0, 11);
+                                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                                v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                                v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                                cpfInput.value = v;
+                              });
+                            }
+                          });
+                        </script>
                         <div class="mb-3 col-md-6">
                           <label class="form-label">RG</label>
                           <input type="text" class="form-control" name="rg"
-                            value="<?= htmlspecialchars($funcionario['rg']) ?>"  />
+                            value="<?= htmlspecialchars($funcionario['rg']) ?>" />
                         </div>
                       </div>
                       <div class="d-flex justify-content-end mt-3">
@@ -498,7 +513,7 @@ try {
                         </div>
                         <div class="col-12 col-md-6 mb-3">
                           <label class="form-label" for="setor">Setor</label>
-                          <select class="form-control input-custom" name="setor" id="setor" >
+                          <select class="form-control input-custom" name="setor" id="setor">
                             <option value="" disabled <?= empty($funcionario['setor']) ? 'selected' : '' ?>>Selecione o
                               Setor</option>
                             <?php foreach ($setores as $setor): ?>
@@ -520,7 +535,7 @@ try {
                         </div>
                         <div class="col-12 col-md-6 mb-3">
                           <label class="form-label" for="escala">Escala</label>
-                          <select class="form-control input-custom" name="escala" id="escala" >
+                          <select class="form-control input-custom" name="escala" id="escala">
                             <option value="" disabled <?= empty($funcionario['escala']) ? 'selected' : '' ?>>Selecione a
                               escala</option>
                             <?php foreach ($escalas as $escala): ?>
@@ -536,7 +551,7 @@ try {
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
                           <label for="dia_inicio" class="form-label">Inicio</label>
-                          <select id="dia_inicio" name="dia_inicio" class="form-control" >
+                          <select id="dia_inicio" name="dia_inicio" class="form-control">
                             <?php
                             $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
                             foreach ($dias as $dia) {
@@ -548,7 +563,7 @@ try {
                         </div>
                         <div class="col-md-6 col-12 mb-3">
                           <label for="dia_folga" class="form-label">Folga da Semana</label>
-                          <select id="dia_folga" name="dia_folga" class="form-control" >
+                          <select id="dia_folga" name="dia_folga" class="form-control">
                             <?php
                             foreach ($dias as $dia) {
                               $selected = isset($funcionario['dia_folga']) && $funcionario['dia_folga'] == $dia ? 'selected' : '';
@@ -563,12 +578,12 @@ try {
                         <div class="col-md-6 col-12 mb-3">
                           <label for="entrada" class="form-label">Início / Entrada</label>
                           <input type="time" id="entrada" name="entrada" class="form-control"
-                            value="<?= htmlspecialchars($funcionario['entrada'] ?? '') ?>"  />
+                            value="<?= htmlspecialchars($funcionario['entrada'] ?? '') ?>" />
                         </div>
                         <div class="col-md-6 col-12 mb-3">
                           <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
                           <input type="time" id="saida_intervalo" name="saida_intervalo" class="form-control"
-                            value="<?= htmlspecialchars($funcionario['saida_intervalo'] ?? '') ?>"  />
+                            value="<?= htmlspecialchars($funcionario['saida_intervalo'] ?? '') ?>" />
                         </div>
                       </div>
 
@@ -576,12 +591,12 @@ try {
                         <div class="col-md-6 col-12 mb-3">
                           <label for="retorno_intervalo" class="form-label">Retorno do Intervalo</label>
                           <input type="time" id="retorno_intervalo" name="retorno_intervalo" class="form-control"
-                            value="<?= htmlspecialchars($funcionario['retorno_intervalo'] ?? '') ?>"  />
+                            value="<?= htmlspecialchars($funcionario['retorno_intervalo'] ?? '') ?>" />
                         </div>
                         <div class="col-md-6 col-12 mb-3">
                           <label for="saida_final" class="form-label">Fim / Saída</label>
                           <input type="time" id="saida_final" name="saida_final" class="form-control"
-                            value="<?= htmlspecialchars($funcionario['saida_final'] ?? '') ?>"  />
+                            value="<?= htmlspecialchars($funcionario['saida_final'] ?? '') ?>" />
                         </div>
                       </div>
 
@@ -602,24 +617,24 @@ try {
                         <div class="mb-3 col-md-6">
                           <label class="form-label">E-mail</label>
                           <input type="email" class="form-control" name="email"
-                            value="<?= htmlspecialchars($funcionario['email']) ?>"  />
+                            value="<?= htmlspecialchars($funcionario['email']) ?>" />
                         </div>
                         <div class="mb-3 col-md-6">
                           <label class="form-label">Telefone</label>
                           <input type="tel" class="form-control" name="telefone"
-                            value="<?= htmlspecialchars($funcionario['telefone']) ?>"  />
+                            value="<?= htmlspecialchars($funcionario['telefone']) ?>" />
                         </div>
                       </div>
                       <div class="row">
                         <div class="mb-3 col-md-6">
                           <label class="form-label">Endereço</label>
                           <input type="text" class="form-control" name="endereco"
-                            value="<?= htmlspecialchars($funcionario['endereco']) ?>"  />
+                            value="<?= htmlspecialchars($funcionario['endereco']) ?>" />
                         </div>
                         <div class="mb-3 col-md-6">
                           <label class="form-label">Cidade</label>
                           <input type="text" class="form-control" name="cidade"
-                            value="<?= htmlspecialchars($funcionario['cidade']) ?>"  />
+                            value="<?= htmlspecialchars($funcionario['cidade']) ?>" />
                         </div>
                       </div>
                       <div class="row justify-content-between mt-3">

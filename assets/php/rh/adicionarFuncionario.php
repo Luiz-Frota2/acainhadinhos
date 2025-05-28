@@ -16,10 +16,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $dia_folga = trim($_POST["dia_folga"]);
     
     // Novos campos de horário
-    $entrada = trim($_POST["entrada"]);
-    $saida_intervalo = trim($_POST["saida_intervalo"]);
-    $retorno_intervalo = trim($_POST["retorno_intervalo"]);
-    $saida_final = trim($_POST["saida_final"]);
+    $entrada = isset($_POST["entrada"]) && trim($_POST["entrada"]) !== "" ? trim($_POST["entrada"]) : null;
+    $saida_intervalo = isset($_POST["saida_intervalo"]) && trim($_POST["saida_intervalo"]) !== "" ? trim($_POST["saida_intervalo"]) : null;
+    $retorno_intervalo = isset($_POST["retorno_intervalo"]) && trim($_POST["retorno_intervalo"]) !== "" ? trim($_POST["retorno_intervalo"]) : null;
+    $saida_final = isset($_POST["saida_final"]) && trim($_POST["saida_final"]) !== "" ? trim($_POST["saida_final"]) : null;
     
     $email_funcionario = trim($_POST["email"]);
     $telefone_funcionario = trim($_POST["telefone"]);
