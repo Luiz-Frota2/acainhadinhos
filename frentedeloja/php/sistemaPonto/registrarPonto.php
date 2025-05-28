@@ -5,7 +5,6 @@ error_reporting(E_ALL);
 
 require_once '../../../assets/php/conexao.php';
 
-
 $cpf = $_POST['cpf'];
 $data = $_POST['data'];
 $horaAtual = $_POST['hora_atual'];
@@ -13,6 +12,12 @@ $acao = $_POST['acao'];
 $fotoBase64 = $_POST['fotoBase64'];
 $localizacao = $_POST['localizacao'];
 $empresa_id = $_POST['id_selecionado'];
+
+// Validação obrigatória de localização e foto
+if (empty($localizacao) || empty($fotoBase64)) {
+    echo "<script>alert('É obrigatório registrar a localização e a foto para registrar o ponto.'); history.back();</script>";
+    exit;
+}
 
 $fotoBinaria = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $fotoBase64));
 
