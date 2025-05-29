@@ -311,3 +311,5 @@ switch ($acao) {
         echo "<script>alert('Ação inválida.'); history.back();</script>";
         break;
 }
+
+?>
