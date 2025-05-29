@@ -14,6 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Normaliza o CPF removendo tudo que não for número
+    $cpf_normalizado = preg_replace('/\D/', '', $usuario_cpf);
+
     // Determinar o tipo e empresa_id
     if (str_starts_with($empresa_identificador, 'principal_')) {
         $empresa_id = 1;
@@ -28,8 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         // Buscar conta pelo usuário/cpf, empresa e tipo
-        $stmt = $pdo->prepare("SELECT * FROM contas_acesso WHERE (usuario = ? OR cpf = ?) AND empresa_id = ? AND tipo = ?");
-        $stmt->execute([$usuario_cpf, $usuario_cpf, $empresa_id, $tipo]);
+        $stmt = $pdo->prepare("SELECT * FROM contas_acesso WHERE (usuario = ? OR REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?) AND empresa_id = ? AND tipo = ?");
+        $stmt->execute([$usuario_cpf, $cpf_normalizado, $empresa_id, $tipo]);
         $conta = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($conta) {
