@@ -127,10 +127,7 @@ switch ($acao) {
             exit;
         }
 
-        if (strtotime($horaAtual) < strtotime($horarioRef['saida_intervalo'])) {
-            echo "<script>alert('Ainda não é hora de sair para o intervalo.'); history.back();</script>";
-            exit;
-        }
+        // Permite registrar saída para intervalo a qualquer horário, sem restrição
 
         $sqlUpdate = "UPDATE pontos SET saida_intervalo = :saida_intervalo, foto_saida_intervalo = :foto_saida_intervalo, localizacao_saida_intervalo = :localizacao_saida_intervalo WHERE id = :id AND empresa_id = :empresa_id";
         $stmt = $pdo->prepare($sqlUpdate);
