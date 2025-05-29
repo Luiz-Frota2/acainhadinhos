@@ -11,6 +11,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $cargo_funcionario = trim($_POST["cargo"]);
     $setor_funcionario = trim($_POST["setor"]);
     $salario_funcionario = trim($_POST["salario"]);
+    $salario_funcionario = number_format((float)str_replace(',', '.', $salario_funcionario), 2, '.', '');
     $escala_funcionario = trim($_POST["escala"]);
     $dia_inicio = trim($_POST["dia_inicio"]);
     $dia_folga = trim($_POST["dia_folga"]);
