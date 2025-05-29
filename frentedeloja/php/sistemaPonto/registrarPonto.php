@@ -37,13 +37,15 @@ $diaInicio = $funcionario['dia_inicio'];
 $diaFolga = $funcionario['dia_folga'];
 
 // Função para obter o nome do dia da semana em português
-function nomeDiaSemana($data) {
+function nomeDiaSemana($data)
+{
     $dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
     return $dias[date('w', strtotime($data))];
 }
 
 // Função para obter o próximo dia da semana a partir de um dia base
-function proximoDia($diaAtual, $diasDepois = 1) {
+function proximoDia($diaAtual, $diasDepois = 1)
+{
     $dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
     $idx = array_search($diaAtual, $dias);
     $novoIdx = ($idx + $diasDepois) % 7;
@@ -193,15 +195,26 @@ switch ($acao) {
 
     case 'saida_final':
         if (!$registro) {
-            // Tenta buscar registro do dia anterior se a hora atual for entre 00:00 e 05:59
+            // Tenta buscar registro do dia anterior se a hora atual for entre 21:00 e 05:59
             $horaAtualTimestamp = strtotime($horaAtual);
-            if ($horaAtualTimestamp !== false && $horaAtualTimestamp < strtotime('06:00:00')) {
+            if (
+                ($horaAtualTimestamp !== false && $horaAtualTimestamp < strtotime('06:00:00')) ||
+                ($horaAtualTimestamp !== false && $horaAtualTimestamp >= strtotime('21:00:00'))
+            ) {
+                // Se for entre 21:00 e 23:59, considera o dia atual, mas se não encontrou registro, tenta o anterior
+                // Se for entre 00:00 e 05:59, tenta o registro do dia anterior
                 $dataAnterior = date('Y-m-d', strtotime($data . ' -1 day'));
                 $sqlBuscaAnterior = "SELECT * FROM pontos WHERE cpf = ? AND data = ? AND empresa_id = ?";
                 $stmtBuscaAnterior = $pdo->prepare($sqlBuscaAnterior);
                 $stmtBuscaAnterior->execute([$cpf, $dataAnterior, $empresa_id]);
-                $registro = $stmtBuscaAnterior->fetch(PDO::FETCH_ASSOC);
-                $dataRegistro = $dataAnterior;
+                $registroAnterior = $stmtBuscaAnterior->fetch(PDO::FETCH_ASSOC);
+
+                if ($registroAnterior) {
+                    $registro = $registroAnterior;
+                    $dataRegistro = $dataAnterior;
+                } else {
+                    $dataRegistro = $data;
+                }
             } else {
                 $dataRegistro = $data;
             }
@@ -298,4 +311,3 @@ switch ($acao) {
         echo "<script>alert('Ação inválida.'); history.back();</script>";
         break;
 }
-?>
