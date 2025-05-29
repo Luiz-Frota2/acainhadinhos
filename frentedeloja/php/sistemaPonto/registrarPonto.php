@@ -193,12 +193,29 @@ switch ($acao) {
 
     case 'saida_final':
         if (!$registro) {
+            // Tenta buscar registro do dia anterior se a hora atual for entre 00:00 e 05:59
+            $horaAtualTimestamp = strtotime($horaAtual);
+            if ($horaAtualTimestamp !== false && $horaAtualTimestamp < strtotime('06:00:00')) {
+                $dataAnterior = date('Y-m-d', strtotime($data . ' -1 day'));
+                $sqlBuscaAnterior = "SELECT * FROM pontos WHERE cpf = ? AND data = ? AND empresa_id = ?";
+                $stmtBuscaAnterior = $pdo->prepare($sqlBuscaAnterior);
+                $stmtBuscaAnterior->execute([$cpf, $dataAnterior, $empresa_id]);
+                $registro = $stmtBuscaAnterior->fetch(PDO::FETCH_ASSOC);
+                $dataRegistro = $dataAnterior;
+            } else {
+                $dataRegistro = $data;
+            }
+        } else {
+            $dataRegistro = $data;
+        }
+
+        if (!$registro) {
             echo "<script>alert('Registro de entrada não encontrado.'); history.back();</script>";
             exit;
         }
 
         // Verifica se amanhã é folga
-        $dataAmanha = date('Y-m-d', strtotime($data . ' +1 day'));
+        $dataAmanha = date('Y-m-d', strtotime($dataRegistro . ' +1 day'));
         $diaAmanha = nomeDiaSemana($dataAmanha);
 
         $isVesperaFolga = ($diaAmanha == $diaFolga);
