@@ -100,8 +100,11 @@ switch ($acao) {
             'empresa_id' => $empresa_id
         ];
 
-        if (excedeuTolerancia($horarioRef['entrada'], $horaAtual)) {
-            $campos['horas_pendentes'] = gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['entrada']));
+        // Só conta horas_pendentes se exceder 10 minutos de tolerância
+        $ref = strtotime($horarioRef['entrada']);
+        $atual = strtotime($horaAtual);
+        if (($atual - $ref) > 600) { // 600 segundos = 10 minutos
+            $campos['horas_pendentes'] = gmdate("H:i:s", ($atual - $ref - 600));
         }
 
         if (!isset($campos['horas_pendentes'])) {
@@ -153,10 +156,19 @@ switch ($acao) {
             exit;
         }
 
-        $horasPendentes = null;
+        $horasPendentes = $registro['horas_pendentes'];
 
-        if (excedeuTolerancia($horarioRef['retorno_intervalo'], $horaAtual)) {
-            $diferencaSegundos = strtotime($horaAtual) - strtotime($horarioRef['retorno_intervalo']);
+        // Calcular quanto excedeu na saída para intervalo
+        $saidaIntervaloRef = strtotime($horarioRef['saida_intervalo']);
+        $saidaIntervaloReal = strtotime($registro['saida_intervalo']);
+        $excedenteSaida = max(0, $saidaIntervaloReal - $saidaIntervaloRef);
+
+        // O horário de referência para retorno passa a ser o horário de referência + excedente
+        $retornoIntervaloRef = strtotime($horarioRef['retorno_intervalo']) + $excedenteSaida;
+        $atualTimestamp = strtotime($horaAtual);
+
+        if ($atualTimestamp > $retornoIntervaloRef + 600) { // 10 minutos de tolerância
+            $diferencaSegundos = $atualTimestamp - ($retornoIntervaloRef + 600); // só conta o que exceder 10 minutos
             $novaPendencia = $diferencaSegundos;
 
             if (!empty($registro['horas_pendentes'])) {
@@ -166,8 +178,6 @@ switch ($acao) {
             }
 
             $horasPendentes = gmdate("H:i:s", $novaPendencia);
-        } else {
-            $horasPendentes = $registro['horas_pendentes'];
         }
 
         $sqlUpdate = "UPDATE pontos 
