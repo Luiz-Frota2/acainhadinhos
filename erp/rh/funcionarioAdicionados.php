@@ -447,10 +447,10 @@ try {
                           <i class="fas fa-eye"></i>
                           </button>
 
-                          <!-- Modal Visualizar Funcionário -->
-                          <div class="modal fade" id="modalVisualizar_<?= $funcionario['id'] ?>" tabindex="-1"
-                          aria-labelledby="modalVisualizarLabel_<?= $funcionario['id'] ?>" aria-hidden="true">
-                          <div class="modal-dialog">
+                            <!-- Modal Visualizar Funcionário -->
+                            <div class="modal fade" id="modalVisualizar_<?= $funcionario['id'] ?>" tabindex="-1"
+                            aria-labelledby="modalVisualizarLabel_<?= $funcionario['id'] ?>" aria-hidden="true">
+                            <div class="modal-dialog">
                             <div class="modal-content">
                             <div class="modal-header">
                               <h5 class="modal-title" id="modalVisualizarLabel_<?= $funcionario['id'] ?>">
@@ -462,35 +462,37 @@ try {
                             <div class="modal-body">
                               <div class="mb-2">
                               <strong>Nome:</strong>
-                              <?= htmlspecialchars($funcionario['nome']) ?>
+                              <span style="word-break: break-word; white-space: pre-line; display: block;">
+                                <?= htmlspecialchars($funcionario['nome']) ?>
+                              </span>
                               </div>
                               <div class="mb-2">
                               <strong>Escala:</strong>
                               <?= htmlspecialchars($funcionario['escala'] ?? 'Não informado') ?>
                               </div>
-                                <div class="mb-2">
-                                <strong>Entrada:</strong>
-                                <?= !empty($funcionario['entrada']) ? date('H:i', strtotime($funcionario['entrada'])) : 'Não informado' ?>
-                                </div>
-                                <div class="mb-2">
-                                <strong>Saída Intervalo:</strong>
-                                <?= !empty($funcionario['saida_intervalo']) ? date('H:i', strtotime($funcionario['saida_intervalo'])) : 'Não informado' ?>
-                                </div>
-                                <div class="mb-2">
-                                <strong>Retorno Intervalo:</strong>
-                                <?= !empty($funcionario['retorno_intervalo']) ? date('H:i', strtotime($funcionario['retorno_intervalo'])) : 'Não informado' ?>
-                                </div>
-                                <div class="mb-2">
-                                <strong>Saída Final:</strong>
-                                <?= !empty($funcionario['saida_final']) ? date('H:i', strtotime($funcionario['saida_final'])) : 'Não informado' ?>
-                                </div>
+                              <div class="mb-2">
+                              <strong>Entrada:</strong>
+                              <?= !empty($funcionario['entrada']) ? date('H:i', strtotime($funcionario['entrada'])) : 'Não informado' ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Saída Intervalo:</strong>
+                              <?= !empty($funcionario['saida_intervalo']) ? date('H:i', strtotime($funcionario['saida_intervalo'])) : 'Não informado' ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Retorno Intervalo:</strong>
+                              <?= !empty($funcionario['retorno_intervalo']) ? date('H:i', strtotime($funcionario['retorno_intervalo'])) : 'Não informado' ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Saída Final:</strong>
+                              <?= !empty($funcionario['saida_final']) ? date('H:i', strtotime($funcionario['saida_final'])) : 'Não informado' ?>
+                              </div>
                             </div>
                             <div class="modal-footer">
                               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                             </div>
                             </div>
-                          </div>
-                          </div>
+                            </div>
+                            </div>
 
                           <span class="mx-2">|</span>
 
