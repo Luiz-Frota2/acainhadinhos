@@ -515,7 +515,7 @@ try {
         <script>
           const searchInput = document.getElementById('searchInput');
           const linhas = Array.from(document.querySelectorAll('#tabelaAjuste tr'));
-          const rowsPerPage = 10;
+          const rowsPerPage = 20;
           let currentPage = 1;
 
           function renderTable() {
