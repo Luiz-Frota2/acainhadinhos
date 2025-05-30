@@ -108,11 +108,13 @@ try {
 ?>
 
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+  data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
   <title>ERP - Recursos Humanos</title>
   <meta name="description" content="" />
 
@@ -122,7 +124,9 @@ try {
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+    rel="stylesheet" />
   <!-- Icons -->
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
   <!-- Core CSS -->
@@ -147,7 +151,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -317,10 +322,7 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -395,8 +397,10 @@ try {
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de Ponto</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos registrados</span></h5>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de
+            Ponto</h4>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos
+              registrados</span></h5>
 
           <!-- Tabela de Ajuste de Ponto -->
 
@@ -434,15 +438,14 @@ try {
                       </td>
 
                       <td>
-                        <button class="btn btn-link text-primary p-0"
-                          title="Editar"
-                          data-bs-toggle="modal"
+                        <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal"
                           data-bs-target="#editModal-<?= $registro['ponto_id'] ?>">
                           <i class="tf-icons bx bx-edit"></i>
                         </button>
 
                         <!-- Modal -->
-                        <div class="modal fade" id="editModal-<?= $registro['ponto_id'] ?>" tabindex="-1" aria-labelledby="editModalLabel-<?= $registro['ponto_id'] ?>" aria-hidden="true">
+                        <div class="modal fade" id="editModal-<?= $registro['ponto_id'] ?>" tabindex="-1"
+                          aria-labelledby="editModalLabel-<?= $registro['ponto_id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <form method="POST" action="../../assets/php/rh/atualizarAjustePonto.php">
@@ -453,30 +456,36 @@ try {
 
                                 <div class="modal-header">
                                   <h5 class="modal-title">Editar Ponto</h5>
-                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Fechar"></button>
                                 </div>
 
                                 <div class="modal-body">
                                   <div class="mb-3">
                                     <label for="entrada" class="form-label">Entrada</label>
-                                    <input type="time" class="form-control" name="entrada" value="<?= $registro['entrada'] ?>">
+                                    <input type="time" class="form-control" name="entrada"
+                                      value="<?= $registro['entrada'] ?>">
                                   </div>
                                   <div class="mb-3">
                                     <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
-                                    <input type="time" class="form-control" name="saida_intervalo" value="<?= $registro['saida_intervalo'] ?>">
+                                    <input type="time" class="form-control" name="saida_intervalo"
+                                      value="<?= $registro['saida_intervalo'] ?>">
                                   </div>
                                   <div class="mb-3">
                                     <label for="retorno_intervalo" class="form-label">Entrada do Intervalo</label>
-                                    <input type="time" class="form-control" name="retorno_intervalo" value="<?= $registro['retorno_intervalo'] ?>">
+                                    <input type="time" class="form-control" name="retorno_intervalo"
+                                      value="<?= $registro['retorno_intervalo'] ?>">
                                   </div>
                                   <div class="mb-3">
                                     <label for="saida_final" class="form-label">Saída</label>
-                                    <input type="time" class="form-control" name="saida_final" value="<?= $registro['saida_final'] ?>">
+                                    <input type="time" class="form-control" name="saida_final"
+                                      value="<?= $registro['saida_final'] ?>">
                                   </div>
                                 </div>
 
                                 <div class="modal-footer">
-                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
                                   <button type="submit" class="btn btn-primary">Salvar</button>
                                 </div>
                               </form>
@@ -490,6 +499,15 @@ try {
                 </tbody>
 
               </table>
+            </div>
+
+            <!-- Paginação -->
+            <div class="d-flex justify-content-start align-items-center gap-2 m-3">
+              <div>
+                <button id="prevPage" class="btn btn-sm btn-outline-primary">Anterior</button>
+                <div id="paginacao" class="btn-group"></div>
+                <button id="nextPage" class="btn btn-sm btn-outline-primary">Próximo</button>
+              </div>
             </div>
           </div>
         </div>
