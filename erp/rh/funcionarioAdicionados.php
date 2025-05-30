@@ -461,10 +461,10 @@ try {
                             </div>
                             <div class="modal-body">
                               <div class="mb-2">
-                              <strong>Nome:</strong>
-                              <span style="word-break: break-word; white-space: pre-line; display: block;">
+                                <strong>Nome:</strong>
+                                <span style="word-break: break-word; white-space: pre-line; display: inline;">
                                 <?= htmlspecialchars($funcionario['nome']) ?>
-                              </span>
+                                </span>
                               </div>
                               <div class="mb-2">
                               <strong>Escala:</strong>
