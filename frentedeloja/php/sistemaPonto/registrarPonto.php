@@ -156,41 +156,10 @@ switch ($acao) {
             exit;
         }
 
-        $horasPendentes = $registro['horas_pendentes'];
-
-        // Calcular excedente na saída para intervalo
-        $saidaIntervaloRef = strtotime($horarioRef['saida_intervalo']);
-        $saidaIntervaloReal = strtotime($registro['saida_intervalo']);
-        $excedenteSaida = max(0, $saidaIntervaloReal - $saidaIntervaloRef);
-
-        // Se não houve excedente na saída (ou seja, saiu certinho), a tolerância é de 10 minutos a partir do horário de referência do retorno
-        if ($excedenteSaida == 0) {
-            $retornoIntervaloRef = strtotime($horarioRef['retorno_intervalo']);
-        } else {
-            // Se houve excedente, o horário de referência para retorno é ajustado
-            $retornoIntervaloRef = strtotime($horarioRef['retorno_intervalo']) + $excedenteSaida;
-        }
-
-        $atualTimestamp = strtotime($horaAtual);
-
-        if ($atualTimestamp > $retornoIntervaloRef + 600) { // 10 minutos de tolerância
-            $diferencaSegundos = $atualTimestamp - ($retornoIntervaloRef + 600); // só conta o que exceder 10 minutos
-            $novaPendencia = $diferencaSegundos;
-
-            if (!empty($registro['horas_pendentes'])) {
-                $partes = explode(':', $registro['horas_pendentes']);
-                $totalSegundosExistente = ($partes[0] * 3600) + ($partes[1] * 60) + $partes[2];
-                $novaPendencia += $totalSegundosExistente;
-            }
-
-            $horasPendentes = gmdate("H:i:s", $novaPendencia);
-        }
-
         $sqlUpdate = "UPDATE pontos 
                       SET retorno_intervalo = :retorno_intervalo, 
                           foto_retorno_intervalo = :foto_retorno_intervalo, 
-                          localizacao_retorno_intervalo = :localizacao_retorno_intervalo, 
-                          horas_pendentes = :horas_pendentes 
+                          localizacao_retorno_intervalo = :localizacao_retorno_intervalo 
                       WHERE id = :id AND empresa_id = :empresa_id";
 
         $stmt = $pdo->prepare($sqlUpdate);
@@ -198,7 +167,6 @@ switch ($acao) {
             'retorno_intervalo' => $horaAtual,
             'foto_retorno_intervalo' => $fotoBinaria,
             'localizacao_retorno_intervalo' => $localizacao,
-            'horas_pendentes' => $horasPendentes,
             'id' => $registro['id'],
             'empresa_id' => $empresa_id
         ]);
