@@ -322,7 +322,7 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
+                <input type="text" class="form-control border-0 shadow-none" id="searchInput" placeholder="Buscar pontos..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -419,7 +419,7 @@ try {
                     <th>Ações</th>
                   </tr>
                 </thead>
-                <tbody class="table-border-bottom-0">
+                <tbody class="table-border-bottom-0" id="tabelaAjuste">
                   <?php foreach ($registros as $registro): ?>
                     <tr>
                       <td><strong><?= htmlspecialchars($registro['nome_funcionario'] ?? 'Desconhecido') ?></strong></td>
@@ -511,6 +511,77 @@ try {
             </div>
           </div>
         </div>
+
+        <script>
+          const searchInput = document.getElementById('searchInput');
+          const linhas = Array.from(document.querySelectorAll('#tabelaAjuste tr'));
+          const rowsPerPage = 10;
+          let currentPage = 1;
+
+          function renderTable() {
+            const filtro = searchInput.value.toLowerCase();
+            const linhasFiltradas = linhas.filter(linha => {
+              return Array.from(linha.querySelectorAll('td')).some(td =>
+                td.textContent.toLowerCase().includes(filtro)
+              );
+            });
+
+            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
+            const inicio = (currentPage - 1) * rowsPerPage;
+            const fim = inicio + rowsPerPage;
+
+            linhas.forEach(linha => linha.style.display = 'none');
+            linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
+
+            const paginacao = document.getElementById('paginacao');
+            paginacao.innerHTML = '';
+            for (let i = 1; i <= totalPages; i++) {
+              const btn = document.createElement('button');
+              btn.textContent = i;
+
+              // Adiciona espaçamento horizontal entre os botões
+              btn.style.marginRight = "6px";
+
+              btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+              btn.addEventListener('click', () => {
+                currentPage = i;
+                renderTable();
+              });
+              paginacao.appendChild(btn);
+            }
+
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+          }
+
+          searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            renderTable();
+          });
+
+          document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+              currentPage--;
+              renderTable();
+            }
+          });
+
+          document.getElementById('nextPage').addEventListener('click', () => {
+            const filtro = searchInput.value.toLowerCase();
+            const linhasFiltradas = linhas.filter(linha => {
+              return Array.from(linha.querySelectorAll('td')).some(td =>
+                td.textContent.toLowerCase().includes(filtro)
+              );
+            });
+            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
+            if (currentPage < totalPages) {
+              currentPage++;
+              renderTable();
+            }
+          });
+
+          renderTable();
+        </script>
 
         <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
         <script src="../../assets/vendor/libs/popper/popper.js"></script>
