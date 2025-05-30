@@ -435,16 +435,62 @@ try {
                         <td>
                           <!-- Editar -->
                           <button class="btn btn-link text-primary p-0" title="Editar"
-                            onclick="window.location.href='editarFuncionario.php?id=<?= $funcionario['id'] ?>&idSelecionado=<?= $idSelecionado ?>'">
-                            <i class="tf-icons bx bx-edit"></i>
+                          onclick="window.location.href='editarFuncionario.php?id=<?= $funcionario['id'] ?>&idSelecionado=<?= $idSelecionado ?>'">
+                          <i class="tf-icons bx bx-edit"></i>
                           </button>
 
                           <span class="mx-2">|</span>
 
                           <!-- Visualizar -->
-                          <button class="btn btn-link text-muted p-0" title="Visualizar">
-                            <i class="fas fa-eye"></i>
+                          <button class="btn btn-link text-muted p-0" title="Visualizar" data-bs-toggle="modal"
+                          data-bs-target="#modalVisualizar_<?= $funcionario['id'] ?>">
+                          <i class="fas fa-eye"></i>
                           </button>
+
+                          <!-- Modal Visualizar Funcionário -->
+                          <div class="modal fade" id="modalVisualizar_<?= $funcionario['id'] ?>" tabindex="-1"
+                          aria-labelledby="modalVisualizarLabel_<?= $funcionario['id'] ?>" aria-hidden="true">
+                          <div class="modal-dialog">
+                            <div class="modal-content">
+                            <div class="modal-header">
+                              <h5 class="modal-title" id="modalVisualizarLabel_<?= $funcionario['id'] ?>">
+                              Detalhes do Funcionário
+                              </h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal"
+                              aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                              <div class="mb-2">
+                              <strong>Nome:</strong>
+                              <?= htmlspecialchars($funcionario['nome']) ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Escala:</strong>
+                              <?= htmlspecialchars($funcionario['escala'] ?? 'Não informado') ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Entrada:</strong>
+                              <?= htmlspecialchars($funcionario['entrada'] ?? 'Não informado') ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Saída Intervalo:</strong>
+                              <?= htmlspecialchars($funcionario['saida_intervalo'] ?? 'Não informado') ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Retorno Intervalo:</strong>
+                              <?= htmlspecialchars($funcionario['retorno_intervalo'] ?? 'Não informado') ?>
+                              </div>
+                              <div class="mb-2">
+                              <strong>Saída Final:</strong>
+                              <?= htmlspecialchars($funcionario['saida_final'] ?? 'Não informado') ?>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                            </div>
+                          </div>
+                          </div>
 
                           <span class="mx-2">|</span>
 
