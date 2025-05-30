@@ -158,13 +158,19 @@ switch ($acao) {
 
         $horasPendentes = $registro['horas_pendentes'];
 
-        // Calcular quanto excedeu na saída para intervalo
+        // Calcular excedente na saída para intervalo
         $saidaIntervaloRef = strtotime($horarioRef['saida_intervalo']);
         $saidaIntervaloReal = strtotime($registro['saida_intervalo']);
         $excedenteSaida = max(0, $saidaIntervaloReal - $saidaIntervaloRef);
 
-        // O horário de referência para retorno passa a ser o horário de referência + excedente
-        $retornoIntervaloRef = strtotime($horarioRef['retorno_intervalo']) + $excedenteSaida;
+        // Se não houve excedente na saída (ou seja, saiu certinho), a tolerância é de 10 minutos a partir do horário de referência do retorno
+        if ($excedenteSaida == 0) {
+            $retornoIntervaloRef = strtotime($horarioRef['retorno_intervalo']);
+        } else {
+            // Se houve excedente, o horário de referência para retorno é ajustado
+            $retornoIntervaloRef = strtotime($horarioRef['retorno_intervalo']) + $excedenteSaida;
+        }
+
         $atualTimestamp = strtotime($horaAtual);
 
         if ($atualTimestamp > $retornoIntervaloRef + 600) { // 10 minutos de tolerância
