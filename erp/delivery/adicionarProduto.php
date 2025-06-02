@@ -1,5 +1,87 @@
 <?php
 
+session_start();
+require_once '../../assets/php/conexao.php';
+
+// ✅ Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
+
+// ✅ Verifica se a pessoa está logada
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+) {
+  header("Location: ../../erp/login.php?id=$idSelecionado");
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '../../erp/login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '../../erp/login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = $idFilial;
+} else {
+  echo "<script>
+          alert('Empresa não identificada!');
+          window.location.href = '../../erp/login.php?id=$idSelecionado';
+      </script>";
+  exit;
+}
+
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+try {
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+}
+
+// ✅ Se chegou até aqui, o acesso está liberado
+
+// ✅ Buscar nome e nível do usuário logado
+$nomeUsuario = 'Usuário';
+$nivelUsuario = 'Comum'; // Valor padrão
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $nivelUsuario = $usuario['nivel'];
+  }
+} catch (PDOException $e) {
+  $nomeUsuario = 'Erro ao carregar nome';
+  $nivelUsuario = 'Erro ao carregar nível';
+}
+
 // Recupera o ID da empresa
 $idSelecionado = $_GET['id'] ?? '';
 

@@ -15,7 +15,7 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: ../login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -37,7 +37,7 @@ try {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
     } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './login.php?id=$idSelecionado';</script>";
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '../../erp/login.php?id=$idSelecionado';</script>";
         exit;
     }
 } catch (PDOException $e) {
@@ -50,7 +50,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -60,7 +60,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -68,7 +68,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
         alert('Empresa não identificada!');
-        window.location.href = '.././login.php?id=$idSelecionado';
+        window.location.href = '../../erp/login.php?id=$idSelecionado';
     </script>";
     exit;
 }
@@ -100,7 +100,7 @@ try {
 
 
 <!DOCTYPE html>
-<html lang="en" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/"
     data-template="vertical-menu-template-free">
 
 <head>

@@ -10,7 +10,7 @@ $id_produto = $_GET['id'] ?? '';
 if (empty($idSelecionado)) {
     echo "<script>
             alert('Erro: idSelecionado não fornecido.');
-            window.location.href = '.././login.php'; // Redireciona para onde deseja
+            window.location.href = '../../erp/login.php'; // Redireciona para onde deseja
           </script>";
     exit;
 }
@@ -18,7 +18,7 @@ if (empty($idSelecionado)) {
 if (empty($id_produto)) {
     echo "<script>
             alert('Erro: id_produto não fornecido.');
-            window.location.href = '.././login.php'; // Redireciona para onde deseja
+            window.location.href = '../../erp/login.php'; // Redireciona para onde deseja
           </script>";
     exit;
 }
@@ -30,7 +30,7 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id']) // Adiciona verificação do id do usuário
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -39,7 +39,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
                 alert('Acesso negado!');
-                window.location.href = '.././login.php?id=$idSelecionado';
+                window.location.href = '../../erp/login.php?id=$idSelecionado';
             </script>";
         exit;
     }
@@ -49,7 +49,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
                 alert('Acesso negado!');
-                window.location.href = '.././login.php?id=$idSelecionado';
+                window.location.href = '../../erp/login.php?id=$idSelecionado';
             </script>";
         exit;
     }
@@ -57,7 +57,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
           alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
+          window.location.href = '../../erp/login.php?id=$idSelecionado';
       </script>";
     exit;
 }

@@ -15,7 +15,7 @@ if (
     !isset($_SESSION['usuario_id']) // Verificação do ID do usuário
 ) {
     // Redireciona para a página de login com o ID da empresa como parâmetro
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -25,7 +25,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
             alert('Acesso negado! Você não tem permissão para acessar a empresa principal.');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -36,7 +36,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
             alert('Acesso negado! Você não tem permissão para acessar esta filial.');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -44,7 +44,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
         alert('Empresa não identificada!');
-        window.location.href = '.././login.php?id=$idSelecionado';
+        window.location.href = '../../erp/login.php?id=$idSelecionado';
     </script>";
     exit;
 }
