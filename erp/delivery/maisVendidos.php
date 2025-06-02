@@ -139,7 +139,7 @@ try {
 
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
-                    <a href="./dashboard.html" class="app-brand-link">
+                    <a href="./index.php" class="app-brand-link">
 
                         <span class="app-brand-text demo menu-text fw-bolder ms-2"
                             style=" text-transform: capitalize;">Açaínhadinhos</span>
@@ -193,7 +193,7 @@ try {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./formaPagamento.html" class="menu-link">
+                                <a href="./formaPagamento.php" class="menu-link">
                                     <div data-i18n="Basic">Forma de Pagamento </div>
                                 </a>
                             </li>
@@ -233,28 +233,28 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.html" class="menu-link">
+                                <a href="./listarPedidos.php" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item active">
-                                <a href="./maisVendidos.html" class="menu-link">
+                                <a href="./maisVendidos.php" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html" class="menu-link">
+                                <a href="./relatorioClientes.php" class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item ">
-                                <a href="./relatorioVendas.html" class="menu-link">
+                                <a href="./relatorioVendas.php" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>

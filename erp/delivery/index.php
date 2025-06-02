@@ -905,7 +905,7 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
               Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
