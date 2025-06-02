@@ -298,7 +298,7 @@ if ($usuario_id) {
                         <ul class="menu-sub">
 
                             <li class="menu-item">
-                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
