@@ -1,94 +1,101 @@
 <?php
-
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+session_start();
+require '../../../assets/php/conexao.php';
 
-// Conectar ao banco de dados (ajustar conforme sua configuração)
-require_once('../conexao.php');
+$idAtestado = $_POST['id_atestado'] ?? '';
+$cpfUsuario = $_POST['cpfUsuario'] ?? '';
+$nomeFuncionario = $_POST['nomeFuncionario'] ?? '';
+$dataAtestado = $_POST['dataAtestado'] ?? '';
+$diasAfastado = $_POST['diasAfastado'] ?? '';
+$idSelecionado = $_POST['idSelecionado'] ?? '';
 
-// Recebe os dados do formulário
-$atestado_id = $_POST['atestado_id'];
-$empresa_id = $_POST['empresa_id'];
-$cpf = $_POST['cpf'];
+if (empty($idAtestado)) {
+    echo "<script>alert('ID do atestado não informado.'); history.back();</script>";
+    exit;
+}
 
-// Recupera o atestado com base no ID
-$stmt = $pdo->prepare("SELECT data_atestado, dias_afastado FROM atestados WHERE id = :atestado_id");
-$stmt->bindParam(':atestado_id', $atestado_id, PDO::PARAM_INT);
-$stmt->execute();
+$idEmpresaFinal = (strpos($idSelecionado, 'principal_') === 0 || strpos($idSelecionado, 'filial_') === 0)
+    ? $idSelecionado
+    : (($idSelecionado == '1') ? "principal_1" : "filial_" . $idSelecionado);
 
-// Verifica se o atestado existe
-if ($stmt->rowCount() > 0) {
-    $atestado = $stmt->fetch(PDO::FETCH_ASSOC);
-    $data_atestado = $atestado['data_atestado'];
-    $dias_afastado = $atestado['dias_afastado'];
-
-    // Calcula o intervalo de datas
-    $data_inicio = date('Y-m-d', strtotime($data_atestado));
-    $data_fim = date('Y-m-d', strtotime($data_atestado . " +$dias_afastado days"));
-
-    // Busca os registros de ponto do funcionário dentro do período de afastamento
-    $stmt = $pdo->prepare("
-        SELECT * FROM registros_ponto 
-        WHERE cpf = :cpf 
-        AND data BETWEEN :data_inicio AND :data_fim
-    ");
-    $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
-    $stmt->bindParam(':data_inicio', $data_inicio, PDO::PARAM_STR);
-    $stmt->bindParam(':data_fim', $data_fim, PDO::PARAM_STR);
+// Atualiza o status do atestado para inválido
+try {
+    $stmt = $pdo->prepare("UPDATE atestados SET status_atestado = 'inválido' WHERE id = :id");
+    $stmt->bindParam(':id', $idAtestado, PDO::PARAM_INT);
     $stmt->execute();
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao atualizar o status do atestado: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
+}
 
-    // Verifica se existem registros de ponto dentro do período
-    if ($stmt->rowCount() > 0) {
-        $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Busca os horários reais do funcionário
+try {
+    $stmtFuncionario = $pdo->prepare("SELECT entrada, saida_intervalo, retorno_intervalo, saida_final FROM funcionarios WHERE cpf = :cpf AND empresa_id = :empresa_id LIMIT 1");
+    $stmtFuncionario->bindParam(':cpf', $cpfUsuario);
+    $stmtFuncionario->bindParam(':empresa_id', $idEmpresaFinal);
+    $stmtFuncionario->execute();
+    $func = $stmtFuncionario->fetch(PDO::FETCH_ASSOC);
 
-        foreach ($registros as $registro) {
-            // Inicializa a variável de horas pendentes
-            $horas_pendentes = 0;  // Inicializa com 0 horas
+    if (!$func) {
+        echo "<script>alert('Funcionário não encontrado para o CPF e empresa informados.'); history.back();</script>";
+        exit;
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao buscar dados do funcionário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
+}
 
-            // Calcula a diferença entre entrada e saída
-            $hora_entrada = strtotime($registro['entrada']);
-            $hora_saida = strtotime($registro['saida']);
-            
-            if ($hora_entrada && $hora_saida) {
-                $diferenca = $hora_saida - $hora_entrada;
-                
-                // Calcula as horas e minutos
-                $horas = floor($diferenca / 3600); // Horas
-                $minutos = floor(($diferenca % 3600) / 60); // Minutos
-                
-                // Soma ao total de horas pendentes
-                $horas_pendentes = $horas + ($minutos / 60);
-            }
+// Converte horários para DateTime, tratando possíveis nulos
+try {
+    $entrada = new DateTime($func['entrada']);
+    $saida_intervalo = new DateTime($func['saida_intervalo']);
+    $retorno_intervalo = new DateTime($func['retorno_intervalo']);
+    $saida_final = new DateTime($func['saida_final']);
+} catch (Exception $e) {
+    echo "<script>alert('Erro ao processar os horários do funcionário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
+}
 
-            // Converte as horas e minutos pendentes para o formato TIME (H:i:s)
-            // Arredonda as horas e minutos para garantir que seja exibido de forma correta
-            $horas_pendentes_rounded = round($horas_pendentes * 60) / 60; // Arredonda corretamente para horas e minutos
-            $horas_pendentes_time = date('H:i:s', mktime(floor($horas_pendentes_rounded), floor(($horas_pendentes_rounded * 60) % 60), 0));
+// Calcula horas pendentes
+$tempoTrabalhoTotal = $entrada->diff($saida_final);
+$tempoIntervalo = $saida_intervalo->diff($retorno_intervalo);
 
-            // Atualiza os registros de ponto com as horas pendentes e marca o status como "Invalidado"
-            $updateStmt = $pdo->prepare("
-                UPDATE registros_ponto 
-                SET status = 'Invalidado', horas_pendentes = :horas_pendentes
-                WHERE id = :registro_id
-            ");
-            $updateStmt->bindParam(':horas_pendentes', $horas_pendentes_time);
-            $updateStmt->bindParam(':registro_id', $registro['id'], PDO::PARAM_INT);
-            $updateStmt->execute();
-        }
+$minutosTrabalhoTotal = $tempoTrabalhoTotal->h * 60 + $tempoTrabalhoTotal->i;
+$minutosIntervalo = $tempoIntervalo->h * 60 + $tempoIntervalo->i;
+$minutosPendentes = $minutosTrabalhoTotal - $minutosIntervalo;
+
+$horasPendentesTime = sprintf('%02d:%02d:00', intdiv($minutosPendentes, 60), $minutosPendentes % 60);
+
+// Atualiza os registros de ponto existentes para o intervalo de dias do afastamento
+try {
+    $dataInicio = new DateTime($dataAtestado);
+
+    for ($i = 0; $i < (int)$diasAfastado; $i++) {
+        $dataPonto = $dataInicio->format('Y-m-d');
+
+        $stmtUpdate = $pdo->prepare("
+            UPDATE pontos
+            SET horas_pendentes = :horas_pendentes
+            WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id
+        ");
+
+        $stmtUpdate->bindParam(':horas_pendentes', $horasPendentesTime);
+        $stmtUpdate->bindParam(':cpf', $cpfUsuario);
+        $stmtUpdate->bindParam(':data', $dataPonto);
+        $stmtUpdate->bindParam(':empresa_id', $idEmpresaFinal);
+        $stmtUpdate->execute();
+
+        $dataInicio->modify('+1 day');
     }
 
-    // Mensagem de sucesso sem enviar status na URL
     echo "<script>
-            alert('Atestado invalidado com sucesso! Horário pendente calculado e registros de ponto atualizados.');
-            window.location.href = '../../../erp/rh/atestadosFuncionarios.php?id=" . urlencode($empresa_id) . "';
-          </script>";
-    exit(); // Certifique-se de terminar o script aqui após o redirecionamento
-} else {
-    // Caso o atestado não seja encontrado
-    echo "<script>
-            alert('Erro ao invalidar o atestado. Atestado não encontrado.');
-            window.location.href = '../../../erp/rh/atestadosFuncionarios.php?id=" . urlencode($empresa_id) . "';
-          </script>";
-    exit();
+        alert('Atestado invalidado e registros de ponto atualizados com sucesso!');
+        window.location.href = '../../../erp/rh/atestadosFuncionarios.php?id=$idSelecionado';
+    </script>";
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao atualizar registros de ponto: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
 }
 ?>
