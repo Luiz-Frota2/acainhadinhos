@@ -383,7 +383,7 @@ try {
                 <!-- Content wrapper -->
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                                href="adiconarAtestado.php?id=<?= urlencode($idSelecionado); ?>">Atestados</a>/</span>Adicionar
+                                href="./atestadosFuncionarios.php?id=<?= urlencode($idSelecionado); ?>">Atestados</a>/</span>Adicionar
                         Atestado</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os dados do
                             novo Atestado</span></h5>
