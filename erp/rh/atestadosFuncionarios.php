@@ -160,7 +160,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -453,34 +454,43 @@ try {
 
                         <td>
                           <!-- Botão Validar -->
-                          <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#validarModal<?= $atestado['id'] ?>" title="Validar">
+                          <button class="btn btn-success btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#validarModal<?= $atestado['id'] ?>" title="Validar">
                             <i class="fas fa-check"></i> Validar
                           </button>
 
                           <!-- Botão Invalidar -->
-                          <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#invalidarModal<?= $atestado['id'] ?>" title="Invalidar">
+                          <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#invalidarModal<?= $atestado['id'] ?>" title="Invalidar">
                             <i class="fas fa-times"></i> Invalidar
                           </button>
                         </td>
 
                         <!-- Modal para Validar Atestado -->
-                        <div class="modal fade" id="validarModal<?= $atestado['id'] ?>" tabindex="-1" aria-labelledby="validarModalLabel<?= $atestado['id'] ?>" aria-hidden="true">
+                        <div class="modal fade" id="validarModal<?= $atestado['id'] ?>" tabindex="-1"
+                          aria-labelledby="validarModalLabel<?= $atestado['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="validarModalLabel<?= $atestado['id'] ?>">Confirmar Validação do Atestado</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                <h5 class="modal-title" id="validarModalLabel<?= $atestado['id'] ?>">Confirmar Validação
+                                  do Atestado</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                  aria-label="Close"></button>
                               </div>
                               <div class="modal-body">
-                                <p>Você deseja validar o atestado do funcionário <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
+                                <p>Você deseja validar o atestado do funcionário
+                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
                                 <p><strong>ID do Atestado:</strong> <?= htmlspecialchars($atestado['id']) ?></p>
                               </div>
                               <div class="modal-footer">
-                                <form action="validar_atestado.php" method="POST">
+                                <form action="../../assets/php/rh/validarAtestado.php" method="POST">
                                   <input type="hidden" name="atestado_id" value="<?= $atestado['id'] ?>">
-                                  <input type="hidden" name="empresa_id" value="<?= urlencode($idSelecionado) ?>"> <!-- Passando o ID da empresa -->
-                                  <input type="hidden" name="cpf" value="<?= htmlspecialchars($atestado['cpf']) ?>"> <!-- Passando o CPF do funcionário -->
-                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                  <input type="hidden" name="empresa_id" value="<?= urlencode($idSelecionado) ?>">
+                                  <!-- Passando o ID da empresa -->
+                                  <input type="hidden" name="cpf" value="<?= htmlspecialchars($atestado['cpf']) ?>">
+                                  <!-- Passando o CPF do funcionário -->
+                                  <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
                                   <button type="submit" class="btn btn-primary">Validar</button>
                                 </form>
                               </div>
@@ -489,23 +499,42 @@ try {
                         </div>
 
                         <!-- Modal para Invalidar Atestado -->
-                        <div class="modal fade" id="invalidarModal<?= $atestado['id'] ?>" tabindex="-1" aria-labelledby="invalidarModalLabel<?= $atestado['id'] ?>" aria-hidden="true">
+                        <div class="modal fade" id="invalidarModal<?= $atestado['id'] ?>" tabindex="-1"
+                          aria-labelledby="invalidarModalLabel<?= $atestado['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="invalidarModalLabel<?= $atestado['id'] ?>">Confirmar Invalidação do Atestado</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                <h5 class="modal-title" id="invalidarModalLabel<?= $atestado['id'] ?>">Confirmar
+                                  Invalidação do Atestado</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                  aria-label="Close"></button>
                               </div>
                               <div class="modal-body">
-                                <p>Você deseja invalidar o atestado do funcionário <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
+                                <p>Você deseja invalidar o atestado do funcionário
+                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
                                 <p><strong>ID do Atestado:</strong> <?= htmlspecialchars($atestado['id']) ?></p>
                               </div>
                               <div class="modal-footer">
                                 <form action="../../assets/php/rh/invalidarAtestado.php" method="POST">
-                                  <input type="hidden" name="atestado_id" value="<?= $atestado['id'] ?>">
-                                  <input type="hidden" name="empresa_id" value="<?= urlencode($idSelecionado) ?>"> <!-- Passando o ID da empresa -->
-                                  <input type="hidden " name="cpf" value="<?= htmlspecialchars($atestado['cpf']) ?>"> <!-- Passando o CPF do funcionário -->
-                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                  <input type="hidden" name="id_atestado" value="<?= $atestado['id'] ?>">
+                                  <!-- nome correto -->
+                                  <input type="hidden" name="cpfUsuario"
+                                    value="<?= htmlspecialchars($atestado['cpf']) ?>"> <!-- nome correto -->
+                                  <input type="hidden" name="nomeFuncionario"
+                                    value="<?= htmlspecialchars($atestado['nome_funcionario']) ?>">
+                                  <!-- precisa enviar o nome -->
+                                  <input type="hidden" name="dataAtestado"
+                                    value="<?= htmlspecialchars($atestado['data_atestado'] ?? date('Y-m-d')) ?>">
+                                  <!-- data do atestado -->
+                                  <input type="hidden" name="diasAfastado"
+                                    value="<?= htmlspecialchars($atestado['dias_afastado'] ?? 1) ?>">
+                                  <!-- dias afastado -->
+                                  <input type="hidden" name="idSelecionado"
+                                    value="<?= htmlspecialchars($idSelecionado) ?>">
+                                  <!-- empresa corrigido para o que o PHP espera -->
+
+                                  <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
                                   <button type="submit" class="btn btn-danger">Invalidar</button>
                                 </form>
                               </div>
@@ -563,7 +592,7 @@ try {
             <script>
               // Modal
               const modal = document.getElementById('detalhesAtestadoModal');
-              modal.addEventListener('show.bs.modal', function(event) {
+              modal.addEventListener('show.bs.modal', function (event) {
                 const button = event.relatedTarget;
                 document.getElementById('modalFuncionario').textContent = button.getAttribute('data-funcionario');
                 document.getElementById('modalDataEnvio').textContent = new Date(button.getAttribute('data-dataenvio')).toLocaleDateString();
@@ -619,7 +648,7 @@ try {
               });
 
               // Pesquisa
-              document.getElementById('searchInput').addEventListener('input', function() {
+              document.getElementById('searchInput').addEventListener('input', function () {
                 const filtro = this.value.toLowerCase();
                 const todasLinhas = document.querySelectorAll('#tabelaAtestados tbody tr');
 
