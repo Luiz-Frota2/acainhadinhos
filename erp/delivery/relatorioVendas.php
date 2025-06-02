@@ -157,7 +157,7 @@ try {
                 <ul class="menu-inner py-1">
                     <!-- Dashboard -->
                     <li class="menu-item">
-                        <a href="./index.php" class="menu-link">
+                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
                             <div data-i18n="Analytics">Dashboard</div>
                         </a>
@@ -173,7 +173,7 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item ">
-                                <a href="./produtoAdicionados.php" class="menu-link">
+                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
@@ -186,14 +186,14 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item ">
-                                <a href="./deliveryRetirada.php " class="menu-link">
+                                <a href="./deliveryRetirada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Delivery e Retirada</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./formaPagamento.php" class="menu-link">
+                                <a href="./formaPagamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Forma de Pagamento </div>
                                 </a>
                             </li>
@@ -206,22 +206,21 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./sobreEmpresa.php" class="menu-link">
+                                <a href="./sobreEmpresa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Sobre</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./enderecoEmpresa.php" class="menu-link">
+                                <a href="./enderecoEmpresa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Endereço</div>
                                 </a>
                             </li>
-                            <link rel="stylesheet" href=".././login.php">
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./horarioFuncionamento.php" class="menu-link">
+                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Horário</div>
                                 </a>
                             </li>
@@ -234,28 +233,28 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.php" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./maisVendidos.php" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.php" class="menu-link">
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item active">
-                                <a href="./relatorioVendas.php" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -272,28 +271,36 @@ try {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="../financas/index.php" class="menu-link ">
+                        <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-dollar"></i>
                             <div data-i18n="Authentications">Finanças</div>
                         </a>
                     </li>
 
                     <li class="menu-item">
-                        <a href="../estoque/index.php" class="menu-link ">
+                        <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Authentications">Estoque</div>
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="../clientes/index.php" class="menu-link ">
+                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-user"></i>
                             <div data-i18n="Authentications">Clientes</div>
                         </a>
                     </li>
+                    <?php
+                    $isFilial = str_starts_with($idSelecionado, 'filial_');
+                    $link = $isFilial
+                        ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+                        : '../filial/index.php?id=principal_1';
+                    $titulo = $isFilial ? 'Matriz' : 'Filial';
+                    ?>
+
                     <li class="menu-item">
-                        <a href="../filial/index.php" class="menu-link ">
+                        <a href="<?= $link ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications">Filial</div>
+                            <div data-i18n="Authentications"><?= $titulo ?></div>
                         </a>
                     </li>
                     <li class="menu-item">

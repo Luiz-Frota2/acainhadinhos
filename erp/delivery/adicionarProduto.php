@@ -242,10 +242,18 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                             <div data-i18n="Authentications">Clientes</div>
                         </a>
                     </li>
+                    <?php
+                    $isFilial = str_starts_with($idSelecionado, 'filial_');
+                    $link = $isFilial
+                        ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+                        : '../filial/index.php?id=principal_1';
+                    $titulo = $isFilial ? 'Matriz' : 'Filial';
+                    ?>
+
                     <li class="menu-item">
-                        <a href="../filial/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="<?= $link ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications">Filial</div>
+                            <div data-i18n="Authentications"><?= $titulo ?></div>
                         </a>
                     </li>
                     <li class="menu-item">
