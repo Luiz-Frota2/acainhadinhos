@@ -32,7 +32,7 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/favicon/logo.png" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -79,7 +79,8 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                 <div class="app-brand demo">
                     <a href="./dashboard.html?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
@@ -109,14 +110,16 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item active">
-                                <a href="./adicionarProduto.htm?id=<?= urlencode($idSelecionado); ?>l" class="menu-link">
+                                <a href="./adicionarProduto.htm?id=<?= urlencode($idSelecionado); ?>l"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Adicionar Produto</div>
                                 </a>
                             </li>
@@ -163,7 +166,8 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Horário</div>
                                 </a>
                             </li>
@@ -190,7 +194,8 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
@@ -220,7 +225,7 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -301,8 +306,9 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block">John Doe</span>
-                                                    <small class="text-muted">Admin</small>
+                                                    <!-- Exibindo o nome e nível do usuário -->
+                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                                                    <small class="text-muted"><?php echo $nivelUsuario; ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -313,13 +319,13 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>

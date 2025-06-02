@@ -140,7 +140,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
 
           </a>
 
@@ -272,7 +273,7 @@ try {
             </a>
           </li>
           <li class="menu-item">
-            <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-desktop"></i>
               <div data-i18n="Authentications">PDV</div>
             </a>
@@ -376,13 +377,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>

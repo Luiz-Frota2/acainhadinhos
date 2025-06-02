@@ -111,7 +111,7 @@ if (isset($id_produto) && !empty($id_produto)) {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/favicon/logo.png" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -154,7 +154,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
@@ -184,7 +185,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
@@ -238,7 +240,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Horário</div>
                                 </a>
                             </li>
@@ -265,7 +268,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
@@ -294,7 +298,7 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -383,8 +387,10 @@ if (isset($id_produto) && !empty($id_produto)) {
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($nivelUsuario); ?></small>
+                                                    <span
+                                                        class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
+                                                    <small
+                                                        class="text-muted"><?= htmlspecialchars($nivelUsuario); ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -395,13 +401,13 @@ if (isset($id_produto) && !empty($id_produto)) {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>
@@ -418,7 +424,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href=".././logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href=".././logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -436,7 +443,8 @@ if (isset($id_produto) && !empty($id_produto)) {
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                                href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Cardápio</a>/</span>Editar Produto</h4>
+                                href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Cardápio</a>/</span>Editar
+                        Produto</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Atualize as informações
                             do produto</span></h5>
 

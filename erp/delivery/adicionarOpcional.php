@@ -99,7 +99,7 @@ try {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/favicon/logo.png" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -146,7 +146,8 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
@@ -176,7 +177,8 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
@@ -230,7 +232,8 @@ try {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Horário</div>
                                 </a>
                             </li>
@@ -257,7 +260,8 @@ try {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
@@ -286,7 +290,7 @@ try {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -375,8 +379,10 @@ try {
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario) ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($nivelUsuario) ?></small>
+                                                    <span
+                                                        class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario) ?></span>
+                                                    <small
+                                                        class="text-muted"><?= htmlspecialchars($nivelUsuario) ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -387,13 +393,13 @@ try {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>
@@ -430,7 +436,8 @@ try {
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold py-3 mb-0"><span class="text-muted fw-light"><a
-                                href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Cardápio</a>/</span>Adicionar Opcional</h4>
+                                href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Cardápio</a>/</span>Adicionar
+                        Opcional</h4>
 
                     <h5 class="fw-bold mt-2 mb-3 custor-font">
                         <span class="text-muted fw-light">Adicione a opção extra ao seu produto</span>
@@ -448,20 +455,28 @@ try {
                                     <!-- Formulário de Cadastro de Opcional -->
                                     <form action="../../assets/php/delivery/cadastrarOpcional.php" method="POST">
                                         <!-- Campo oculto para passar o id_produto -->
-                                        <input type="hidden" name="id_produto" value="<?php echo htmlspecialchars($id_produto); ?>">
+                                        <input type="hidden" name="id_produto"
+                                            value="<?php echo htmlspecialchars($id_produto); ?>">
 
                                         <!-- Campo oculto para passar o idSelecionado -->
-                                        <input type="hidden" name="id_selecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>">
+                                        <input type="hidden" name="id_selecionado"
+                                            value="<?php echo htmlspecialchars($idSelecionado); ?>">
 
                                         <p class="fw-bold">Selecione o tipo de opcional:</p>
                                         <div class="d-flex gap-3">
                                             <div class="form-check none-boxshadow">
-                                                <input type="radio" class="form-check-input" name="tipoOpcional" id="opcionalSimples" value="opcionalSimples" checked onclick="alternarOpcional()">
-                                                <label class="form-check-label" for="opcionalSimples">Opcional Simples</label>
+                                                <input type="radio" class="form-check-input" name="tipoOpcional"
+                                                    id="opcionalSimples" value="opcionalSimples" checked
+                                                    onclick="alternarOpcional()">
+                                                <label class="form-check-label" for="opcionalSimples">Opcional
+                                                    Simples</label>
                                             </div>
                                             <div class="form-check none-boxshadow">
-                                                <input type="radio" class="form-check-input" name="tipoOpcional" id="selecaoOpcoes" value="selecaoOpcoes" onclick="alternarOpcional()">
-                                                <label class="form-check-label" for="selecaoOpcoes">Seleção de Opções</label>
+                                                <input type="radio" class="form-check-input" name="tipoOpcional"
+                                                    id="selecaoOpcoes" value="selecaoOpcoes"
+                                                    onclick="alternarOpcional()">
+                                                <label class="form-check-label" for="selecaoOpcoes">Seleção de
+                                                    Opções</label>
                                             </div>
                                         </div>
 
@@ -470,42 +485,54 @@ try {
                                             <div class="row">
                                                 <div class="col-9">
                                                     <label for="txtNomeSimples" class="form-label"><b>Nome:</b></label>
-                                                    <input id="txtNomeSimples" type="text" name="txtNomeSimples" class="form-control" placeholder="Ex: Bacon">
+                                                    <input id="txtNomeSimples" type="text" name="txtNomeSimples"
+                                                        class="form-control" placeholder="Ex: Bacon">
                                                 </div>
                                                 <div class="col-3">
-                                                    <label for="txtPrecoSimples" class="form-label"><b>Preço (R$):</b></label>
-                                                    <input id="txtPrecoSimples" type="text" name="txtPrecoSimples" class="form-control" placeholder="0,00">
+                                                    <label for="txtPrecoSimples" class="form-label"><b>Preço
+                                                            (R$):</b></label>
+                                                    <input id="txtPrecoSimples" type="text" name="txtPrecoSimples"
+                                                        class="form-control" placeholder="0,00">
                                                 </div>
                                             </div>
                                         </div>
 
                                         <!-- Seção para Seleção de Opções -->
                                         <div id="SelecaoOpcoes" class="mt-4" style="display: none;">
-                                            <label for="txtTituloSecao" class="form-label"><b>Título da seção:</b></label>
-                                            <input id="txtTituloSecao" type="text" name="txtTituloSecao" class="form-control" placeholder="Ex: Deseja borda recheada?">
+                                            <label for="txtTituloSecao" class="form-label"><b>Título da
+                                                    seção:</b></label>
+                                            <input id="txtTituloSecao" type="text" name="txtTituloSecao"
+                                                class="form-control" placeholder="Ex: Deseja borda recheada?">
 
                                             <div class="row mt-3">
                                                 <div class="col-6">
-                                                    <label for="txtMinimoOpcao" class="form-label"><b>Mínimo:</b></label>
-                                                    <input id="txtMinimoOpcao" type="number" name="txtMinimoOpcao" min="0" class="form-control" placeholder="0">
+                                                    <label for="txtMinimoOpcao"
+                                                        class="form-label"><b>Mínimo:</b></label>
+                                                    <input id="txtMinimoOpcao" type="number" name="txtMinimoOpcao"
+                                                        min="0" class="form-control" placeholder="0">
                                                 </div>
                                                 <div class="col-6">
-                                                    <label for="txtMaximoOpcao" class="form-label"><b>Máximo:</b></label>
-                                                    <input id="txtMaximoOpcao" type="number" name="txtMaximoOpcao" min="1" class="form-control" placeholder="0">
+                                                    <label for="txtMaximoOpcao"
+                                                        class="form-label"><b>Máximo:</b></label>
+                                                    <input id="txtMaximoOpcao" type="number" name="txtMaximoOpcao"
+                                                        min="1" class="form-control" placeholder="0">
                                                 </div>
                                             </div>
 
                                             <div class="mt-3">
                                                 <label class="form-label"><b>Informe as opções:</b></label>
                                                 <div id="listaOpcoesSelecao"></div>
-                                                <button type="button" class="btn btn-outline-primary mt-3" onclick="adicionarOpcao()">
+                                                <button type="button" class="btn btn-outline-primary mt-3"
+                                                    onclick="adicionarOpcao()">
                                                     <i class="fas fa-plus-circle"></i> Adicionar opção
                                                 </button>
                                             </div>
                                         </div>
 
                                         <div class="d-flex custom-button mt-4">
-                                            <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar Opcional</button>
+                                            <button type="submit"
+                                                class="btn btn-primary col-12 w-100 col-md-auto">Salvar
+                                                Opcional</button>
                                         </div>
                                     </form>
 
