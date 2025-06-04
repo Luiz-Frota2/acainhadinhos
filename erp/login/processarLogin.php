@@ -14,10 +14,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Normaliza o CPF removendo tudo que não for número
+    // Remove pontos, traços, espaços – normaliza o CPF informado
     $cpf_normalizado = preg_replace('/\D/', '', $usuario_cpf);
 
-    // Determinar o tipo e empresa_id
+    // Determina o tipo da empresa e ID
     if (str_starts_with($empresa_identificador, 'principal_')) {
         $empresa_id = 1;
         $tipo = 'principal';
@@ -30,10 +30,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Buscar conta pelo usuário/cpf, empresa e tipo
-        $stmt = $pdo->prepare("SELECT * FROM contas_acesso WHERE (usuario = ? OR REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?) AND empresa_id = ? AND tipo = ?");
+        // Compara o campo CPF do banco removendo pontuação e espaços
+        $stmt = $pdo->prepare("
+            SELECT * FROM contas_acesso 
+            WHERE (usuario = :usuario OR 
+                   REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = :cpf)
+              AND empresa_id = :empresa_id 
+              AND tipo = :tipo
+        ");
+        $stmt->execute([
+            ':usuario' => $usuario_cpf,
+            ':cpf' => $cpf_normalizado,
+            ':empresa_id' => $empresa_id,
+            ':tipo' => $tipo
+        ]);
 
-        $stmt->execute([$usuario_cpf, $cpf_normalizado, $empresa_id, $tipo]);
         $conta = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($conta) {
@@ -42,13 +53,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hashInformado = hash('sha256', $saltArmazenado . $senha);
 
             if ($hashInformado === $hashArmazenado) {
-                // Verifica autorização
+                // Verifica se autorizado
                 if ($conta['autorizado'] !== 'sim') {
                     echo "<script>alert('Seu acesso ainda não foi autorizado.'); history.back();</script>";
                     exit;
                 }
 
-                // ✅ Login bem-sucedido e autorizado
+                // Login OK
                 session_start();
                 $_SESSION['usuario_logado'] = true;
                 $_SESSION['usuario_id'] = $conta['id'];
@@ -57,9 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['tipo_empresa'] = $conta['tipo'];
                 $_SESSION['nivel'] = $conta['nivel'];
 
-                echo "<script>
-                    window.location.href = '../dashboard.php?id=$empresa_identificador';
-                </script>";
+                echo "<script>window.location.href = '../dashboard.php?id=$empresa_identificador';</script>";
                 exit;
             } else {
                 echo "<script>alert('Senha incorreta.'); history.back();</script>";
@@ -69,8 +78,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo "<script>alert('Usuário não encontrado.'); history.back();</script>";
             exit;
         }
+
     } catch (PDOException $e) {
         echo "<script>alert('Erro ao verificar login.'); history.back();</script>";
+        exit;
     }
 }
 ?>
