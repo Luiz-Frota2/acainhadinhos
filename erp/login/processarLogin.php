@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Buscar conta pelo usuário/cpf, empresa e tipo
         $stmt = $pdo->prepare("SELECT * FROM contas_acesso WHERE (usuario = ? OR REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?) AND empresa_id = ? AND tipo = ?");
+
         $stmt->execute([$usuario_cpf, $cpf_normalizado, $empresa_id, $tipo]);
         $conta = $stmt->fetch(PDO::FETCH_ASSOC);
 
