@@ -462,24 +462,24 @@ try {
 
                                 <div class="modal-body">
                                   <div class="mb-3">
-                                  <label for="entrada" class="form-label">Entrada</label>
-                                  <input type="time" class="form-control" name="entrada"
-                                    value="<?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '' ?>">
+                                    <label for="entrada" class="form-label">Entrada</label>
+                                    <input type="time" class="form-control" name="entrada"
+                                      value="<?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '' ?>">
                                   </div>
                                   <div class="mb-3">
-                                  <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
-                                  <input type="time" class="form-control" name="saida_intervalo"
-                                    value="<?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '' ?>">
+                                    <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
+                                    <input type="time" class="form-control" name="saida_intervalo"
+                                      value="<?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '' ?>">
                                   </div>
                                   <div class="mb-3">
-                                  <label for="retorno_intervalo" class="form-label">Entrada do Intervalo</label>
-                                  <input type="time" class="form-control" name="retorno_intervalo"
-                                    value="<?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '' ?>">
+                                    <label for="retorno_intervalo" class="form-label">Entrada do Intervalo</label>
+                                    <input type="time" class="form-control" name="retorno_intervalo"
+                                      value="<?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '' ?>">
                                   </div>
                                   <div class="mb-3">
-                                  <label for="saida_final" class="form-label">Saída</label>
-                                  <input type="time" class="form-control" name="saida_final"
-                                    value="<?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '' ?>">
+                                    <label for="saida_final" class="form-label">Saída</label>
+                                    <input type="time" class="form-control" name="saida_final"
+                                      value="<?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '' ?>">
                                   </div>
                                 </div>
 
