@@ -35,7 +35,7 @@ if (empty($nomeFuncionario) || empty($cpfUsuario) || empty($dataAtestado) || emp
     exit;
 }
 
-// ✅ Define o identificador da empresa (corrigido para lidar com "principal_1" e "filial_X")
+// ✅ Define o identificador da empresa
 if (strpos($idSelecionado, 'principal_') === 0 || strpos($idSelecionado, 'filial_') === 0) {
     $idEmpresaFinal = $idSelecionado;
 } else {
@@ -54,7 +54,7 @@ if (isset($_FILES['imagemAtestado']) && $_FILES['imagemAtestado']['error'] === 0
 
     $diretorio = '../../../assets/img/atestados/';
     if (!is_dir($diretorio)) {
-        mkdir($diretorio, 0755, true); // Cria o diretório se não existir
+        mkdir($diretorio, 0755, true);
     }
 
     $nomeImagem = uniqid('atestado_') . '.' . $extensao;
@@ -69,7 +69,7 @@ if (isset($_FILES['imagemAtestado']) && $_FILES['imagemAtestado']['error'] === 0
     exit;
 }
 
-// ✅ Verifica se o CPF existe
+// ✅ Verifica se o CPF existe e busca horários do funcionário
 $stmtFuncionario = $pdo->prepare("SELECT * FROM funcionarios WHERE cpf = :cpf AND empresa_id = :empresa_id");
 $stmtFuncionario->bindParam(':cpf', $cpfUsuario);
 $stmtFuncionario->bindParam(':empresa_id', $idSelecionado);
@@ -82,8 +82,15 @@ if (!$funcionario) {
     exit;
 }
 
-// ✅ Inserção do atestado
+// ✅ Extrai os horários do funcionário
+$entrada = $funcionario['entrada'];
+$saida_intervalo = $funcionario['saida_intervalo'];
+$retorno_intervalo = $funcionario['retorno_intervalo'];
+$saida_final = $funcionario['saida_final'];
+
+// ✅ Inserção do atestado e criação dos registros de ponto
 try {
+    // 🔹 Inserir o atestado
     $stmt = $pdo->prepare("INSERT INTO atestados (
         nome_funcionario, cpf_usuario, data_envio, data_atestado, dias_afastado, medico, observacoes, imagem_atestado, id_empresa
     ) VALUES (
@@ -96,57 +103,38 @@ try {
     $stmt->bindParam(':dias_afastado', $diasAfastado, PDO::PARAM_INT);
     $stmt->bindParam(':medico', $medico);
     $stmt->bindParam(':observacoes', $observacoes);
-    $stmt->bindParam(':imagem_atestado', $nomeImagem); // Apenas o nome da imagem
+    $stmt->bindParam(':imagem_atestado', $nomeImagem);
     $stmt->bindParam(':id_empresa', $idEmpresaFinal);
     $stmt->execute();
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao adicionar atestado: " . $e->getMessage() . "'); history.back();</script>";
-    exit;
-}
 
-// ✅ Inserção no banco de ponto
-$entrada = $funcionario['hora_entrada_primeiro_turno'];
-$saida = $funcionario['hora_saida_primeiro_turno'];
-$entrada2 = $funcionario['hora_entrada_segundo_turno'];
-$saida2 = $funcionario['hora_saida_segundo_turno'];
+    // 🔹 Criar registros de ponto com os horários reais do funcionário
+    $dataInicio = new DateTime($dataAtestado);
 
-$dataInicio = new DateTime($dataAtestado);
+    for ($i = 0; $i < (int)$diasAfastado; $i++) {
+        $dataPonto = $dataInicio->format('Y-m-d');
 
-for ($i = 0; $i < (int)$diasAfastado; $i++) {
-    $dataRegistro = $dataInicio->format('Y-m-d');
-
-    // Primeiro turno
-    $stmtPonto = $pdo->prepare("INSERT INTO registros_ponto (
-        empresa_id, cpf, data, entrada, saida, status, horas_pendentes
-    ) VALUES (
-        :empresa_id, :cpf, :data, :entrada, :saida, 'atestado', '00:00:00'
-    )");
-    $stmtPonto->execute([
-        ':empresa_id' => $idEmpresaFinal,
-        ':cpf' => $cpfUsuario,
-        ':data' => $dataRegistro,
-        ':entrada' => $entrada,
-        ':saida' => $saida
-    ]);
-
-    // Segundo turno, se existir
-    if (!empty($entrada2) && !empty($saida2)) {
-        $stmtPonto2 = $pdo->prepare("INSERT INTO registros_ponto (
-            empresa_id, cpf, data, entrada, saida, status, horas_pendentes
+        $stmtPonto = $pdo->prepare("INSERT IGNORE INTO pontos (
+            cpf, nome, data, entrada, saida_intervalo, retorno_intervalo, saida_final, empresa_id
         ) VALUES (
-            :empresa_id, :cpf, :data, :entrada, :saida, 'atestado', '00:00:00'
+            :cpf, :nome, :data, :entrada, :saida_intervalo, :retorno_intervalo, :saida_final, :empresa_id
         )");
-        $stmtPonto2->execute([
-            ':empresa_id' => $idEmpresaFinal,
-            ':cpf' => $cpfUsuario,
-            ':data' => $dataRegistro,
-            ':entrada' => $entrada2,
-            ':saida' => $saida2
-        ]);
+
+        $stmtPonto->bindParam(':cpf', $cpfUsuario);
+        $stmtPonto->bindParam(':nome', $nomeFuncionario);
+        $stmtPonto->bindParam(':data', $dataPonto);
+        $stmtPonto->bindParam(':entrada', $entrada);
+        $stmtPonto->bindParam(':saida_intervalo', $saida_intervalo);
+        $stmtPonto->bindParam(':retorno_intervalo', $retorno_intervalo);
+        $stmtPonto->bindParam(':saida_final', $saida_final);
+        $stmtPonto->bindParam(':empresa_id', $idEmpresaFinal);
+        $stmtPonto->execute();
+
+        $dataInicio->modify('+1 day');
     }
 
-    $dataInicio->modify('+1 day');
+    echo "<script>alert('Atestado adicionado e registros de ponto criados com sucesso!'); window.location.href = '../../sistemadeponto/atestadosEnviados.php?id=$idSelecionado';</script>";
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao adicionar atestado ou criar registros de ponto: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
-
-echo "<script>alert('Atestado adicionado e registros de ponto criados com sucesso!'); window.location.href = '../../sistemadeponto/atestadosEnviados.php?id=$idSelecionado';</script>";
 ?>

@@ -27,28 +27,28 @@ $usuario_id = $_SESSION['usuario_id'];
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
 
 try {
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de Admins
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de Funcionários
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    if ($tipoUsuarioSessao === 'Admin') {
+        // Buscar na tabela de Admins
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        // Buscar na tabela de Funcionários
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -96,11 +96,13 @@ try {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default" data-assets-path="../assets/" data-template="vertical-menu-template-free">
+<html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
+    data-assets-path="../assets/" data-template="vertical-menu-template-free">
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>ERP - Fechamento de Caixa</title>
 
     <!-- Fonts -->
@@ -146,10 +148,12 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);"
+                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -166,7 +170,8 @@ try {
                     </li>
 
                     <!-- CAIXA -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span>
+                    </li>
 
                     <!-- Operações de Caixa -->
                     <li class="menu-item  ">
@@ -231,7 +236,7 @@ try {
                                     <div data-i18n="Basic">Detalhes da Venda</div>
                                 </a>
                             </li>
-                            
+
                         </ul>
                     </li>
                     <!-- END CAIXA -->
@@ -266,8 +271,7 @@ try {
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -290,9 +294,11 @@ try {
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
+                                    data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/avatars/1.png" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -301,7 +307,8 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
@@ -332,7 +339,8 @@ try {
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span
+                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -340,7 +348,8 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -356,53 +365,51 @@ try {
                 <!-- / Navbar -->
 
                 <?php
-$host = 'localhost';
-$dbname = 'u920914488_ERP';
-$username = 'u920914488_ERP';
-$password = 'K5yJv;lVIKc>';
+                
+                include "../../assets/php/conexao.php";
 
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Erro de conexão: " . $e->getMessage());
-}
+                try {
+                    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+                    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                } catch (PDOException $e) {
+                    die("Erro de conexão: " . $e->getMessage());
+                }
 
-$id_caixa = $_GET['chave'] ?? '';
-$empresa_id = $_GET['id'] ?? '';
+                $id_caixa = $_GET['chave'] ?? '';
+                $empresa_id = $_GET['id'] ?? '';
 
-if (!$id_caixa || !$empresa_id) {
-    die("Parâmetros inválidos.");
-}
+                if (!$id_caixa || !$empresa_id) {
+                    die("Parâmetros inválidos.");
+                }
 
-// Buscar as vendas correspondentes
-$stmt = $pdo->prepare("SELECT * FROM itens_venda WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
-$stmt->execute([
-    'id_caixa' => $id_caixa,
-    'empresa_id' => $empresa_id
-]);
+                // Buscar as vendas correspondentes
+                $stmt = $pdo->prepare("SELECT * FROM itens_venda WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
+                $stmt->execute([
+                    'id_caixa' => $id_caixa,
+                    'empresa_id' => $empresa_id
+                ]);
 
-$vendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $vendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
-// Buscar as vendas correspondentes
-$stmt = $pdo->prepare("SELECT * FROM sangrias WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
-$stmt->execute([
-    'id_caixa' => $id_caixa,
-    'empresa_id' => $empresa_id
-]);
+                // Buscar as vendas correspondentes
+                $stmt = $pdo->prepare("SELECT * FROM sangrias WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
+                $stmt->execute([
+                    'id_caixa' => $id_caixa,
+                    'empresa_id' => $empresa_id
+                ]);
 
-$sangrias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $sangrias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Buscar as vendas correspondentes
-$stmt = $pdo->prepare("SELECT * FROM suprimentos WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
-$stmt->execute([
-    'id_caixa' => $id_caixa,
-    'empresa_id' => $empresa_id
-]);
+                // Buscar as vendas correspondentes
+                $stmt = $pdo->prepare("SELECT * FROM suprimentos WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
+                $stmt->execute([
+                    'id_caixa' => $id_caixa,
+                    'empresa_id' => $empresa_id
+                ]);
 
-$suprimentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-?>
+                $suprimentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                ?>
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
@@ -411,138 +418,145 @@ $suprimentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         </span>
                         Detalhes de Vendas - 2023-10-01
                     </h4>
-                    <h5 class="fw-semibold mt-2 mb-4 text-muted">Visualize os detalhes das vendas do dia selecionado</h5>
-<?php if (!empty($vendas)): ?>
-                    <div class="row">
-                        <div class="col-lg-12 mb-4 order-0">
-                            <div class="card">
-                                <h5 class="card-header">Detalhes de Vendas</h5>
-                                <div class="table-responsive text-nowrap">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Produto</th>
-                                                <th>Quantidade</th>
-                                                <th>Valor Unitário</th>
-                                                <th>Valor Total</th>
-                                            </tr>
-                                        </thead>
+                    <h5 class="fw-semibold mt-2 mb-4 text-muted">Visualize os detalhes das vendas do dia selecionado
+                    </h5>
+                    <?php if (!empty($vendas)): ?>
+                        <div class="row">
+                            <div class="col-lg-12 mb-4 order-0">
+                                <div class="card">
+                                    <h5 class="card-header">Detalhes de Vendas</h5>
+                                    <div class="table-responsive text-nowrap">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Produto</th>
+                                                    <th>Quantidade</th>
+                                                    <th>Valor Unitário</th>
+                                                    <th>Valor Total</th>
+                                                </tr>
+                                            </thead>
 
-    <tbody class="table-border-bottom-0">
-        <?php 
-        $somaTotal = 0;
-        foreach ($vendas as $venda): 
-            $somaTotal += $venda['preco_total'];
-        ?>
-            <tr>
-                <td><?= htmlspecialchars($venda['nome_produto']) ?></td>
-                <td><?= htmlspecialchars($venda['quantidade']) ?></td>
-                <td>R$ <?= number_format($venda['preco_unitario'], 2, ',', '.') ?></td>
-                <td>R$ <?= number_format($venda['preco_total'], 2, ',', '.') ?></td>
-            </tr>
-        <?php endforeach; ?>
+                                            <tbody class="table-border-bottom-0">
+                                                <?php
+                                                $somaTotal = 0;
+                                                foreach ($vendas as $venda):
+                                                    $somaTotal += $venda['preco_total'];
+                                                    ?>
+                                                    <tr>
+                                                        <td><?= htmlspecialchars($venda['nome_produto']) ?></td>
+                                                        <td><?= htmlspecialchars($venda['quantidade']) ?></td>
+                                                        <td>R$ <?= number_format($venda['preco_unitario'], 2, ',', '.') ?></td>
+                                                        <td>R$ <?= number_format($venda['preco_total'], 2, ',', '.') ?></td>
+                                                    </tr>
+                                                <?php endforeach; ?>
 
-        <tr>
-            <td colspan="3" class="text-end fw-bold">Total</td>
-            <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?></td>
-        </tr>
-    </tbody>
+                                                <tr>
+                                                    <td colspan="3" class="text-end fw-bold">Total</td>
+                                                    <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
 
-                                    </table>
-                                    
+                                        </table>
+
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                 <?php endif; ?>
-<?php if (!empty($vendas)): ?>
-                    <div class="row">
-                        <div class="col-lg-12 mb-4 order-0">
-                            <div class="card">
-                                <h5 class="card-header">Detalhes da Sangrias</h5>
-                                <div class="table-responsive text-nowrap">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Data da Retirada</th>
-                                                <th>Hora da Retirada</th>
-                                                <th>Valor no Caixa</th>
-                                                <th>Valor da Retirada</th>
-                                                
-                                            </tr>
-                                        </thead>
-    <tbody class="table-border-bottom-0">
-        <?php 
-        $somaTotal = 0;
-        foreach ($sangrias as $sangria): 
-            $somaTotal += $sangria['valor'];
-        ?>
-            <tr>
-                <td><?= htmlspecialchars($sangria['data_sangria']) ?></td>
-                <td><?= htmlspecialchars($sangria['hora_sangria']) ?></td>
-                <td>R$ <?= number_format($sangria['valor_liquido'], 2, ',', '.') ?></td>
-                 <td>R$ <?= number_format($sangria['valor'], 2, ',', '.') ?></td>
+                    <?php endif; ?>
+                    <?php if (!empty($vendas)): ?>
+                        <div class="row">
+                            <div class="col-lg-12 mb-4 order-0">
+                                <div class="card">
+                                    <h5 class="card-header">Detalhes da Sangrias</h5>
+                                    <div class="table-responsive text-nowrap">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Data da Retirada</th>
+                                                    <th>Hora da Retirada</th>
+                                                    <th>Valor no Caixa</th>
+                                                    <th>Valor da Retirada</th>
 
-            </tr>
-        <?php endforeach; ?>
-        <tr>
-            <td colspan="3" class="text-end fw-bold">Total</td>
-            <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?></td>
-        </tr>
-    </tbody>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="table-border-bottom-0">
+                                                <?php
+                                                $somaTotal = 0;
+                                                foreach ($sangrias as $sangria):
+                                                    $somaTotal += $sangria['valor'];
+                                                    ?>
+                                                    <tr>
+                                                        <td><?= htmlspecialchars($sangria['data_sangria']) ?></td>
+                                                        <td><?= htmlspecialchars($sangria['hora_sangria']) ?></td>
+                                                        <td>R$ <?= number_format($sangria['valor_liquido'], 2, ',', '.') ?></td>
+                                                        <td>R$ <?= number_format($sangria['valor'], 2, ',', '.') ?></td>
 
-                                    </table>
-                                    
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                                <tr>
+                                                    <td colspan="3" class="text-end fw-bold">Total</td>
+                                                    <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+
+                                        </table>
+
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-  <?php endif; ?>
+                    <?php endif; ?>
                     <?php if (!empty($suprimentos)): ?>
-                    <div class="row">
-                        <div class="col-lg-12 mb-4 order-0">
-                            <div class="card">
-                                <h5 class="card-header">Detalhes da Suprimento</h5>
-                                <div class="table-responsive text-nowrap">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Data da Entrada</th>
-                                                <th>Hora da Entrada</th>
-                                                <th>Valor no Caixa</th>
-                                                <th>Valor da Entrada</th>
-                                                
-                                            </tr>
-                                        </thead>
-    <tbody class="table-border-bottom-0">
-        <?php 
-        $somaTotal = 0;
-        foreach ($suprimentos as $suprimento): 
-            $somaTotal += $suprimento['valor_suprimento'];
-        ?>
-            <tr>
-                <td><?= htmlspecialchars($suprimento['data_suprimento']) ?></td>
-                <td><?= htmlspecialchars($suprimento['hora_suprimento']) ?></td>
-                <td>R$ <?= number_format($suprimento['valor_liquido'], 2, ',', '.') ?></td>
-                 <td>R$ <?= number_format($suprimento['valor_suprimento'], 2, ',', '.') ?></td>
+                        <div class="row">
+                            <div class="col-lg-12 mb-4 order-0">
+                                <div class="card">
+                                    <h5 class="card-header">Detalhes da Suprimento</h5>
+                                    <div class="table-responsive text-nowrap">
+                                        <table class="table table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th>Data da Entrada</th>
+                                                    <th>Hora da Entrada</th>
+                                                    <th>Valor no Caixa</th>
+                                                    <th>Valor da Entrada</th>
 
-            </tr>
-        <?php endforeach; ?>
-        <tr>
-            <td colspan="3" class="text-end fw-bold">Total</td>
-            <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?></td>
-        </tr>
-    </tbody>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="table-border-bottom-0">
+                                                <?php
+                                                $somaTotal = 0;
+                                                foreach ($suprimentos as $suprimento):
+                                                    $somaTotal += $suprimento['valor_suprimento'];
+                                                    ?>
+                                                    <tr>
+                                                        <td><?= htmlspecialchars($suprimento['data_suprimento']) ?></td>
+                                                        <td><?= htmlspecialchars($suprimento['hora_suprimento']) ?></td>
+                                                        <td>R$ <?= number_format($suprimento['valor_liquido'], 2, ',', '.') ?>
+                                                        </td>
+                                                        <td>R$
+                                                            <?= number_format($suprimento['valor_suprimento'], 2, ',', '.') ?>
+                                                        </td>
 
-                                    </table>
-                                    
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                                <tr>
+                                                    <td colspan="3" class="text-end fw-bold">Total</td>
+                                                    <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+
+                                        </table>
+
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-               <?php endif; ?>
+                    <?php endif; ?>
                 </div>
-                
+
 
                 <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
                 <script src="../../assets/vendor/libs/popper/popper.js"></script>

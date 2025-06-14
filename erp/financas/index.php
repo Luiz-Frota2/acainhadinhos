@@ -146,7 +146,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-             <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -329,12 +329,7 @@ try {
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
-                <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
-                  aria-label="Search..." />
+                
               </div>
             </div>
             <!-- /Search -->
@@ -405,7 +400,6 @@ try {
             </ul>
           </div>
         </nav>
-
         <!-- / Navbar -->
 
         <!-- Content -->
@@ -418,7 +412,7 @@ try {
                   <div class="col-sm-7">
                     <div class="card-body">
                       <h5 class="card-title text-primary saudacao" data-setor="Finanças"></h5>
-                      <p class="mb-4">Suas configurações do delivery foram atualizadas em seu perfil. Continue explorando e ajustando-as conforme suas preferências.</p>
+                      <p class="mb-4">Suas configurações do Finanças foram atualizadas em seu perfil. Continue explorando e ajustando-as conforme suas preferências.</p>
 
                     </div>
                   </div>
@@ -942,13 +936,8 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
         </footer>

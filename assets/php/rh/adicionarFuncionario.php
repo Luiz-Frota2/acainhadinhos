@@ -11,25 +11,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $cargo_funcionario = trim($_POST["cargo"]);
     $setor_funcionario = trim($_POST["setor"]);
     $salario_funcionario = trim($_POST["salario"]);
+    $salario_funcionario = number_format((float)str_replace(',', '.', $salario_funcionario), 2, '.', '');
     $escala_funcionario = trim($_POST["escala"]);
     $dia_inicio = trim($_POST["dia_inicio"]);
-    $dia_termino = trim($_POST["dia_termino"]);
-    $hora_entrada_1 = trim($_POST["hora_entrada_primeiro_turno"]);
-    $hora_saida_1 = trim($_POST["hora_saida_primeiro_turno"]);
-    $hora_entrada_2 = trim($_POST["hora_entrada_segundo_turno"]);
-    $hora_saida_2 = trim($_POST["hora_saida_segundo_turno"]);
+    $dia_folga = trim($_POST["dia_folga"]);
+    
+    // Novos campos de horário
+    $entrada = isset($_POST["entrada"]) && trim($_POST["entrada"]) !== "" ? trim($_POST["entrada"]) : null;
+    $saida_intervalo = isset($_POST["saida_intervalo"]) && trim($_POST["saida_intervalo"]) !== "" ? trim($_POST["saida_intervalo"]) : null;
+    $retorno_intervalo = isset($_POST["retorno_intervalo"]) && trim($_POST["retorno_intervalo"]) !== "" ? trim($_POST["retorno_intervalo"]) : null;
+    $saida_final = isset($_POST["saida_final"]) && trim($_POST["saida_final"]) !== "" ? trim($_POST["saida_final"]) : null;
+    
     $email_funcionario = trim($_POST["email"]);
     $telefone_funcionario = trim($_POST["telefone"]);
     $endereco_funcionario = trim($_POST["endereco"]);
     $cidade_funcionario = trim($_POST["cidade"]);
-
-    // Se os campos do segundo turno estiverem vazios, define como NULL
-    if (empty($hora_entrada_2)) {
-        $hora_entrada_2 = NULL;
-    }
-    if (empty($hora_saida_2)) {
-        $hora_saida_2 = NULL;
-    }
 
     try {
         // Verifica se o CPF já está cadastrado
@@ -48,20 +44,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit();
         }
 
-        // Query de inserção com campos para 2 turnos
+        // Query de inserção com 4 pontos de marcação
         $sql = "INSERT INTO funcionarios (
             empresa_id, nome, data_nascimento, cpf, rg,
             cargo, setor, salario, escala,
-            dia_inicio, dia_termino, 
-            hora_entrada_primeiro_turno, hora_saida_primeiro_turno,
-            hora_entrada_segundo_turno, hora_saida_segundo_turno,
+            dia_inicio, dia_folga, 
+            entrada, saida_intervalo, retorno_intervalo, saida_final,
             email, telefone, endereco, cidade
         ) VALUES (
             :empresa_id, :nome, :data_nascimento, :cpf, :rg,
             :cargo, :setor, :salario, :escala,
-            :dia_inicio, :dia_termino, 
-            :hora_entrada_1, :hora_saida_1,
-            :hora_entrada_2, :hora_saida_2,
+            :dia_inicio, :dia_folga, 
+            :entrada, :saida_intervalo, :retorno_intervalo, :saida_final,
             :email, :telefone, :endereco, :cidade
         )";
 
@@ -76,11 +70,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->bindParam(":salario", $salario_funcionario);
         $stmt->bindParam(":escala", $escala_funcionario);
         $stmt->bindParam(":dia_inicio", $dia_inicio);
-        $stmt->bindParam(":dia_termino", $dia_termino);
-        $stmt->bindParam(":hora_entrada_1", $hora_entrada_1);
-        $stmt->bindParam(":hora_saida_1", $hora_saida_1);
-        $stmt->bindParam(":hora_entrada_2", $hora_entrada_2);
-        $stmt->bindParam(":hora_saida_2", $hora_saida_2);
+        $stmt->bindParam(":dia_folga", $dia_folga);
+        $stmt->bindParam(":entrada", $entrada);
+        $stmt->bindParam(":saida_intervalo", $saida_intervalo);
+        $stmt->bindParam(":retorno_intervalo", $retorno_intervalo);
+        $stmt->bindParam(":saida_final", $saida_final);
         $stmt->bindParam(":email", $email_funcionario);
         $stmt->bindParam(":telefone", $telefone_funcionario);
         $stmt->bindParam(":endereco", $endereco_funcionario);

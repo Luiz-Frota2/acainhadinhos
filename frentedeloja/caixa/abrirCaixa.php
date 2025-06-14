@@ -59,13 +59,14 @@ try {
 function obterNomeFuncionario($pdo, $cpf)
 {
     try {
-        $stmt = $pdo->prepare("SELECT nome FROM funcionarios WHERE cpf = :cpf");
+        $stmt = $pdo->prepare("SELECT nome AND cpf FROM funcionarios_acesso WHERE cpf = :cpf");
         $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
         $stmt->execute();
         $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($funcionario && !empty($funcionario['nome'])) {
+        if ($funcionario && !empty($funcionario['nome']) || !empty($funcionario['cpf'])) {
             return $funcionario['nome'];
+
         } else {
             return 'Funcionário não identificado';
         }
@@ -184,24 +185,29 @@ try {
             }
             ?>
 
-            <form action="../../assets/php/frentedeloja/login/abrirCaixaSubmit.php?id=<?= urlencode($idSelecionado); ?>" method="POST">
+            <form action="../../assets/php/frentedeloja/abrirCaixaSubmit.php?id=<?= urlencode($idSelecionado); ?>" method="POST">
              
               <!-- Valor de Abertura -->
               <div class="mb-3">
                  <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
                 <label for="valor_abertura" class="form-label">Valor de Abertura</label>
                 <input type="hidden" id="status_abertura" name="status_abertura" value="aberto">
+                <input type="hidden" id="cpf" name="cpf" value="<?php echo htmlspecialchars($cpfUsuario);?>">
                 <input type="hidden" id="responsavel" name="responsavel" value="<?= ucwords($nomeUsuario); ?>" >
 
                 <input type="text" class="form-control" id="valor_abertura" name="valor_abertura"
                   placeholder="Digite o valor de abertura" required autofocus />
               </div>
 
+
               <!-- Botão para submeter -->
               <div class="mb-3">
-                <button class="btn btn-primary d-grid w-100" type="submit">Abrir Caixa</button>
+                <button class="btn btn-primary d-grid w-100" type="submit" >Abrir Caixa</button>
               </div>
             </form>
+
+<!-- Modal da câmera -->
+
 
             <div class="text-center">
               <a href="index.php?id=<?= htmlspecialchars($idSelecionado) ?>"
@@ -216,7 +222,7 @@ try {
       </div>
     </div>
   </div>
-
+   
   <script src="../../../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../../../assets/vendor/libs/popper/popper.js"></script>
   <script src="../../../assets/vendor/js/bootstrap.js"></script>

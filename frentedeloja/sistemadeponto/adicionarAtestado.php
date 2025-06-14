@@ -182,7 +182,7 @@ try {
                 <div class="app-brand demo">
                     <a href="./dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                     <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
@@ -383,7 +383,7 @@ try {
                 <!-- Content wrapper -->
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                                href="adiconarAtestado.php?id=<?= urlencode($idSelecionado); ?>">Atestados</a>/</span>Adicionar
+                                href="atestadosEnviados.php?id=<?= urlencode($idSelecionado); ?>">Atestados</a>/</span>Adicionar
                         Atestado</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os dados do
                             novo Atestado</span></h5>
@@ -398,7 +398,7 @@ try {
                                 <!-- Campos ocultos -->
                                 <input type="hidden" name="nomeFuncionario"
                                     value="<?= htmlspecialchars($nomeFuncionario); ?>">
-                                <input type="text" name="idSelecionado"
+                                <input type="hidden" name="idSelecionado"
                                     value="<?= htmlspecialchars($idSelecionado); ?>">
                                 <input type="hidden" name="cpfUsuario" value="<?= htmlspecialchars($cpfUsuario); ?>">
 
@@ -457,12 +457,7 @@ try {
                                 document.write(new Date().getFullYear());
                             </script>
                             , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por
-                            <a href="https://wa.me/92991515710" target="_blank"
-                                style="text-decoration: none; color: inherit;"><strong>
-                                    Lucas Correa
-                                </strong>.</a>
-
+                            Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
                 </footer>

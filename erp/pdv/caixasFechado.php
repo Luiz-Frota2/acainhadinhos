@@ -110,8 +110,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon"
-    href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -155,7 +154,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -169,7 +168,7 @@ try {
 
           <!-- DASHBOARD -->
           <li class="menu-item">
-            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -188,13 +187,13 @@ try {
             </a>
             <ul class="menu-sub">
               <!-- Caixa Aberto: Visualização de caixas abertos -->
-              <li class="menu-item active">
+              <li class="menu-item">
                 <a href="./caixasAberto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Basic">Caixas Aberto</div>
                 </a>
               </li>
               <!-- Caixa Fechado: Histórico ou controle de caixas encerrados -->
-              <li class="menu-item">
+              <li class="menu-item active">
                 <a href="./caixasFechado.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Basic">Caixas Fechado</div>
                 </a>
@@ -377,13 +376,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -429,11 +428,13 @@ try {
           echo "Erro ao buscar caixa: " . $e->getMessage();
           exit;
         }
+
         ?>
         <!-- Content -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Caixas Fechados</h4>
+          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Caixas
+            Fechados</h4>
           <div class="card">
             <h5 class="card-header">Lista de Caixa Fechados</h5>
             <div class="table-responsive text-nowrap">
@@ -482,13 +483,8 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>CodeGeek</strong>.
             </div>
           </div>
         </footer>

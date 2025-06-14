@@ -152,7 +152,9 @@ try {
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -405,8 +407,7 @@ try {
         </nav>
         <!-- / Navbar -->
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                href="#">Funcionários</a>/</span>Adicionados
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Funcionários</a>/</span>Adicionados
           </h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Funcionário
               Adicionados da sua Empresa</span></h5>
@@ -441,9 +442,57 @@ try {
                           <span class="mx-2">|</span>
 
                           <!-- Visualizar -->
-                          <button class="btn btn-link text-muted p-0" title="Visualizar">
+                          <button class="btn btn-link text-muted p-0" title="Visualizar" data-bs-toggle="modal"
+                            data-bs-target="#modalVisualizar_<?= $funcionario['id'] ?>">
                             <i class="fas fa-eye"></i>
                           </button>
+
+                          <!-- Modal Visualizar Funcionário -->
+                          <div class="modal fade" id="modalVisualizar_<?= $funcionario['id'] ?>" tabindex="-1"
+                            aria-labelledby="modalVisualizarLabel_<?= $funcionario['id'] ?>" aria-hidden="true">
+                            <div class="modal-dialog">
+                              <div class="modal-content">
+                                <div class="modal-header">
+                                  <h5 class="modal-title" id="modalVisualizarLabel_<?= $funcionario['id'] ?>">
+                                    Detalhes do Funcionário
+                                  </h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                  <div class="mb-2">
+                                    <strong>Nome:</strong>
+                                    <span style="word-break: break-word; white-space: pre-line; display: inline;">
+                                      <?= htmlspecialchars($funcionario['nome']) ?>
+                                    </span>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Escala:</strong>
+                                    <?= htmlspecialchars($funcionario['escala'] ?? 'Não informado') ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Entrada:</strong>
+                                    <?= !empty($funcionario['entrada']) ? date('H:i', strtotime($funcionario['entrada'])) : 'Não informado' ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Saída Intervalo:</strong>
+                                    <?= !empty($funcionario['saida_intervalo']) ? date('H:i', strtotime($funcionario['saida_intervalo'])) : 'Não informado' ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Retorno Intervalo:</strong>
+                                    <?= !empty($funcionario['retorno_intervalo']) ? date('H:i', strtotime($funcionario['retorno_intervalo'])) : 'Não informado' ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Saída Final:</strong>
+                                    <?= !empty($funcionario['saida_final']) ? date('H:i', strtotime($funcionario['saida_final'])) : 'Não informado' ?>
+                                  </div>
+                                </div>
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
 
                           <span class="mx-2">|</span>
 
@@ -459,7 +508,8 @@ try {
                             <div class="modal-dialog">
                               <div class="modal-content">
                                 <div class="modal-header">
-                                  <h5 class="modal-title" id="modalExcluirLabel_<?= $funcionario['id'] ?>">Excluir Funcionário</h5>
+                                  <h5 class="modal-title" id="modalExcluirLabel_<?= $funcionario['id'] ?>">Excluir
+                                    Funcionário</h5>
                                   <button type="button" class="btn-close" data-bs-dismiss="modal"
                                     aria-label="Close"></button>
                                 </div>
@@ -523,6 +573,10 @@ try {
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
+
+                // Adiciona espaçamento horizontal entre os botões
+                btn.style.marginRight = "6px";
+
                 btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
                 btn.addEventListener('click', () => {
                   currentPage = i;

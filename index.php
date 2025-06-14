@@ -24,7 +24,7 @@
                 <div class="container-img"></div>
 
                 <div class="infos">
-                    <h1><b>Açaidinhos</b></h1>
+                    <h1><b>Açainhadinhos</b></h1>
                     <div class="infos-sub">
                         <p class="status-open">
                             <i class="fas fa-clock"></i> Aberta
@@ -87,7 +87,7 @@
                     </a>
                 <?php endforeach; ?>
             <?php else: ?>
-                <p>Nenhuma categoria encontrada.</p>
+                <p></p>
             <?php endif; ?>
         </div>
     </section>

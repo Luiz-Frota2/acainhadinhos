@@ -13,27 +13,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $salario = trim($_POST["salario"] ?? '');
     $escala = trim($_POST["escala"] ?? '');
     $dia_inicio = trim($_POST["dia_inicio"] ?? '');
-    $dia_termino = trim($_POST["dia_termino"] ?? '');
-    $hora_entrada_primeiro_turno = trim($_POST["hora_entrada_primeiro_turno"] ?? '');
-    $hora_saida_primeiro_turno = trim($_POST["hora_saida_primeiro_turno"] ?? '');
-    $hora_entrada_segundo_turno = trim($_POST["hora_entrada_segundo_turno"] ?? '');
-    $hora_saida_segundo_turno = trim($_POST["hora_saida_segundo_turno"] ?? '');
+    $dia_folga = trim($_POST["dia_folga"] ?? '');
+    $entrada = trim($_POST["entrada"] ?? '');
+    $saida_intervalo = trim($_POST["saida_intervalo"] ?? '');
+    $retorno_intervalo = trim($_POST["retorno_intervalo"] ?? '');
+    $saida_final = trim($_POST["saida_final"] ?? '');
     $email = trim($_POST["email"] ?? '');
     $telefone = trim($_POST["telefone"] ?? '');
     $endereco = trim($_POST["endereco"] ?? '');
     $cidade = trim($_POST["cidade"] ?? '');
 
-    // Verifica se todos os campos obrigatórios estão preenchidos
-    if (
-        empty($empresa_id) || empty($nome) || empty($data_nascimento) || empty($cpf) || empty($rg) ||
-        empty($cargo) || empty($setor) || empty($salario) || empty($escala) ||
-        empty($dia_inicio) || empty($dia_termino) ||
-        empty($hora_entrada_primeiro_turno) || empty($hora_saida_primeiro_turno) ||
-        empty($hora_entrada_segundo_turno) || empty($hora_saida_segundo_turno) ||
-        empty($email) || empty($telefone) || empty($endereco) || empty($cidade)
-    ) {
+    // Verifica apenas nome e cpf
+    if (empty($nome) || empty($cpf)) {
         echo "<script>
-                alert('Preencha todos os campos obrigatórios.');
+                alert('Nome e CPF são obrigatórios.');
                 history.back();
               </script>";
         exit;
@@ -51,11 +44,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     salario = :salario,
                     escala = :escala,
                     dia_inicio = :dia_inicio,
-                    dia_termino = :dia_termino,
-                    hora_entrada_primeiro_turno = :hora_entrada_primeiro_turno,
-                    hora_saida_primeiro_turno = :hora_saida_primeiro_turno,
-                    hora_entrada_segundo_turno = :hora_entrada_segundo_turno,
-                    hora_saida_segundo_turno = :hora_saida_segundo_turno,
+                    dia_folga = :dia_folga,
+                    entrada = :entrada,
+                    saida_intervalo = :saida_intervalo,
+                    retorno_intervalo = :retorno_intervalo,
+                    saida_final = :saida_final,
                     email = :email,
                     telefone = :telefone,
                     endereco = :endereco,
@@ -63,26 +56,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 WHERE id = :id";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(":empresa_id", $empresa_id);
+
+        // Campos obrigatórios
         $stmt->bindParam(":nome", $nome);
-        $stmt->bindParam(":data_nascimento", $data_nascimento);
         $stmt->bindParam(":cpf", $cpf);
-        $stmt->bindParam(":rg", $rg);
-        $stmt->bindParam(":cargo", $cargo);
-        $stmt->bindParam(":setor", $setor);
-        $stmt->bindParam(":salario", $salario);
-        $stmt->bindParam(":escala", $escala);
-        $stmt->bindParam(":dia_inicio", $dia_inicio);
-        $stmt->bindParam(":dia_termino", $dia_termino);
-        $stmt->bindParam(":hora_entrada_primeiro_turno", $hora_entrada_primeiro_turno);
-        $stmt->bindParam(":hora_saida_primeiro_turno", $hora_saida_primeiro_turno);
-        $stmt->bindParam(":hora_entrada_segundo_turno", $hora_entrada_segundo_turno);
-        $stmt->bindParam(":hora_saida_segundo_turno", $hora_saida_segundo_turno);
-        $stmt->bindParam(":email", $email);
-        $stmt->bindParam(":telefone", $telefone);
-        $stmt->bindParam(":endereco", $endereco);
-        $stmt->bindParam(":cidade", $cidade);
         $stmt->bindParam(":id", $id, PDO::PARAM_INT);
+
+        // Campos opcionais: se vazio, enviar como NULL
+        $campos_opcionais = [
+            "empresa_id" => $empresa_id,
+            "data_nascimento" => $data_nascimento,
+            "rg" => $rg,
+            "cargo" => $cargo,
+            "setor" => $setor,
+            "salario" => $salario,
+            "escala" => $escala,
+            "dia_inicio" => $dia_inicio,
+            "dia_folga" => $dia_folga,
+            "entrada" => $entrada,
+            "saida_intervalo" => $saida_intervalo,
+            "retorno_intervalo" => $retorno_intervalo,
+            "saida_final" => $saida_final,
+            "email" => $email,
+            "telefone" => $telefone,
+            "endereco" => $endereco,
+            "cidade" => $cidade
+        ];
+
+        foreach ($campos_opcionais as $campo => $valor) {
+            if ($valor === '') {
+                $stmt->bindValue(":$campo", null, PDO::PARAM_NULL);
+            } else {
+                $stmt->bindValue(":$campo", $valor);
+            }
+        }
 
         if ($stmt->execute()) {
             echo "<script>

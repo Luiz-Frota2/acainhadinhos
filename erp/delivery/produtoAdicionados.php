@@ -11,7 +11,7 @@ if (
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -20,7 +20,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -30,7 +30,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -38,7 +38,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
         alert('Empresa não identificada!');
-        window.location.href = '.././login.php?id=$idSelecionado';
+        window.location.href = '../../erp/login.php?id=$idSelecionado';
     </script>";
     exit;
 }
@@ -186,7 +186,9 @@ if ($usuario_id) {
                 <div class="app-brand demo">
 
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
+
                     </a>
 
                     <a href="javascript:void(0);"
@@ -296,7 +298,7 @@ if ($usuario_id) {
                         <ul class="menu-sub">
 
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
@@ -306,7 +308,7 @@ if ($usuario_id) {
                         <ul class="menu-sub">
 
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
@@ -315,7 +317,7 @@ if ($usuario_id) {
 
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>"
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
@@ -324,7 +326,7 @@ if ($usuario_id) {
 
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioVendas.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -452,8 +454,10 @@ if ($usuario_id) {
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($nivelUsuario); ?></small>
+                                                    <span
+                                                        class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
+                                                    <small
+                                                        class="text-muted"><?= htmlspecialchars($nivelUsuario); ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -466,14 +470,14 @@ if ($usuario_id) {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
 
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
 
@@ -534,7 +538,7 @@ if ($usuario_id) {
                                             $stmtProdutos->execute();
                                             $produtos = $stmtProdutos->fetchAll(PDO::FETCH_ASSOC);
 
-                                        ?>
+                                            ?>
 
                                             <div class="card mt-3">
 
@@ -686,8 +690,8 @@ if ($usuario_id) {
                                                 <!-- onde termina as modal de categoria -->
 
                                                 <!-- Listagem de Produtos -->
-                                                <div id="collapse<?php echo $categoria['id_categoria']; ?>"
-                                                    class="collapse" data-parent="#categoriasMenu">
+                                                <div id="collapse<?php echo $categoria['id_categoria']; ?>" class="collapse"
+                                                    data-parent="#categoriasMenu">
 
                                                     <div class="card-body">
 
@@ -790,18 +794,26 @@ if ($usuario_id) {
 
                                                             <!-- onde vai ficar as modal de produtos -->
 
-                                                            <div class="modal fade" id="addAdicionaisModal_<?php echo $produto['id_produto']; ?>" tabindex="-1" aria-labelledby="addAdicionaisModalLabel" aria-hidden="true">
+                                                            <div class="modal fade"
+                                                                id="addAdicionaisModal_<?php echo $produto['id_produto']; ?>"
+                                                                tabindex="-1" aria-labelledby="addAdicionaisModalLabel"
+                                                                aria-hidden="true">
                                                                 <div class="modal-dialog modal-lg">
                                                                     <div class="modal-content">
                                                                         <div class="modal-header text-white">
-                                                                            <h5 class="modal-title" id="addAdicionaisModalLabel">Cadastrar Adicionais</h5>
-                                                                            <button type="button" class="btn-close text-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                            <h5 class="modal-title"
+                                                                                id="addAdicionaisModalLabel">Cadastrar
+                                                                                Adicionais</h5>
+                                                                            <button type="button" class="btn-close text-white"
+                                                                                data-bs-dismiss="modal"
+                                                                                aria-label="Close"></button>
                                                                         </div>
                                                                         <div class="modal-body">
                                                                             <!-- Botão Adicionar Novo Opcional -->
                                                                             <a href="./adicionarOpcional.php?id=<?php echo $produto['id_produto']; ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>"
                                                                                 class="add-item-container">
-                                                                                <div class="add-item mb-4 mt-0 d-flex align-items-center justify-content-center bg-light p-3 rounded">
+                                                                                <div
+                                                                                    class="add-item mb-4 mt-0 d-flex align-items-center justify-content-center bg-light p-3 rounded">
                                                                                     <i class="tf-icons bx bx-plus me-2"></i>
                                                                                     <b>Cadastrar Opcional</b>
                                                                                 </div>
@@ -816,20 +828,29 @@ if ($usuario_id) {
                                                                             $opcionais = $stmt_opcionais->fetchAll(PDO::FETCH_ASSOC);
 
                                                                             if (count($opcionais) > 0): ?>
-                                                                                <h6 class="text-center text-primary mt-3"><b>Opcionais Simples</b></h6>
+                                                                                <h6 class="text-center text-primary mt-3">
+                                                                                    <b>Opcionais Simples</b></h6>
                                                                                 <?php foreach ($opcionais as $opcional): ?>
-                                                                                    <div class="d-flex justify-content-between align-items-center border p-3 mb-2 rounded">
+                                                                                    <div
+                                                                                        class="d-flex justify-content-between align-items-center border p-3 mb-2 rounded">
                                                                                         <div>
-                                                                                            <b class="text-dark"><?= htmlspecialchars($opcional['nome']) ?></b>
+                                                                                            <b
+                                                                                                class="text-dark"><?= htmlspecialchars($opcional['nome']) ?></b>
                                                                                             <div class="mt-1">
-                                                                                                <span class="badge bg-success text-white">+ R$ <?= number_format($opcional['preco'], 2, ',', '.') ?></span>
+                                                                                                <span
+                                                                                                    class="badge bg-success text-white">+
+                                                                                                    R$
+                                                                                                    <?= number_format($opcional['preco'], 2, ',', '.') ?></span>
                                                                                             </div>
                                                                                         </div>
                                                                                         <div class="d-flex">
-                                                                                            <a href="./editarOpcionalSimples.php?id=<?= $opcional['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>" class="btn btn-sm btn-outline-primary me-2">
+                                                                                            <a href="./editarOpcionalSimples.php?id=<?= $opcional['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>"
+                                                                                                class="btn btn-sm btn-outline-primary me-2">
                                                                                                 <i class="bx bx-edit"></i>
                                                                                             </a>
-                                                                                            <a href="../../assets/php/delivery/excluirOpcionalSimples.php?id=<?= $opcional['id'] ?>&idSelecionado=<?= urlencode($idSelecionado); ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir este opcional?');">
+                                                                                            <a href="../../assets/php/delivery/excluirOpcionalSimples.php?id=<?= $opcional['id'] ?>&idSelecionado=<?= urlencode($idSelecionado); ?>"
+                                                                                                class="btn btn-sm btn-outline-danger"
+                                                                                                onclick="return confirm('Tem certeza que deseja excluir este opcional?');">
                                                                                                 <i class="bx bx-trash"></i>
                                                                                             </a>
                                                                                         </div>
@@ -848,19 +869,31 @@ if ($usuario_id) {
                                                                             $selecoes = $stmt_selecoes->fetchAll(PDO::FETCH_ASSOC);
 
                                                                             if (count($selecoes) > 0): ?>
-                                                                                <h6 class="text-center text-primary mt-4"><b>Seleções de Opcionais</b></h6>
+                                                                                <h6 class="text-center text-primary mt-4">
+                                                                                    <b>Seleções de Opcionais</b></h6>
                                                                                 <?php foreach ($selecoes as $selecao): ?>
-                                                                                    <div class="container-group border p-3 rounded mb-3">
-                                                                                        <div class="d-flex flex-wrap justify-content-between align-items-center">
+                                                                                    <div
+                                                                                        class="container-group border p-3 rounded mb-3">
+                                                                                        <div
+                                                                                            class="d-flex flex-wrap justify-content-between align-items-center">
                                                                                             <div>
-                                                                                                <p class="title-categoria text-secondary mb-1"><b><?= htmlspecialchars($selecao['titulo']) ?></b></p>
-                                                                                                <span class="sub-title-categoria text-muted">Mínimo: <?= $selecao['minimo'] ?> | Máximo: <?= $selecao['maximo'] ?></span>
+                                                                                                <p
+                                                                                                    class="title-categoria text-secondary mb-1">
+                                                                                                    <b><?= htmlspecialchars($selecao['titulo']) ?></b>
+                                                                                                </p>
+                                                                                                <span
+                                                                                                    class="sub-title-categoria text-muted">Mínimo:
+                                                                                                    <?= $selecao['minimo'] ?> | Máximo:
+                                                                                                    <?= $selecao['maximo'] ?></span>
                                                                                             </div>
                                                                                             <div class="d-flex mt-2 mb-2">
-                                                                                                <a href="./editarSelecao.php?id=<?= $selecao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>" class="btn btn-sm btn-outline-primary me-2">
+                                                                                                <a href="./editarSelecao.php?id=<?= $selecao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>"
+                                                                                                    class="btn btn-sm btn-outline-primary me-2">
                                                                                                     <i class="bx bx-edit"></i> Editar
                                                                                                 </a>
-                                                                                                <a href="../../assets/php/delivery/excluirSelecao.php?id=<?= $selecao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir esta seleção?');">
+                                                                                                <a href="../../assets/php/delivery/excluirSelecao.php?id=<?= $selecao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>"
+                                                                                                    class="btn btn-sm btn-outline-danger"
+                                                                                                    onclick="return confirm('Tem certeza que deseja excluir esta seleção?');">
                                                                                                     <i class="bx bx-trash"></i> Excluir
                                                                                                 </a>
                                                                                             </div>
@@ -877,18 +910,27 @@ if ($usuario_id) {
                                                                                             <div class="row mt-2">
                                                                                                 <?php foreach ($opcoes as $opcao): ?>
                                                                                                     <div class="col-12 col-md-6">
-                                                                                                        <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center border rounded p-2 mb-2">
+                                                                                                        <div
+                                                                                                            class="list-group-item d-flex flex-wrap justify-content-between align-items-center border rounded p-2 mb-2">
                                                                                                             <div>
-                                                                                                                <b class="text-dark"><?= htmlspecialchars($opcao['nome']) ?></b>
+                                                                                                                <b
+                                                                                                                    class="text-dark"><?= htmlspecialchars($opcao['nome']) ?></b>
                                                                                                                 <div class="mt-1">
-                                                                                                                    <span class="badge bg-success text-white">+ R$ <?= number_format($opcao['preco'], 2, ',', '.') ?></span>
+                                                                                                                    <span
+                                                                                                                        class="badge bg-success text-white">+
+                                                                                                                        R$
+                                                                                                                        <?= number_format($opcao['preco'], 2, ',', '.') ?></span>
                                                                                                                 </div>
                                                                                                             </div>
-                                                                                                            <div class="d-flex align-items-center">
-                                                                                                                <a href="./editarOpcionalSelecao.php?id=<?= $opcao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>" class="btn btn-sm btn-outline-primary me-2">
+                                                                                                            <div
+                                                                                                                class="d-flex align-items-center">
+                                                                                                                <a href="./editarOpcionalSelecao.php?id=<?= $opcao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>"
+                                                                                                                    class="btn btn-sm btn-outline-primary me-2">
                                                                                                                     <i class="bx bx-edit"></i>
                                                                                                                 </a>
-                                                                                                                <a href="../../assets/php/delivery/excluirOpcionalSelecao.php?id=<?= $opcao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir este opcional?');">
+                                                                                                                <a href="../../assets/php/delivery/excluirOpcionalSelecao.php?id=<?= $opcao['id'] ?>&idSelecionado=<?php echo urlencode($idSelecionado); ?>"
+                                                                                                                    class="btn btn-sm btn-outline-danger"
+                                                                                                                    onclick="return confirm('Tem certeza que deseja excluir este opcional?');">
                                                                                                                     <i class="bx bx-trash"></i>
                                                                                                                 </a>
                                                                                                             </div>
@@ -1070,7 +1112,7 @@ if ($usuario_id) {
     </div>
 
     <script>
-        document.getElementById("searchProdutos").addEventListener("input", function() {
+        document.getElementById("searchProdutos").addEventListener("input", function () {
             const termo = this.value.toLowerCase();
             const produtos = document.querySelectorAll(".product-card");
             const collapses = document.querySelectorAll('[id^="collapse"]');

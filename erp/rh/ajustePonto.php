@@ -83,13 +83,38 @@ try {
   $nivelUsuario = 'Erro ao carregar nível';
 }
 
+try {
+  $stmt = $pdo->prepare("
+    SELECT 
+      p.id AS ponto_id,
+      p.cpf,
+      f.nome AS nome_funcionario,
+      p.data,
+      p.entrada,
+      p.saida_intervalo,
+      p.retorno_intervalo,
+      p.saida_final
+    FROM pontos p
+    LEFT JOIN funcionarios f ON f.cpf = p.cpf
+    WHERE p.empresa_id = :empresa_id
+    ORDER BY p.data DESC
+  ");
+  $stmt->bindParam(':empresa_id', $idSelecionado);
+  $stmt->execute();
+  $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  echo "<tr><td colspan='7'>Erro ao buscar pontos: " . $e->getMessage() . "</td></tr>";
+}
 ?>
+
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+  data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
   <title>ERP - Recursos Humanos</title>
   <meta name="description" content="" />
 
@@ -99,7 +124,9 @@ try {
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+    rel="stylesheet" />
   <!-- Icons -->
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
   <!-- Core CSS -->
@@ -124,7 +151,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -294,11 +322,8 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
-                  aria-label="Search..." />
+                <input type="text" class="form-control border-0 shadow-none" id="searchInput"
+                  placeholder="Buscar pontos..." aria-label="Search..." />
               </div>
             </div>
             <!-- /Search -->
@@ -372,10 +397,13 @@ try {
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de Ponto</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos registrados</span></h5>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de
+            Ponto</h4>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos
+              registrados</span></h5>
 
           <!-- Tabela de Ajuste de Ponto -->
+
           <div class="card">
             <h5 class="card-header">Lista de Registros de Ponto</h5>
             <div class="table-responsive text-nowrap">
@@ -385,100 +413,183 @@ try {
                     <th>Funcionário</th>
                     <th>Data</th>
                     <th>Entrada</th>
+                    <th>Saída para Intervalo</th>
+                    <th>Entrada do Intervalo</th>
                     <th>Saída</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
-                <tbody class="table-border-bottom-0">
-                  <tr>
-                    <td><strong>João Silva</strong></td>
-                    <td>01/04/2025</td>
-                    <td>08:00</td>
-                    <td>17:00</td>
-                    <td>
-                      <!-- Ícone de Editar -->
-                      <button class="btn btn-link text-primary p-0" title="Editar" onclick="openEditModal();">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
+                <tbody class="table-border-bottom-0" id="tabelaAjuste">
+                  <?php foreach ($registros as $registro): ?>
+                    <tr>
+                      <td><strong><?= htmlspecialchars($registro['nome_funcionario'] ?? 'Desconhecido') ?></strong></td>
+                      <td><?= date('d/m/Y', strtotime($registro['data'])) ?></td>
+                      <td>
+                        <?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '--:--' ?>
+                      </td>
+                      <td>
+                        <?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '--:--' ?>
+                      </td>
+                      <td>
+                        <?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '--:--' ?>
+                      </td>
+                      <td>
+                        <?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '--:--' ?>
+                      </td>
 
-                      <!-- Espaço entre os ícones -->
-                      <span class="mx-2">|</span>
+                      <td>
+                        <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal"
+                          data-bs-target="#editModal-<?= $registro['ponto_id'] ?>">
+                          <i class="tf-icons bx bx-edit"></i>
+                        </button>
 
-                      <!-- Ícone de Excluir -->
-                      <button class="btn btn-link text-danger p-0" title="Excluir" onclick="openDeleteModal();">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  <!-- More rows can be added here -->
+                        <!-- Modal -->
+                        <div class="modal fade" id="editModal-<?= $registro['ponto_id'] ?>" tabindex="-1"
+                          aria-labelledby="editModalLabel-<?= $registro['ponto_id'] ?>" aria-hidden="true">
+                          <div class="modal-dialog">
+                            <div class="modal-content">
+                              <form method="POST" action="../../assets/php/rh/atualizarAjustePonto.php">
+                                <input type="hidden" name="id" value="<?= $registro['ponto_id'] ?>">
+                                <input type="hidden" name="cpf" value="<?= $registro['cpf'] ?>">
+                                <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
+                                <input type="hidden" name="data" value="<?= $registro['data'] ?>">
+
+                                <div class="modal-header">
+                                  <h5 class="modal-title">Editar Ponto</h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Fechar"></button>
+                                </div>
+
+                                <div class="modal-body">
+                                  <div class="mb-3">
+                                    <label for="entrada" class="form-label">Entrada</label>
+                                    <input type="time" class="form-control" name="entrada"
+                                      value="<?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '' ?>">
+                                  </div>
+                                  <div class="mb-3">
+                                    <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
+                                    <input type="time" class="form-control" name="saida_intervalo"
+                                      value="<?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '' ?>">
+                                  </div>
+                                  <div class="mb-3">
+                                    <label for="retorno_intervalo" class="form-label">Entrada do Intervalo</label>
+                                    <input type="time" class="form-control" name="retorno_intervalo"
+                                      value="<?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '' ?>">
+                                  </div>
+                                  <div class="mb-3">
+                                    <label for="saida_final" class="form-label">Saída</label>
+                                    <input type="time" class="form-control" name="saida_final"
+                                      value="<?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '' ?>">
+                                  </div>
+                                </div>
+
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="submit" class="btn btn-primary">Salvar</button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
                 </tbody>
+
               </table>
             </div>
-          </div>
 
-          <!-- Modal de Edição de Ponto -->
-          <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="editModalLabel">Editar Registro de Ponto</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <form id="editPontoForm">
-                    <div class="mb-3">
-                      <label for="editEntrada" class="form-label">Entrada</label>
-                      <input type="time" class="form-control" id="editEntrada" value="08:00" />
-                    </div>
-                    <div class="mb-3">
-                      <label for="editSaida" class="form-label">Saída</label>
-                      <input type="time" class="form-control" id="editSaida" value="17:00" />
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                      <button type="submit" class="btn btn-primary">Salvar</button>
-                    </div>
-                  </form>
-                </div>
+            <!-- Paginação -->
+            <div class="d-flex justify-content-start align-items-center gap-2 m-3">
+              <div>
+                <button id="prevPage" class="btn btn-sm btn-outline-primary">Anterior</button>
+                <div id="paginacao" class="btn-group"></div>
+                <button id="nextPage" class="btn btn-sm btn-outline-primary">Próximo</button>
               </div>
             </div>
           </div>
-
-          <!-- Modal de Exclusão de Ponto -->
-          <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="deleteModalLabel">Excluir Registro de Ponto</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <p>Tem certeza de que deseja excluir este registro de ponto?</p>
-                  <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Sim, excluir</button>
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Botão para adicionar novo ajuste -->
-          <div id="addPonto" class="mt-3 add-category justify-content-center d-flex text-center align-items-center" onclick="window.location.href='adicionarAjustePonto.php?id=<?= urlencode($idSelecionado); ?>';" style="cursor: pointer;">
-            <i class="tf-icons bx bx-plus me-2"></i>
-            <span>Adicionar Novo Ajuste de Ponto</span>
-          </div>
-
         </div>
-      </div>
-    </div>
-  </div>
 
-  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-  <script src="../../assets/vendor/libs/popper/popper.js"></script>
-  <script src="../../assets/vendor/js/bootstrap.js"></script>
-  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-  <script src="../../assets/vendor/js/menu.js"></script>
-  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-  <script src="../../assets/js/main.js"></script>
+        <script>
+          const searchInput = document.getElementById('searchInput');
+          const linhas = Array.from(document.querySelectorAll('#tabelaAjuste tr'));
+          const rowsPerPage = 20;
+          let currentPage = 1;
+
+          function renderTable() {
+            const filtro = searchInput.value.toLowerCase();
+            const linhasFiltradas = linhas.filter(linha => {
+              return Array.from(linha.querySelectorAll('td')).some(td =>
+                td.textContent.toLowerCase().includes(filtro)
+              );
+            });
+
+            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
+            const inicio = (currentPage - 1) * rowsPerPage;
+            const fim = inicio + rowsPerPage;
+
+            linhas.forEach(linha => linha.style.display = 'none');
+            linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
+
+            const paginacao = document.getElementById('paginacao');
+            paginacao.innerHTML = '';
+            for (let i = 1; i <= totalPages; i++) {
+              const btn = document.createElement('button');
+              btn.textContent = i;
+
+              // Adiciona espaçamento horizontal entre os botões
+              btn.style.marginRight = "6px";
+
+              btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+              btn.addEventListener('click', () => {
+                currentPage = i;
+                renderTable();
+              });
+              paginacao.appendChild(btn);
+            }
+
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+          }
+
+          searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            renderTable();
+          });
+
+          document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+              currentPage--;
+              renderTable();
+            }
+          });
+
+          document.getElementById('nextPage').addEventListener('click', () => {
+            const filtro = searchInput.value.toLowerCase();
+            const linhasFiltradas = linhas.filter(linha => {
+              return Array.from(linha.querySelectorAll('td')).some(td =>
+                td.textContent.toLowerCase().includes(filtro)
+              );
+            });
+            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
+            if (currentPage < totalPages) {
+              currentPage++;
+              renderTable();
+            }
+          });
+
+          renderTable();
+        </script>
+
+        <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+        <script src="../../assets/vendor/libs/popper/popper.js"></script>
+        <script src="../../assets/vendor/js/bootstrap.js"></script>
+        <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+        <script src="../../assets/vendor/js/menu.js"></script>
+        <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+        <script src="../../assets/js/main.js"></script>
 </body>
 
 </html>

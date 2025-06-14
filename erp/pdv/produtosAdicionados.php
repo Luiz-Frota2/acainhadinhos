@@ -101,7 +101,7 @@ try {
   data-assets-path="../assets/">
 
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8"/>
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
@@ -140,6 +140,7 @@ try {
   <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
   <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../../assets/js/config.js"></script>
+
 </head>
 
 <body>
@@ -152,7 +153,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -166,7 +167,7 @@ try {
 
           <!-- DASHBOARD -->
           <li class="menu-item">
-            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -200,10 +201,12 @@ try {
           </li>
           <!-- ESTOQUE COM SUBMENU -->
           <li class="menu-item active open">
+
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Basic">Estoque</div>
             </a>
+
             <ul class="menu-sub">
               <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
               <li class="menu-item active">
@@ -374,13 +377,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -557,7 +560,7 @@ try {
                       </td>
                     </tr>
                   <?php endforeach; ?>
-                  </tbody>
+                </tbody>
               </table>
             </div>
           </div>
@@ -580,16 +583,12 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
         </footer>
+
         <!-- / Footer -->
 
       </div>

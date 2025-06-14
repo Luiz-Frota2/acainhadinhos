@@ -161,7 +161,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -223,7 +223,7 @@ try {
               <div data-i18n="Sistema de Ponto">Sistema de Ponto</div>
             </a>
             <ul class="menu-sub">
-            <li class="menu-item">
+              <li class="menu-item">
                 <a href="./escalaAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Escalas e Configuração">Escalas Adicionadas</div>
                 </a>
@@ -309,7 +309,7 @@ try {
               <div data-i18n="Authentications"><?= $titulo ?></div>
             </a>
           </li>
-           <li class="menu-item">
+          <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">Usuários </div>
@@ -455,12 +455,27 @@ try {
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="cpf">CPF</label>
                           <input type="text" class="form-control input-custom" name="cpf" id="cpf"
-                            placeholder="Informe o CPF" required />
+                            placeholder="Informe o CPF" required maxlength="14" />
                         </div>
+                        <script>
+                          // Máscara CPF: 000.000.000-00
+                          document.addEventListener('DOMContentLoaded', function() {
+                            const cpfInput = document.getElementById('cpf');
+                            cpfInput.addEventListener('input', function(e) {
+                              let value = cpfInput.value.replace(/\D/g, '');
+                              if (value.length > 11) value = value.slice(0, 11);
+                              value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                              value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                              value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                              cpfInput.value = value;
+                            });
+                          });
+                        </script>
+
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="rg">RG</label>
                           <input type="text" class="form-control input-custom" name="rg" id="rg"
-                            placeholder="Informe o RG" required />
+                            placeholder="Informe o RG" />
                         </div>
                       </div>
 
@@ -506,11 +521,11 @@ try {
                           </select>
                         </div>
                       </div>
-
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="dia_inicio" class="form-label">De</label>
+                          <label for="dia_inicio" class="form-label">Inicio</label>
                           <select id="dia_inicio" name="dia_inicio" class="form-control">
+                            <option value="">Selecione um Dia</option>
                             <option value="domingo">Domingo</option>
                             <option value="segunda">Segunda-feira</option>
                             <option value="terca">Terça-feira</option>
@@ -521,8 +536,9 @@ try {
                           </select>
                         </div>
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="dia_termino" class="form-label">Até</label>
-                          <select id="dia_termino" name="dia_termino" class="form-control">
+                          <label for="dia_termino" class="form-label">Folga da Semana</label>
+                          <select id="dia_folga" name="dia_folga" class="form-control">
+                            <option value="">Selecione um Dia</option>
                             <option value="domingo">Domingo</option>
                             <option value="segunda">Segunda-feira</option>
                             <option value="terca">Terça-feira</option>
@@ -536,23 +552,23 @@ try {
 
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_entrada" class="form-label">Hora de Entrada (1° Turno)</label>
-                          <input type="time" id="hora_entrada_primeiro_turno" name="hora_entrada_primeiro_turno" class="form-control" />
+                          <label for="entrada" class="form-label">Início / Entrada</label>
+                          <input type="time" id="entrada" name="entrada" class="form-control" />
                         </div>
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_saida" class="form-label">Hora de Saída (1° Turno)</label>
-                          <input type="time" id="hora_saida_primeiro_turno" name="hora_saida_primeiro_turno" class="form-control" />
+                          <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
+                          <input type="time" id="saida_intervalo" name="saida_intervalo" class="form-control" />
                         </div>
                       </div>
 
                       <div class="row">
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_entrada" class="form-label">Hora de Entrada (2° Turno)</label>
-                          <input type="time" id="hora_entrada_segundo_turno" name="hora_entrada_segundo_turno" class="form-control" />
+                          <label for="retorno_intervalo" class="form-label">Retorno do Intervalo</label>
+                          <input type="time" id="retorno_intervalo" name="retorno_intervalo" class="form-control" />
                         </div>
                         <div class="col-md-6 col-12 mb-3">
-                          <label for="hora_saida" class="form-label">Hora de Saída (2° Turno)</label>
-                          <input type="time" id="hora_saida_segundo_turno" name="hora_saida_segundo_turno" class="form-control" />
+                          <label for="saida_final" class="form-label">Fim / Saída</label>
+                          <input type="time" id="saida_final" name="saida_final" class="form-control" />
                         </div>
                       </div>
 
@@ -573,12 +589,12 @@ try {
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="email">E-mail</label>
                           <input type="email" class="form-control input-custom" name="email" id="email"
-                            placeholder="Informe o e-mail" required />
+                            placeholder="Informe o e-mail" />
                         </div>
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="telefone">Telefone</label>
                           <input type="tel" class="form-control input-custom" name="telefone" id="telefone"
-                            placeholder="Informe o telefone" required />
+                            placeholder="Informe o telefone" />
                         </div>
                       </div>
 
@@ -586,12 +602,12 @@ try {
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="endereco">Endereço</label>
                           <input type="text" class="form-control input-custom" name="endereco" id="endereco"
-                            placeholder="Informe o endereço" required />
+                            placeholder="Informe o endereço" />
                         </div>
                         <div class="mb-3 col-12 col-md-6">
                           <label class="form-label" for="cidade">Cidade</label>
                           <input type="text" class="form-control input-custom" name="cidade" id="cidade"
-                            placeholder="Informe a cidade" required />
+                            placeholder="Informe a cidade" />
                         </div>
                       </div>
 

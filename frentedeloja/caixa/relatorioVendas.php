@@ -32,7 +32,7 @@ try {
         $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     } else {
         // Buscar na tabela de Funcionários
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
     }
 
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
@@ -42,6 +42,9 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
+        if (isset($usuario['cpf'])) {
+            $cpfUsuario = $usuario['cpf'];
+        }
     } else {
         echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
@@ -49,6 +52,31 @@ try {
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
     exit;
+}
+
+// ✅ Função para buscar o nome do funcionário pelo CPF
+function obterNomeFuncionario($pdo, $cpf)
+{
+    try {
+        $stmt = $pdo->prepare("SELECT nome AND cpf FROM funcionarios_acesso WHERE cpf = :cpf");
+        $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
+        $stmt->execute();
+        $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($funcionario && !empty($funcionario['nome']) || !empty($funcionario['cpf'])) {
+            return $funcionario['nome'];
+
+        } else {
+            return 'Funcionário não identificado';
+        }
+    } catch (PDOException $e) {
+        return 'Erro ao buscar nome';
+    }
+}
+
+// ✅ Aplica a função se for funcionário
+if (!empty($cpfUsuario)) {
+    $nomeFuncionario = obterNomeFuncionario($pdo, $cpfUsuario);
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -112,7 +140,8 @@ try {
     <meta name="description" content="" />
 
     <!-- Favicon da empresa carregado dinamicamente -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+    <link rel="icon" type="image/x-icon"
+        href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -154,10 +183,12 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);"
+                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -174,7 +205,8 @@ try {
                     </li>
 
                     <!-- CAIXA -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span>
+                    </li>
 
                     <!-- Operações de Caixa -->
                     <li class="menu-item  ">
@@ -269,8 +301,7 @@ try {
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -293,9 +324,11 @@ try {
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
+                                    data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/avatars/1.png" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -304,11 +337,13 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
+                                                    <span
+                                                        class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
                                                 </div>
                                             </div>
                                         </a>
@@ -333,7 +368,8 @@ try {
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span
+                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -341,7 +377,8 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -358,11 +395,15 @@ try {
                 <?php
                 try {
                     // Buscar todos os setores
-                    $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id";
+                    $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id AND cpf = :cpf";
                     $stmt = $pdo->prepare($sql);
                     $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
+                    $stmt->bindParam(':cpf', $cpfUsuario, PDO::PARAM_STR);
                     $stmt->execute();
                     $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+
+
                 } catch (PDOException $e) {
                     echo "Erro ao buscar produtos: " . $e->getMessage();
                     exit;
@@ -409,26 +450,41 @@ try {
                                                         <tbody class="table-border-bottom-0">
                                                             <?php foreach ($aberturas as $abertura): ?>
                                                                 <tr>
-                                                                    <input type="hidden" name="" id="" value="<?= htmlspecialchars($abertura['id']) ?>">
-                                                                    <td><?= htmlspecialchars($abertura['data_fechamento']) ?></td>
-                                                                    <td><?= htmlspecialchars($abertura['quantidade_venda']) ?></td>
-                                                                    <td>R$ <?= number_format($abertura['valor_abertura'], 2, ',', '.') ?></td>
-                                                                    <td>R$ <?= number_format($abertura['valor_total'], 2, ',', '.') ?></td>
-                                                                    <td>R$ <?= number_format($abertura['valor_sangrias'], 2, ',', '.') ?></td>
-                                                                    <td>R$ <?= number_format($abertura['valor_suprimento'], 2, ',', '.') ?></td>
-                                                                    <td>R$ <?= number_format($abertura['valor_liquido'], 2, ',', '.') ?></td>
+                                                                    <input type="hidden" name="" id=""
+                                                                        value="<?= htmlspecialchars($abertura['id']) ?>">
+                                                                    <td><?= htmlspecialchars($abertura['data_fechamento']) ?>
+                                                                    </td>
+                                                                    <td><?= htmlspecialchars($abertura['quantidade_venda']) ?>
+                                                                    </td>
+                                                                    <td>R$
+                                                                        <?= number_format($abertura['valor_abertura'], 2, ',', '.') ?>
+                                                                    </td>
+                                                                    <td>R$
+                                                                        <?= number_format($abertura['valor_total'], 2, ',', '.') ?>
+                                                                    </td>
+                                                                    <td>R$
+                                                                        <?= number_format($abertura['valor_sangrias'], 2, ',', '.') ?>
+                                                                    </td>
+                                                                    <td>R$
+                                                                        <?= number_format($abertura['valor_suprimento'], 2, ',', '.') ?>
+                                                                    </td>
+                                                                    <td>R$
+                                                                        <?= number_format($abertura['valor_liquido'], 2, ',', '.') ?>
+                                                                    </td>
                                                                     <td>
                                                                         <?php if ($abertura['status_abertura'] == 'aberto'): ?>
-                                                                            <span class="dge bg-label-danger me-1">Aberto</span>
+                                                                            <span class="dge bg-label-success me-1">Aberto</span>
                                                                         <?php elseif ($abertura['status_abertura'] == 'fechado'): ?>
-                                                                            <span class="badge bg-label-success me-1">Fechado</span>
+                                                                            <span class="badge bg-label-danger me-1">Fechado</span>
                                                                         <?php else: ?>
                                                                             <span class="badge bg-warning"> nao identificada</span>
                                                                         <?php endif; ?>
                                                                     </td>
                                                                     <td>
-                                                                        <a href="./detalheVendas.php?id=<?= urlencode($idSelecionado); ?>&chave=<?= htmlspecialchars($abertura['id']) ?>">
-                                                                            <i class="bx bx-show-alt cursor-pointer text-primary"></i>
+                                                                        <a
+                                                                            href="./detalheVendas.php?id=<?= urlencode($idSelecionado); ?>&chave=<?= htmlspecialchars($abertura['id']) ?>">
+                                                                            <i
+                                                                                class="bx bx-show-alt cursor-pointer text-primary"></i>
                                                                         </a>
                                                                     </td>
 
@@ -486,7 +542,8 @@ try {
                         // Diferenças percentuais
                         function diferenca_percentual($atual, $passado)
                         {
-                            if ($passado == 0) return $atual > 0 ? 100 : 0;
+                            if ($passado == 0)
+                                return $atual > 0 ? 100 : 0;
                             return (($atual - $passado) / $passado) * 100;
                         }
 
@@ -503,13 +560,16 @@ try {
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="avatar flex-shrink-0">
-                                                <img src="../../assets/img/icons/unicons/chart-success.png" alt="Total Vendas" class="rounded">
+                                                <img src="../../assets/img/icons/unicons/chart-success.png"
+                                                    alt="Total Vendas" class="rounded">
                                             </div>
                                         </div>
                                         <span>Total de Vendas</span>
                                         <h3 class="card-title mb-1">R$ <?= number_format($total_vendas, 2, ',', '.') ?></h3>
-                                        <small class="<?= $percent_total >= 0 ? 'text-success' : 'text-danger' ?> fw-semibold">
-                                            <i class="bx <?= $percent_total >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt' ?>"></i>
+                                        <small
+                                            class="<?= $percent_total >= 0 ? 'text-success' : 'text-danger' ?> fw-semibold">
+                                            <i
+                                                class="bx <?= $percent_total >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt' ?>"></i>
                                             <?= round($percent_total, 1) ?>% em relação à semana passada
                                         </small>
                                     </div>
@@ -522,13 +582,17 @@ try {
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="avatar flex-shrink-0">
-                                                <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Valor Líquido" class="rounded">
+                                                <img src="../../assets/img/icons/unicons/wallet-info.png"
+                                                    alt="Valor Líquido" class="rounded">
                                             </div>
                                         </div>
                                         <span>Valor Líquido</span>
-                                        <h3 class="card-title mb-1">R$ <?= number_format($valor_liquido, 2, ',', '.') ?></h3>
-                                        <small class="<?= $percent_liquido >= 0 ? 'text-success' : 'text-danger' ?> fw-semibold">
-                                            <i class="bx <?= $percent_liquido >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt' ?>"></i>
+                                        <h3 class="card-title mb-1">R$ <?= number_format($valor_liquido, 2, ',', '.') ?>
+                                        </h3>
+                                        <small
+                                            class="<?= $percent_liquido >= 0 ? 'text-success' : 'text-danger' ?> fw-semibold">
+                                            <i
+                                                class="bx <?= $percent_liquido >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt' ?>"></i>
                                             <?= round($percent_liquido, 1) ?>% em relação à semana passada
                                         </small>
                                     </div>
@@ -541,7 +605,8 @@ try {
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="avatar flex-shrink-0">
-                                                <img src="../../assets/img/icons/unicons/percentage.png" alt="Descontos" class="rounded">
+                                                <img src="../../assets/img/icons/unicons/percentage.png" alt="Descontos"
+                                                    class="rounded">
                                             </div>
                                         </div>
                                         <span>Descontos</span>
@@ -557,13 +622,16 @@ try {
                                     <div class="card-body">
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div class="avatar flex-shrink-0">
-                                                <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Ticket Médio" class="rounded">
+                                                <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Ticket Médio"
+                                                    class="rounded">
                                             </div>
                                         </div>
                                         <span>Ticket Médio</span>
                                         <h3 class="card-title mb-1">R$ <?= number_format($ticket_medio, 2, ',', '.') ?></h3>
-                                        <small class="<?= $percent_ticket >= 0 ? 'text-success' : 'text-danger' ?> fw-semibold">
-                                            <i class="bx <?= $percent_ticket >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt' ?>"></i>
+                                        <small
+                                            class="<?= $percent_ticket >= 0 ? 'text-success' : 'text-danger' ?> fw-semibold">
+                                            <i
+                                                class="bx <?= $percent_ticket >= 0 ? 'bx-up-arrow-alt' : 'bx-down-arrow-alt' ?>"></i>
                                             <?= round($percent_ticket, 1) ?>% em relação à semana passada
                                         </small>
                                     </div>
@@ -599,7 +667,7 @@ try {
 
                         foreach ($resultados as $row) {
                             $labels_pizza[] = $row['forma_pagamento'];
-                            $valores_pizza[] = (int)$row['quantidade'];
+                            $valores_pizza[] = (int) $row['quantidade'];
                         }
 
                         // Codifica para JSON 
@@ -657,11 +725,6 @@ try {
 
                         ?>
 
-
-
-
-
-
                         <!-- Gráficos Detalhados -->
                         <div class="row mb-4">
                             <!-- Gráfico de Linha: Evolução Diária -->
@@ -702,14 +765,20 @@ try {
                                     <div class="card-header d-flex align-items-center justify-content-between">
                                         <h5 class="card-title m-0 me-2">Relatório de Pagamentos</h5>
                                         <div class="dropdown">
-                                            <button class="btn p-0" type="button" id="relatorioPagamentosDropdown" data-bs-toggle="dropdown"
-                                                aria-haspopup="true" aria-expanded="false">
+                                            <button class="btn p-0" type="button" id="relatorioPagamentosDropdown"
+                                                data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                                 <i class="bx bx-dots-vertical-rounded"></i>
                                             </button>
-                                            <div class="dropdown-menu dropdown-menu-end" aria-labelledby="relatorioPagamentosDropdown">
-                                                <a class="dropdown-item" href="?filtro=mes&id=<?= htmlspecialchars($idSelecionado) ?>">Este mês</a>
-                                                <a class="dropdown-item" href="?filtro=3meses&id=<?= htmlspecialchars($idSelecionado) ?>">Últimos 3 meses</a>
-                                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalPersonalizar">Personalizar</a>
+                                            <div class="dropdown-menu dropdown-menu-end"
+                                                aria-labelledby="relatorioPagamentosDropdown">
+                                                <a class="dropdown-item"
+                                                    href="?filtro=mes&id=<?= htmlspecialchars($idSelecionado) ?>">Este
+                                                    mês</a>
+                                                <a class="dropdown-item"
+                                                    href="?filtro=3meses&id=<?= htmlspecialchars($idSelecionado) ?>">Últimos
+                                                    3 meses</a>
+                                                <a class="dropdown-item" href="#" data-bs-toggle="modal"
+                                                    data-bs-target="#modalPersonalizar">Personalizar</a>
                                             </div>
 
                                         </div>
@@ -722,20 +791,29 @@ try {
                                                         <?php
                                                         $icone = 'transaction.png';
                                                         $forma = strtolower($pagamento['forma_pagamento']);
-                                                        if (strpos($forma, 'crédito') !== false) $icone = '../../assets/img/icons/unicons/cc-success.png';
-                                                        elseif (strpos($forma, 'débito') !== false) $icone = '../../assets/img/icons/unicons/cc-warning.png';
-                                                        elseif (strpos($forma, 'pix') !== false) $icone = '../../assets/img/icons/unicons/paypal.png';
-                                                        elseif (strpos($forma, 'dinheiro') !== false) $icone = '../../assets/img/icons/unicons/wallet.png';
+                                                        if (strpos($forma, 'crédito') !== false)
+                                                            $icone = '../../assets/img/icons/unicons/cc-success.png';
+                                                        elseif (strpos($forma, 'débito') !== false)
+                                                            $icone = '../../assets/img/icons/unicons/cc-warning.png';
+                                                        elseif (strpos($forma, 'pix') !== false)
+                                                            $icone = '../../assets/img/icons/unicons/paypal.png';
+                                                        elseif (strpos($forma, 'dinheiro') !== false)
+                                                            $icone = '../../assets/img/icons/unicons/wallet.png';
                                                         ?>
                                                         <img src="<?= $icone ?>" class="rounded" />
                                                     </div>
-                                                    <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                                                    <div
+                                                        class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                                                         <div class="me-2">
-                                                            <small class="text-muted d-block mb-1"><?= htmlspecialchars(ucwords($pagamento['forma_pagamento'])) ?></small>
-                                                            <h6 class="mb-0"><?= $pagamento['total_pagamentos'] ?> pagamentos</h6>
+                                                            <small
+                                                                class="text-muted d-block mb-1"><?= htmlspecialchars(ucwords($pagamento['forma_pagamento'])) ?></small>
+                                                            <h6 class="mb-0"><?= $pagamento['total_pagamentos'] ?> pagamentos
+                                                            </h6>
                                                         </div>
                                                         <div class="user-progress d-flex align-items-center gap-1">
-                                                            <h6 class="mb-0">R$ <?= number_format($pagamento['total'], 2, ',', '.') ?></h6>
+                                                            <h6 class="mb-0">R$
+                                                                <?= number_format($pagamento['total'], 2, ',', '.') ?>
+                                                            </h6>
                                                         </div>
                                                     </div>
                                                 </li>
@@ -754,152 +832,118 @@ try {
                                     <script>
                                         document.write(new Date().getFullYear());
                                     </script>
-                                    , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                                    Desenvolvido por
-                                    <a href="https://wa.me/92991515710" target="_blank"
-                                        style="text-decoration: none; color: inherit;"><strong>
-                                            Lucas Correa
-                                        </strong>.</a>
-
+                                    , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                                    Desenvolvido por <strong>CodeGeek</strong>.
                                 </div>
                             </div>
                         </footer>
+
                         <!-- / Footer -->
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-<?php endif; ?>
+    <?php endif; ?>
 
 
-<!-- / Layout wrapper -->
+    <!-- / Layout wrapper -->
 
-<!-- Inclua ApexCharts antes dos scripts -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- Inclua ApexCharts antes dos scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
-<script>
-    const labels = <?= $json_labels ?>;
-    const valores = <?= $json_valores ?>;
-    const quantidades = <?= $json_quantidades ?>;
+    <script>
+        const labels = <?= $json_labels ?>;
+        const valores = <?= $json_valores ?>;
+        const quantidades = <?= $json_quantidades ?>;
 
-    // Gráfico de Linha (Evolução das Vendas)
-    const optionsLinha = {
-        chart: {
-            type: 'line',
-            height: 350
-        },
-        series: [{
-            name: "Vendas",
-            data: valores
-        }],
-        xaxis: {
-            categories: labels
-        },
-        stroke: {
-            curve: 'smooth',
-            width: 3
-        },
-        colors: ['#696CFF'],
-        markers: {
-            size: 5,
+        // Gráfico de Linha (Evolução das Vendas)
+        const optionsLinha = {
+            chart: { type: 'line', height: 350 },
+            series: [{ name: "Vendas", data: valores }],
+            xaxis: { categories: labels },
+            stroke: { curve: 'smooth', width: 3 },
             colors: ['#696CFF'],
-            strokeWidth: 2
-        }
-    };
-    new ApexCharts(document.querySelector("#evolucaoDiariaChart"), optionsLinha).render();
+            markers: { size: 5, colors: ['#696CFF'], strokeWidth: 2 }
+        };
+        new ApexCharts(document.querySelector("#evolucaoDiariaChart"), optionsLinha).render();
 
-    // Gráfico de Barras (Quantidade)
-    const optionsBarra = {
-        chart: {
-            type: 'bar',
-            height: 350
-        },
-        series: [{
-            name: "Vendas",
-            data: quantidades
-        }],
-        xaxis: {
-            categories: labels
-        },
-        plotOptions: {
-            bar: {
-                borderRadius: 6,
-                columnWidth: '45%'
-            }
-        },
-        colors: ['#00C9A7'],
-        tooltip: {
-            y: {
-                formatter: val => val + " vendas"
-            }
-        }
-    };
-    new ApexCharts(document.querySelector("#graficoBarrasQuantidade"), optionsBarra).render();
+        // Gráfico de Barras (Quantidade)
+        const optionsBarra = {
+            chart: { type: 'bar', height: 350 },
+            series: [{ name: "Vendas", data: quantidades }],
+            xaxis: { categories: labels },
+            plotOptions: { bar: { borderRadius: 6, columnWidth: '45%' } },
+            colors: ['#00C9A7'],
+            tooltip: { y: { formatter: val => val + " vendas" } }
+        };
+        new ApexCharts(document.querySelector("#graficoBarrasQuantidade"), optionsBarra).render();
 
-    // Gráfico de Pizza: Formas de Pagamento
+        // Gráfico de Pizza: Formas de Pagamento
 
-    const pizzaLabels = <?= $json_labels_pizza ?>;
-    const pizzaData = <?= $json_valores_pizza ?>;
+        const pizzaLabels = <?= $json_labels_pizza ?>;
+        const pizzaData = <?= $json_valores_pizza ?>;
 
 
-    const optionsPizza = {
-        chart: {
-            type: 'pie',
-            height: 250
-        },
-        labels: pizzaLabels,
-        series: pizzaData,
-        colors: ['#00C9A7', '#FFB547', '#FF6B6B', '#845EC2', '#FFC75F', '#0081CF'], // Pode adicionar mais cores se necessário
-        legend: {
-            position: 'bottom'
-        },
-        tooltip: {
-            y: {
-                formatter: function(val) {
-                    return val + " pagamentos";
+        const optionsPizza = {
+            chart: {
+                type: 'pie',
+                height: 250
+            },
+            labels: pizzaLabels,
+            series: pizzaData,
+            colors: ['#00C9A7', '#FFB547', '#FF6B6B', '#845EC2', '#FFC75F', '#0081CF'], // Pode adicionar mais cores se necessário
+            legend: {
+                position: 'bottom'
+            },
+            tooltip: {
+                y: {
+                    formatter: function (val) {
+                        return val + " pagamentos";
+                    }
                 }
             }
-        }
-    };
+        };
 
-    new ApexCharts(document.querySelector("#graficoPizzaPagamento"), optionsPizza).render();
-</script>
+        new ApexCharts(document.querySelector("#graficoPizzaPagamento"), optionsPizza).render();
 
-<!-- Modal de Personalização -->
-<div class="modal fade" id="modalPersonalizar" tabindex="-1" aria-labelledby="modalPersonalizarLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <form method="GET" class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalPersonalizarLabel">Selecionar Período Personalizado</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" name="filtro" value="personalizado">
-                <div class="mb-3">
-                    <label for="dataInicial" class="form-label">Data Inicial</label>
-                    <input type="date" class="form-control" id="dataInicial" name="de" required>
+    </script>
+
+    <!-- Modal de Personalização -->
+    <div class="modal fade" id="modalPersonalizar" tabindex="-1" aria-labelledby="modalPersonalizarLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="GET" class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalPersonalizarLabel">Selecionar Período Personalizado</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div class="mb-3">
-                    <label for="dataFinal" class="form-label">Data Final</label>
-                    <input type="date" class="form-control" id="dataFinal" name="ate" required>
+                <div class="modal-body">
+                    <input type="hidden" name="filtro" value="personalizado">
+                    <div class="mb-3">
+                        <label for="dataInicial" class="form-label">Data Inicial</label>
+                        <input type="date" class="form-control" id="dataInicial" name="de" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dataFinal" class="form-label">Data Final</label>
+                        <input type="date" class="form-control" id="dataFinal" name="ate" required>
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="submit" class="btn btn-primary">Filtrar</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            </div>
-        </form>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Filtrar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
 
 
-<script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-<script src="../../assets/vendor/libs/popper/popper.js"></script>
-<script src="../../assets/vendor/js/bootstrap.js"></script>
-<script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-<script src="../../assets/vendor/js/menu.js"></script>
-<script src="../../assets/js/main.js"></script>
+    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+    <script src="../../assets/vendor/libs/popper/popper.js"></script>
+    <script src="../../assets/vendor/js/bootstrap.js"></script>
+    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+    <script src="../../assets/vendor/js/menu.js"></script>
+    <script src="../../assets/js/main.js"></script>
 </body>
 
 </html>

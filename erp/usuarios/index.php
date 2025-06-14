@@ -140,7 +140,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
+           <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -162,42 +162,42 @@ try {
           <!-- Recursos Humanos (RH) -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Usuários</span></li>
 
-          <li class="menu-item">
+            <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-shield"></i>
               <div data-i18n="Permissão Retaguarda">Retaguarda</div>
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./retaguardaPermissoes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Permissões">Permissões</div>
-                </a>
+              <a href="./retaguardaPermissoes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <div data-i18n="Permissões">Permissões</div>
+              </a>
               </li>
               <li class="menu-item">
-                <a href="./retaguardaUsuarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Usuários Permitidos">Usuários Permitidos</div>
-                </a>
+              <a href="./retaguardaUsuarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <div data-i18n="Usuários Permitidos">Usuários Permitidos</div>
+              </a>
               </li>
             </ul>
-          </li>
-          <li class="menu-item">
+            </li>
+            <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-store"></i>
               <div data-i18n="Permissão Frente de Loja">Frente de Loja</div>
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./frenteLojaPermissoes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Permissões">Permissões</div>
-                </a>
+              <a href="./frenteLojaPermissoes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <div data-i18n="Permissões">Permissões</div>
+              </a>
               </li>
               <li class="menu-item">
-                <a href="./frenteLojaUsuarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Usuários Permitidos">Usuários Permitidos</div>
-                </a>
+              <a href="./frenteLojaUsuarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <div data-i18n="Usuários Permitidos">Usuários Permitidos</div>
+              </a>
               </li>
             </ul>
-          </li>
+            </li>
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
@@ -845,12 +845,7 @@ try {
                 document.write(new Date().getFullYear());
               </script>
               , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
         </footer>
@@ -892,7 +887,7 @@ try {
 
   <!-- Place this tag in your head or just before your close body tag. -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
-
+  
 </body>
 
 </html>

@@ -1,10 +1,8 @@
 
 
-
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
-
 
 --
 -- Estrutura para tabela `adicionarCategoria`
@@ -84,15 +82,13 @@ CREATE TABLE opcionais_opcoes (
 --
 
 CREATE TABLE configuracoes_retirada (
-  id                                 INT AUTO_INCREMENT PRIMARY KEY,
-  id_empresa                         VARCHAR(20) NOT NULL,
-  retirada                           TINYINT(1) NOT NULL DEFAULT 0,
-  tempo_min                          INT NOT NULL,
-  tempo_max                          INT NOT NULL,
-  UNIQUE                             (id_empresa) 
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  id_empresa                          VARCHAR(20) NOT NULL,
+  retirada                            TINYINT(1) NOT NULL DEFAULT 0,
+  tempo_min                           INT NOT NULL,
+  tempo_max                           INT NOT NULL,
+  UNIQUE                              (id_empresa) 
 );
-
-
 
 --
 -- Estrutura para tabela `entregas`
@@ -106,7 +102,6 @@ CREATE TABLE entregas (
   tempo_max                           INT NOT NULL DEFAULT 0
 );
 
-
 --
 -- Estrutura para tabela `entrega_taxa`
 --
@@ -118,7 +113,6 @@ CREATE TABLE entrega_taxas (
   sem_taxa                            TINYINT(1) NOT NULL DEFAULT 0,
   taxa_unica                          TINYINT(1) NOT NULL DEFAULT 0
 );
-
 
 --
 -- Estrutura para tabela `entrega_taxas_unica`
@@ -134,7 +128,6 @@ CREATE TABLE entrega_taxas_unica (
   id_selecionado                      VARCHAR(255) NULL 
 );
 
-
 --
 -- Estrutura para tabela `formas_pagamento`
 --
@@ -147,7 +140,6 @@ CREATE TABLE formas_pagamento (
   cartaoDebito                        TINYINT(1) NOT NULL DEFAULT 0,
   cartaoCredito                       TINYINT(1) NOT NULL DEFAULT 0
 );
-
 
 --
 -- Estrutura para tabela `endereco_empresa`
@@ -195,8 +187,6 @@ CREATE TABLE horarios_funcionamento (
   comeco_segundo_turno                TIME DEFAULT NULL,
   termino_segundo_turno               TIME DEFAULT NULL
 );
-
-
 
 --
 -- Estrutura para tabela `filiais`
@@ -280,17 +270,20 @@ CREATE TABLE funcionarios (
   salario                             DECIMAL(10,2) NOT NULL,
   escala                              VARCHAR(50) NOT NULL, 
   dia_inicio                          ENUM('domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado') NOT NULL,
-  dia_termino                         ENUM('domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado') NOT NULL,
-  hora_entrada_primeiro_turno         TIME NOT NULL,
-  hora_saida_primeiro_turno           TIME NOT NULL,
-  hora_entrada_segundo_turno          TIME DEFAULT NULL,
-  hora_saida_segundo_turno            TIME DEFAULT NULL,
+  dia_folga                           ENUM('domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado') NOT NULL,
+
+  entrada                             TIME NULL DEFAULT NULL,
+  saida_intervalo                     TIME NULL DEFAULT NULL,
+  retorno_intervalo                   TIME NULL DEFAULT NULL,
+  saida_final                         TIME NULL DEFAULT NULL,
+
   email                               VARCHAR(150) NOT NULL,
   telefone                            VARCHAR(20) NOT NULL,
   endereco                            VARCHAR(255) NOT NULL,
   cidade                              VARCHAR(100) NOT NULL,
   criado_em                           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 
 --
@@ -333,6 +326,10 @@ CREATE TABLE registros_ponto (
   status                              VARCHAR(20),
   horas_pendentes                     TIME,
   hora_extra                          TIME DEFAULT '00:00:00',
+  foto_entrada                        LONGBLOB,
+  foto_saida                          LONGBLOB,
+  localizacao_entrada                 VARCHAR(100),
+  localizacao_saida                   VARCHAR(100),
   criado_em                           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -358,44 +355,61 @@ CREATE TABLE atestados (
 --
 
 CREATE TABLE estoque (
-  id                                INT AUTO_INCREMENT PRIMARY KEY,
-  empresa_id                        VARCHAR(50) NOT NULL, -- ID da empresa (ex: 'principal_1', 'filial_2')
-  codigo_produto                    VARCHAR(50) NOT NULL,
-  nome_produto                      VARCHAR(100) NOT NULL,
-  categoria_produto                 VARCHAR(100) NOT NULL,
-  quantidade_produto                INT NOT NULL,
-  preco_produto                     DECIMAL(10, 2) NOT NULL,
-  status_produto                    ENUM('estoque_alto', 'estoque_baixo') NOT NULL,
-  criado_em                         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  empresa_id                          VARCHAR(50) NOT NULL, -- ID da empresa (ex: 'principal_1', 'filial_2')
+  codigo_produto                      VARCHAR(50) NOT NULL,
+  nome_produto                        VARCHAR(100) NOT NULL,
+  categoria_produto                   VARCHAR(100) NOT NULL,
+  quantidade_produto                  INT NOT NULL,
+  preco_produto                       DECIMAL(10, 2) NOT NULL,
+  status_produto                      ENUM('estoque_alto', 'estoque_baixo') NOT NULL,
+  criado_em                           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+--
+-- Estrutura para tabela `pontos`
+--
 
+CREATE TABLE pontos (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  cpf                                 VARCHAR(15) NOT NULL,
+  nome                                VARCHAR(150) NOT NULL,
+  data                                DATE NOT NULL,
+  
+  entrada                             TIME DEFAULT NULL,
+  foto_entrada LONGBLOB               DEFAULT NULL,
+  localizacao_entrada                 VARCHAR(255) DEFAULT NULL,
 
+  saida_intervalo                     TIME DEFAULT NULL,
+  foto_saida_intervalo LONGBLOB       DEFAULT NULL,
+  localizacao_saida_intervalo         VARCHAR(255) DEFAULT NULL,
 
+  retorno_intervalo                   TIME DEFAULT NULL,
+  foto_retorno_intervalo LONGBLOB     DEFAULT NULL,
+  localizacao_retorno_intervalo       VARCHAR(255) DEFAULT NULL,
 
+  saida_final                         TIME DEFAULT NULL,
+  foto_saida_final LONGBLOB           DEFAULT NULL,
+  localizacao_saida_final             VARCHAR(255) DEFAULT NULL,
 
+  horas_pendentes                     TIME DEFAULT NULL,
+  hora_extra                          TIME DEFAULT NULL,
 
+  empresa_id                          VARCHAR(50) NOT NULL,
+    
+  UNIQUE                              (cpf, data, empresa_id)
+);
 
+--
+-- Estrutura para tabela `folgas`
+--
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+CREATE TABLE folgas (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  cpf                                 VARCHAR(20) NOT NULL,
+  nome                                VARCHAR(100) NOT NULL,
+  data_folga                          DATE NOT NULL
+);
 
 
 

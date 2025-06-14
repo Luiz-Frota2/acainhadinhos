@@ -1,6 +1,10 @@
 <?php
 require '../../assets/php/conexao.php';
 
+function normaliza_cpf($cpf) {
+    return preg_replace('/[^0-9]/', '', $cpf);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario_cpf = $_POST['usuario_cpf'] ?? '';
     $senha = $_POST['senha'] ?? '';
@@ -10,6 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo "<script>alert('Preencha todos os campos.'); history.back();</script>";
         exit;
     }
+
+    // Normaliza o CPF informado
+    $cpf_normalizado = normaliza_cpf($usuario_cpf);
 
     // Determinar tipo e empresa_id
     if (str_starts_with($empresa_identificador, 'principal_')) {
@@ -24,9 +31,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // Tenta encontrar na tabela de contas_acesso (Admin)
-        $stmtAdmin = $pdo->prepare("SELECT * FROM contas_acesso WHERE (usuario = ? OR cpf = ?) AND empresa_id = ? AND tipo = ?");
-        $stmtAdmin->execute([$usuario_cpf, $usuario_cpf, $empresa_id, $tipo]);
+        // Busca por usuário ou CPF (formatado ou não)
+        $stmtAdmin = $pdo->prepare(
+            "SELECT * FROM contas_acesso 
+             WHERE (usuario = ? OR cpf = ? OR REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?) 
+             AND empresa_id = ? AND tipo = ?"
+        );
+        $stmtAdmin->execute([$usuario_cpf, $usuario_cpf, $cpf_normalizado, $empresa_id, $tipo]);
         $admin = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
 
         if ($admin) {
@@ -38,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
 
-                // Verifica se é Admin
                 if ($admin['nivel'] === 'Admin') {
                     session_start();
                     $_SESSION['usuario_logado'] = true;
@@ -47,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['empresa_id'] = $admin['empresa_id'];
                     $_SESSION['tipo_empresa'] = $admin['tipo'];
                     $_SESSION['nivel'] = $admin['nivel'];
-                    $_SESSION['usuario_cpf'] = $admin['cpf']; // Armazena o CPF do admin na sessão
+                    $_SESSION['usuario_cpf'] = $admin['cpf'];
 
                     echo "<script>window.location.href = '../../../../frentedeloja/dashboard.php?id={$empresa_identificador}';</script>";
                     exit;
@@ -56,8 +66,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Se não for Admin ou Admin inválido, tenta em funcionarios_acesso
-        $stmtFunc = $pdo->prepare("SELECT * FROM funcionarios_acesso WHERE (usuario = ? OR cpf = ?) AND empresa_id = ? AND tipo = ?");
-        $stmtFunc->execute([$usuario_cpf, $usuario_cpf, $empresa_id, $tipo]);
+        $stmtFunc = $pdo->prepare(
+            "SELECT * FROM funcionarios_acesso 
+             WHERE (usuario = ? OR cpf = ? OR REPLACE(REPLACE(REPLACE(cpf, '.', ''), '-', ''), ' ', '') = ?) 
+             AND empresa_id = ? AND tipo = ?"
+        );
+        $stmtFunc->execute([$usuario_cpf, $usuario_cpf, $cpf_normalizado, $empresa_id, $tipo]);
         $funcionario = $stmtFunc->fetch(PDO::FETCH_ASSOC);
 
         if ($funcionario) {
@@ -76,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['empresa_id'] = $funcionario['empresa_id'];
                 $_SESSION['tipo_empresa'] = $funcionario['tipo'];
                 $_SESSION['nivel'] = $funcionario['nivel'];
-                $_SESSION['usuario_cpf'] = $funcionario['cpf']; // Armazena o CPF do funcionário na sessão
+                $_SESSION['usuario_cpf'] = $funcionario['cpf'];
 
                 echo "<script>window.location.href = '../../../../frentedeloja/dashboard.php?id={$empresa_identificador}';</script>";
                 exit;

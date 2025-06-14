@@ -145,7 +145,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+          <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -159,7 +159,7 @@ try {
 
           <!-- DASHBOARD -->
           <li class="menu-item">
-            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -367,13 +367,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -405,20 +405,21 @@ try {
         <!-- / Navbar -->
         <?php
 
-        require '../../assets/php/conexao.php';
+require '../../assets/php/conexao.php';
 
-        try {
+try {
 
-          $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id AND status_abertura = 'aberto'";
-          $stmt = $pdo->prepare($sql);
-          $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
-          $stmt->execute();
-          $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-          echo "Erro ao buscar caixa: " . $e->getMessage();
-          exit;
-        }
-        ?>
+  $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id AND status_abertura = 'aberto'";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
+  $stmt->execute();
+  $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+  echo "Erro ao buscar caixa: " . $e->getMessage();
+  exit;
+}
+?>
         <!-- Content -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
@@ -437,14 +438,14 @@ try {
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                  <?php foreach ($aberturas as $abertura): ?>
-                    <tr>
-                      <input type="hidden" value="<?= htmlspecialchars($abertura['id']) ?>">
-                      <td><?= htmlspecialchars($abertura['numeroCaixa']) ?></td>
-                      <td><strong><?= htmlspecialchars($abertura['responsavel']) ?></strong></td>
-                      <td><?= htmlspecialchars($abertura['hora_abertura']) ?></td>
-                      <td>R$ <?= number_format($abertura['valor_abertura'], 2, ',', '.') ?></td>
-                      <td>
+                <?php foreach ($aberturas as $abertura): ?>
+                  <tr>
+                  <input type="hidden" value="<?= htmlspecialchars($abertura['id']) ?>">
+                  <td><?= htmlspecialchars($abertura['numeroCaixa']) ?></td>
+                    <td><strong><?= htmlspecialchars($abertura['responsavel']) ?></strong></td>
+                    <td><?= htmlspecialchars($abertura['hora_abertura']) ?></td>
+                    <td>R$ <?= number_format($abertura['valor_abertura'], 2, ',', '.') ?></td>
+                    <td>
                         <?php if ($abertura['status_abertura'] == 'aberto'): ?>
                           <span class="badge bg-label-success me-1">Aberto</span>
                         <?php elseif ($abertura['status_abertura'] == 'fechado'): ?>
@@ -453,7 +454,7 @@ try {
                           <span class="badge bg-warning"> nao identificada</span>
                         <?php endif; ?>
                       </td>
-                    </tr>
+                  </tr>
                   <?php endforeach; ?>
                 </tbody>
               </table>
@@ -471,13 +472,8 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
         </footer>

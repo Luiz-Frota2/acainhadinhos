@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../assets/php/conexao.php';
+date_default_timezone_set('America/Manaus');
 
 $idSelecionado = $_GET['id'] ?? '';
 
@@ -10,25 +11,25 @@ if (
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: ../login.php?id=$idSelecionado");
   exit;
 }
 
+// Verifica tipo de empresa
 if (str_starts_with($idSelecionado, 'principal_')) {
   if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=$idSelecionado';</script>";
+    echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
     exit;
   }
-  $id = 1;
+  $empresaId = 1;
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=$idSelecionado';</script>";
+  $empresaId = (int) str_replace('filial_', '', $idSelecionado);
+  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $empresaId) {
+    echo "<script>alert('Acesso negado!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
     exit;
   }
-  $id = $idFilial;
 } else {
-  echo "<script>alert('Empresa não identificada!'); window.location.href = '.././login.php?id=$idSelecionado';</script>";
+  echo "<script>alert('Empresa não identificada!'); window.location.href = '../login.php?id=$idSelecionado';</script>";
   exit;
 }
 
@@ -46,7 +47,7 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// Buscar usuário logado
+// Buscar dados do usuário logado
 $nomeUsuario = 'Usuário';
 $nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
@@ -66,73 +67,17 @@ try {
   $nivelUsuario = 'Erro';
 }
 
-// Buscar registros de ponto com nome do funcionário
 try {
-  $stmtPonto = $pdo->prepare("
-    SELECT r.*, f.nome AS nome_funcionario
-    FROM registros_ponto r
-    INNER JOIN funcionarios f ON r.cpf = f.cpf
-    WHERE r.empresa_id = :empresa_id
-    ORDER BY r.data DESC, r.entrada ASC
-  ");
-  $stmtPonto->bindParam(':empresa_id', $idSelecionado);
-  $stmtPonto->execute();
-  $pontos = $stmtPonto->fetchAll(PDO::FETCH_ASSOC);
+  $stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE empresa_id = :empresa_id");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $funcionarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar registros de ponto: " . $e->getMessage() . "'); history.back();</script>";
+  echo "Erro ao buscar funcionários: " . $e->getMessage();
   exit;
 }
 
-// Agrupar por funcionário e data
-$pontosAgrupados = [];
-$diasSemana = [
-  'Monday' => 'Segunda-feira',
-  'Tuesday' => 'Terça-feira',
-  'Wednesday' => 'Quarta-feira',
-  'Thursday' => 'Quinta-feira',
-  'Friday' => 'Sexta-feira',
-  'Saturday' => 'Sábado',
-  'Sunday' => 'Domingo'
-];
 
-foreach ($pontos as $registro) {
-  $cpf = $registro['cpf'];
-  $nomeFuncionario = $registro['nome_funcionario'];
-  $data = $registro['data'];
-  $entrada = strtotime($registro['entrada']);
-  $saida = $registro['saida'] ? strtotime($registro['saida']) : null;
-
-  if (!isset($pontosAgrupados[$cpf])) {
-    $pontosAgrupados[$cpf] = [];
-  }
-
-  if (!isset($pontosAgrupados[$cpf][$data])) {
-    $pontosAgrupados[$cpf][$data] = [
-      'nome_funcionario' => $nomeFuncionario,
-      'dia_semana' => $diasSemana[(new DateTime($data))->format('l')],
-      'entrada_am' => '-',
-      'saida_am' => '-',
-      'entrada_pm' => '-',
-      'saida_pm' => '-',
-      'entrada_noite' => '-',
-      'saida_noite' => '-',
-    ];
-  }
-
-  if ($entrada < strtotime('12:00:00')) {
-    $pontosAgrupados[$cpf][$data]['entrada_am'] = date('H:i', $entrada);
-    if ($saida)
-      $pontosAgrupados[$cpf][$data]['saida_am'] = date('H:i', $saida);
-  } elseif ($entrada < strtotime('18:00:00')) {
-    $pontosAgrupados[$cpf][$data]['entrada_pm'] = date('H:i', $entrada);
-    if ($saida)
-      $pontosAgrupados[$cpf][$data]['saida_pm'] = date('H:i', $saida);
-  } else {
-    $pontosAgrupados[$cpf][$data]['entrada_noite'] = date('H:i', $entrada);
-    if ($saida)
-      $pontosAgrupados[$cpf][$data]['saida_noite'] = date('H:i', $saida);
-  }
-}
 ?>
 
 <!DOCTYPE html>
@@ -144,7 +89,7 @@ foreach ($pontos as $registro) {
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-  <title>ERP - Administração</title>
+  <title>ERP - Recursos Humanos</title>
 
   <meta name="description" content="" />
 
@@ -179,6 +124,7 @@ foreach ($pontos as $registro) {
   <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
   <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../../assets/js/config.js"></script>
+  
 </head>
 
 <body>
@@ -191,7 +137,8 @@ foreach ($pontos as $registro) {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -281,7 +228,7 @@ foreach ($pontos as $registro) {
                 <a href="./bancoHoras.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
-              </li>  
+              </li>
 
             </ul>
           </li>
@@ -356,7 +303,7 @@ foreach ($pontos as $registro) {
           </div>
 
           <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-            
+
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
@@ -431,6 +378,7 @@ foreach ($pontos as $registro) {
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
         <!-- / Navbar -->
@@ -448,35 +396,31 @@ foreach ($pontos as $registro) {
                 <thead>
                   <tr>
                     <th>Funcionário</th>
-                    <th>Data</th>
-                    <th>Dia da Semana</th>
-                    <th>Entrada AM</th>
-                    <th>Saída AM</th>
-                    <th>Entrada PM</th>
-                    <th>Saída PM</th>
-                    <th>Entrada Noite</th>
-                    <th>Saída Noite</th>
+                    <th>Escala</th>
+                    <th>Cargo</th>
+                    <th>Setor</th>
+                    <th>Visualizar Pontos</th>
                   </tr>
                 </thead>
                 <tbody id="tabelaFuncionarios" class="table-border-bottom-0">
-                  <?php foreach ($pontosAgrupados as $cpf => $dias): ?>
-                    <?php foreach ($dias as $data => $turnos): ?>
-                      <tr>
-                        <td><?= htmlspecialchars($turnos['nome_funcionario']) ?></td>
-                        <td><?= date('d/m/Y', strtotime($data)) ?></td>
-                        <td><?= $turnos['dia_semana'] ?></td>
-                        <td><?= $turnos['entrada_am'] ?></td>
-                        <td><?= $turnos['saida_am'] ?></td>
-                        <td><?= $turnos['entrada_pm'] ?></td>
-                        <td><?= $turnos['saida_pm'] ?></td>
-                        <td><?= $turnos['entrada_noite'] ?></td>
-                        <td><?= $turnos['saida_noite'] ?></td>
-                      </tr>
-                    <?php endforeach; ?>
+                  <?php foreach ($funcionarios as $func): ?>
+                    <tr>
+                      <td><?= htmlspecialchars($func['nome']) ?></td>
+                      <!-- Exibindo dados adicionais -->
+                      <td><?= htmlspecialchars($func['escala']) ?></td>
+                      <td><?= htmlspecialchars($func['cargo']) ?></td>
+                      <td><?= htmlspecialchars($func['setor']) ?></td>
+
+                      <!-- Link para visualizar os pontos do funcionário -->
+                      <td>
+                        <a href="ponto.php?cpf=<?= $func['cpf'] ?>&empresa_id=<?= $idSelecionado ?>" class="btn btn-info btn-sm">Ver Pontos</a>
+                      </td>
+                    </tr>
                   <?php endforeach; ?>
                 </tbody>
               </table>
             </div>
+
             <!-- Controles de paginação -->
             <div class="d-flex justify-content-start align-items-center gap-2 m-3">
               <button class="btn btn-sm btn-outline-primary" id="prevPage">&laquo; Anterior</button>
@@ -485,52 +429,55 @@ foreach ($pontos as $registro) {
             </div>
           </div>
 
-          <!-- Script de Pesquisa e Paginação -->
           <script>
             const searchInput = document.getElementById('searchInput');
-            const linhas = Array.from(document.querySelectorAll('#tabelaFuncionarios tr'));
+            const allRows = Array.from(document.querySelectorAll('#tabelaFuncionarios tr'));
             const rowsPerPage = 10;
             let currentPage = 1;
 
             function renderTable() {
-              const filtro = searchInput.value.toLowerCase();
-              const linhasFiltradas = linhas.filter(linha => {
-                return Array.from(linha.querySelectorAll('td')).some(td =>
-                  td.textContent.toLowerCase().includes(filtro)
+              const filtro = searchInput.value.trim().toLowerCase();
+
+              // 1. Filtra as linhas com base no texto das colunas
+              const filteredRows = allRows.filter(row => {
+                if (!filtro) return true;
+                return Array.from(row.cells).some(cell =>
+                  cell.textContent.toLowerCase().includes(filtro)
                 );
               });
 
-              const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
-              const inicio = (currentPage - 1) * rowsPerPage;
-              const fim = inicio + rowsPerPage;
+              // 2. Calcula paginação
+              const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+              const startIndex = (currentPage - 1) * rowsPerPage;
+              const endIndex = startIndex + rowsPerPage;
 
-              linhas.forEach(linha => linha.style.display = 'none');
-              linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
+              // 3. Oculta todas as linhas
+              allRows.forEach(row => row.style.display = 'none');
 
-              // Atualiza os botões de paginação
+              // 4. Exibe apenas as filtradas da página atual
+              filteredRows.slice(startIndex, endIndex).forEach(row => row.style.display = '');
+
+              // 5. Renderiza botões de paginação
               const paginacao = document.getElementById('paginacao');
               paginacao.innerHTML = '';
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
-                btn.textContent = i;
                 btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-                btn.addEventListener('click', () => {
+                btn.style.marginRight = '5px';
+                btn.textContent = i;
+                btn.onclick = () => {
                   currentPage = i;
                   renderTable();
-                });
+                };
                 paginacao.appendChild(btn);
               }
 
-              // Ativa/desativa botões
+              // 6. Atualiza botões de navegação
               document.getElementById('prevPage').disabled = currentPage === 1;
-              document.getElementById('nextPage').disabled = currentPage === totalPages;
+              document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
             }
 
-            searchInput.addEventListener('input', () => {
-              currentPage = 1;
-              renderTable();
-            });
-
+            // Eventos dos botões
             document.getElementById('prevPage').addEventListener('click', () => {
               if (currentPage > 1) {
                 currentPage--;
@@ -539,22 +486,20 @@ foreach ($pontos as $registro) {
             });
 
             document.getElementById('nextPage').addEventListener('click', () => {
-              const filtro = searchInput.value.toLowerCase();
-              const linhasFiltradas = linhas.filter(linha => {
-                return Array.from(linha.querySelectorAll('td')).some(td =>
-                  td.textContent.toLowerCase().includes(filtro)
-                );
-              });
-              const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
-              if (currentPage < totalPages) {
-                currentPage++;
-                renderTable();
-              }
+              currentPage++;
+              renderTable();
+            });
+
+            // Evento da pesquisa
+            searchInput.addEventListener('input', () => {
+              currentPage = 1;
+              renderTable();
             });
 
             // Inicializa a tabela
             renderTable();
           </script>
+
 
           <!-- build:js assets/vendor/js/core.js -->
           <script src="../../js/saudacao.js"></script>

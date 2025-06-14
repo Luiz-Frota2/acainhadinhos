@@ -54,7 +54,7 @@
         <div class="app-brand demo">
           <a href="./dashboard.html" class="app-brand-link">
 
-             <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaídinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -67,7 +67,7 @@
         <ul class="menu-inner py-1">
           <!-- Dashboard -->
           <li class="menu-item active">
-            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <a href="index.php" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -86,7 +86,7 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./filialAdicionada.php" class="menu-link">
                   <div data-i18n="Filiais">Adicionadas</div>
                 </a>
               </li>
@@ -101,22 +101,22 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./VendasFiliais.php" class="menu-link">
                   <div data-i18n="Vendas">Vendas por Filial</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./MaisVendidos.php" class="menu-link">
                   <div data-i18n="MaisVendidos">Mais Vendidos</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./vendasPeriodo.php" class="menu-link">
                   <div data-i18n="Pedidos">Vendas por Período</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./CancelamentosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./CancelamentosFiliais.php" class="menu-link">
                   <div data-i18n="Cancelamentos">Cancelamentos</div>
                 </a>
               </li>
@@ -129,13 +129,13 @@
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
-            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../rh/index.php" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">RH</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../financas/index.php" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-dollar"></i>
               <div data-i18n="Authentications">Finanças</div>
             </a>
@@ -147,24 +147,24 @@
             </a>
           </li>
           <li class="menu-item">
-            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../delivery/index.php" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../estoque/index.php" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../clientes/index.php" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-user"></i>
               <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
-          <li class="menu-item">
+           <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">Usuários </div>
@@ -764,13 +764,8 @@
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
+              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
         </footer>

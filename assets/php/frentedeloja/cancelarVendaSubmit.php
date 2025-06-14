@@ -1,8 +1,6 @@
 <?php
-$host = 'localhost'; // ou o IP do servidor de banco de dados
-$dbname = 'u920914488_ERP'; // Nome do banco de dados
-$username = 'u920914488_ERP'; // Seu nome de usuário do banco de dados
-$password = 'K5yJv;lVIKc>'; // Sua senha do banco de dados
+
+require_once '../conexao.php';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);

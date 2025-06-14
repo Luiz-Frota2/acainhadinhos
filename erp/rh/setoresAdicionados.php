@@ -154,7 +154,7 @@ try {
 
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-             <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -559,6 +559,9 @@ try {
               for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.textContent = i;
+
+                btn.style.marginRight = '6px';
+
                 btn.className = 'btn btn-sm ' + (i === currentPageSetor ? 'btn-primary' : 'btn-outline-primary');
                 btn.addEventListener('click', () => {
                   currentPageSetor = i;

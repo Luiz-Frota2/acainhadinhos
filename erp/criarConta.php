@@ -12,7 +12,7 @@
   <meta name="description" content="" />
 
   <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="../assets/img/favicon/site.png"/>
+  <link rel="icon" type="image/x-icon" href="../assets/img/favicon/site.png" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -60,41 +60,41 @@
             </div>
 
             <?php
-              require '../assets/php/conexao.php';
+            require '../assets/php/conexao.php';
 
-              // Captura o ID da URL
-              $idSelecionado = $_GET['id'] ?? '';
+            // Captura o ID da URL
+            $idSelecionado = $_GET['id'] ?? '';
 
-              if (!str_starts_with($idSelecionado, 'principal_') && !str_starts_with($idSelecionado, 'filial_')) {
-                echo "<script>alert('Empresa não identificada!'); history.back();</script>";
-                exit;
+            if (!str_starts_with($idSelecionado, 'principal_') && !str_starts_with($idSelecionado, 'filial_')) {
+              echo "<script>alert('Empresa não identificada!'); history.back();</script>";
+              exit;
+            }
+
+            // Carregar empresas
+            $empresas = [];
+
+            try {
+              // Empresa principal
+              $stmtPrincipal = $pdo->query("SELECT nome_empresa FROM sobre_empresa LIMIT 1");
+              if ($stmtPrincipal->rowCount() > 0) {
+                $row = $stmtPrincipal->fetch(PDO::FETCH_ASSOC);
+                $empresas[] = [
+                  'id' => 'principal_1',
+                  'nome' => $row['nome_empresa'] . ' - (PRINCIPAL)'
+                ];
               }
 
-              // Carregar empresas
-              $empresas = [];
-
-              try {
-                // Empresa principal
-                $stmtPrincipal = $pdo->query("SELECT nome_empresa FROM sobre_empresa LIMIT 1");
-                if ($stmtPrincipal->rowCount() > 0) {
-                  $row = $stmtPrincipal->fetch(PDO::FETCH_ASSOC);
-                  $empresas[] = [
-                    'id' => 'principal_1',
-                    'nome' => $row['nome_empresa'] . ' - (PRINCIPAL)'
-                  ];
-                }
-
-                // Filiais
-                $stmtFiliais = $pdo->query("SELECT id_filial, nome FROM filiais ORDER BY nome");
-                while ($filial = $stmtFiliais->fetch(PDO::FETCH_ASSOC)) {
-                  $empresas[] = [
-                    'id' => 'filial_' . $filial['id_filial'],
-                    'nome' => $filial['nome']
-                  ];
-                }
-              } catch (PDOException $e) {
-                echo "<script>history.back()</script>";
+              // Filiais
+              $stmtFiliais = $pdo->query("SELECT id_filial, nome FROM filiais ORDER BY nome");
+              while ($filial = $stmtFiliais->fetch(PDO::FETCH_ASSOC)) {
+                $empresas[] = [
+                  'id' => 'filial_' . $filial['id_filial'],
+                  'nome' => $filial['nome']
+                ];
               }
+            } catch (PDOException $e) {
+              echo "<script>history.back()</script>";
+            }
             ?>
 
             <!-- /Logo -->
@@ -108,8 +108,21 @@
 
               <div class="mb-3">
                 <label for="cpf" class="form-label">CPF</label>
-                <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF" required />
+                <input type="text" class="form-control" id="cpf" name="cpf" placeholder="Digite seu CPF" required maxlength="14" />
               </div>
+              <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                  var cpfInput = document.getElementById('cpf');
+                  cpfInput.addEventListener('input', function(e) {
+                    let v = cpfInput.value.replace(/\D/g, '');
+                    if (v.length > 11) v = v.slice(0, 11);
+                    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                    v = v.replace(/(\d{3})(\d)/, '$1.$2');
+                    v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+                    cpfInput.value = v;
+                  });
+                });
+              </script>
 
               <div class="mb-3">
                 <label for="email" class="form-label">E-mail</label>

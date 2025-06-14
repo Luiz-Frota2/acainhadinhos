@@ -1,0 +1,872 @@
+<?php
+session_start();
+require_once '../../assets/php/conexao.php';
+
+$idSelecionado = $_GET['id'] ?? '';
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
+) {
+  header("Location: .././login.php?id=$idSelecionado");
+  exit;
+}
+
+// Validação da empresa selecionada x sessão
+if (str_starts_with($idSelecionado, 'principal_')) {
+  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+    header("Location: .././login.php?id=$idSelecionado");
+    exit;
+  }
+  $empresa_id = 1;
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $empresa_id = (int) str_replace('filial_', '', $idSelecionado);
+  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $empresa_id) {
+    header("Location: .././login.php?id=$idSelecionado");
+    exit;
+  }
+} else {
+  header("Location: .././login.php?id=$idSelecionado");
+  exit;
+}
+
+// Função para converter TIME (HH:MM:SS) para minutos inteiros
+function timeToMinutes($time)
+{
+  if ($time === null || $time === '' || $time === '00:00:00')
+    return 0;
+  list($h, $m, $s) = explode(':', $time);
+  return intval($h) * 60 + intval($m) + round(intval($s) / 60);
+}
+
+// Função para converter minutos inteiros para formato "XXh YYm"
+function minutesToHoursMinutes($minutes)
+{
+  $h = floor($minutes / 60);
+  $m = $minutes % 60;
+  return sprintf("%02dh %02dm", $h, $m);
+}
+
+// Buscar registros do banco com dados dos funcionários
+try {
+  $sql = "
+    SELECT r.*, f.nome, f.dia_inicio, f.dia_termino,
+           f.hora_entrada_primeiro_turno, f.hora_saida_primeiro_turno,
+           f.hora_entrada_segundo_turno, f.hora_saida_segundo_turno
+    FROM registros_ponto r
+    JOIN funcionarios f ON r.cpf = f.cpf
+    WHERE r.empresa_id = :empresa_id
+  ";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':empresa_id', $idSelecionado);
+  $stmt->execute();
+  $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  die("Erro ao buscar registros: " . $e->getMessage());
+}
+
+// Agrupar dados por funcionário, mês e ano
+$dadosAgrupados = [];
+
+foreach ($registros as $registro) {
+  $cpf = $registro['cpf'];
+  $nome = $registro['nome'];
+  $data = $registro['data'];
+  $mes = date('m', strtotime($data));
+  $ano = date('Y', strtotime($data));
+  $chave = "$cpf|$mes|$ano";
+
+  if (!isset($dadosAgrupados[$chave])) {
+    // Calcular dias úteis para o mês com base no dia_inicio e dia_termino da semana
+    $diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+
+    $diaInicio = array_search(strtolower($registro['dia_inicio']), $diasSemana);
+    $diaTermino = array_search(strtolower($registro['dia_termino']), $diasSemana);
+
+    // Obter dias úteis na semana (de diaInicio até diaTermino circularmente)
+    $diasPermitidos = [];
+    $i = $diaInicio;
+    do {
+      $diasPermitidos[] = $diasSemana[$i];
+      if ($i === $diaTermino)
+        break;
+      $i = ($i + 1) % 7;
+    } while (true);
+
+    // Função para contar dias úteis no mês
+    $diasNoMes = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
+    $diasUteis = 0;
+    for ($dia = 1; $dia <= $diasNoMes; $dia++) {
+      $dataAtual = "$ano-$mes-$dia";
+      $diaSemanaAtual = strtolower(date('l', strtotime($dataAtual)));
+      if (in_array($diaSemanaAtual, $diasPermitidos)) {
+        $diasUteis++;
+      }
+    }
+
+    // Calcular horas devidas por dia (soma dos turnos)
+    function calcularHorasTurno($entrada, $saida)
+    {
+      if ($entrada && $saida) {
+        $entradaSeg = strtotime($entrada);
+        $saidaSeg = strtotime($saida);
+        $diff = max(0, $saidaSeg - $entradaSeg);
+        return $diff / 3600;
+      }
+      return 0;
+    }
+
+    $horasTurno1 = calcularHorasTurno($registro['hora_entrada_primeiro_turno'], $registro['hora_saida_primeiro_turno']);
+    $horasTurno2 = calcularHorasTurno($registro['hora_entrada_segundo_turno'], $registro['hora_saida_segundo_turno']);
+    $horasDevidas = ($horasTurno1 + $horasTurno2) * $diasUteis;
+
+    $dadosAgrupados[$chave] = [
+      'nome' => $nome,
+      'mes_ano' => "$mes/$ano",
+      'horas_trabalhadas' => 0,
+      'horas_devidas' => round($minutosDevidos),
+      'horas_pendentes' => 0,
+      'hora_extra' => 0,
+
+      // ** Campos de Escala obrigatórios **
+      'dia_inicio' => $reg['dia_inicio'],
+      'dia_termino' => $reg['dia_termino'],
+      'turno1_entrada' => $reg['hora_entrada_primeiro_turno'],
+      'turno1_saida' => $reg['hora_saida_primeiro_turno'],
+      'turno2_entrada' => $reg['hora_entrada_segundo_turno'],
+      'turno2_saida' => $reg['hora_saida_segundo_turno'],
+    ];
+
+  }
+
+  // Somar horas trabalhadas (diferença entre entrada e saída)
+  if ($registro['entrada'] && $registro['saida']) {
+    $entradaSeg = strtotime($registro['entrada']);
+    $saidaSeg = strtotime($registro['saida']);
+    $horasDia = max(0, $saidaSeg - $entradaSeg);
+    $dadosAgrupados[$chave]['horas_trabalhadas'] += $horasDia / 60;
+  }
+
+  // Somar horas pendentes (convertendo TIME para minutos)
+  $dadosAgrupados[$chave]['horas_pendentes'] += timeToMinutes($registro['horas_pendentes']);
+
+  // Somar horas extras
+  $dadosAgrupados[$chave]['hora_extra'] += timeToMinutes($registro['hora_extra']);
+}
+
+// Ajustar horas pendentes e extras para compensar e mostrar a diferença líquida
+foreach ($dadosAgrupados as &$dados) {
+  $pendentes = $dados['horas_pendentes'];
+  $extras = $dados['hora_extra'];
+
+  if ($extras > $pendentes) {
+    $dados['hora_extra_liquida'] = $extras - $pendentes;
+    $dados['horas_pendentes_liquida'] = 0;
+  } elseif ($pendentes > $extras) {
+    $dados['horas_pendentes_liquida'] = $pendentes - $extras;
+    $dados['hora_extra_liquida'] = 0;
+  } else {
+    $dados['hora_extra_liquida'] = 0;
+    $dados['horas_pendentes_liquida'] = 0;
+  }
+
+  // Convertendo horas trabalhadas para minutos (estava em segundos)
+  $dados['horas_trabalhadas'] = round($dados['horas_trabalhadas']);
+}
+
+// Função para formatar segundos em HHh MMm
+function formatarSegundosParaHorasMinutos($segundos)
+{
+  $h = floor($segundos / 3600);
+  $m = floor(($segundos % 3600) / 60);
+  return sprintf("%02dh %02dm", $h, $m);
+}
+
+// Função para formatar minutos em HHh MMm
+function formatarMinutosParaHorasMinutos($minutos)
+{
+  $h = floor($minutos / 60);
+  $m = $minutos % 60;
+  return sprintf("%02dh %02dm", $h, $m);
+}
+?>
+
+<!DOCTYPE html>
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+  data-assets-path="../assets/">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <title>ERP - Recursos Humanos</title>
+  <meta name="description" content="" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+    rel="stylesheet" />
+  <!-- Icons -->
+  <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
+  <!-- Core CSS -->
+  <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
+  <link rel="stylesheet" href="../../assets/css/demo.css" />
+  <!-- Vendors CSS -->
+  <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+  <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <!-- Helpers -->
+  <script src="../../assets/vendor/js/helpers.js"></script>
+  <script src="../../assets/js/config.js"></script>
+</head>
+
+<body>
+  <!-- Layout wrapper -->
+  <div class="layout-wrapper layout-content-navbar">
+    <div class="layout-container">
+      <!-- Menu -->
+
+      <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+        <div class="app-brand demo">
+          <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
+
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
+          </a>
+
+          <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+            <i class="bx bx-chevron-left bx-sm align-middle"></i>
+          </a>
+        </div>
+
+        <div class="menu-inner-shadow"></div>
+
+        <ul class="menu-inner py-1">
+          <!-- Dashboard -->
+          <li class="menu-item">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-home-circle"></i>
+              <div data-i18n="Analytics">Dashboard</div>
+            </a>
+          </li>
+
+          <!-- Recursos Humanos (RH) -->
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">Recursos Humanos</span></li>
+
+          <li class="menu-item  ">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-buildings"></i>
+              <div data-i18n="Authentications">Setores</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item ">
+                <a href="./setoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Adicionados</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-user-plus"></i>
+              <div data-i18n="Authentications">Funcionários</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./funcionarioAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Adicionados </div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Menu Sistema de Ponto -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-time"></i>
+              <div data-i18n="Sistema de Ponto">Sistema de Ponto</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./escalaAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./atestadosFuncionarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Atestados</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Menu Relatórios -->
+          <li class="menu-item active open">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-trending-up"></i>
+              <div data-i18n="Relatórios">Relatórios</div>
+            </a>
+
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./relatorio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Visualização Geral">Visualização Geral</div>
+                </a>
+              </li>
+              <li class="menu-item active">
+                <a href="./bancoHoras.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
+                </a>
+              </li>
+
+            </ul>
+          </li>
+          <!-- Misc -->
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+          <li class="menu-item">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-dollar"></i>
+              <div data-i18n="Authentications">Finanças</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-desktop"></i>
+              <div data-i18n="Authentications">PDV</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-cart"></i>
+              <div data-i18n="Authentications">Delivery</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-box"></i>
+              <div data-i18n="Authentications">Estoque</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-user"></i>
+              <div data-i18n="Authentications">Clientes</div>
+            </a>
+          </li>
+          <?php
+          $isFilial = str_starts_with($idSelecionado, 'filial_');
+          $link = $isFilial
+            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+            : '../filial/index.php?id=principal_1';
+          $titulo = $isFilial ? 'Matriz' : 'Filial';
+          ?>
+          <li class="menu-item">
+            <a href="<?= $link ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-cog"></i>
+              <div data-i18n="Authentications"><?= $titulo ?></div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-group"></i>
+              <div data-i18n="Authentications">Usuários </div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-support"></i>
+              <div data-i18n="Basic">Suporte</div>
+            </a>
+          </li>
+          <!--/MISC-->
+        </ul>
+
+      </aside>
+      <!-- / Menu -->
+
+      <!-- Layout container -->
+      <div class="layout-page">
+        <!-- Navbar -->
+
+        <nav
+          class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+          id="layout-navbar">
+          <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+            <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
+              <i class="bx bx-menu bx-sm"></i>
+            </a>
+          </div>
+
+          <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+            <!-- Search -->
+            <div class="navbar-nav align-items-center">
+              <div class="nav-item d-flex align-items-center">
+                <i class="bx bx-search fs-4 lh-0"></i>
+                <input type="text" id="searchInput" class="form-control border-0 shadow-none"
+                  placeholder="Pesquisar funcionário..." aria-label="Pesquisar..." />
+              </div>
+            </div>
+            <!-- /Search -->
+
+            <ul class="navbar-nav flex-row align-items-center ms-auto">
+              <!-- Place this tag where you want the button to render. -->
+              <!-- User -->
+              <li class="nav-item navbar-dropdown dropdown-user dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                  <div class="avatar avatar-online">
+                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                  </div>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <div class="d-flex">
+                        <div class="flex-shrink-0 me-3">
+                          <div class="avatar avatar-online">
+                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                          </div>
+                        </div>
+                        <div class="flex-grow-1">
+                          <!-- Exibindo o nome e nível do usuário -->
+                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                        </div>
+                      </div>
+                    </a>
+                  </li>
+                  <li>
+                    <div class="dropdown-divider"></div>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <i class="bx bx-user me-2"></i>
+                      <span class="align-middle">Minha Conta</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <i class="bx bx-cog me-2"></i>
+                      <span class="align-middle">COnfigurações</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <span class="d-flex align-items-center align-middle">
+                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
+                        <span class="flex-grow-1 align-middle">Billing</span>
+                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                      </span>
+                    </a>
+                  </li>
+                  <li>
+                    <div class="dropdown-divider"></div>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                      <i class="bx bx-power-off me-2"></i>
+                      <span class="align-middle">Sair</span>
+                    </a>
+                  </li>
+
+                </ul>
+              </li>
+              <!--/ User -->
+            </ul>
+          </div>
+        </nav>
+        <!-- / Navbar -->
+
+        <div class="container-xxl flex-grow-1 container-p-y">
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de
+            Ponto</h4>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos
+              registrados</span></h5>
+
+          <!-- Card da tabela -->
+          <div class="card">
+            <h5 class="card-header">Lista de Banco de Horas</h5>
+            <div class="table-responsive text-nowrap">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Funcionário</th>
+                    <th>Mês</th>
+                    <th>Horas Trabalhadas</th>
+                    <th>Horas Extras</th>
+                    <th>Horas Pendentes</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaBancoHoras">
+                  <?php foreach ($dadosAgrupados as $key => $dados): ?>
+                    <tr>
+                      <td><?= htmlspecialchars($dados['nome']) ?></td>
+                      <td><?= $dados['mes_ano'] ?></td>
+                      <td><?= formatarMinutosParaHorasMinutos($dados['horas_trabalhadas']) ?></td>
+                      <td><?= formatarMinutosParaHorasMinutos($dados['hora_extra_liquida']) ?></td>
+                      <td><?= formatarMinutosParaHorasMinutos($dados['horas_pendentes_liquida']) ?></td>
+                      <td>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                          data-bs-target="#modalUnificado<?= md5($key) ?>">
+                          Visualizar
+                        </button>
+
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Controles de paginação -->
+            <div class="d-flex justify-content-start align-items-center gap-2 m-3">
+              <button class="btn btn-sm btn-outline-primary" id="prevPageHoras">&laquo; Anterior</button>
+              <div id="paginacaoHoras" class="mx-2"></div>
+              <button class="btn btn-sm btn-outline-primary" id="nextPageHoras">Próxima &raquo;</button>
+            </div>
+          </div>
+
+          <!-- Modais unificados -->
+          <?php foreach ($dadosAgrupados as $key => $dados): ?>
+            <div class="modal fade" id="modalUnificado<?= md5($key) ?>" tabindex="-1"
+              aria-labelledby="modalUnificadoLabel<?= md5($key) ?>" aria-hidden="true">
+              <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title" id="modalUnificadoLabel<?= md5($key) ?>">
+                      Banco de Horas - <?= htmlspecialchars($dados['nome']) ?>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                  </div>
+                  <div class="modal-body">
+
+                    <!-- Seção Escala -->
+                    <h6 class="fw-bold">Escala</h6>
+                    <p><strong>Dia início:</strong> <?= ucfirst($dados['dia_inicio']) ?></p>
+                    <p><strong>Dia término:</strong> <?= ucfirst($dados['dia_termino']) ?></p>
+                    <p><strong>1º Turno:</strong>
+                      <?= date('H:i', strtotime($dados['turno1_entrada'])) ?> às
+                      <?= date('H:i', strtotime($dados['turno1_saida'])) ?>
+                    </p>
+                    <p><strong>2º Turno:</strong>
+                      <?= ($dados['turno2_entrada'] && $dados['turno2_saida'])
+                        ? date('H:i', strtotime($dados['turno2_entrada'])) . ' às ' .
+                        date('H:i', strtotime($dados['turno2_saida']))
+                        : 'Não definido' ?>
+                    </p>
+                    <hr>
+
+                    <!-- Seção Detalhes de Horas -->
+                    <h6 class="fw-bold">Detalhes do Banco de Horas</h6>
+                    <p><strong>Mês/Ano:</strong> <?= $dados['mes_ano'] ?></p>
+                    <p><strong>Horas Trabalhadas:</strong>
+                      <?= formatarMinutosParaHorasMinutos($dados['horas_trabalhadas']) ?></p>
+                    <p><strong>Horas Extras Líquidas:</strong>
+                      <?= formatarMinutosParaHorasMinutos($dados['hora_extra_liquida']) ?></p>
+                    <p><strong>Horas Pendentes Líquidas:</strong>
+                      <?= formatarMinutosParaHorasMinutos($dados['horas_pendentes_liquida']) ?></p>
+                    <p><strong>Horas a Cumprir no Mês:</strong>
+                      <?= formatarMinutosParaHorasMinutos($dados['horas_devidas']) ?></p>
+
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+          <!-- Fim dos modais unificados -->
+
+          <!-- Script de pesquisa e paginação -->
+          <script>
+            const searchInput = document.getElementById('searchInput');
+            const rowsPerPageHoras = 10;
+            let currentPageHoras = 1;
+
+            function renderTabelaBancoHoras() {
+              // Captura sempre as linhas atuais do tbody
+              const linhasHoras = Array.from(document.querySelectorAll('#tabelaBancoHoras tr'));
+              const filtro = searchInput.value.toLowerCase();
+
+              // Filtra as linhas que contenham o texto do filtro
+              const linhasFiltradas = linhasHoras.filter(linha => {
+                return Array.from(linha.cells)
+                  .some(td => td.textContent.toLowerCase().includes(filtro));
+              });
+
+              const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPageHoras);
+              const start = (currentPageHoras - 1) * rowsPerPageHoras;
+              const end = start + rowsPerPageHoras;
+
+              // Esconde todas as linhas e mostra só as da página atual
+              linhasHoras.forEach(linha => linha.style.display = 'none');
+              linhasFiltradas.slice(start, end)
+                .forEach(linha => linha.style.display = '');
+
+              // Monta os botões de paginação
+              const pagContainer = document.getElementById('paginacaoHoras');
+              pagContainer.innerHTML = '';
+              for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = 'btn btn-sm ' + (i === currentPageHoras ? 'btn-primary' : 'btn-outline-primary');
+                btn.style.marginRight = '6px';
+                btn.onclick = () => {
+                  currentPageHoras = i;
+                  renderTabelaBancoHoras();
+                };
+                pagContainer.appendChild(btn);
+              }
+
+              document.getElementById('prevPageHoras').disabled = currentPageHoras === 1;
+              document.getElementById('nextPageHoras').disabled = currentPageHoras === totalPages || totalPages === 0;
+            }
+
+            // Eventos de navegação e busca
+            searchInput.addEventListener('input', () => {
+              currentPageHoras = 1;
+              renderTabelaBancoHoras();
+            });
+            document.getElementById('prevPageHoras').onclick = () => {
+              if (currentPageHoras > 1) {
+                currentPageHoras--;
+                renderTabelaBancoHoras();
+              }
+            };
+            document.getElementById('nextPageHoras').onclick = () => {
+              // Recalcula totalPages antes de avançar
+              const linhasHoras = Array.from(document.querySelectorAll('#tabelaBancoHoras tr'));
+              const linhasFiltradas = linhasHoras.filter(linha =>
+                Array.from(linha.cells).some(td => td.textContent.toLowerCase().includes(searchInput.value.toLowerCase()))
+              );
+              const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPageHoras);
+              if (currentPageHoras < totalPages) {
+                currentPageHoras++;
+                renderTabelaBancoHoras();
+              }
+            };
+
+            // Inicializa tudo
+            renderTabelaBancoHoras();
+          </script>
+
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+
+  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="../../assets/vendor/libs/popper/popper.js"></script>
+  <script src="../../assets/vendor/js/bootstrap.js"></script>
+  <!-- Carregue o Bootstrap após este script -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <script src="../../assets/vendor/js/menu.js"></script>
+  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+  <script src="../../assets/js/main.js"></script>
+</body>
+
+</html>
+
+
+<!-- codigo de registro de ponto do frente de loja -->
+
+<?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+session_start();
+
+require '../../assets/php/conexao.php';
+date_default_timezone_set('America/Manaus');
+
+$idSelecionado = $_GET['id'] ?? '';
+
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel'])
+) {
+  header("Location: ../index.php?id=$idSelecionado");
+  exit;
+}
+
+// Buscar imagem da empresa para favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // ícone padrão
+
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
+  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($empresa && !empty($empresa['imagem'])) {
+    $iconeEmpresa = $empresa['imagem'];
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+$usuario_id = $_SESSION['usuario_id'];
+$tipoUsuarioSessao = $_SESSION['nivel'];
+$cpf = '';
+$nomeFuncionario = 'Desconhecido';
+$tipoUsuario = 'Comum';
+
+try {
+  $stmt = $pdo->prepare(
+    $tipoUsuarioSessao === 'Admin'
+    ? "SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id"
+    : "SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id"
+  );
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeFuncionario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+    $cpf = $usuario['cpf'];
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "');</script>";
+  exit;
+}
+
+$dataAtual = date('Y-m-d');
+$horaAtual = date('H:i:s');
+$horaAgoraTimestamp = strtotime($horaAtual);
+
+$diaAtualSemana = strtolower(date('l'));
+$diasSemana = [
+  'sunday' => 'domingo',
+  'monday' => 'segunda',
+  'tuesday' => 'terca',
+  'wednesday' => 'quarta',
+  'thursday' => 'quinta',
+  'friday' => 'sexta',
+  'saturday' => 'sabado'
+];
+$diaTraduzido = $diasSemana[$diaAtualSemana];
+
+$exibirFormulario = false;
+$mensagemTurno = '';
+$horaEntradaReferencial = '';
+$horaSaidaReferencial = '';
+$horaEntradaTolerancia = '';
+$registroPonto = null;
+
+$stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE cpf = :cpf LIMIT 1");
+$stmt->execute([':cpf' => $cpf]);
+$func = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($func) {
+  $nomeFuncionario = $func['nome'];
+
+  $diaInicio = strtolower($func['dia_inicio']);
+  $diaTermino = strtolower($func['dia_termino']);
+  $diasSemanaNumerico = [
+    'domingo' => 0,
+    'segunda' => 1,
+    'terca' => 2,
+    'quarta' => 3,
+    'quinta' => 4,
+    'sexta' => 5,
+    'sabado' => 6
+  ];
+
+  $numeroDiaAtual = $diasSemanaNumerico[$diaTraduzido];
+  $numeroDiaInicio = $diasSemanaNumerico[$diaInicio];
+  $numeroDiaTermino = $diasSemanaNumerico[$diaTermino];
+
+  // Verifica se hoje é dia útil do funcionário
+  if (
+    ($numeroDiaInicio <= $numeroDiaTermino && $numeroDiaAtual >= $numeroDiaInicio && $numeroDiaAtual <= $numeroDiaTermino) ||
+    ($numeroDiaInicio > $numeroDiaTermino && ($numeroDiaAtual >= $numeroDiaInicio || $numeroDiaAtual <= $numeroDiaTermino))
+  ) {
+    $manhaEntrada = $func['hora_entrada_primeiro_turno'];
+    $manhaSaida = $func['hora_saida_primeiro_turno'];
+    $tardeEntrada = $func['hora_entrada_segundo_turno'];
+    $tardeSaida = $func['hora_saida_segundo_turno'];
+
+    $manhaInicio = $manhaEntrada ? strtotime($manhaEntrada) : null;
+    $manhaFim = $manhaSaida ? strtotime($manhaSaida) : null;
+    $tardeInicio = $tardeEntrada ? strtotime($tardeEntrada) : null;
+    $tardeFim = $tardeSaida ? strtotime($tardeSaida) : null;
+
+    // Define turno ativo ou último turno para exibir horários sempre
+    if ($manhaInicio && $horaAgoraTimestamp <= $manhaFim) {
+      // Ainda dentro ou até o fim do primeiro turno
+      $horaEntradaReferencial = $manhaEntrada;
+      $horaSaidaReferencial = $manhaSaida;
+    } elseif ($tardeInicio && $horaAgoraTimestamp <= $tardeFim) {
+      // Ainda dentro ou até o fim do segundo turno
+      $horaEntradaReferencial = $tardeEntrada;
+      $horaSaidaReferencial = $tardeSaida;
+    } else {
+      // Passou do horário de saída do último turno - mostrar último turno para referência
+      if ($tardeFim) {
+        $horaEntradaReferencial = $tardeEntrada;
+        $horaSaidaReferencial = $tardeSaida;
+      } else {
+        $horaEntradaReferencial = $manhaEntrada;
+        $horaSaidaReferencial = $manhaSaida;
+      }
+    }
+
+    // Define tolerância (20 minutos após entrada)
+    if ($horaEntradaReferencial) {
+      $horaEntradaTolerancia = date('H:i:s', strtotime('+10 minutes', strtotime($horaEntradaReferencial)));
+    }
+
+    // Buscar registro de ponto do dia
+    $stmt = $pdo->prepare("SELECT id, entrada, saida, status, horas_pendentes FROM registros_ponto WHERE cpf = :cpf AND data = :data LIMIT 1");
+    $stmt->execute([':cpf' => $cpf, ':data' => $dataAtual]);
+    $registroPonto = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($registroPonto) {
+      if ($registroPonto['saida'] === NULL) {
+        $mensagemTurno = "<div class='alert alert-warning text-center'>
+                          Saída ainda não registrada.<br> 
+                          Se você optar por continuar trabalhando além do horário previsto do turno, o tempo adicional será registrado como <strong>hora extra</strong>.
+                          </div>";
+        $exibirFormulario = true; // Permite registrar saída
+      } else {
+        $mensagemTurno = "<div class='alert alert-success text-center'>Ponto fechado para o dia de hoje.</div>";
+        $exibirFormulario = false; // Fecha formulário pois já registrou saída
+      }
+    } else {
+      $mensagemTurno = "<div class='alert alert-warning text-center'>Nenhum ponto registrado hoje. Você pode registrar agora.</div>";
+      $exibirFormulario = true; // Permite registrar entrada
+    }
+
+  } else {
+    $mensagemTurno = "<div class='alert alert-warning text-center'>Hoje não é dia de trabalho para este funcionário.</div>";
+    $exibirFormulario = false;
+  }
+} else {
+  $mensagemTurno = "<div class='alert alert-danger text-center'>Funcionário não encontrado com este CPF.</div>";
+  $exibirFormulario = false;
+}
+
+echo "<script>console.log('Exibir Formulário: " . ($exibirFormulario ? 'Sim' : 'Não') . "');</script>";
+
+// Exibir informações (exemplo básico - adapte à sua view)
+?>

@@ -119,7 +119,6 @@ try {
 }
 ?>
 
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../../assets/" data-template="vertical-menu-template-free">
@@ -177,7 +176,8 @@ try {
                 <div class="app-brand demo">
                     <a href="./dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
@@ -393,22 +393,114 @@ try {
                                             <th>Dias Afastado</th>
                                             <th>Médico</th>
                                             <th>Observações</th>
+                                            <th>Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody class="table-border-bottom-0">
                                         <?php if (!empty($atestados)): ?>
-                                            <?php foreach ($atestados as $atestado): ?>
+                                            <?php foreach ($atestados as $index => $atestado): ?>
                                                 <tr>
                                                     <td><?= date('d/m/Y', strtotime($atestado['data_envio'])); ?></td>
                                                     <td><?= date('d/m/Y', strtotime($atestado['data_atestado'])); ?></td>
                                                     <td><?= htmlspecialchars($atestado['dias_afastado']); ?></td>
                                                     <td><?= htmlspecialchars($atestado['medico']); ?></td>
-                                                    <td><?= htmlspecialchars($atestado['observacoes']); ?></td>
+                                                    <td>
+                                                        <?php
+                                                        $status = $atestado['status_atestado'] ?? 'pendente';
+                                                        $badgeClass = 'bg-secondary';
+                                                        $statusLabel = ucfirst($status);
+
+                                                        if ($status === 'válido') {
+                                                            $badgeClass = 'bg-success';
+                                                        } elseif ($status === 'inválido') {
+                                                            $badgeClass = 'bg-danger';
+                                                        } elseif ($status === 'pendente') {
+                                                            $badgeClass = 'bg-warning text-dark';
+                                                        }
+                                                        ?>
+                                                        <span class="badge <?= $badgeClass; ?>">
+                                                            <?= htmlspecialchars($statusLabel); ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <!-- Botão Visualizar -->
+                                                        <button type="button" class="btn btn-link text-muted p-0"
+                                                            title="Visualizar" data-bs-toggle="modal"
+                                                            data-bs-target="#detalhesAtestadoModal<?= $index ?>"
+                                                            data-observacoes="<?= htmlspecialchars($atestado['observacoes'] ?? '') ?>"
+                                                            data-atestado="<?= htmlspecialchars($atestado['imagem_atestado'] ?? '') ?>">
+                                                            <i class="bx bx-show"></i>
+                                                        </button>
+
+                                                        <!-- Modal de Detalhes do Atestado -->
+                                                        <div class="modal fade" id="detalhesAtestadoModal<?= $index ?>"
+                                                            tabindex="-1"
+                                                            aria-labelledby="detalhesAtestadoModalLabel<?= $index ?>"
+                                                            aria-hidden="true">
+                                                            <div class="modal-dialog modal-lg modal-dialog-centered">
+                                                                <div class="modal-content">
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title"
+                                                                            id="detalhesAtestadoModalLabel<?= $index ?>">
+                                                                            Detalhes do Atestado</h5>
+                                                                        <button type="button" class="btn-close"
+                                                                            data-bs-dismiss="modal"
+                                                                            aria-label="Fechar"></button>
+                                                                    </div>
+                                                                    <div class="modal-body">
+                                                                        <div class="mb-3">
+                                                                            <label class="form-label"><strong>Observações:</strong></label>
+                                                                            <div id="modalObservacoes<?= $index ?>"
+                                                                                class="rounded p-2 bg-light"></div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label class="form-label"><strong>Imagem do
+                                                                                    Atestado:</strong></label>
+                                                                            <div id="modalImagemAtestado<?= $index ?>"
+                                                                                class="text-center"></div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="modal-footer">
+                                                                        <button type="button" class="btn btn-secondary"
+                                                                            data-bs-dismiss="modal">Fechar</button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <script>
+                                                            document.addEventListener('DOMContentLoaded', function () {
+                                                                var modal = document.getElementById('detalhesAtestadoModal<?= $index ?>');
+                                                                if (modal) {
+                                                                    modal.addEventListener('show.bs.modal', function (event) {
+                                                                        var button = event.relatedTarget;
+                                                                        var observacoes = button.getAttribute('data-observacoes') || '';
+                                                                        var imagemAtestado = button.getAttribute('data-atestado') || '';
+
+                                                                        document.getElementById('modalObservacoes<?= $index ?>').textContent = observacoes;
+
+                                                                        var imagemDiv = document.getElementById('modalImagemAtestado<?= $index ?>');
+                                                                        imagemDiv.innerHTML = '';
+                                                                        if (imagemAtestado) {
+                                                                            var img = document.createElement('img');
+                                                                            img.src = '../../assets/img/atestados/' + imagemAtestado;
+                                                                            img.alt = 'Imagem do Atestado';
+                                                                            img.className = 'img-fluid rounded';
+                                                                            img.style.maxHeight = '400px';
+                                                                            imagemDiv.appendChild(img);
+                                                                        } else {
+                                                                            imagemDiv.innerHTML = '<span class="text-muted">Nenhuma imagem disponível.</span>';
+                                                                        }
+                                                                    });
+                                                                }
+                                                            });
+                                                        </script>
+                                                    </td>
                                                 </tr>
                                             <?php endforeach; ?>
                                         <?php else: ?>
                                             <tr>
-                                                <td colspan="5" class="text-center">Nenhum atestado encontrado.</td>
+                                                <td colspan="6" class="text-center">Nenhum atestado encontrado.</td>
                                             </tr>
                                         <?php endif; ?>
                                     </tbody>
@@ -425,6 +517,7 @@ try {
                         <span>Adicionar novo Atestado</span>
                     </div>
                 </div>
+
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
@@ -433,12 +526,7 @@ try {
                                 document.write(new Date().getFullYear());
                             </script>
                             , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por
-                            <a href="https://wa.me/92991515710" target="_blank"
-                                style="text-decoration: none; color: inherit;"><strong>
-                                    Lucas Correa
-                                </strong>.</a>
-
+                            Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
                 </footer>

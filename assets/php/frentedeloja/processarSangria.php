@@ -1,8 +1,6 @@
 <?php
-$host = 'localhost';
-$dbname = 'u920914488_ERP';
-$username = 'u920914488_ERP';
-$password = 'K5yJv;lVIKc>';
+
+require_once '../conexao.php';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);

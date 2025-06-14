@@ -147,7 +147,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-             <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -326,7 +327,8 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" id="searchEscala" class="form-control border-0 shadow-none" placeholder="Buscar escala..." aria-label="Buscar..." />
+                <input type="text" id="searchEscala" class="form-control border-0 shadow-none"
+                  placeholder="Buscar escala..." aria-label="Buscar..." />
               </div>
             </div>
             <!-- /Search -->
@@ -424,8 +426,7 @@ try {
                       <td><?= (new DateTime($escala['data_escala']))->format('d/m/Y') ?></td>
                       <td>
                         <!-- ✏️ Editar -->
-                        <button class="btn btn-link text-primary p-0" title="Editar"
-                          onclick="window.location.href='#'">
+                        <button class="btn btn-link text-primary p-0" title="Editar" onclick="window.location.href='#'">
                           <i class="tf-icons bx bx-edit"></i>
                         </button>
 
@@ -445,12 +446,15 @@ try {
                             <div class="modal-content">
                               <div class="modal-header">
                                 <h5 class="modal-title" id="modalExcluirLabel_<?= $escala['id'] ?>">Excluir Escala</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                  aria-label="Fechar"></button>
                               </div>
                               <div class="modal-body">
                                 <p>Tem certeza de que deseja excluir esta escala?</p>
-                                <a href="../../assets/php/rh/excluirEscala.php?id=<?= $escala['id'] ?>&idSelecionado=<?= urlencode($idSelecionado) ?>" class="btn btn-danger">Sim, excluir</a>
-                                <button type="button" class="btn btn-secondary mx-2" data-bs-dismiss="modal">Cancelar</button>
+                                <a href="../../assets/php/rh/excluirEscala.php?id=<?= $escala['id'] ?>&idSelecionado=<?= urlencode($idSelecionado) ?>"
+                                  class="btn btn-danger">Sim, excluir</a>
+                                <button type="button" class="btn btn-secondary mx-2"
+                                  data-bs-dismiss="modal">Cancelar</button>
                               </div>
                             </div>
                           </div>
@@ -503,6 +507,10 @@ try {
                 const btn = document.createElement("button");
                 btn.className = `btn btn-sm ${i === paginaAtual ? "btn-primary" : "btn-outline-primary"}`;
                 btn.textContent = i;
+
+                // Adiciona espaçamento horizontal entre os botões
+                btn.style.marginRight = "6px";
+
                 btn.addEventListener("click", () => {
                   paginaAtual = i;
                   exibirPagina(paginaAtual);

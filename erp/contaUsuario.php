@@ -142,7 +142,7 @@ try {
         <div class="app-brand demo">
           <a href="./dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-           <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açainhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -321,7 +321,7 @@ try {
 
             <div class="row">
               <div class="col-md-12">
-
+  
                 <div class="card mb-4">
                   <h5 class="card-header">Detalhes do perfil</h5>
                   <!-- Account -->
@@ -504,13 +504,8 @@ try {
                 <script>
                   document.write(new Date().getFullYear());
                 </script>
-                , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                Desenvolvido por
-                <a href="https://wa.me/92991515710" target="_blank"
-                  style="text-decoration: none; color: inherit;"><strong>
-                    Lucas Correa
-                  </strong>.</a>
-
+                , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+                Desenvolvido por <strong>Lucas Correa</strong>.
               </div>
             </div>
           </footer>

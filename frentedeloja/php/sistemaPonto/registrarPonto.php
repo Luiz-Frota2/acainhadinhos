@@ -1,175 +1,296 @@
 <?php
-session_start();
 
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-require '../../../assets/php/conexao.php';
+require_once '../../../assets/php/conexao.php';
 
-$data = $_POST['data'] ?? date('Y-m-d');
-$horaAtual = $_POST['hora_atual'] ?? date('H:i:s');
-$cpf = $_POST['cpf'] ?? '';
-$acao = $_POST['acao'] ?? '';
-$empresa_id = $_POST['id_selecionado'] ?? '';
+$cpf = $_POST['cpf'];
+$data = $_POST['data'];
+$horaAtual = $_POST['hora_atual'];
+$acao = $_POST['acao'];
+$fotoBase64 = $_POST['fotoBase64'];
+$localizacao = $_POST['localizacao'];
+$empresa_id = $_POST['id_selecionado'];
 
-if (!$cpf || !$acao || !$empresa_id) {
-  echo "<script>alert('Dados incompletos!'); history.back();</script>";
-  exit;
-}
-
-// Busca funcionário
-$stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE cpf = :cpf AND empresa_id = :empresa_id LIMIT 1");
-$stmt->execute([':cpf' => $cpf, ':empresa_id' => $empresa_id]);
-$func = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$func) {
-  echo "<script>alert('Funcionário não encontrado.'); history.back();</script>";
-  exit;
-}
-
-// Verifica se o funcionário trabalha hoje
-$diaSemana = strtolower(date('l'));
-$diasTraduzidos = [
-  'sunday'    => 'domingo',
-  'monday'    => 'segunda',
-  'tuesday'   => 'terca',
-  'wednesday' => 'quarta',
-  'thursday'  => 'quinta',
-  'friday'    => 'sexta',
-  'saturday'  => 'sabado'
-];
-$diaTraduzido = $diasTraduzidos[$diaSemana];
-
-$diasSemana = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-$indexAtual   = array_search($diaTraduzido, $diasSemana);
-$indexInicio  = array_search(strtolower($func['dia_inicio']), $diasSemana);
-$indexTermino = array_search(strtolower($func['dia_termino']), $diasSemana);
-
-// Verifica intervalo do ciclo de trabalho
-if ($indexInicio <= $indexTermino) {
-  if ($indexAtual < $indexInicio || $indexAtual > $indexTermino) {
-    echo "<script>alert('Hoje o funcionário não trabalha.'); history.back();</script>";
+// Validação obrigatória de localização e foto
+if (empty($localizacao) || empty($fotoBase64)) {
+    echo "<script>alert('É obrigatório registrar a localização e a foto para registrar o ponto.'); history.back();</script>";
     exit;
-  }
-} else {
-  if ($indexAtual < $indexInicio && $indexAtual > $indexTermino) {
-    echo "<script>alert('Hoje o funcionário não trabalha.'); history.back();</script>";
-    exit;
-  }
 }
 
-// Define turno atual com base na hora
-$escala = strtolower($func['escala']);
-$horaAtualHora = (int)date('H', strtotime($horaAtual));
+$fotoBinaria = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $fotoBase64));
 
-if ($escala == 'noturno') {
-  $entradaEsperada = $func['hora_entrada_segundo_turno'];
-  $saidaEsperada = $func['hora_saida_segundo_turno'];
-} else {
-  if ($horaAtualHora >= 8 && $horaAtualHora < 13) {
-    $entradaEsperada = $func['hora_entrada_primeiro_turno'];
-    $saidaEsperada = $func['hora_saida_primeiro_turno'];
-  } elseif ($horaAtualHora >= 13 && $horaAtualHora < 19) {
-    $entradaEsperada = $func['hora_entrada_segundo_turno'];
-    $saidaEsperada = $func['hora_saida_segundo_turno'];
-  } else {
-    $entradaEsperada = $func['hora_entrada_primeiro_turno'];
-    $saidaEsperada = $func['hora_saida_primeiro_turno'];
-  }
+// Buscar nome do funcionário e escala
+$sqlFuncionario = "SELECT nome, dia_inicio, dia_folga FROM funcionarios WHERE cpf = ?";
+$stmtFuncionario = $pdo->prepare($sqlFuncionario);
+$stmtFuncionario->execute([$cpf]);
+$funcionario = $stmtFuncionario->fetch(PDO::FETCH_ASSOC);
+
+if (!$funcionario) {
+    echo "<script>alert('Funcionário não encontrado.'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+    exit;
 }
 
-// Define entrada tolerada
-$entradaTolerada = date('H:i:s', strtotime('+10 minutes', strtotime($entradaEsperada)));
+$nomeFuncionario = $funcionario['nome'];
+$diaInicio = $funcionario['dia_inicio'];
+$diaFolga = $funcionario['dia_folga'];
 
-$status = '';
-$horasPendentes = '00:00:00';
-$horaExtra = '00:00:00';
-
-if ($acao === 'entrada') {
-
-  // VERIFICAÇÃO: Já registrou entrada neste turno?
-  $stmt = $pdo->prepare("SELECT * FROM registros_ponto 
-                         WHERE cpf = :cpf AND empresa_id = :empresa_id AND data = :data 
-                         AND entrada BETWEEN :inicio_turno AND :fim_turno");
-  $stmt->execute([
-    ':cpf' => $cpf,
-    ':empresa_id' => $empresa_id,
-    ':data' => $data,
-    ':inicio_turno' => $entradaEsperada,
-    ':fim_turno' => $saidaEsperada
-  ]);
-  $registroExistente = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($registroExistente) {
-    echo "<script>alert('Você já registrou a entrada para este turno.'); history.back();</script>";
-    exit;
-  }
-
-  // Verifica atraso
-  if ($horaAtual > $entradaTolerada) {
-    $atraso = strtotime($horaAtual) - strtotime($entradaEsperada);
-    $horasPendentes = gmdate("H:i:s", $atraso);
-    $status = 'pendente';
-  } else {
-    $status = 'ok';
-  }
-
-  // Registra entrada
-  $stmt = $pdo->prepare("INSERT INTO registros_ponto (empresa_id, cpf, data, entrada, status, horas_pendentes, hora_extra)
-                         VALUES (:empresa_id, :cpf, :data, :entrada, :status, :pendente, :extra)");
-  $stmt->execute([
-    ':empresa_id' => $empresa_id,
-    ':cpf'        => $cpf,
-    ':data'       => $data,
-    ':entrada'    => $horaAtual,
-    ':status'     => $status,
-    ':pendente'   => $horasPendentes,
-    ':extra'      => $horaExtra
-  ]);
-
-} elseif ($acao === 'saida') {
-  if ($horaAtual >= $saidaEsperada) {
-    $stmt = $pdo->prepare("SELECT * FROM registros_ponto 
-                           WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id 
-                           ORDER BY id DESC LIMIT 1");
-    $stmt->execute([':cpf' => $cpf, ':data' => $data, ':empresa_id' => $empresa_id]);
-    $registro = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($registro) {
-      $entrada = $registro['entrada'];
-      $duracao = strtotime($horaAtual) - strtotime($entrada);
-      $tempoEsperado = strtotime($saidaEsperada) - strtotime($entradaEsperada);
-      $compensou = $duracao >= $tempoEsperado;
-
-      if ($registro['status'] === 'pendente') {
-        $status = $compensou ? 'compensado' : 'pendente';
-        $horasPendentes = $compensou ? '00:00:00' : gmdate("H:i:s", $tempoEsperado - $duracao);
-        $horaExtra = $compensou && $duracao > $tempoEsperado ? gmdate("H:i:s", $duracao - $tempoEsperado) : '00:00:00';
-      } else {
-        $status = 'ok';
-        $horasPendentes = '00:00:00';
-        $horaExtra = $duracao > $tempoEsperado ? gmdate("H:i:s", $duracao - $tempoEsperado) : '00:00:00';
-      }
-
-      $stmt = $pdo->prepare("UPDATE registros_ponto 
-                             SET saida = :saida, status = :status, horas_pendentes = :pendente, hora_extra = :extra 
-                             WHERE id = :id");
-      $stmt->execute([
-        ':saida'    => $horaAtual,
-        ':status'   => $status,
-        ':pendente' => $horasPendentes,
-        ':extra'    => $horaExtra,
-        ':id'       => $registro['id']
-      ]);
-    } else {
-      echo "<script>alert('Entrada não registrada anteriormente.'); history.back();</script>";
-      exit;
-    }
-  } else {
-    echo "<script>alert('Você não pode registrar a saída antes do horário esperado.'); history.back();</script>";
-    exit;
-  }
+// Função para obter o nome do dia da semana em português
+function nomeDiaSemana($data)
+{
+    $dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+    return $dias[date('w', strtotime($data))];
 }
 
-echo "<script>alert('Ponto registrado com sucesso!'); window.location.href = '../../sistemadeponto/pontoRegistrado.php?id=$empresa_id';</script>";
+// Função para obter o próximo dia da semana a partir de um dia base
+function proximoDia($diaAtual, $diasDepois = 1)
+{
+    $dias = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+    $idx = array_search($diaAtual, $dias);
+    $novoIdx = ($idx + $diasDepois) % 7;
+    return $dias[$novoIdx];
+}
+
+// Verifica se hoje é folga
+$hojeDiaSemana = nomeDiaSemana($data);
+if ($acao == 'entrada' && $hojeDiaSemana == $diaFolga) {
+    echo "<script>alert('Hoje é sua folga! Não é permitido registrar ponto.'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+    exit;
+}
+
+// Buscar registro de ponto do dia
+$sqlBusca = "SELECT * FROM pontos WHERE cpf = ? AND data = ? AND empresa_id = ?";
+$stmtBusca = $pdo->prepare($sqlBusca);
+$stmtBusca->execute([$cpf, $data, $empresa_id]);
+$registro = $stmtBusca->fetch(PDO::FETCH_ASSOC);
+
+// Buscar horários de referência
+$sqlHorario = "SELECT entrada, saida_intervalo, retorno_intervalo, saida_final FROM funcionarios WHERE cpf = ?";
+$stmtHorario = $pdo->prepare($sqlHorario);
+$stmtHorario->execute([$cpf]);
+$horarioRef = $stmtHorario->fetch(PDO::FETCH_ASSOC);
+
+if (!$horarioRef) {
+    echo "<script>alert('Horário de referência não encontrado.'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+    exit;
+}
+
+function excedeuTolerancia($horaRef, $horaAtual)
+{
+    $ref = strtotime($horaRef);
+    $atual = strtotime($horaAtual);
+    return ($atual - $ref) > 600;
+}
+
+switch ($acao) {
+    case 'entrada':
+        if ($registro && $registro['entrada']) {
+            echo "<script>alert('Entrada já registrada.'); history.back();</script>";
+            exit;
+        }
+
+        $campos = [
+            'cpf' => $cpf,
+            'nome' => $nomeFuncionario,
+            'data' => $data,
+            'entrada' => $horaAtual,
+            'foto_entrada' => $fotoBinaria,
+            'localizacao_entrada' => $localizacao,
+            'empresa_id' => $empresa_id
+        ];
+
+        // Só conta horas_pendentes se exceder 10 minutos de tolerância
+        $ref = strtotime($horarioRef['entrada']);
+        $atual = strtotime($horaAtual);
+        if (($atual - $ref) > 600) { // 600 segundos = 10 minutos
+            $campos['horas_pendentes'] = gmdate("H:i:s", ($atual - $ref - 600));
+        }
+
+        if (!isset($campos['horas_pendentes'])) {
+            $campos['horas_pendentes'] = null;
+        }
+
+        if ($registro) {
+            $sqlUpdate = "UPDATE pontos SET entrada = :entrada, foto_entrada = :foto_entrada, localizacao_entrada = :localizacao_entrada, horas_pendentes = COALESCE(horas_pendentes, :horas_pendentes) WHERE id = :id AND empresa_id = :empresa_id";
+            $stmt = $pdo->prepare($sqlUpdate);
+            $campos['id'] = $registro['id'];
+        } else {
+            $sqlInsert = "INSERT INTO pontos (cpf, nome, data, entrada, foto_entrada, localizacao_entrada, horas_pendentes, empresa_id) VALUES (:cpf, :nome, :data, :entrada, :foto_entrada, :localizacao_entrada, :horas_pendentes, :empresa_id)";
+            $stmt = $pdo->prepare($sqlInsert);
+        }
+
+        $stmt->execute($campos);
+        echo "<script>alert('Entrada registrada com sucesso!'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+        break;
+
+    case 'saida_intervalo':
+        if (!$registro || $registro['saida_intervalo']) {
+            echo "<script>alert('Saída para intervalo já registrada ou entrada não encontrada.'); history.back();</script>";
+            exit;
+        }
+
+        // Permite registrar saída para intervalo a qualquer horário, sem restrição
+
+        $sqlUpdate = "UPDATE pontos SET saida_intervalo = :saida_intervalo, foto_saida_intervalo = :foto_saida_intervalo, localizacao_saida_intervalo = :localizacao_saida_intervalo WHERE id = :id AND empresa_id = :empresa_id";
+        $stmt = $pdo->prepare($sqlUpdate);
+        $stmt->execute([
+            'saida_intervalo' => $horaAtual,
+            'foto_saida_intervalo' => $fotoBinaria,
+            'localizacao_saida_intervalo' => $localizacao,
+            'id' => $registro['id'],
+            'empresa_id' => $empresa_id
+        ]);
+
+        echo "<script>alert('Saída para intervalo registrada com sucesso!'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+        break;
+
+    case 'retorno_intervalo':
+        if (!$registro || $registro['retorno_intervalo']) {
+            echo "<script>alert('Retorno de intervalo já registrado ou entrada não encontrada.'); history.back();</script>";
+            exit;
+        }
+
+        if (!$registro['saida_intervalo']) {
+            echo "<script>alert('Você precisa registrar a saída para o intervalo primeiro.'); history.back();</script>";
+            exit;
+        }
+
+        $sqlUpdate = "UPDATE pontos 
+                      SET retorno_intervalo = :retorno_intervalo, 
+                          foto_retorno_intervalo = :foto_retorno_intervalo, 
+                          localizacao_retorno_intervalo = :localizacao_retorno_intervalo 
+                      WHERE id = :id AND empresa_id = :empresa_id";
+
+        $stmt = $pdo->prepare($sqlUpdate);
+        $stmt->execute([
+            'retorno_intervalo' => $horaAtual,
+            'foto_retorno_intervalo' => $fotoBinaria,
+            'localizacao_retorno_intervalo' => $localizacao,
+            'id' => $registro['id'],
+            'empresa_id' => $empresa_id
+        ]);
+
+        echo "<script>alert('Retorno de intervalo registrado com sucesso!'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+        break;
+
+    case 'saida_final':
+        if (!$registro) {
+            // Tenta buscar registro do dia anterior se a hora atual for entre 21:00 e 05:59
+            $horaAtualTimestamp = strtotime($horaAtual);
+            if (
+                ($horaAtualTimestamp !== false && $horaAtualTimestamp < strtotime('06:00:00')) ||
+                ($horaAtualTimestamp !== false && $horaAtualTimestamp >= strtotime('21:00:00'))
+            ) {
+                // Se for entre 21:00 e 23:59, considera o dia atual, mas se não encontrou registro, tenta o anterior
+                // Se for entre 00:00 e 05:59, tenta o registro do dia anterior
+                $dataAnterior = date('Y-m-d', strtotime($data . ' -1 day'));
+                $sqlBuscaAnterior = "SELECT * FROM pontos WHERE cpf = ? AND data = ? AND empresa_id = ?";
+                $stmtBuscaAnterior = $pdo->prepare($sqlBuscaAnterior);
+                $stmtBuscaAnterior->execute([$cpf, $dataAnterior, $empresa_id]);
+                $registroAnterior = $stmtBuscaAnterior->fetch(PDO::FETCH_ASSOC);
+
+                if ($registroAnterior) {
+                    $registro = $registroAnterior;
+                    $dataRegistro = $dataAnterior;
+                } else {
+                    $dataRegistro = $data;
+                }
+            } else {
+                $dataRegistro = $data;
+            }
+        } else {
+            $dataRegistro = $data;
+        }
+
+        if (!$registro) {
+            echo "<script>alert('Registro de entrada não encontrado.'); history.back();</script>";
+            exit;
+        }
+
+        // Verifica se amanhã é folga
+        $dataAmanha = date('Y-m-d', strtotime($dataRegistro . ' +1 day'));
+        $diaAmanha = nomeDiaSemana($dataAmanha);
+
+        $isVesperaFolga = ($diaAmanha == $diaFolga);
+
+        // Mensagem e registro de folga se for véspera da folga
+        if ($isVesperaFolga) {
+            // Insere folga
+            $sqlFolga = "INSERT INTO folgas (cpf, nome, data_folga) VALUES (?, ?, ?)";
+            $stmtFolga = $pdo->prepare($sqlFolga);
+            $stmtFolga->execute([$cpf, $nomeFuncionario, $dataAmanha]);
+            $msgFolga = "Atenção: Amanhã ({$diaFolga}) é sua folga! Aproveite seu descanso.";
+        } else {
+            $msgFolga = "";
+        }
+
+        // Registro normal da saída final
+        if (empty($registro['saida_intervalo']) && empty($registro['retorno_intervalo'])) {
+            if (strtotime($horaAtual) >= strtotime($horarioRef['saida_final'])) {
+                $horaExtra = strtotime($horaAtual) > strtotime($horarioRef['saida_final']) ?
+                    gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['saida_final'])) : null;
+
+                $sqlUpdate = "UPDATE pontos SET saida_final = :saida_final, foto_saida_final = :foto_saida_final, localizacao_saida_final = :localizacao_saida_final, hora_extra = :hora_extra WHERE id = :id AND empresa_id = :empresa_id";
+                $stmt = $pdo->prepare($sqlUpdate);
+                $stmt->execute([
+                    'saida_final' => $horaAtual,
+                    'foto_saida_final' => $fotoBinaria,
+                    'localizacao_saida_final' => $localizacao,
+                    'hora_extra' => $horaExtra,
+                    'id' => $registro['id'],
+                    'empresa_id' => $empresa_id
+                ]);
+            } else {
+                echo "<script>alert('Você só pode registrar a saída após o fim do expediente.'); history.back();</script>";
+                exit;
+            }
+        } elseif (!empty($registro['saida_intervalo']) && empty($registro['retorno_intervalo'])) {
+            if (excedeuTolerancia($horarioRef['saida_final'], $horaAtual)) {
+                echo "<script>alert('Você excedeu a tolerância de 10 minutos para a saída final.'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+                exit;
+            }
+            echo "<script>alert('Você deve registrar o retorno de intervalo antes da saída final.'); history.back();</script>";
+            exit;
+        } else {
+            if (strtotime($horaAtual) >= strtotime($horarioRef['saida_final'])) {
+                $horaExtra = strtotime($horaAtual) > strtotime($horarioRef['saida_final']) ?
+                    gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['saida_final'])) : null;
+
+                $sqlUpdate = "UPDATE pontos SET saida_final = :saida_final, foto_saida_final = :foto_saida_final, localizacao_saida_final = :localizacao_saida_final, hora_extra = :hora_extra WHERE id = :id AND empresa_id = :empresa_id";
+                $stmt = $pdo->prepare($sqlUpdate);
+                $stmt->execute([
+                    'saida_final' => $horaAtual,
+                    'foto_saida_final' => $fotoBinaria,
+                    'localizacao_saida_final' => $localizacao,
+                    'hora_extra' => $horaExtra,
+                    'id' => $registro['id'],
+                    'empresa_id' => $empresa_id
+                ]);
+            } else {
+                echo "<script>alert('Você só pode registrar a saída após o fim do expediente.'); history.back();</script>";
+                exit;
+            }
+        }
+
+        // Atualiza escala 5x1 após saída final
+        // Próximo dia início é o dia após a folga, próxima folga é 5 dias depois
+        if ($isVesperaFolga) {
+            $novoDiaInicio = proximoDia($diaFolga, 1); // Dia após a folga
+            $novoDiaFolga = proximoDia($novoDiaInicio, 5); // 5 dias depois do novo início
+            $sqlUpdateFunc = "UPDATE funcionarios SET dia_inicio = ?, dia_folga = ? WHERE cpf = ?";
+            $stmtFunc = $pdo->prepare($sqlUpdateFunc);
+            $stmtFunc->execute([$novoDiaInicio, $novoDiaFolga, $cpf]);
+        }
+
+        $msgFinal = "Saída final registrada com sucesso!";
+        if ($msgFolga) $msgFinal .= "\\n$msgFolga";
+        echo "<script>alert('$msgFinal'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+        break;
+
+    default:
+        echo "<script>alert('Ação inválida.'); history.back();</script>";
+        break;
+}
+
 ?>

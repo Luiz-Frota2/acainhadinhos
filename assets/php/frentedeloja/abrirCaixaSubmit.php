@@ -1,8 +1,6 @@
 <?php
-$host = 'localhost';
-$dbname = 'u920914488_ERP';
-$username = 'u920914488_ERP';
-$password = 'K5yJv;lVIKc>';
+
+require_once '../conexao.php';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
@@ -16,9 +14,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $empresa_id = $_POST['idSelecionado'] ?? '';
     $valorAbertura = $_POST['valor_abertura'] ?? '0.00';
     $responsavel = $_POST['responsavel'] ?? '';
+    $cpf =  $_POST['cpf'] ?? '';
     $status_abertura = $_POST['status_abertura'] ?? '';
     $numeroCaixa = $_POST['numeroCaixa'] ?? '';
     $liquido =  $_POST['valor_abertura'] ?? '';
+    
 
     // Verifica se já existe um caixa aberto para o mesmo responsável E empresa
     $stmt = $pdo->prepare("
@@ -97,8 +97,8 @@ if ($numeroCaixaResponsavel) {
 
     // Insere os dados
     $stmt = $pdo->prepare("
-        INSERT INTO aberturas (valor_abertura, valor_liquido, responsavel, status_abertura, numeroCaixa, empresa_id)
-        VALUES (:valor_abertura, :valor_liquido, :responsavel, :status_abertura, :numeroCaixa, :empresa_id)
+        INSERT INTO aberturas (valor_abertura, valor_liquido, responsavel, status_abertura, numeroCaixa, empresa_id, cpf)
+        VALUES (:valor_abertura, :valor_liquido, :responsavel, :status_abertura, :numeroCaixa, :empresa_id, :cpf)
     ");
     $stmt->bindParam(':valor_abertura', $valorAbertura);
     $stmt->bindParam(':valor_liquido', $liquido);
@@ -106,6 +106,7 @@ if ($numeroCaixaResponsavel) {
     $stmt->bindParam(':status_abertura', $status_abertura);
     $stmt->bindParam(':numeroCaixa', $numeroCaixa);
     $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
 
     if ($stmt->execute()) {
         echo "<script>

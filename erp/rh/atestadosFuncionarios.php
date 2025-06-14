@@ -45,47 +45,45 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// Buscar imagem da empresa
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
   $stmt->bindParam(':id_selecionado', $idSelecionado);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// ✅ Buscar nome e CPF do usuário logado
+// Buscar dados do usuário logado
 $nomeUsuario = 'Usuário';
-$cpfUsuario = ''; // Valor padrão
+$nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, cpf FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id);
   $stmt->execute();
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
-    $cpfUsuario = $usuario['cpf']; // Recupera o CPF do usuário logado
+    $nivelUsuario = $usuario['nivel'];
+    $cpfUsuario = $usuario['cpf'];
   }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $cpfUsuario = 'Erro ao carregar CPF';
+  $nomeUsuario = 'Erro ao carregar';
+  $nivelUsuario = 'Erro';
 }
 
 // ✅ Recupera os atestados da empresa logada, filtrando pelo CPF do funcionário
 $atestados = [];
 // ✅ Verificar e trazer os atestados do banco de dados
 try {
-  // Ajuste na consulta SQL
+  // Ajuste na consulta SQL para incluir o CPF do funcionário
   $stmt = $pdo->prepare("
       SELECT 
           a.id, 
@@ -96,6 +94,7 @@ try {
           a.medico, 
           a.observacoes, 
           a.imagem_atestado, 
+          f.cpf,  -- Selecionando o CPF diretamente
           f.nome AS funcionario_nome
       FROM atestados a
       JOIN funcionarios f ON f.cpf = a.cpf_usuario
@@ -125,7 +124,7 @@ try {
   <meta charset="utf-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-  <title>ERP - Atestados</title>
+  <title>ERP - Recursos Humanos</title>
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
@@ -161,7 +160,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-             <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -425,8 +425,7 @@ try {
                       <th>Data de Envio</th>
                       <th>Data do Atestado</th>
                       <th>Dias Afastado</th>
-                      <th>Médico</th>
-                      <th>Observações</th>
+                      <th>Visualizar</th>
                       <th>Ações</th>
                     </tr>
                   </thead>
@@ -437,9 +436,8 @@ try {
                         <td><?= (new DateTime($atestado['data_envio']))->format('d/m/Y') ?></td>
                         <td><?= (new DateTime($atestado['data_atestado']))->format('d/m/Y') ?></td>
                         <td><?= htmlspecialchars($atestado['dias_afastado']) ?></td>
-                        <td><?= htmlspecialchars($atestado['medico']) ?></td>
-                        <td><?= htmlspecialchars($atestado['observacoes']) ?></td>
                         <td>
+                          <!-- Botão Visualizar -->
                           <button class="btn btn-link text-muted p-0" title="Visualizar" data-bs-toggle="modal"
                             data-bs-target="#detalhesAtestadoModal"
                             data-funcionario="<?= htmlspecialchars($atestado['nome_funcionario']) ?>"
@@ -451,13 +449,106 @@ try {
                             data-atestado="<?= htmlspecialchars($atestado['imagem_atestado']) ?>">
                             <i class="fas fa-eye"></i>
                           </button>
+
                         </td>
+
+                        <td>
+                          <!-- Botão Validar -->
+                          <button class="btn btn-success btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#validarModal<?= $atestado['id'] ?>" title="Validar">
+                            <i class="fas fa-check"></i> Validar
+                          </button>
+
+                          <!-- Botão Invalidar -->
+                          <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
+                            data-bs-target="#invalidarModal<?= $atestado['id'] ?>" title="Invalidar">
+                            <i class="fas fa-times"></i> Invalidar
+                          </button>
+                        </td>
+
+                        <!-- Modal para Validar Atestado -->
+                        <div class="modal fade" id="validarModal<?= $atestado['id'] ?>" tabindex="-1"
+                          aria-labelledby="validarModalLabel<?= $atestado['id'] ?>" aria-hidden="true">
+                          <div class="modal-dialog">
+                            <div class="modal-content">
+                              <div class="modal-header">
+                                <h5 class="modal-title" id="validarModalLabel<?= $atestado['id'] ?>">Confirmar Validação
+                                  do Atestado</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                  aria-label="Close"></button>
+                              </div>
+                              <div class="modal-body">
+                                <p>Você deseja validar o atestado do funcionário
+                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
+                                <p><strong>ID do Atestado:</strong> <?= htmlspecialchars($atestado['id']) ?></p>
+                              </div>
+                              <div class="modal-footer">
+                                <form action="../../assets/php/rh/validarAtestado.php" method="POST">
+                                  <input type="hidden" name="atestado_id" value="<?= $atestado['id'] ?>">
+                                  <input type="hidden" name="empresa_id" value="<?= urlencode($idSelecionado) ?>">
+                                  <!-- Passando o ID da empresa -->
+                                  <input type="hidden" name="cpf" value="<?= htmlspecialchars($atestado['cpf']) ?>">
+                                  <!-- Passando o CPF do funcionário -->
+                                  <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="submit" class="btn btn-primary">Validar</button>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Modal para Invalidar Atestado -->
+                        <div class="modal fade" id="invalidarModal<?= $atestado['id'] ?>" tabindex="-1"
+                          aria-labelledby="invalidarModalLabel<?= $atestado['id'] ?>" aria-hidden="true">
+                          <div class="modal-dialog">
+                            <div class="modal-content">
+                              <div class="modal-header">
+                                <h5 class="modal-title" id="invalidarModalLabel<?= $atestado['id'] ?>">Confirmar
+                                  Invalidação do Atestado</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                  aria-label="Close"></button>
+                              </div>
+                              <div class="modal-body">
+                                <p>Você deseja invalidar o atestado do funcionário
+                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
+                                <p><strong>ID do Atestado:</strong> <?= htmlspecialchars($atestado['id']) ?></p>
+                              </div>
+                              <div class="modal-footer">
+                                <form action="../../assets/php/rh/invalidarAtestado.php" method="POST">
+                                  <input type="hidden" name="id_atestado" value="<?= $atestado['id'] ?>">
+                                  <!-- nome correto -->
+                                  <input type="hidden" name="cpfUsuario"
+                                    value="<?= htmlspecialchars($atestado['cpf']) ?>"> <!-- nome correto -->
+                                  <input type="hidden" name="nomeFuncionario"
+                                    value="<?= htmlspecialchars($atestado['nome_funcionario']) ?>">
+                                  <!-- precisa enviar o nome -->
+                                  <input type="hidden" name="dataAtestado"
+                                    value="<?= htmlspecialchars($atestado['data_atestado'] ?? date('Y-m-d')) ?>">
+                                  <!-- data do atestado -->
+                                  <input type="hidden" name="diasAfastado"
+                                    value="<?= htmlspecialchars($atestado['dias_afastado'] ?? 1) ?>">
+                                  <!-- dias afastado -->
+                                  <input type="hidden" name="idSelecionado"
+                                    value="<?= htmlspecialchars($idSelecionado) ?>">
+                                  <!-- empresa corrigido para o que o PHP espera -->
+
+                                  <button type="button" class="btn btn-secondary"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="submit" class="btn btn-danger">Invalidar</button>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
                       </tr>
                     <?php endforeach; ?>
                   </tbody>
                 </table>
               </div>
             </div>
+
 
             <!-- Controles de paginação -->
             <div class="d-flex justify-content-start align-items-center gap-2 m-3">
@@ -588,23 +679,6 @@ try {
 
         </div>
 
-        <footer class="content-footer footer bg-footer-theme text-center">
-          <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-            <div class="mb-2 mb-md-0">
-              &copy;
-              <script>
-                document.write(new Date().getFullYear());
-              </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por
-              <a href="https://wa.me/92991515710" target="_blank"
-                style="text-decoration: none; color: inherit;"><strong>
-                  Lucas Correa
-                </strong>.</a>
-
-            </div>
-          </div>
-        </footer>
       </div>
     </div>
   </div>

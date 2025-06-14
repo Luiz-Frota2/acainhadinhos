@@ -144,7 +144,7 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                       <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -426,7 +426,7 @@ try {
                                             <td><?= htmlspecialchars($venda['datas']) ?></td>
                                             <td><span class="badge bg-success">Finalizada</span></td>
                                             <td>
-                                                <form method="POST" action="../../assets/php/frentedeloja/login/cancelarVendaSubmit.php?id=<?= urlencode($venda['id']) ?> " onsubmit="return confirm('Tem certeza que deseja cancelar esta venda?');">
+                                                <form method="POST" action="../../assets/php/frentedeloja/cancelarVendaSubmit.php?id=<?= urlencode($venda['id']) ?> " onsubmit="return confirm('Tem certeza que deseja cancelar esta venda?');">
                                                 <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />    
                                                 <input type="hidden" name="id" value="<?= $venda['id'] ?>">    
                                                     <input type="hidden" name="empresa_id" value="<?= $idEmpresa ?>">

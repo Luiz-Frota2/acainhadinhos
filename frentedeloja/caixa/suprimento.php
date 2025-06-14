@@ -152,7 +152,7 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: none;">Açainhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -441,7 +441,7 @@ try {
                             <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
        Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
      </div>
-<form action="../../assets/php/frentedeloja/login/processarSuprimento.php?id=<?= urlencode($idSelecionado); ?>" method="POST" onsubmit="return confirmarSangria();">
+<form action="../../assets/php/frentedeloja/processarSuprimento.php?id=<?= urlencode($idSelecionado); ?>" method="POST" onsubmit="return confirmarSangria();">
 
     <div class="mb-3">
         <label for="valor_suprimento" class="form-label">Valor do Suprimento (R$)</label>
