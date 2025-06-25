@@ -45,20 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -83,20 +82,26 @@ try {
   $nivelUsuario = 'Erro ao carregar nível';
 }
 
+// ✅ Buscar fornecedores da empresa
+$fornecedores = [];
+try {
+  $stmt = $pdo->prepare("SELECT * FROM fornecedores WHERE empresa_id = :empresa_id ORDER BY nome_fornecedor");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $fornecedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  // Pode adicionar tratamento de erro se necessário
+}
+
 ?>
 
 <!DOCTYPE html>
-<html
-  lang="pt-br"
-  class="light-style layout-menu-fixed"
-  dir="ltr"
-  data-theme="theme-default"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
+  <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
   <title>ERP - Finanças</title>
@@ -104,7 +109,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -146,7 +151,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -173,16 +179,19 @@ try {
               <div data-i18n="Authentications">Contas</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Adicionadas</div>
                 </a></li>
-              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Futuras</div>
                 </a></li>
               <li class="menu-item"><a href="./contasPagas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagas</div>
                 </a></li>
-              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pendentes</div>
                 </a></li>
             </ul>
@@ -213,10 +222,12 @@ try {
               <div data-i18n="Authentications">Compras</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Fornecedores</div>
                 </a></li>
-              <li class="menu-item active"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item active"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pedidos</div>
                 </a></li>
             </ul>
@@ -228,19 +239,23 @@ try {
               <div data-i18n="Authentications">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Diário</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Mensal</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Anual</div>
                 </a></li>
               <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Fluxo de Caixa</div>
                 </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Projeções Financeiras</div>
                 </a></li>
             </ul>
@@ -330,10 +345,7 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -381,15 +393,6 @@ try {
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
@@ -418,28 +421,35 @@ try {
           <div class="card mt-4">
             <h5 class="card-header">Adicionar Pedido</h5>
             <div class="card-body">
-              <form action="processarPedidoProduto.php" method="POST" id="formAdicionarPedido">
+              <form action="../../assets/php/financas/adicionarPedido.php" method="POST" id="formAdicionarPedido">
+
+                <!-- Campo oculto para ID da empresa -->
+                <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>" />
+
                 <div class="row">
+
                   <div class="mb-3 col-12 col-md-6">
                     <label for="fornecedor" class="form-label">Fornecedor</label>
                     <select class="form-select" id="fornecedor" name="fornecedor" required>
                       <option value="">Selecione o fornecedor</option>
-                      <option value="Amazon Polpas">Amazon Polpas</option>
-                      <option value="Frutaria do Norte">Frutaria do Norte</option>
-                      <option value="Açaí Brasil">Açaí Brasil</option>
-                      <option value="Outro">Outro</option>
+                      <?php foreach ($fornecedores as $fornecedor): ?>
+                        <option value="<?= htmlspecialchars($fornecedor['nome_fornecedor']) ?>">
+                          <?= htmlspecialchars($fornecedor['nome_fornecedor']) ?>
+                        </option>
+                      <?php endforeach; ?>
                     </select>
                   </div>
 
-
                   <div class="mb-3 col-12 col-md-6">
                     <label for="produto" class="form-label">Produto</label>
-                    <input type="text" class="form-control" id="produto" name="produto" placeholder="Ex: Polpa de Açaí 10kg" required>
+                    <input type="text" class="form-control" id="produto" name="produto"
+                      placeholder="Ex: Polpa de Açaí 10kg" required>
                   </div>
 
                   <div class="mb-3 col-12 col-md-6">
                     <label for="quantidade" class="form-label">Quantidade</label>
-                    <input type="number" class="form-control" id="quantidade" name="quantidade" placeholder="Ex: 5" min="1" required>
+                    <input type="number" class="form-control" id="quantidade" name="quantidade" placeholder="Ex: 5"
+                      min="1" required>
                   </div>
 
                   <div class="mb-3 col-12 col-md-6">
@@ -470,9 +480,6 @@ try {
             </div>
           </div>
         </div>
-
-
-
         <!-- / Layout wrapper -->
 
 

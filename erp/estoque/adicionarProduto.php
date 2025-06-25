@@ -104,25 +104,6 @@
                         </ul>
                     </li>
 
-                    <!---B2B-->
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
-                            <div data-i18n="Authentications">B2B</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item"><a href="./produtosSolicitados.php" class="menu-link">
-                                    <div> Produtos Solicitados</div>
-                                </a></li>
-                        </ul>
-                        <ul class="menu-sub">
-                            <li class="menu-item"><a href="./produtosEnviados.php" class="menu-link">
-                                    <div> Produtos Enviados</div>
-                                </a></li>
-                        </ul>
-                    </li>
-                    <!---/ B2B-->
-
                     <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">

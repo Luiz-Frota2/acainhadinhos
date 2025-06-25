@@ -32,18 +32,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// Buscar imagem da empresa
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
   $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
   $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
   $logoEmpresa = !empty($empresaSobre['imagem'])
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // Buscar dados do usuário logado
@@ -69,7 +70,8 @@ try {
 // Helpers
 function timeToMinutes($time)
 {
-  if (!$time || $time === '00:00:00') return 0;
+  if (!$time || $time === '00:00:00')
+    return 0;
   list($h, $m, $s) = explode(':', $time);
   return $h * 60 + $m + round($s / 60);
 }
@@ -107,10 +109,10 @@ try {
 // Agrupa por CPF|mês|ano
 $dadosAgrupados = [];
 foreach ($registros as $r) {
-  $cpf  = $r['cpf'];
-  $mes  = date('m', strtotime($r['data']));
-  $ano  = date('Y', strtotime($r['data']));
-  $key  = "$cpf|$mes|$ano";
+  $cpf = $r['cpf'];
+  $mes = date('m', strtotime($r['data']));
+  $ano = date('Y', strtotime($r['data']));
+  $key = "$cpf|$mes|$ano";
   if (!isset($dadosAgrupados[$key])) {
     // calcula dias úteis
     $sem = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
@@ -119,36 +121,38 @@ foreach ($registros as $r) {
     $perm = [];
     for ($i = $i0;; $i = ($i + 1) % 7) {
       $perm[] = $sem[$i];
-      if ($i === $i1) break;
+      if ($i === $i1)
+        break;
     }
     $dm = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
     $du = 0;
     for ($d = 1; $d <= $dm; $d++) {
       $dw = strtolower(date('l', strtotime("$ano-$mes-" . str_pad($d, 2, '0', STR_PAD_LEFT))));
-      if (in_array($dw, $perm, true)) $du++;
+      if (in_array($dw, $perm, true))
+        $du++;
     }
     // referencia diária
-    $refE  = $r['f_entrada']           ?: $r['entrada'];
-    $refSI = $r['f_saida_intervalo']   ?: $r['saida_intervalo'];
-    $refR  = $r['f_retorno_intervalo'] ?: $r['retorno_intervalo'];
-    $refS  = $r['f_saida_final']       ?: $r['saida_final'];
-    $minTurno  = (timeToMinutes($refS) - timeToMinutes($refE))
+    $refE = $r['f_entrada'] ?: $r['entrada'];
+    $refSI = $r['f_saida_intervalo'] ?: $r['saida_intervalo'];
+    $refR = $r['f_retorno_intervalo'] ?: $r['retorno_intervalo'];
+    $refS = $r['f_saida_final'] ?: $r['saida_final'];
+    $minTurno = (timeToMinutes($refS) - timeToMinutes($refE))
       - (timeToMinutes($refR) - timeToMinutes($refSI));
     $minDevidos = $minTurno * $du;
     $dadosAgrupados[$key] = [
-      'nome'                       => $r['nome'],
-      'mes_ano'                    => "$mes/$ano",
-      'minTrabalhados'             => 0,
-      'minPendentes'               => 0,
-      'minExtras'                  => 0,
-      'minDevidos'                 => $minDevidos,
+      'nome' => $r['nome'],
+      'mes_ano' => "$mes/$ano",
+      'minTrabalhados' => 0,
+      'minPendentes' => 0,
+      'minExtras' => 0,
+      'minDevidos' => $minDevidos,
       // escala
-      'dia_inicio'                 => $r['dia_inicio'],
-      'dia_folga'                => $r['dia_folga'],
-      'entrada'                    => $refE,
-      'saida_intervalo'            => $refSI,
-      'retorno_intervalo'          => $refR,
-      'saida_final'                => $refS,
+      'dia_inicio' => $r['dia_inicio'],
+      'dia_folga' => $r['dia_folga'],
+      'entrada' => $refE,
+      'saida_intervalo' => $refSI,
+      'retorno_intervalo' => $refR,
+      'saida_final' => $refS,
     ];
   }
   // acumula minutos trabalhados com correção para intervalos NULL
@@ -168,10 +172,10 @@ foreach ($registros as $r) {
       $m += timeToMinutes($saida_final) - timeToMinutes($entrada);
     }
   }
-  
+
   $dadosAgrupados[$key]['minTrabalhados'] += $m;
-  $dadosAgrupados[$key]['minPendentes']   += timeToMinutes($r['horas_pendentes']);
-  $dadosAgrupados[$key]['minExtras']      += timeToMinutes($r['hora_extra']);
+  $dadosAgrupados[$key]['minPendentes'] += timeToMinutes($r['horas_pendentes']);
+  $dadosAgrupados[$key]['minExtras'] += timeToMinutes($r['hora_extra']);
 }
 
 // Ajusta saldos e formata horas
@@ -180,18 +184,18 @@ foreach ($dadosAgrupados as &$d) {
   $e = $d['minExtras'];
   if ($e > $p) {
     $d['minLiquidaExtra'] = $e - $p;
-    $d['minLiquidaPend']  = 0;
+    $d['minLiquidaPend'] = 0;
   } else {
-    $d['minLiquidaPend']  = $p - $e;
+    $d['minLiquidaPend'] = $p - $e;
     $d['minLiquidaExtra'] = 0;
   }
-  $d['horas_trabalhadas']        = minutesToHM($d['minTrabalhados']);
-  $d['hora_extra_liquida']       = minutesToHM($d['minLiquidaExtra']);
-  $d['horas_pendentes_liquida']  = minutesToHM($d['minLiquidaPend']);
+  $d['horas_trabalhadas'] = minutesToHM($d['minTrabalhados']);
+  $d['hora_extra_liquida'] = minutesToHM($d['minLiquidaExtra']);
+  $d['horas_pendentes_liquida'] = minutesToHM($d['minLiquidaPend']);
 }
 unset($d);
-?>
 
+?>
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -205,6 +209,7 @@ unset($d);
   <meta name="description" content="" />
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -307,6 +312,11 @@ unset($d);
                   <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
+                <li class="menu-item">
+                <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
+                </a>
+              </li>
               <li class="menu-item">
                 <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
@@ -338,7 +348,17 @@ unset($d);
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
               </li>
-
+              <li class="menu-item ">
+                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
+                </a>
+              </li>
             </ul>
           </li>
           <!-- Misc -->
@@ -434,7 +454,7 @@ unset($d);
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -443,7 +463,7 @@ unset($d);
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -467,15 +487,6 @@ unset($d);
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
                       <span class="align-middle">Configurações</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
                     </a>
                   </li>
                   <li>
@@ -518,7 +529,8 @@ unset($d);
                 </thead>
                 <tbody>
                   <?php $i = 0;
-                  foreach ($dadosAgrupados as $d): $i++; ?>
+                  foreach ($dadosAgrupados as $d):
+                    $i++; ?>
                     <tr>
                       <td><?= htmlspecialchars($d['nome']) ?></td>
                       <td><?= $d['mes_ano'] ?></td>
@@ -526,8 +538,7 @@ unset($d);
                       <td><?= $d['hora_extra_liquida'] ?></td>
                       <td><?= $d['horas_pendentes_liquida'] ?></td>
                       <td>
-                        <button class="btn btn-primary btn-sm"
-                          data-bs-toggle="modal"
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal"
                           data-bs-target="#modalUnificado<?= $i ?>">
                           Visualizar
                         </button>
@@ -545,8 +556,10 @@ unset($d);
           </div>
 
           <?php $i = 0;
-          foreach ($dadosAgrupados as $d): $i++; ?>
-            <div class="modal fade" id="modalUnificado<?= $i ?>" tabindex="-1" aria-labelledby="modalUnificadoLabel<?= $i ?>" aria-hidden="true">
+          foreach ($dadosAgrupados as $d):
+            $i++; ?>
+            <div class="modal fade" id="modalUnificado<?= $i ?>" tabindex="-1"
+              aria-labelledby="modalUnificadoLabel<?= $i ?>" aria-hidden="true">
               <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
                   <div class="modal-header">

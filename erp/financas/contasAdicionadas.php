@@ -45,20 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -86,23 +85,27 @@ try {
 ?>
 
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+  data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
   <title>ERP - Finanças</title>
 
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+    rel="stylesheet" />
 
   <!-- Icons. Uncomment required icon fonts -->
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
@@ -139,7 +142,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -228,13 +232,16 @@ try {
             </a>
 
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Fornecedores</div>
                 </a></li>
-              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pedidos</div>
                 </a></li>
-              <li class="menu-item"><a href="./aprovacaoCompras.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./aprovacaoCompras.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Aprovação</div>
                 </a></li>
             </ul>
@@ -249,19 +256,23 @@ try {
             </a>
 
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Diário</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Mensal</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Anual</div>
                 </a></li>
               <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Fluxo de Caixa</div>
                 </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Projeções Financeiras</div>
                 </a></li>
             </ul>
@@ -341,7 +352,9 @@ try {
       <div class="layout-page">
 
         <!-- Navbar -->
-        <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+        <nav
+          class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+          id="layout-navbar">
 
           <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
             <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -355,7 +368,8 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search..." />
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
+                  aria-label="Search..." />
               </div>
             </div>
             <!-- /Search -->
@@ -368,7 +382,7 @@ try {
 
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
 
@@ -379,7 +393,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -442,8 +457,10 @@ try {
 
         <div class="container-xxl flex-grow-1 container-p-y">
 
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Contas da Empresa</a>/</span>Visualizar Contas</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie as contas da empresa</span></h5>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Contas da Empresa</a>/</span>Visualizar
+            Contas</h4>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie as contas da
+              empresa</span></h5>
 
           <!-- Tabela de Contas da Empresa -->
           <div class="card">
@@ -508,22 +525,27 @@ try {
                         <!-- Espaço entre os ícones -->
                         <span class="mx-2">|</span>
 
-                        <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal" data-bs-target="#modalExcluir_<?= $conta['id'] ?>">
+                        <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
+                          data-bs-target="#modalExcluir_<?= $conta['id'] ?>">
                           <i class="tf-icons bx bx-trash"></i>
                         </button>
 
                         <!-- Modal de Exclusão de Transação -->
-                        <div class="modal fade" id="modalExcluir_<?= $conta['id'] ?>" tabindex="-1" aria-labelledby="modalExcluirLabel_<?= $conta['id'] ?>" aria-hidden="true">
+                        <div class="modal fade" id="modalExcluir_<?= $conta['id'] ?>" tabindex="-1"
+                          aria-labelledby="modalExcluirLabel_<?= $conta['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <div class="modal-header">
                                 <h5 class="modal-title" id="modalExcluirLabel_<?= $conta['id'] ?>">Excluir Transação</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                  aria-label="Close"></button>
                               </div>
                               <div class="modal-body">
                                 <p>Tem certeza de que deseja excluir esta transação?</p>
-                                <a href="../../assets/php/financas/excluirContas.php?id=<?= $conta['id'] ?>" class="btn btn-danger">Sim, excluir</a>
-                                <button type="button" class="btn btn-secondary mx-2" data-bs-dismiss="modal">Cancelar</button>
+                                <a href="../../assets/php/financas/excluirContas.php?id=<?= $conta['id'] ?>"
+                                  class="btn btn-danger">Sim, excluir</a>
+                                <button type="button" class="btn btn-secondary mx-2"
+                                  data-bs-dismiss="modal">Cancelar</button>
                               </div>
                             </div>
                           </div>
@@ -531,13 +553,15 @@ try {
                         <!-- /Modal de Exclusão de Transação -->
 
                         <!-- Modal de Editar Conta -->
-                        <div class="modal fade" id="editContaModal_<?= $conta['id'] ?>" tabindex="-1" aria-labelledby="editContaModalLabel_<?= $conta['id'] ?>" aria-hidden="true">
+                        <div class="modal fade" id="editContaModal_<?= $conta['id'] ?>" tabindex="-1"
+                          aria-labelledby="editContaModalLabel_<?= $conta['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
 
                               <div class="modal-header">
                                 <h5 class="modal-title" id="editContaModalLabel_<?= $conta['id'] ?>">Editar Transação</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                  aria-label="Fechar"></button>
                               </div>
 
                               <div class="modal-body">
@@ -547,35 +571,44 @@ try {
 
                                   <div class="mb-3">
                                     <label for="descricao" class="form-label">Descrição</label>
-                                    <input type="text" class="form-control" id="descricao" name="descricao" value="<?= htmlspecialchars($conta['descricao']) ?>" required>
+                                    <input type="text" class="form-control" id="descricao" name="descricao"
+                                      value="<?= htmlspecialchars($conta['descricao']) ?>" required>
                                   </div>
 
                                   <div class="mb-3">
                                     <label for="valorpago" class="form-label">Valor Pago</label>
-                                    <input type="text" class="form-control" id="valorpago" name="valorpago" value="<?= number_format($conta['valorpago'], 2, ',', '.') ?>" required>
+                                    <input type="text" class="form-control" id="valorpago" name="valorpago"
+                                      value="<?= number_format($conta['valorpago'], 2, ',', '.') ?>" required>
                                   </div>
 
                                   <div class="mb-3">
                                     <label for="datatransacao" class="form-label">Data da Transação</label>
-                                    <input type="date" class="form-control" id="datatransacao" name="datatransacao" value="<?= htmlspecialchars($conta['datatransacao']) ?>" required>
+                                    <input type="date" class="form-control" id="datatransacao" name="datatransacao"
+                                      value="<?= htmlspecialchars($conta['datatransacao']) ?>" required>
                                   </div>
 
                                   <div class="mb-3">
                                     <label for="responsavel" class="form-label">Responsável</label>
-                                    <input type="text" class="form-control" id="responsavel" name="responsavel" value="<?= htmlspecialchars($conta['responsavel']) ?>" required>
+                                    <input type="text" class="form-control" id="responsavel" name="responsavel"
+                                      value="<?= htmlspecialchars($conta['responsavel']) ?>" required>
                                   </div>
 
                                   <div class="mb-3">
                                     <label for="statuss" class="form-label">Status</label>
-                                    <select class="form-select" id="statuss" name="statuss" value="<?= htmlspecialchars($conta['statuss']) ?>" required>
-                                      <option value="pago" <?= $conta['statuss'] === 'pago' ? 'selected' : '' ?>>Pago</option>
-                                      <option value="pendente" <?= $conta['statuss'] === 'pendente' ? 'selected' : '' ?>>Pendente</option>
-                                      <option value="futura" <?= $conta['statuss'] === 'futura' ? 'selected' : '' ?>>Futura</option>
+                                    <select class="form-select" id="statuss" name="statuss"
+                                      value="<?= htmlspecialchars($conta['statuss']) ?>" required>
+                                      <option value="pago" <?= $conta['statuss'] === 'pago' ? 'selected' : '' ?>>Pago
+                                      </option>
+                                      <option value="pendente" <?= $conta['statuss'] === 'pendente' ? 'selected' : '' ?>>
+                                        Pendente</option>
+                                      <option value="futura" <?= $conta['statuss'] === 'futura' ? 'selected' : '' ?>>Futura
+                                      </option>
                                     </select>
                                   </div>
 
                                   <div class="d-flex justify-content-between">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="button" class="btn btn-secondary"
+                                      data-bs-dismiss="modal">Cancelar</button>
                                     <button type="submit" class="btn btn-primary">Salvar</button>
                                   </div>
                                 </form>
@@ -600,7 +633,9 @@ try {
 
           </div>
 
-          <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center" onclick="window.location.href='adicionarConta.php';" style="cursor: pointer;">
+          <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
+            onclick="window.location.href='adicionarConta.php?id=<?= urlencode($idSelecionado); ?>';"
+            style="cursor: pointer;">
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar nova Conta</span>
           </div>

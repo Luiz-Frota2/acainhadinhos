@@ -93,6 +93,17 @@ try {
   exit;
 }
 
+try {
+  // Buscar todos os setores (aberturas fechadas)
+  $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id AND status = 'fechado'";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  echo "Erro ao buscar caixa: " . $e->getMessage();
+  exit;
+}
 
 ?>
 
@@ -109,8 +120,8 @@ try {
 
   <meta name="description" content="" />
 
-  <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -236,12 +247,6 @@ try {
               <div data-i18n="Authentications">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <!-- Relatório Financeiro: Dados financeiros -->
-              <li class="menu-item">
-                <a href="./relatorioFinanceiro.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Financeiro</div>
-                </a>
-              </li>
               <!-- Relatório Operacional: Desempenho de operações -->
               <li class="menu-item">
                 <a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
@@ -350,7 +355,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -359,7 +364,7 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -410,28 +415,9 @@ try {
             </ul>
           </div>
         </nav>
-
         <!-- / Navbar -->
-        <?php
 
-        require '../../assets/php/conexao.php';
-
-        try {
-
-          // Buscar todos os setores
-          $sql = "SELECT * FROM aberturas WHERE empresa_id = :empresa_id AND status_abertura = 'fechado'";
-          $stmt = $pdo->prepare($sql);
-          $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
-          $stmt->execute();
-          $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-          echo "Erro ao buscar caixa: " . $e->getMessage();
-          exit;
-        }
-
-        ?>
         <!-- Content -->
-
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Caixas
             Fechados</h4>
@@ -451,18 +437,20 @@ try {
                 <tbody class="table-border-bottom-0">
                   <?php foreach ($aberturas as $abertura): ?>
                     <tr>
-                      <input type="hidden" value="<?= htmlspecialchars($abertura['id']) ?>">
-                      <td><?= htmlspecialchars($abertura['numeroCaixa']) ?></td>
+                      <td>
+                        <?= htmlspecialchars($abertura['numero_caixa']) ?>
+                        <input type="hidden" value="<?= htmlspecialchars($abertura['id']) ?>">
+                      </td>
                       <td><strong><?= htmlspecialchars($abertura['responsavel']) ?></strong></td>
-                      <td><?= htmlspecialchars($abertura['hora_abertura']) ?></td>
+                      <td><?= htmlspecialchars(date('d/m/Y H:i', strtotime($abertura['abertura_datetime']))) ?></td>
                       <td>R$ <?= number_format($abertura['valor_abertura'], 2, ',', '.') ?></td>
                       <td>
-                        <?php if ($abertura['status_abertura'] == 'aberto'): ?>
+                        <?php if ($abertura['status'] == 'aberto'): ?>
                           <span class="badge bg-label-success me-1">Aberto</span>
-                        <?php elseif ($abertura['status_abertura'] == 'fechado'): ?>
+                        <?php elseif ($abertura['status'] == 'fechado'): ?>
                           <span class="badge bg-label-danger me-1">Fechado</span>
                         <?php else: ?>
-                          <span class="badge bg-warning"> nao identificada</span>
+                          <span class="badge bg-warning">Não identificada</span>
                         <?php endif; ?>
                       </td>
                     </tr>
@@ -472,24 +460,7 @@ try {
             </div>
           </div>
         </div>
-
         <!-- / Content -->
-
-        <!-- Footer -->
-        <footer class="content-footer footer bg-footer-theme text-center">
-          <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-            <div class="mb-2 mb-md-0">
-              &copy;
-              <script>
-                document.write(new Date().getFullYear());
-              </script>
-              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>CodeGeek</strong>.
-            </div>
-          </div>
-        </footer>
-
-        <!-- / Footer -->
 
       </div>
       <!-- Content wrapper -->

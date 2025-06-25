@@ -11,7 +11,8 @@ if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) // necessário para saber se é Admin ou Funcionário
 ) {
     header("Location: ../index.php?id=$idSelecionado");
     exit;
@@ -20,81 +21,122 @@ if (
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
+        echo "<script>alert('Acesso negado!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
         exit;
     }
     $id = 1;
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
     $idFilial = (int) str_replace('filial_', '', $idSelecionado);
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
+        echo "<script>alert('Acesso negado!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
         exit;
     }
     $id = $idFilial;
 } else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '../index.php?id=$idSelecionado';
-      </script>";
+    echo "<script>alert('Empresa não identificada!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
     exit;
 }
 
-// ✅ Se chegou até aqui, o acesso está liberado
-
+// ✅ Recupera dados do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
+$cpfUsuario = '';
 
 try {
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de Admins
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de Funcionários
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    if ($tipoUsuarioSessao === 'Admin') {
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+    } else {
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+        $cpfUsuario = $usuario['cpf'];
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar dados do usuário: " . $e->getMessage() . "'); history.back();</script>";
     exit;
-  }
-} catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
+// ✅ Buscar imagem da empresa (favicon)
+$iconeEmpresa = '../assets/img/favicon/favicon.ico';
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
+
+// ✅ Consulta o saldo do caixa (com base no CPF)
+$empresaId = htmlspecialchars($idSelecionado);
+$responsavel = htmlspecialchars($nomeUsuario);
+$valorLiquido = 0.00;
+$mensagem = '';
+
+try {
+    $sql = "SELECT valor_liquido 
+            FROM aberturas 
+            WHERE empresa_id = :empresa_id 
+              AND cpf_responsavel = :cpf_responsavel 
+              AND status = 'aberto' 
+            ORDER BY id DESC 
+            LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        ':empresa_id' => $empresaId,
+        ':cpf_responsavel' => $cpfUsuario
+    ]);
+    $aberturas = $stmt->fetch(PDO::FETCH_ASSOC);
+    $valorLiquido = $aberturas ? (float) $aberturas['valor_liquido'] : 0.00;
+
+    $mensagem = $valorLiquido <= 0
+        ? "<span class='text-danger fw-bold'>Saldo insuficiente para sangria.</span>"
+        : "<span class='text-success'>Saldo disponível para sangria.</span>";
+} catch (PDOException $e) {
+    $mensagem = "<span class='text-danger'>Erro ao buscar saldo do caixa.</span>";
+}
+
+// ✅ Buscar ID da abertura do caixa com base no CPF
+try {
+    $stmt = $pdo->prepare("
+        SELECT id 
+        FROM aberturas 
+        WHERE cpf_responsavel = :cpf_responsavel 
+          AND empresa_id = :empresa_id 
+          AND status = 'aberto'
+        ORDER BY id DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':cpf_responsavel' => $cpfUsuario,
+        ':empresa_id' => $empresaId
+    ]);
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+    $idAbertura = $resultado ? $resultado['id'] : null;
+} catch (PDOException $e) {
+    $idAbertura = null;
+    $mensagem = "<span class='text-danger'>Erro ao buscar ID do caixa.</span>";
+}
+
 
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -105,12 +147,13 @@ try {
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-    <title>ERP - Caixa</title>
+    <title>ERP - PDV</title>
 
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+    <link rel="icon" type="image/x-icon"
+        href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -152,10 +195,12 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);"
+                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -172,7 +217,8 @@ try {
                     </li>
 
                     <!-- CAIXA -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span>
+                    </li>
 
                     <!-- Operações de Caixa -->
                     <li class="menu-item active open">
@@ -232,7 +278,7 @@ try {
                                     <div data-i18n="Basic">Resumo de Vendas</div>
                                 </a>
                             </li>
-            
+
                         </ul>
                     </li>
                     <!-- END CAIXA -->
@@ -267,8 +313,7 @@ try {
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -280,9 +325,7 @@ try {
                         <!-- Search -->
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
-                                <i class="bx bx-search fs-4 lh-0"></i>
-                                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
-                                    aria-label="Search..." />
+
                             </div>
                         </div>
                         <!-- /Search -->
@@ -291,9 +334,11 @@ try {
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
+                                    data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/avatars/1.png" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -302,7 +347,8 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
@@ -332,7 +378,8 @@ try {
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span
+                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -340,7 +387,8 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -359,118 +407,57 @@ try {
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
                         <span class="text-muted fw-light">
-                            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>">Operações de Caixa</a> /
+                            <a href="#">Operações de Caixa</a> /
                         </span>
                         Sangria
                     </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Registrar retirada de valores do caixa</h5>
-<?php
-require_once '../../assets/php/conexao.php';
-// Defina seu limite de saldo para sangria (ex: R$ 500,00)
-$limiteSangria = 800.00;
 
-// Variáveis esperadas já definidas:
-$empresaId =  htmlspecialchars($idSelecionado); // ou a variável correspondente
-$responsavel = htmlspecialchars($nomeUsuario); // ou a variável correspondente ao usuário logado
-
-try {
-
-    $sql = "SELECT valor_liquido 
-            FROM aberturas 
-            WHERE empresa_id = :empresa_id 
-              AND responsavel = :responsavel 
-              AND status_abertura = 'aberto' 
-            ORDER BY id DESC 
-            LIMIT 1";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':empresa_id' => $empresaId,
-        ':responsavel' => $responsavel
-    ]);
-
-    $aberturas = $stmt->fetch(PDO::FETCH_ASSOC);
-    $valorLiquido = $aberturas ? (float)$aberturas['valor_liquido'] : 0.00;
-
-
-    
-
-    // Mensagem com base no limite
-    if ($valorLiquido > $limiteSangria) {
-        $mensagem = "<span class='text-danger fw-bold'>Necessário realizar sangria!</span>";
-    } else {
-        $mensagem = "<span class='text-success'>Saldo dentro do limite.</span>";
-    }
-
-} catch (PDOException $e) {
-    $valorLiquido = 0.00;
-    $mensagem = "<span class='text-danger'>Erro ao buscar saldo do caixa.</span>";
-}
-
-// Supondo que esses dados venham da sessão ou variável de sessão
-$responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
-$empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
-
-if (!$responsavel || !$empresa_id) {
-    die("Erro: Dados de sessão ausentes.");
-}
-
-try {
-    // Prepare a consulta SQL para buscar o ID baseado no responsável, empresa e status_abertura = 'aberto'
-    $stmt = $pdo->prepare("
-        SELECT id 
-        FROM aberturas 
-        WHERE responsavel = :responsavel 
-          AND empresa_id = :empresa_id 
-          AND status_abertura = 'aberto'
-        ORDER BY id DESC 
-        LIMIT 1
-    ");
-    $stmt->execute([
-        'responsavel' => $responsavel,
-        'empresa_id' => $empresa_id
-    ]);
-
-    // Busca o resultado e verifica se existe algum ID
-    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-
-   
-?>
-  
                     <div class="card">
                         <div class="card-body">
                             <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
-       Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
-     </div>
-<form action="../../assets/php/frentedeloja/processarSangria.php?id=<?= urlencode($idSelecionado); ?>" method="POST" onsubmit="return confirmarSangria();">
+                                Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
+                            </div>
 
-    <div class="mb-3">
-        <label for="valor" class="form-label">Valor da Sangria (R$)</label>
-        <input type="number" step="0.01" class="form-control" name="valor" id="valor" required>
-    </div>
+                            <form
+                                action="../../assets/php/frentedeloja/processarSangria.php?id=<?= urlencode($idSelecionado); ?>"
+                                method="POST" onsubmit="return confirmarSangria();">
 
-    <div class="mb-3">
-        <label for="saldo_caixa" class="form-label">Saldo do Caixa</label>
-        <input type="number" step="0.01" class="form-control" name="saldo_caixa" id="saldo_caixa" value="<?= number_format($valorLiquido, 2, '.', '') ?>" readonly>
-        <div class="form-text mt-1"><?= $mensagem ?></div>
-    </div>
-<input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>"/>
-<input type="hidden" id="responsavel" name="responsavel" value="<?= ucwords($nomeUsuario); ?>" >
-    <div class="mb-3">
-  <?php      if ($resultado) {
-                $idAbertura = $resultado['id'];
-                 echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
-            } else {
-                  echo "";
-                }
-         } catch (PDOException $e) {
-                 echo "Erro ao buscar ID: " . $e->getMessage();
-             }
-            ?>    
-              
-        <button class="btn btn-primary d-grid w-100" type="submit">Registrar Sangria</button>
-    </div>
-</form>                             
+                                <div class="mb-3">
+                                    <label for="valor" class="form-label">Valor da Sangria (R$)</label>
+                                    <input type="number" step="0.01" class="form-control" name="valor" id="valor"
+                                        required>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="saldo_caixa" class="form-label">Saldo do Caixa</label>
+                                    <input type="number" step="0.01" class="form-control" name="saldo_caixa"
+                                        id="saldo_caixa" value="<?= number_format($valorLiquido, 2, '.', '') ?>"
+                                        readonly>
+                                    <div class="form-text mt-1"><?= $mensagem ?></div>
+                                </div>
+                                <input type="hidden" name="idSelecionado"
+                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
+
+                                <input type="hidden" id="responsavel" name="responsavel"
+                                    value="<?= ucwords($nomeUsuario); ?>">
+
+                                <input type="hidden" name="data_registro" id="data_registro">
+
+                                <input type="hidden" id="cpf" name="cpf" value="<?= ucwords($cpfUsuario); ?>">
+
+                                <?php
+                                // Exibe o campo id_caixa se houver resultado
+                                if ($resultado && isset($resultado['id'])) {
+                                    $idAbertura = $resultado['id'];
+                                    echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
+                                }
+                                ?>
+                                <div class="mb-3">
+                                    <button class="btn btn-primary d-grid w-100" type="submit">Registrar
+                                        Sangria</button>
+                                </div>
+                            </form>
 
                         </div>
                     </div>
@@ -480,19 +467,44 @@ try {
             </div>
         </div>
     </div>
- <script>
-    document.addEventListener('DOMContentLoaded', function () {
-    const idCaixa = document.getElementById('id_caixa');
-    const form = document.querySelector('form');
-    const aviso = document.getElementById('avisoSemCaixa');
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const idCaixa = document.getElementById('id_caixa');
+            const form = document.querySelector('form');
+            const aviso = document.getElementById('avisoSemCaixa');
+            const inputDataRegistro = document.getElementById('data_registro');
 
-    if (!idCaixa || !idCaixa.value.trim()) {
-        form.style.display = 'none';     // Oculta o formulário
-        aviso.style.display = 'block';   // Exibe o alerta
-    }
-});
+            // Oculta o formulário se id_caixa estiver vazio ou não existir
+            if (!idCaixa || !idCaixa.value.trim()) {
+                if (form) form.style.display = 'none';
+                if (aviso) aviso.style.display = 'block';
+            }
 
- </script>
+            // Função para formatar data/hora local como "YYYY-MM-DD HH:mm:ss"
+            function formatarDataLocal(date) {
+                const pad = num => String(num).padStart(2, '0');
+                const ano = date.getFullYear();
+                const mes = pad(date.getMonth() + 1);
+                const dia = pad(date.getDate());
+                const horas = pad(date.getHours());
+                const minutos = pad(date.getMinutes());
+                const segundos = pad(date.getSeconds());
+                return `${ano}-${mes}-${dia} ${horas}:${minutos}:${segundos}`;
+            }
+
+            // Define data atual ao carregar a página
+            if (inputDataRegistro) {
+                inputDataRegistro.value = formatarDataLocal(new Date());
+            }
+
+            // Atualiza data_registro no momento da submissão
+            if (form && inputDataRegistro) {
+                form.addEventListener('submit', function () {
+                    inputDataRegistro.value = formatarDataLocal(new Date());
+                });
+            }
+        });
+    </script>
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>

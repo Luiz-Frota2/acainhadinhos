@@ -1,5 +1,4 @@
 <?php
-
 session_start();
 require_once '../../assets/php/conexao.php';
 
@@ -11,7 +10,7 @@ if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_id'])
 ) {
   header("Location: .././login.php?id=$idSelecionado");
   exit;
@@ -45,27 +44,24 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
-
-// ✅ Se chegou até aqui, o acesso está liberado
 
 // ✅ Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -83,20 +79,25 @@ try {
   $nivelUsuario = 'Erro ao carregar nível';
 }
 
+// ✅ Buscar pedidos da empresa
+$pedidos = [];
+try {
+  $stmt = $pdo->prepare("SELECT * FROM pedidos WHERE empresa_id = :empresa_id ORDER BY data_pedido DESC");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $pedidos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  // Pode adicionar tratamento de erro se necessário
+}
 ?>
 
 <!DOCTYPE html>
-<html
-  lang="pt-br"
-  class="light-style layout-menu-fixed"
-  dir="ltr"
-  data-theme="theme-default"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
+  <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
   <title>ERP - Finanças</title>
@@ -104,7 +105,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -146,7 +147,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -173,16 +175,19 @@ try {
               <div data-i18n="Authentications">Contas</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Adicionadas</div>
                 </a></li>
-              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Futuras</div>
                 </a></li>
               <li class="menu-item"><a href="./contasPagas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagas</div>
                 </a></li>
-              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pendentes</div>
                 </a></li>
             </ul>
@@ -213,10 +218,12 @@ try {
               <div data-i18n="Authentications">Compras</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Fornecedores</div>
                 </a></li>
-              <li class="menu-item active"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item active"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pedidos</div>
                 </a></li>
             </ul>
@@ -228,19 +235,23 @@ try {
               <div data-i18n="Authentications">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Diário</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Mensal</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Anual</div>
                 </a></li>
               <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Fluxo de Caixa</div>
                 </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Projeções Financeiras</div>
                 </a></li>
             </ul>
@@ -330,10 +341,7 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -345,7 +353,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -354,7 +362,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -378,15 +387,6 @@ try {
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
                       <span class="align-middle">Configurações</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
                     </a>
                   </li>
                   <li>
@@ -433,76 +433,99 @@ try {
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                  <tr>
-                    <td><strong>Amazon Polpas</strong></td>
-                    <td>Polpa de Açaí 10kg</td>
-                    <td>5 unidades</td>
-                    <td>R$ 750,00</td>
-                    <td>06/04/2025</td>
-                    <td><span class="badge bg-success">Entregue</span></td>
-                    <td>
+                  <?php if (empty($pedidos)): ?>
+                    <tr>
+                      <td colspan="7" class="text-center">Nenhum pedido encontrado</td>
+                    </tr>
+                  <?php else: ?>
+                    <?php foreach ($pedidos as $pedido): ?>
+                      <tr>
+                        <td><strong><?= htmlspecialchars($pedido['fornecedor']) ?></strong></td>
+                        <td><?= htmlspecialchars($pedido['produto']) ?></td>
+                        <td><?= $pedido['quantidade'] ?> unidades</td>
+                        <td>R$ <?= number_format($pedido['valor'], 2, ',', '.') ?></td>
+                        <td><?= date('d/m/Y', strtotime($pedido['data_pedido'])) ?></td>
+                        <td>
+                          <?php
+                          $badgeClass = '';
+                          switch (strtolower($pedido['status'])) {
+                            case 'entregue':
+                              $badgeClass = 'bg-success';
+                              break;
+                            case 'aguardando entrega':
+                              $badgeClass = 'bg-warning text-white';
+                              break;
+                            case 'cancelado':
+                              $badgeClass = 'bg-danger';
+                              break;
+                            default:
+                              $badgeClass = 'bg-primary';
+                          }
+                          ?>
+                          <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($pedido['status']) ?></span>
+                        </td>
+                        <td>
+                          <button class="btn btn-link text-warning p-0" title="Editar" data-bs-toggle="modal"
+                            data-bs-target="#editarPedidoModal<?= $pedido['id'] ?>">
+                            <i class="tf-icons bx bx-edit"></i>
+                          </button>
 
-                      <button class="btn btn-link text-warning p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editarPedidoModal">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
+                          <span class="mx-1">|</span>
 
-                      <span class="mx-1">|</span>
-                      <button class="btn btn-link text-danger p-0" title="Excluir" onclick="openDeleteModal();">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
+                          <!-- Botão para acionar modal de exclusão -->
+                          <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
+                            data-bs-target="#deletePedidoModal<?= $pedido['id'] ?>">
+                            <i class="tf-icons bx bx-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
 
-                  <tr>
-                    <td><strong>Embalagens Norte</strong></td>
-                    <td>Potes 500ml com tampa</td>
-                    <td>300 unidades</td>
-                    <td>R$ 450,00</td>
-                    <td>04/04/2025</td>
-                    <td><span class="badge bg-warning text-dark">Aguardando entrega</span></td>
-                    <td>
-                      <button class="btn btn-link text-warning p-0" title="Editar" data-bs-toggle="modal" data-bs-target="#editarPedidoModal">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
+                      <!-- Modal de Exclusão para cada pedido -->
+                      <div class="modal fade" id="deletePedidoModal<?= $pedido['id'] ?>" tabindex="-1"
+                        aria-labelledby="deletePedidoModalLabel<?= $pedido['id'] ?>" aria-hidden="true">
+                        <div class="modal-dialog">
+                          <div class="modal-content">
+                            <div class="modal-header">
+                              <h5 class="modal-title" id="deletePedidoModalLabel<?= $pedido['id'] ?>">Excluir pedido</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                              <p>Você tem certeza que deseja excluir este pedido?</p>
+                              <p><strong>Fornecedor:</strong> <?= htmlspecialchars($pedido['fornecedor']) ?></p>
+                              <p><strong>Produto:</strong> <?= htmlspecialchars($pedido['produto']) ?></p>
+                              <p><strong>Data:</strong> <?= date('d/m/Y', strtotime($pedido['data_pedido'])) ?></p>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <form method="POST" action="excluir_pedido.php">
+                                <input type="hidden" name="pedido_id" value="<?= $pedido['id'] ?>">
+                                <input type="hidden" name="id_selecionado" value="<?= $idSelecionado ?>">
+                                <button type="submit" class="btn btn-danger">Excluir</button>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- Fim do Modal de Exclusão -->
 
-                      <span class="mx-1">|</span>
-                      <button class="btn btn-link text-danger p-0" title="Excluir" onclick="openDeleteModal();">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Modal de Exclusão de Pedido -->
-          <div class="modal fade" id="deleteContaModal" tabindex="-1" aria-labelledby="deleteContaModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="deleteContaModalLabel">Excluir pedido</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                </div>
-                <div class="modal-body">
-                  <p>Você tem certeza que deseja excluir este pedido?</p>
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                  <button type="button" class="btn btn-danger">Excluir</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Botão Adicionar Novo Pedido -->
-          <div class="mt-3 add-category justify-content-center d-flex text-center align-items-center" onclick="window.location.href='adicionarPedido.php';" style="cursor: pointer;">
+          <div class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
+            onclick="window.location.href='adicionarPedido.php?id=<?= urlencode($idSelecionado); ?>';"
+            style="cursor: pointer;">
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar novo Pedido</span>
           </div>
         </div>
         <!-- Modal de Edição de Pedido -->
-        <div class="modal fade" id="editarPedidoModal" tabindex="-1" aria-labelledby="editarPedidoModalLabel" aria-hidden="true">
+        <div class="modal fade" id="editarPedidoModal" tabindex="-1" aria-labelledby="editarPedidoModalLabel"
+          aria-hidden="true">
           <div class="modal-dialog">
             <div class="modal-content">
 

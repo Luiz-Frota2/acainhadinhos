@@ -1,15 +1,10 @@
 <!DOCTYPE html>
-<html
-  lang="pt-br"
-  class="light-style layout-menu-fixed"
-  dir="ltr"
-  data-theme="theme-default"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
+  <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
   <title>ERP - Estoque</title>
@@ -57,9 +52,10 @@
 
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
-          <a href="./dashboard.html" class="app-brand-link">
+          <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
 
           </a>
 
@@ -73,7 +69,7 @@
         <ul class="menu-inner py-1">
           <!-- Dashboard -->
           <li class="menu-item ">
-            <a href="index.php" class="menu-link">
+            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -92,31 +88,12 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item active">
-                <a href="./produtosAdicionados.php" class="menu-link">
+                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Produtos">Adicionados</div>
                 </a>
               </li>
             </ul>
           </li>
-
-          <!---B2B-->
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div data-i18n="Authentications">B2B</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./produtosSolicitados.php" class="menu-link">
-                  <div> Produtos Solicitados</div>
-                </a></li>
-            </ul>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./produtosEnviados.php" class="menu-link">
-                  <div> Produtos Enviados</div>
-                </a></li>
-            </ul>
-          </li>
-          <!---/ B2B-->
 
           <!-- Relatórios -->
           <li class="menu-item">
@@ -126,12 +103,12 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./estoqueAlto.php" class="menu-link">
+                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="BaixoEstoque">Estoque Alto</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./estoqueBaixo.php" class="menu-link">
+                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                 </a>
               </li>
@@ -144,40 +121,48 @@
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
-            <a href="../rh/index.php" class="menu-link ">
+            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">RH</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../financas/index.php" class="menu-link ">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-dollar"></i>
               <div data-i18n="Authentications">Finanças</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-desktop"></i>
               <div data-i18n="Authentications">PDV</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../delivery/index.php" class="menu-link ">
+            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
             </a>
           </li>
 
           <li class="menu-item">
-            <a href="../clientes/index.php" class="menu-link ">
+            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-user"></i>
               <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
+          <?php
+          $isFilial = str_starts_with($idSelecionado, 'filial_');
+          $link = $isFilial
+            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+            : '../filial/index.php?id=principal_1';
+          $titulo = $isFilial ? 'Matriz' : 'Filial';
+          ?>
+
           <li class="menu-item">
-            <a href="../filial/index.php" class="menu-link ">
+            <a href="<?= $link ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications">Filial</div>
+              <div data-i18n="Authentications"><?= $titulo ?></div>
             </a>
           </li>
           <li class="menu-item">
@@ -215,10 +200,7 @@
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -230,7 +212,7 @@
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -239,12 +221,14 @@
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <span class="fw-semibold d-block">John Doe</span>
-                          <small class="text-muted">Admin</small>
+                          <!-- Exibindo o nome e nível do usuário -->
+                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
                         </div>
                       </div>
                     </a>
@@ -255,29 +239,20 @@
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="index.php">
+                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-power-off me-2"></i>
                       <span class="align-middle">Sair</span>
                     </a>
@@ -292,8 +267,10 @@
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="./produtosAdicionados.php">Produtos</a>/</span>Estoque Alto</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie os Estoque da empresa</span></h5>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
+                href="./produtosAdicionados.php">Produtos</a>/</span>Estoque Alto</h4>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie os Estoque da
+              empresa</span></h5>
 
           <!-- Tabela de Contas da Empresa -->
           <div class="card">
@@ -352,22 +329,28 @@
                           <!-- Espaço entre os ícones -->
                           <span class="mx-2">|</span>
 
-                          <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal" data-bs-target="#modalExcluir_<?= $produto['id'] ?>">
+                          <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
+                            data-bs-target="#modalExcluir_<?= $produto['id'] ?>">
                             <i class="tf-icons bx bx-trash"></i>
                           </button>
 
                           <!-- Modal de Exclusão de Transação -->
-                          <div class="modal fade" id="modalExcluir_<?= $produto['id'] ?>" tabindex="-1" aria-labelledby="modalExcluirLabel_<?= $produto['id'] ?>" aria-hidden="true">
+                          <div class="modal fade" id="modalExcluir_<?= $produto['id'] ?>" tabindex="-1"
+                            aria-labelledby="modalExcluirLabel_<?= $produto['id'] ?>" aria-hidden="true">
                             <div class="modal-dialog">
                               <div class="modal-content">
                                 <div class="modal-header">
-                                  <h5 class="modal-title" id="modalExcluirLabel_<?= $produto['id'] ?>">Excluir Produto</h5>
-                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                  <h5 class="modal-title" id="modalExcluirLabel_<?= $produto['id'] ?>">Excluir Produto
+                                  </h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
                                   <p>Tem certeza de que deseja excluir esse Produto?</p>
-                                  <a href="../../assets/php/estoque/excluirProduto.php?id=<?= $produto['id'] ?>" class="btn btn-danger">Sim, excluir</a>
-                                  <button type="button" class="btn btn-secondary mx-2" data-bs-dismiss="modal">Cancelar</button>
+                                  <a href="../../assets/php/estoque/excluirProduto.php?id=<?= $produto['id'] ?>"
+                                    class="btn btn-danger">Sim, excluir</a>
+                                  <button type="button" class="btn btn-secondary mx-2"
+                                    data-bs-dismiss="modal">Cancelar</button>
                                 </div>
                               </div>
                             </div>
@@ -375,13 +358,15 @@
                           <!-- /Modal de Exclusão de Transação -->
 
                           <!-- Modal de Editar Conta -->
-                          <div class="modal fade" id="editProdutoModal_<?= $produto['id'] ?>" tabindex="-1" aria-labelledby="editProdutoModalLabel_<?= $produto['id'] ?>" aria-hidden="true">
+                          <div class="modal fade" id="editProdutoModal_<?= $produto['id'] ?>" tabindex="-1"
+                            aria-labelledby="editProdutoModalLabel_<?= $produto['id'] ?>" aria-hidden="true">
                             <div class="modal-dialog">
                               <div class="modal-content">
 
                                 <div class="modal-header">
                                   <h5 class="modal-title" id="editModalLabel_<?= $produto['id'] ?>">Editar Produto</h5>
-                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Fechar"></button>
                                 </div>
 
                                 <div class="modal-body">
@@ -391,29 +376,36 @@
 
                                     <div class="mb-3">
                                       <label for="nome_produto" class="form-label">Nome</label>
-                                      <input type="text" class="form-control" id="nome_produto" name="nome_produto" value="<?= htmlspecialchars($produto['nome_produto']) ?>" required>
+                                      <input type="text" class="form-control" id="nome_produto" name="nome_produto"
+                                        value="<?= htmlspecialchars($produto['nome_produto']) ?>" required>
                                     </div>
 
                                     <div class="mb-3">
                                       <label for="fornecedor_produto" class="form-label">Fornecedor</label>
-                                      <input type="text" class="form-control" id="fornecedor_produto" name="fornecedor_produto" value="<?= htmlspecialchars($produto['fornecedor_produto']) ?>" required>
+                                      <input type="text" class="form-control" id="fornecedor_produto"
+                                        name="fornecedor_produto"
+                                        value="<?= htmlspecialchars($produto['fornecedor_produto']) ?>" required>
                                     </div>
 
                                     <div class="mb-3">
                                       <label for="quantidade_produto" class="form-label">Quantidade</label>
-                                      <input type="text" class="form-control" id="quantidade_produto" name="quantidade_produto" value="<?= htmlspecialchars($produto['quantidade_produto']) ?>" required>
+                                      <input type="text" class="form-control" id="quantidade_produto"
+                                        name="quantidade_produto"
+                                        value="<?= htmlspecialchars($produto['quantidade_produto']) ?>" required>
                                     </div>
 
                                     <div class="mb-3">
                                       <label for="status_produto" class="form-label">Status</label>
-                                      <select class="form-select" id="status_produto" name="status_produto" value="<?= htmlspecialchars($produto['status_produto']) ?>" required>
+                                      <select class="form-select" id="status_produto" name="status_produto"
+                                        value="<?= htmlspecialchars($produto['status_produto']) ?>" required>
                                         <option value="estoque_alto" <?= $produto['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
                                         <option value="estoque_baixo" <?= $produto['status_produto'] === 'estoque_baixo' ? 'selected' : '' ?>>Estoque Baixo</option>
                                       </select>
                                     </div>
 
                                     <div class="d-flex justify-content-between">
-                                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                      <button type="button" class="btn btn-secondary"
+                                        data-bs-dismiss="modal">Cancelar</button>
                                       <button type="submit" class="btn btn-primary">Salvar</button>
                                     </div>
                                   </form>

@@ -45,20 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -86,17 +85,12 @@ try {
 ?>
 
 <!DOCTYPE html>
-<html
-  lang="pt-br"
-  class="light-style layout-menu-fixed"
-  dir="ltr"
-  data-theme="theme-default"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
+  <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
   <title>ERP - Finanças</title>
@@ -104,7 +98,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -146,7 +140,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-           <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -173,16 +168,19 @@ try {
               <div data-i18n="Authentications">Contas</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Adicionadas</div>
                 </a></li>
-              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Futuras</div>
                 </a></li>
               <li class="menu-item"><a href="./contasPagas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagas</div>
                 </a></li>
-              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pendentes</div>
                 </a></li>
             </ul>
@@ -213,13 +211,16 @@ try {
               <div data-i18n="Authentications">Compras</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item "><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item "><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Fornecedores</div>
                 </a></li>
-              <li class="menu-item active"><a href="./adicionarFornecedor.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item active"><a href="./adicionarFornecedor.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Adicionar Fornecedor</div>
                 </a></li>
-              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pedidos</div>
                 </a></li>
             </ul>
@@ -231,19 +232,23 @@ try {
               <div data-i18n="Authentications">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Diário</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Mensal</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Anual</div>
                 </a></li>
               <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Fluxo de Caixa</div>
                 </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Projeções Financeiras</div>
                 </a></li>
             </ul>
@@ -253,7 +258,7 @@ try {
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
 
           <li class="menu-item">
-            <a href="../rh/index.php" class="menu-link">
+            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">RH</div>
             </a>
@@ -333,10 +338,7 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -348,7 +350,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -357,7 +359,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -384,15 +387,6 @@ try {
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
@@ -412,38 +406,48 @@ try {
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Compras</a>/</span>Adicionar fornecedor</h4>
-          <h5 class=" mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os detalhes do novo fornecedor</span></h5>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Compras</a>/</span>Adicionar fornecedor
+          </h4>
+          <h5 class=" mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os detalhes do novo
+              fornecedor</span></h5>
 
           <!-- Formulário de Adicionar Conta -->
           <div class="card">
             <h5 class="card-header">Cadastrar novo Fornecedor</h5>
             <div class="card-body">
-              <form id="addFornecedorForm" action="../../assets/php/fornecedores/adicionarFornecedor.php" method="POST">
+              <form id="addFornecedorForm" action="../../assets/php/financas/adicionarFornecedor.php" method="POST">
+
+                <!-- Campo oculto para ID da empresa -->
+                <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>" />
 
                 <div class="mb-3">
                   <label for="nome_fornecedor" class="form-label">Nome do Fornecedor</label>
-                  <input type="text" class="form-control" id="nome_fornecedor" name="nome_fornecedor" placeholder="Ex: Distribuidora XPTO" required />
+                  <input type="text" class="form-control" id="nome_fornecedor" name="nome_fornecedor"
+                    placeholder="Ex: Distribuidora XPTO" required />
                 </div>
 
                 <div class="mb-3">
                   <label for="cnpj_fornecedor" class="form-label">CNPJ</label>
-                  <input type="text" class="form-control" id="cnpj_fornecedor" name="cnpj_fornecedor" placeholder="00.000.000/0001-00" required />
+                  <input type="text" class="form-control" id="cnpj_fornecedor" name="cnpj_fornecedor"
+                    placeholder="00.000.000/0001-00" required />
                 </div>
 
                 <div class="mb-3">
                   <label for="email_fornecedor" class="form-label">E-mail</label>
-                  <input type="email" class="form-control" id="email_fornecedor" name="email_fornecedor" placeholder="contato@fornecedor.com" required />
+                  <input type="email" class="form-control" id="email_fornecedor" name="email_fornecedor"
+                    placeholder="contato@fornecedor.com" required />
                 </div>
 
                 <div class="mb-3">
                   <label for="telefone_fornecedor" class="form-label">Telefone</label>
-                  <input type="text" class="form-control" id="telefone_fornecedor" name="telefone_fornecedor" placeholder="(00) 0000-0000" required />
+                  <input type="text" class="form-control" id="telefone_fornecedor" name="telefone_fornecedor"
+                    placeholder="(00) 0000-0000" required />
                 </div>
 
                 <div class="mb-3">
                   <label for="endereco_fornecedor" class="form-label">Endereço</label>
-                  <input type="text" class="form-control" id="endereco_fornecedor" name="endereco_fornecedor" placeholder="Rua Exemplo, 123 - Bairro" required />
+                  <input type="text" class="form-control" id="endereco_fornecedor" name="endereco_fornecedor"
+                    placeholder="Rua Exemplo, 123 - Bairro" required />
                 </div>
 
                 <div class="d-flex custom-button">

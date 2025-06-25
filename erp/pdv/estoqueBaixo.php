@@ -234,12 +234,6 @@ try {
               <div data-i18n="Authentications">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <!-- Relatório Financeiro: Dados financeiros -->
-              <li class="menu-item">
-                <a href="./relatorioFinanceiro.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Financeiro</div>
-                </a>
-              </li>
               <!-- Relatório Operacional: Desempenho de operações -->
               <li class="menu-item">
                 <a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
@@ -301,7 +295,7 @@ try {
               <div data-i18n="Authentications"><?= $titulo ?></div>
             </a>
           </li>
-           <li class="menu-item">
+          <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">Usuários </div>
@@ -348,7 +342,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -357,7 +351,7 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -568,21 +562,6 @@ try {
 
         <!-- / Content -->
 
-        <!-- Footer -->
-        <footer class="content-footer footer bg-footer-theme text-center">
-          <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-            <div class="mb-2 mb-md-0">
-              &copy;
-              <script>
-                document.write(new Date().getFullYear());
-              </script>
-              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>Lucas Correa</strong>.
-            </div>
-          </div>
-        </footer>
-
-        <!-- / Footer -->
 
       </div>
       <!-- Content wrapper -->

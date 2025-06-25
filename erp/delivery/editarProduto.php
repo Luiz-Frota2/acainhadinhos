@@ -61,6 +61,7 @@ if (!$usuario_id) {
     exit();
 }
 
+
 try {
     // Busca os dados do usuário (nome e nível) no banco de dados
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -75,6 +76,21 @@ try {
 } catch (PDOException $e) {
     $nomeUsuario = 'Erro ao carregar nome';
     $nivelUsuario = 'Erro ao carregar nível';
+}
+
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+try {
+    $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $logoEmpresa = !empty($empresaSobre['imagem'])
+        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+        : "../../assets/img/favicon/logo.png"; // fallback padrão
+} catch (PDOException $e) {
+    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Verifica se o id do produto foi passado e é válido
@@ -94,7 +110,6 @@ if (isset($id_produto) && !empty($id_produto)) {
     exit();
 }
 
-
 ?>
 
 <!DOCTYPE html>
@@ -111,7 +126,7 @@ if (isset($id_produto) && !empty($id_produto)) {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -372,7 +387,7 @@ if (isset($id_produto) && !empty($id_produto)) {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -382,7 +397,7 @@ if (isset($id_produto) && !empty($id_produto)) {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../assets/img/avatars/1.png" alt
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
@@ -425,7 +440,7 @@ if (isset($id_produto) && !empty($id_produto)) {
                                     </li>
                                     <li>
                                         <a class="dropdown-item"
-                                            href=".././logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>

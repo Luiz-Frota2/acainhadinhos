@@ -45,20 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -86,17 +85,12 @@ try {
 ?>
 
 <!DOCTYPE html>
-<html
-  lang="pt-br"
-  class="light-style layout-menu-fixed"
-  dir="ltr"
-  data-theme="theme-default"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
+  <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
   <title>ERP - Finanças</title>
@@ -104,7 +98,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -146,7 +140,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -173,16 +168,19 @@ try {
               <div data-i18n="Authentications">Contas</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Adicionadas</div>
                 </a></li>
-              <li class="menu-item"><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Futuras</div>
                 </a></li>
               <li class="menu-item"><a href="./contasPagas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagas</div>
                 </a></li>
-              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pendentes</div>
                 </a></li>
             </ul>
@@ -213,10 +211,12 @@ try {
               <div data-i18n="Authentications">Compras</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Fornecedores</div>
                 </a></li>
-              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pedidos</div>
                 </a></li>
             </ul>
@@ -228,19 +228,23 @@ try {
               <div data-i18n="Authentications">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Diário</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Mensal</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Anual</div>
                 </a></li>
               <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Fluxo de Caixa</div>
                 </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Projeções Financeiras</div>
                 </a></li>
             </ul>
@@ -329,7 +333,7 @@ try {
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
-                
+
               </div>
             </div>
             <!-- /Search -->
@@ -340,7 +344,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -349,7 +353,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -375,28 +380,18 @@ try {
                       <span class="align-middle">Configurações</span>
                     </a>
                   </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
-                    <div class="dropdown-divider"></div>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                      <i class="bx bx-power-off me-2"></i>
-                      <span class="align-middle">Sair</span>
-                    </a>
-                  </li>
-
-                </ul>
+                  <div class="dropdown-divider"></div>
               </li>
-              <!--/ User -->
+              <li>
+                <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                  <i class="bx bx-power-off me-2"></i>
+                  <span class="align-middle">Sair</span>
+                </a>
+              </li>
+
+            </ul>
+            </li>
+            <!--/ User -->
             </ul>
           </div>
         </nav>
@@ -412,17 +407,15 @@ try {
                   <div class="col-sm-7">
                     <div class="card-body">
                       <h5 class="card-title text-primary saudacao" data-setor="Finanças"></h5>
-                      <p class="mb-4">Suas configurações do Finanças foram atualizadas em seu perfil. Continue explorando e ajustando-as conforme suas preferências.</p>
+                      <p class="mb-4">Suas configurações do Finanças foram atualizadas em seu perfil. Continue
+                        explorando e ajustando-as conforme suas preferências.</p>
 
                     </div>
                   </div>
                   <div class="col-sm-5 text-center text-sm-left">
                     <div class="card-body pb-0 px-0 px-md-4">
-                      <img
-                        src="../../assets/img/illustrations/man-with-laptop-light.png"
-                        height="140"
-                        alt="View Badge User"
-                        data-app-dark-img="illustrations/man-with-laptop-dark.png"
+                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="140"
+                        alt="View Badge User" data-app-dark-img="illustrations/man-with-laptop-dark.png"
                         data-app-light-img="illustrations/man-with-laptop-light.png" />
                     </div>
                   </div>
@@ -436,19 +429,12 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img
-                            src="../../assets/img/icons/unicons/chart-success.png"
-                            alt="gráfico de sucesso"
+                          <img src="../../assets/img/icons/unicons/chart-success.png" alt="gráfico de sucesso"
                             class="rounded" />
                         </div>
                         <div class="dropdown">
-                          <button
-                            class="btn p-0"
-                            type="button"
-                            id="cardOpt3"
-                            data-bs-toggle="dropdown"
-                            aria-haspopup="true"
-                            aria-expanded="false">
+                          <button class="btn p-0" type="button" id="cardOpt3" data-bs-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
                             <i class="bx bx-dots-vertical-rounded"></i>
                           </button>
                           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt3">
@@ -468,19 +454,12 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img
-                            src="../../assets/img/icons/unicons/wallet-info.png"
-                            alt="Cartão de Crédito"
+                          <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Cartão de Crédito"
                             class="rounded" />
                         </div>
                         <div class="dropdown">
-                          <button
-                            class="btn p-0"
-                            type="button"
-                            id="cardOpt6"
-                            data-bs-toggle="dropdown"
-                            aria-haspopup="true"
-                            aria-expanded="false">
+                          <button class="btn p-0" type="button" id="cardOpt6" data-bs-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
                             <i class="bx bx-dots-vertical-rounded"></i>
                           </button>
                           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt6">
@@ -510,13 +489,8 @@ try {
                     <div class="card-body">
                       <div class="text-center">
                         <div class="dropdown">
-                          <button
-                            class="btn btn-sm btn-outline-primary dropdown-toggle"
-                            type="button"
-                            id="growthReportId"
-                            data-bs-toggle="dropdown"
-                            aria-haspopup="true"
-                            aria-expanded="false">
+                          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
+                            id="growthReportId" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                             2025
                           </button>
                           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="growthReportId">
@@ -563,16 +537,12 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/paypal.png" alt="Cartão de Crédito" class="rounded" />
+                          <img src="../../assets/img/icons/unicons/paypal.png" alt="Cartão de Crédito"
+                            class="rounded" />
                         </div>
                         <div class="dropdown">
-                          <button
-                            class="btn p-0"
-                            type="button"
-                            id="cardOpt4"
-                            data-bs-toggle="dropdown"
-                            aria-haspopup="true"
-                            aria-expanded="false">
+                          <button class="btn p-0" type="button" id="cardOpt4" data-bs-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
                             <i class="bx bx-dots-vertical-rounded"></i>
                           </button>
                           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt4">
@@ -592,16 +562,12 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Cartão de Crédito" class="rounded" />
+                          <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Cartão de Crédito"
+                            class="rounded" />
                         </div>
                         <div class="dropdown">
-                          <button
-                            class="btn p-0"
-                            type="button"
-                            id="cardOpt1"
-                            data-bs-toggle="dropdown"
-                            aria-haspopup="true"
-                            aria-expanded="false">
+                          <button class="btn p-0" type="button" id="cardOpt1" data-bs-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
                             <i class="bx bx-dots-vertical-rounded"></i>
                           </button>
                           <div class="dropdown-menu" aria-labelledby="cardOpt1">
@@ -628,7 +594,8 @@ try {
                             <span class="badge bg-label-warning rounded-pill">Ano 2021</span>
                           </div>
                           <div class="mt-sm-auto">
-                            <small class="text-success text-nowrap fw-semibold"><i class="bx bx-chevron-up"></i> 68.2%</small>
+                            <small class="text-success text-nowrap fw-semibold"><i class="bx bx-chevron-up"></i>
+                              68.2%</small>
                             <h3 class="mb-0">$84.686k</h3>
                           </div>
                         </div>
@@ -650,13 +617,8 @@ try {
                     <small class="text-muted">42.82k Vendas Totais</small>
                   </div>
                   <div class="dropdown">
-                    <button
-                      class="btn p-0"
-                      type="button"
-                      id="orederStatistics"
-                      data-bs-toggle="dropdown"
-                      aria-haspopup="true"
-                      aria-expanded="false">
+                    <button class="btn p-0" type="button" id="orederStatistics" data-bs-toggle="dropdown"
+                      aria-haspopup="true" aria-expanded="false">
                       <i class="bx bx-dots-vertical-rounded"></i>
                     </button>
                     <div class="dropdown-menu dropdown-menu-end" aria-labelledby="orederStatistics">
@@ -751,13 +713,8 @@ try {
                 <div class="card-header">
                   <ul class="nav nav-pills" role="tablist">
                     <li class="nav-item">
-                      <button
-                        type="button"
-                        class="nav-link active"
-                        role="tab"
-                        data-bs-toggle="tab"
-                        data-bs-target="#navs-tabs-line-card-income"
-                        aria-controls="navs-tabs-line-card-income"
+                      <button type="button" class="nav-link active" role="tab" data-bs-toggle="tab"
+                        data-bs-target="#navs-tabs-line-card-income" aria-controls="navs-tabs-line-card-income"
                         aria-selected="true">
                         Receita
                       </button>
@@ -811,13 +768,8 @@ try {
                 <div class="card-header d-flex align-items-center justify-content-between">
                   <h5 class="card-title m-0 me-2">Transações</h5>
                   <div class="dropdown">
-                    <button
-                      class="btn p-0"
-                      type="button"
-                      id="transactionID"
-                      data-bs-toggle="dropdown"
-                      aria-haspopup="true"
-                      aria-expanded="false">
+                    <button class="btn p-0" type="button" id="transactionID" data-bs-toggle="dropdown"
+                      aria-haspopup="true" aria-expanded="false">
                       <i class="bx bx-dots-vertical-rounded"></i>
                     </button>
                     <div class="dropdown-menu dropdown-menu-end" aria-labelledby="transactionID">

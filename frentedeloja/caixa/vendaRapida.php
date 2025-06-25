@@ -53,50 +53,91 @@ $usuario_id = $_SESSION['usuario_id'];
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
 
 try {
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de Admins
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de Funcionários
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    if ($tipoUsuarioSessao === 'Admin') {
+        // Buscar na tabela de Admins
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+    } else {
+        // Buscar na tabela de Funcionários
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+        $cpfUsuario = $usuario['cpf'];
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
+// ✅ Buscar imagem da empresa (favicon)
+$iconeEmpresa = '../assets/img/favicon/favicon.ico';
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
 
+try {
+    // Buscar todos os setores
+    $sql = "SELECT * FROM estoque WHERE empresa_id = :empresa_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
+    $stmt->execute();
+    $estoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    echo "Erro ao buscar produtos: " . $e->getMessage();
+    exit;
+}
 
+// Supondo que esses dados venham da sessão ou variável de sessão
+$responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
+$empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
+
+if (!$responsavel || !$empresa_id) {
+    die("Erro: Dados de sessão ausentes.");
+}
+
+try {
+    // Consulta baseada no CPF logado
+    $stmt = $pdo->prepare("
+        SELECT id 
+        FROM aberturas 
+        WHERE cpf_responsavel = :cpf_responsavel 
+        AND empresa_id = :empresa_id 
+        AND status = 'aberto'
+        ORDER BY id DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([
+        'cpf_responsavel' => $cpfUsuario,
+        'empresa_id' => $empresa_id
+    ]);
+
+    // Busca o resultado e verifica se existe algum ID
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao buscar abertura do caixa: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
+}
 
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -107,12 +148,13 @@ try {
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-    <title>ERP - Caixa</title>
+    <title>ERP - PDV</title>
 
     <meta name="description" content="" />
 
-    <!-- Favicon da empresa carregado dinamicamente -->
-    <link rel="icon" type="image/x-icon" href="../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon"
+        href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -154,10 +196,12 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                       <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);"
+                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -174,7 +218,8 @@ try {
                     </li>
 
                     <!-- CAIXA -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span>
+                    </li>
 
                     <!-- Operações de Caixa -->
                     <li class="menu-item ">
@@ -222,7 +267,7 @@ try {
                         </a>
                     </li>
 
-            
+
                     <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
@@ -235,7 +280,7 @@ try {
                                     <div data-i18n="Basic">Resumo de Vendas</div>
                                 </a>
                             </li>
-                           
+
                         </ul>
                     </li>
                     <!-- END CAIXA -->
@@ -270,8 +315,7 @@ try {
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -294,9 +338,11 @@ try {
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
+                                    data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/avatars/1.png" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -305,7 +351,8 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
@@ -335,7 +382,8 @@ try {
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span
+                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -343,7 +391,8 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -355,62 +404,23 @@ try {
                         </ul>
                     </div>
                 </nav>
-<?php 
-try {
-      // Buscar todos os setores
-  $sql = "SELECT * FROM estoque WHERE empresa_id = :empresa_id";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
-  $stmt->execute();
-  $estoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
-  } catch (PDOException $e) {
-    echo "Erro ao buscar produtos: " . $e->getMessage();
-    exit;
-  }
-  
-  
-// Supondo que esses dados venham da sessão ou variável de sessão
-$responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
-$empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
-
-if (!$responsavel || !$empresa_id) {
-    die("Erro: Dados de sessão ausentes.");
-}
-
-try {
-    // Prepare a consulta SQL para buscar o ID baseado no responsável, empresa e status_abertura = 'aberto'
-    $stmt = $pdo->prepare("
-        SELECT id 
-        FROM aberturas 
-        WHERE responsavel = :responsavel 
-          AND empresa_id = :empresa_id 
-          AND status_abertura = 'aberto'
-        ORDER BY id DESC 
-        LIMIT 1
-    ");
-    $stmt->execute([
-        'responsavel' => $responsavel,
-        'empresa_id' => $empresa_id
-    ]);
-
-    // Busca o resultado e verifica se existe algum ID
-    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-
-   
-
-?>  
- 
                 <!-- / Navbar -->
 
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="./bancodeHoras.php">Venda Rápida</a></span>
-                    </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Registre uma nova venda</span>
-                    </h5>
-
-                    <div class="card">
+                    <div class="row justify-content-center"></div>
+                    <div class="col-lg-8 col-md-10"></div>
+                    <div class="d-flex align-items-center mb-3">
+                        <h4 class="fw-bold mb-0 flex-grow-1">
+                            <a href="./vendaRapida.php?id=<?= urlencode($idSelecionado); ?>"
+                                class="text-decoration-none text-dark">Venda Rápida</a>
+                        </h4>
+                    </div>
+                    <div class="mb-4">
+                        <h5 class="fw-bold custor-font mb-1">
+                            <span class="text-muted fw-light">Registre uma nova venda</span>
+                        </h5>
+                    </div>
+                    <div class="card shadow-sm">
                         <div class="card-body">
                             <div class="app-brand justify-content-center mb-4">
                                 <a href="#" class="app-brand-link gap-2">
@@ -418,80 +428,674 @@ try {
                                 </a>
                             </div>
                             <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
-    Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
-</div>
+                                Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
+                            </div>
 
+                            <!-- Formulário de Venda Rápida -->
+                            <form method="POST"
+                                action="../../assets/php/frentedeloja/vendaRapidaSubmit.php?id=<?= urlencode($idSelecionado); ?>">
 
-                            <form method="POST" action="../../assets/php/frentedeloja/vendaRapidaSubmit.php?id=<?= urlencode($idSelecionado); ?>">
-                                 <!-- Campos ocultos -->
-                                 
-                                <div id="produtos-container">
-                                     <div class="produto-item border rounded p-3 mb-3">
-                                     <div class="fixed-items" id="fixedDisplay">
-                                     <label class="form-label">Nenhum Produto Selecionado</label>
+                                <div class="row g-3 ms-3">
+                                    <!-- Produtos Selecionados -->
+                                    <div class="fixed-items mb-3 p-2 border rounded bg-light row" id="fixedDisplay"
+                                        style="min-height:48px;"></div>
+                                    <!-- /Produtos Selecionados -->
+                                </div>
+
+                                <style>
+                                    .fixed-items {
+                                        display: flex;
+                                        flex-wrap: wrap;
+                                        gap: 8px;
+                                        align-items: center;
+                                    }
+
+                                    .fixed-item {
+                                        background: #f5f5f9;
+                                        border: 1px solid #d3d3e2;
+                                        border-radius: 6px;
+                                        padding: 4px 8px;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: space-between;
+                                        width: 100%;
+                                        font-size: 0.97em;
+                                        margin-bottom: 2px;
+                                        position: relative;
+                                    }
+
+                                    .fixed-item-content {
+                                        flex-grow: 1;
+                                        padding-right: 10px;
+                                    }
+
+                                    .fixed-item-actions {
+                                        display: flex;
+                                        gap: 4px;
+                                    }
+
+                                    .fixed-item .edit-btn {
+                                        background: #1890ff;
+                                        color: #fff;
+                                        border: none;
+                                        border-radius: 4px;
+                                        width: 22px;
+                                        height: 22px;
+                                        font-size: 0.85em;
+                                        line-height: 1;
+                                        cursor: pointer;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                        padding: 0;
+                                        transition: background 0.2s;
+                                    }
+
+                                    .fixed-item .edit-btn:hover {
+                                        background: #096dd9;
+                                    }
+
+                                    .fixed-item .remove-btn {
+                                        background: #ff4d4f;
+                                        color: #fff;
+                                        border: none;
+                                        border-radius: 4px;
+                                        width: 22px;
+                                        height: 22px;
+                                        font-size: 0.85em;
+                                        line-height: 1;
+                                        cursor: pointer;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                        padding: 0;
+                                        transition: background 0.2s;
+                                    }
+
+                                    .fixed-item .remove-btn:hover {
+                                        background: #d32f2f;
+                                    }
+
+                                    .quantidade-container {
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 8px;
+                                        margin-bottom: 10px;
+                                    }
+
+                                    .quantidade-container label {
+                                        margin-bottom: 0;
+                                        font-weight: 500;
+                                    }
+
+                                    .quantidade-container input {
+                                        width: 70px;
+                                    }
+
+                                    /* Modal de edição */
+                                    .modal-edicao-quantidade {
+                                        display: none;
+                                        position: fixed;
+                                        top: 0;
+                                        left: 0;
+                                        width: 100%;
+                                        height: 100%;
+                                        background-color: rgba(0, 0, 0, 0.5);
+                                        z-index: 9999;
+                                        justify-content: center;
+                                        align-items: center;
+                                    }
+
+                                    .modal-content {
+                                        background: white;
+                                        padding: 20px;
+                                        border-radius: 8px;
+                                        width: 300px;
+                                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                                        z-index: 10000;
+                                    }
+
+                                    .modal-header {
+                                        border-bottom: 1px solid #eee;
+                                        padding-bottom: 10px;
+                                        margin-bottom: 15px;
+                                    }
+
+                                    .modal-buttons {
+                                        display: flex;
+                                        justify-content: flex-end;
+                                        gap: 10px;
+                                        margin-top: 15px;
+                                    }
+
+                                    .modal-overlay {
+                                        position: fixed;
+                                        top: 0;
+                                        left: 0;
+                                        right: 0;
+                                        bottom: 0;
+                                        background-color: rgba(0, 0, 0, 0.5);
+                                        z-index: 9998;
+                                    }
+                                </style>
+
+                                <!-- Modal de Edição de Quantidade -->
+                                <div class="modal-edicao-quantidade" id="modalEdicao">
+                                    <div class="modal-overlay"></div>
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="mb-0">Editar Quantidade</h5>
                                         </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Produto</label>
-                                            <select class="form-select" id="multiSelect" multiple size="5">
-                                             <?php foreach ($estoque as $estoques): ?>
-                                                <option value="<?= $estoques['id'] ?>"  data-nome="<?= htmlspecialchars($estoques['nome_produto']) ?>" data-preco="<?= $estoques['preco_produto'] ?>"><?= htmlspecialchars($estoques['nome_produto']) ?>  - R$ <?= number_format($estoques['preco_produto'], 2, ',', '.') ?></option>
-                                             <?php endforeach; ?>
-                                            </select>
+                                        <div class="quantidade-container">
+                                            <label for="quantidadeEdicao">Quantidade:</label>
+                                            <input type="number" id="quantidadeEdicao" min="1" value="1"
+                                                class="form-control form-control-sm">
                                         </div>
-                                        <div class="mb-3 total">
-                                            
-                                            <label class="form-label">Valor Total</label><br>
-                                            <input type="hidden" name="totalTotal" id="totalTotal" value="R$ 0.00">
-                                            <span id="total">0.00</span>
-                                        </div>
-                                        <div class="mb-3">
-                                         <label for="forma_pagamento" class="form-label">Forma de Pagamento</label>
-                                         <select id="forma_pagamento" name="forma_pagamento" class="form-select" required>
-                                         <option value="">Selecione...</option>
-                                         <option value="Dinheiro">Dinheiro</option>
-                                         <option value="Cartão de Crédito">Cartão de Crédito</option>
-                                         <option value="Cartão de Débito">Cartão de Débito</option>
-                                         <option value="Pix">PIX</option>
-
-                                         </select>
-                                         </div>
-
-                                        <div class="text-end">
-                                            <button id="removerTodosBtn" type="button" class="btn btn-danger btn-sm remove-produto">Remover</button>
+                                        <div class="modal-buttons">
+                                            <button type="button" class="btn btn-secondary btn-sm"
+                                                id="cancelarEdicao">Cancelar</button>
+                                            <button type="button" class="btn btn-primary btn-sm"
+                                                id="confirmarEdicao">Confirmar</button>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="d-grid mb-3">
+                                <!-- Forma de Pagamento -->
+                                <div class="col-md-12 mb-4">
+                                    <label for="forma_pagamento" class="form-label">* Forma de Pagamento</label>
+                                    <select id="forma_pagamento" name="forma_pagamento" class="form-select" required>
+                                        <option value="">Selecione...</option>
+                                        <option value="Dinheiro">Dinheiro</option>
+                                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                        <option value="Cartão de Débito">Cartão de Débito</option>
+                                        <option value="Pix">PIX</option>
+                                    </select>
+                                </div>
+                                <!-- /Forma de Pagamento -->
+
+                                <!-- Seleção de Categoria -->
+                                <div class="col-md-12 mb-2">
+                                    <label class="form-label">Categoria</label>
+                                    <select class="form-select" id="categoriaSelect">
+                                        <option value="">Selecione uma categoria</option>
+                                        <?php
+                                        $categorias = [];
+                                        foreach ($estoque as $estoques) {
+                                            $categorias[$estoques['categoria_produto']][] = $estoques;
+                                        }
+                                        foreach ($categorias as $categoria => $produtos): ?>
+                                            <option value="<?= htmlspecialchars($categoria) ?>">
+                                                <?= htmlspecialchars($categoria) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <!-- /Seleção de Categoria -->
+
+                                <!-- Seleção de Produto -->
+                                <div class="col-md-12 mb-3">
+                                    <label class="form-label">Produto</label>
+                                    <select class="form-select" id="multiSelect" size="5">
+                                        <option value="">Selecione uma categoria primeiro</option>
+                                    </select>
+                                </div>
+                                <!-- /Seleção de Produto -->
+
+                                <!-- Quantidade do Produto (inicialmente oculto) -->
+                                <div class="col-md-12 mb-3" id="quantidadeContainer" style="display: none;">
+                                    <div class="quantidade-container">
+                                        <label for="quantidadeProduto" class="form-label">Quantidade:</label>
+                                        <div class="input-group input-group-sm" style="width: 120px;">
+                                            <input type="number" id="quantidadeProduto" min="1" value="1"
+                                                class="form-control form-control-sm">
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- /Quantidade do Produto -->
+
+                                <!-- Valor Total -->
+                                <div class="col-md-12 mb-2">
+                                    <label class="form-label">Valor Total</label><br>
+                                    <input type="hidden" name="totalTotal" id="totalTotal" value="0.00">
+                                    <span id="total" class="fw-bold fs-5">0,00</span>
+                                </div>
+                                <!-- /Valor Total -->
+
+                                <!-- Remover Todos -->
+                                <div class="col-12 text-end mb-4">
+                                    <button id="removerTodosBtn" type="button"
+                                        class="btn btn-danger btn-sm remove-produto">Remover Todos</button>
+                                </div>
+                                <!-- /Remover Todos -->
+
+                                <!-- Adicionar Produto -->
+                                <div class="col-12 d-grid mb-2">
                                     <button id="fixarBtn" disabled type="button" class="btn btn-outline-primary">
                                         <i class="tf-icons bx bx-plus"></i> Adicionar Produto
                                     </button>
                                 </div>
+                                <!-- /Adicionar Produto -->
 
-                                <div class="mb-3">
+                                <!-- Campos Ocultos e Finalizar -->
+                                <div class="col-12">
                                     <?php
-                                     if ($resultado) {
-                                         $idAbertura = $resultado['id'];
-                                          echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
-                                            } else {
-                                          echo "";
-                                           }
-                                           } catch (PDOException $e) {
-                                          echo "Erro ao buscar ID: " . $e->getMessage();
-                                           }
+                                    if ($resultado) {
+                                        $idAbertura = $resultado['id'];
+                                        echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
+                                    }
                                     ?>
-                                <input type="hidden" id="responsavel" name="responsavel" value="<?= ucwords($nomeUsuario); ?>" >
-                                <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
-                                <button  type="button" id="finalizarVendaBtn" class="btn btn-primary w-100">Finalizar Venda</button>
-
+                                    <input type="hidden" id="responsavel" name="responsavel"
+                                        value="<?= ucwords($nomeUsuario); ?>">
+                                    <input type="hidden" id="cpf" name="cpf" value="<?= ucwords($cpfUsuario); ?>">
+                                    <input type="hidden" name="data_registro" id="data_registro">
+                                    <input type="hidden" name="idSelecionado"
+                                        value="<?php echo htmlspecialchars($idSelecionado); ?>" />
+                                    <button type="submit" id="finalizarVendaBtn" disabled
+                                        class="btn btn-primary w-100 mt-2">Finalizar Venda</button>
                                 </div>
+                                <!-- /Campos Ocultos e Finalizar -->
+
                             </form>
+                            <!-- /Formulário de Venda Rápida -->
+
+                            <script>
+                                // Produtos agrupados por categoria
+                                const produtosPorCategoria = <?php
+                                $jsCategorias = [];
+                                foreach ($categorias as $categoria => $produtos) {
+                                    foreach ($produtos as $estoques) {
+                                        $jsCategorias[$categoria][] = [
+                                            'id' => $estoques['id'],
+                                            'nome' => $estoques['nome_produto'],
+                                            'preco' => $estoques['preco_produto'],
+                                            'quantidade' => $estoques['quantidade_produto'],
+                                            'categoria' => $categoria
+                                        ];
+                                    }
+                                }
+                                echo json_encode($jsCategorias);
+                                ?>;
+
+                                const categoriaSelect = document.getElementById('categoriaSelect');
+                                const multiSelect = document.getElementById('multiSelect');
+                                const fixarBtn = document.getElementById('fixarBtn');
+                                const fixedDisplay = document.getElementById('fixedDisplay');
+                                const totalDisplay = document.getElementById('total');
+                                const removerTodosBtn = document.getElementById('removerTodosBtn');
+                                const finalizarVendaBtn = document.getElementById('finalizarVendaBtn');
+                                const formaPagamentoSelect = document.getElementById('forma_pagamento');
+                                const quantidadeProdutoInput = document.getElementById('quantidadeProduto');
+                                const quantidadeContainer = document.getElementById('quantidadeContainer');
+                                const form = document.querySelector('form');
+                                const fixedItems = new Map();
+                                let selectedOption = null;
+                                const nenhumProdutoLabel = document.getElementById('nenhumProdutoLabel');
+
+                                // Elementos do modal de edição
+                                const modalEdicao = document.getElementById('modalEdicao');
+                                const modalOverlay = document.querySelector('.modal-overlay');
+                                const quantidadeEdicaoInput = document.getElementById('quantidadeEdicao');
+                                const cancelarEdicaoBtn = document.getElementById('cancelarEdicao');
+                                const confirmarEdicaoBtn = document.getElementById('confirmarEdicao');
+                                let produtoEmEdicao = null;
+
+                                // Habilita/desabilita botão Adicionar Produto com base na forma de pagamento
+                                formaPagamentoSelect.addEventListener('change', function () {
+                                    fixarBtn.disabled = formaPagamentoSelect.value === "" || !selectedOption;
+                                });
+
+                                // Categoria -> Produtos
+                                categoriaSelect.addEventListener('change', function () {
+                                    const categoria = this.value;
+                                    multiSelect.innerHTML = '';
+                                    quantidadeContainer.style.display = 'none'; // Esconde o container de quantidade
+                                    fixarBtn.disabled = true;
+
+                                    if (!categoria || !produtosPorCategoria[categoria]) {
+                                        multiSelect.innerHTML = '<option value="">Selecione uma categoria primeiro</option>';
+                                        return;
+                                    }
+
+                                    produtosPorCategoria[categoria].forEach(produto => {
+                                        const option = document.createElement('option');
+                                        option.value = produto.id;
+                                        option.dataset.nome = produto.nome;
+                                        option.dataset.preco = produto.preco;
+                                        option.dataset.categoria = categoria;
+                                        option.dataset.estoque = produto.quantidade;
+                                        option.textContent = `${produto.nome} - Qtd: ${produto.quantidade} - R$ ${parseFloat(produto.preco).toFixed(2).replace('.', ',')}` + (produto.quantidade < 15 ? ' - ESTOQUE BAIXO!' : '');
+                                        multiSelect.appendChild(option);
+                                    });
+                                });
+
+                                // Seleção de produto
+                                multiSelect.addEventListener('change', () => {
+                                    selectedOption = multiSelect.options[multiSelect.selectedIndex];
+
+                                    if (selectedOption && selectedOption.value) {
+                                        // Mostra o container de quantidade
+                                        quantidadeContainer.style.display = 'block';
+
+                                        // Atualiza o valor máximo do input de quantidade com base no estoque
+                                        const estoqueDisponivel = parseInt(selectedOption.dataset.estoque);
+                                        quantidadeProdutoInput.max = estoqueDisponivel;
+                                        quantidadeProdutoInput.value = 1;
+
+                                        // Habilita o botão se a forma de pagamento estiver selecionada
+                                        fixarBtn.disabled = formaPagamentoSelect.value === "";
+                                    } else {
+                                        // Esconde o container de quantidade se nenhum produto estiver selecionado
+                                        quantidadeContainer.style.display = 'none';
+                                        fixarBtn.disabled = true;
+                                    }
+                                });
+
+                                // Validação do input de quantidade
+                                quantidadeProdutoInput.addEventListener('change', function () {
+                                    if (!selectedOption) return;
+
+                                    const estoqueDisponivel = parseInt(selectedOption.dataset.estoque);
+                                    let quantidade = parseInt(this.value) || 1;
+
+                                    if (quantidade < 1) {
+                                        quantidade = 1;
+                                        this.value = 1;
+                                    }
+
+                                    if (estoqueDisponivel > 0 && quantidade > estoqueDisponivel) {
+                                        quantidade = estoqueDisponivel;
+                                        this.value = estoqueDisponivel;
+                                        alert(`Quantidade ajustada para o máximo disponível em estoque: ${estoqueDisponivel}`);
+                                    }
+                                });
+
+                                // Adicionar produto fixado
+                                fixarBtn.addEventListener('click', () => {
+                                    if (formaPagamentoSelect.value === "") {
+                                        alert('Por favor, selecione uma forma de pagamento antes de adicionar produtos.');
+                                        return;
+                                    }
+
+                                    if (!selectedOption) return;
+
+                                    const id = selectedOption.value;
+                                    const nome = selectedOption.dataset.nome;
+                                    const preco = parseFloat(selectedOption.dataset.preco);
+                                    const categoria = selectedOption.dataset.categoria;
+                                    const quantidade = parseInt(quantidadeProdutoInput.value) || 1;
+
+                                    // Verifica se já existe o produto na lista
+                                    if (fixedItems.has(id)) {
+                                        // Atualiza a quantidade se o produto já estiver na lista
+                                        const itemExistente = fixedItems.get(id);
+                                        const novaQuantidade = itemExistente.quantidade + quantidade;
+                                        const estoqueDisponivel = parseInt(selectedOption.dataset.estoque);
+
+                                        if (novaQuantidade > estoqueDisponivel) {
+                                            alert(`Quantidade total (${novaQuantidade}) excede o estoque disponível (${estoqueDisponivel}). Ajustado para o máximo possível.`);
+                                            itemExistente.quantidade = estoqueDisponivel;
+                                        } else {
+                                            itemExistente.quantidade = novaQuantidade;
+                                        }
+                                    } else {
+                                        // Adiciona novo produto à lista
+                                        fixedItems.set(id, {
+                                            nome,
+                                            preco,
+                                            quantidade,
+                                            categoria,
+                                            id
+                                        });
+                                    }
+
+                                    updateFixedDisplay();
+                                    finalizarVendaBtn.disabled = false;
+                                    fixarBtn.disabled = true;
+                                    selectedOption = null;
+                                    multiSelect.selectedIndex = -1;
+                                    quantidadeProdutoInput.value = 1;
+                                    quantidadeContainer.style.display = 'none'; // Esconde o container após adicionar
+                                });
+
+                                // Atualiza exibição dos produtos fixados
+                                function updateFixedDisplay() {
+                                    fixedDisplay.innerHTML = '';
+                                    if (fixedItems.size === 0) {
+                                        fixedDisplay.textContent = 'Nenhum item fixado';
+                                        if (nenhumProdutoLabel) nenhumProdutoLabel.style.display = '';
+                                        totalDisplay.textContent = '0,00';
+                                        document.getElementById('totalTotal').value = '0.00';
+                                        finalizarVendaBtn.disabled = true;
+                                        return;
+                                    }
+                                    if (nenhumProdutoLabel) nenhumProdutoLabel.style.display = 'none';
+
+                                    fixedItems.forEach((item, id) => {
+                                        const container = document.createElement('div');
+                                        container.className = 'col-12 col-md-4';
+                                        container.innerHTML = `
+                                                        <div class="fixed-item">
+                                                            <div class="fixed-item-content">${item.nome} (${item.quantidade}x)</div>
+                                                            <div class="fixed-item-actions">
+                                                                <button class="edit-btn" data-id="${id}" type="button">
+                                                                    <i class="bx bx-edit"></i>
+                                                                </button>
+                                                                <button class="remove-btn" data-id="${id}" type="button">×</button>
+                                                            </div>
+                                                        </div>
+                                                    `;
+
+                                        // Adiciona evento para editar quantidade
+                                        const editBtn = container.querySelector('.edit-btn');
+                                        editBtn.addEventListener('click', (e) => {
+                                            e.preventDefault();
+                                            produtoEmEdicao = id;
+                                            quantidadeEdicaoInput.value = fixedItems.get(id).quantidade;
+                                            quantidadeEdicaoInput.max = getEstoqueMaximo(id);
+                                            modalEdicao.style.display = 'flex';
+                                            document.body.style.overflow = 'hidden'; // Impede rolagem da página
+                                        });
+
+                                        // Adiciona evento para remover produto
+                                        const removeBtn = container.querySelector('.remove-btn');
+                                        removeBtn.addEventListener('click', (e) => {
+                                            e.preventDefault();
+                                            fixedItems.delete(id);
+                                            updateFixedDisplay();
+                                        });
+
+                                        fixedDisplay.appendChild(container);
+                                    });
+                                    calcularTotal();
+                                }
+
+                                // Eventos do modal de edição
+                                cancelarEdicaoBtn.addEventListener('click', () => {
+                                    modalEdicao.style.display = 'none';
+                                    document.body.style.overflow = 'auto';
+                                    produtoEmEdicao = null;
+                                });
+
+                                confirmarEdicaoBtn.addEventListener('click', () => {
+                                    if (!produtoEmEdicao) return;
+
+                                    const novaQuantidade = parseInt(quantidadeEdicaoInput.value) || 1;
+                                    const estoqueMaximo = parseInt(quantidadeEdicaoInput.max);
+
+                                    if (novaQuantidade < 1) {
+                                        alert('A quantidade mínima é 1');
+                                        return;
+                                    }
+
+                                    if (novaQuantidade > estoqueMaximo) {
+                                        alert(`Quantidade máxima em estoque: ${estoqueMaximo}`);
+                                        return;
+                                    }
+
+                                    const produto = fixedItems.get(produtoEmEdicao);
+                                    produto.quantidade = novaQuantidade;
+                                    updateFixedDisplay();
+                                    modalEdicao.style.display = 'none';
+                                    document.body.style.overflow = 'auto';
+                                    produtoEmEdicao = null;
+                                });
+
+                                // Fechar modal ao clicar fora
+                                modalOverlay.addEventListener('click', () => {
+                                    modalEdicao.style.display = 'none';
+                                    document.body.style.overflow = 'auto';
+                                    produtoEmEdicao = null;
+                                });
+
+                                // Obtém o estoque máximo para um produto
+                                function getEstoqueMaximo(idProduto) {
+                                    for (const categoria in produtosPorCategoria) {
+                                        const produto = produtosPorCategoria[categoria].find(p => p.id == idProduto);
+                                        if (produto) {
+                                            return produto.quantidade;
+                                        }
+                                    }
+                                    return Infinity;
+                                }
+
+                                // Calcula o total
+                                function calcularTotal() {
+                                    let total = 0;
+                                    fixedItems.forEach(item => {
+                                        total += item.preco * item.quantidade;
+                                    });
+                                    totalDisplay.textContent = total.toFixed(2).replace('.', ',');
+                                    document.getElementById('totalTotal').value = total.toFixed(2);
+                                }
+
+                                // Remover todos os produtos
+                                removerTodosBtn.addEventListener('click', () => {
+                                    if (fixedItems.size === 0) {
+                                        alert('Nenhum produto para remover.');
+                                        return;
+                                    }
+                                    if (confirm('Deseja remover todos os produtos fixados?')) {
+                                        fixedItems.clear();
+                                        updateFixedDisplay();
+                                    }
+                                });
+
+                                // Finalizar venda
+                                form.addEventListener('submit', function (e) {
+                                    if (finalizarVendaBtn.disabled) {
+                                        e.preventDefault();
+                                        alert('Selecione ao menos um produto antes de finalizar a venda.');
+                                        return;
+                                    }
+
+                                    if (fixedItems.size === 0) {
+                                        e.preventDefault();
+                                        alert('Selecione ao menos um produto antes de finalizar a venda.');
+                                        return;
+                                    }
+
+                                    if (formaPagamentoSelect.value === "") {
+                                        e.preventDefault();
+                                        alert('Por favor, selecione uma forma de pagamento.');
+                                        return;
+                                    }
+
+                                    // Remove inputs antigos
+                                    document.querySelectorAll('.input-produto-dinamico').forEach(input => input.remove());
+
+                                    // Adiciona os produtos fixados como inputs ocultos
+                                    fixedItems.forEach((item, id) => {
+                                        // Nome
+                                        const inputNome = document.createElement('input');
+                                        inputNome.type = 'hidden';
+                                        inputNome.name = 'produtos[]';
+                                        inputNome.value = item.nome;
+                                        inputNome.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputNome);
+                                        // Quantidade
+                                        const inputQuantidade = document.createElement('input');
+                                        inputQuantidade.type = 'hidden';
+                                        inputQuantidade.name = 'quantidade[]';
+                                        inputQuantidade.value = item.quantidade;
+                                        inputQuantidade.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputQuantidade);
+                                        // Preço
+                                        const inputPreco = document.createElement('input');
+                                        inputPreco.type = 'hidden';
+                                        inputPreco.name = 'precos[]';
+                                        inputPreco.value = item.preco;
+                                        inputPreco.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputPreco);
+                                        // ID do Produto
+                                        const inputIdProduto = document.createElement('input');
+                                        inputIdProduto.type = 'hidden';
+                                        inputIdProduto.name = 'id_produto[]';
+                                        inputIdProduto.value = item.id;
+                                        inputIdProduto.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputIdProduto);
+                                        // ID da Categoria (nome da categoria)
+                                        const inputIdCategoria = document.createElement('input');
+                                        inputIdCategoria.type = 'hidden';
+                                        inputIdCategoria.name = 'id_categoria[]';
+                                        inputIdCategoria.value = item.categoria;
+                                        inputIdCategoria.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputIdCategoria);
+                                    });
+                                });
+
+                                // Exibe aviso se não houver caixa aberto
+                                document.addEventListener('DOMContentLoaded', function () {
+                                    const idCaixa = document.getElementById('id_caixa');
+                                    const aviso = document.getElementById('avisoSemCaixa');
+                                    if (!idCaixa || !idCaixa.value.trim()) {
+                                        form.style.display = 'none';
+                                        if (aviso) aviso.style.display = 'block';
+                                    }
+                                    updateFixedDisplay(); // Garante que o label está correto ao carregar
+
+                                    // Desabilita apenas o botão Adicionar Produto inicialmente
+                                    fixarBtn.disabled = true;
+                                    finalizarVendaBtn.disabled = true;
+                                });
+
+                                document.addEventListener("DOMContentLoaded", function () {
+                                    const inputDataRegistro = document.getElementById("data_registro");
+
+                                    // Função para formatar data/hora local como "YYYY-MM-DD HH:mm:ss"
+                                    function formatarDataLocal(date) {
+                                        const pad = num => String(num).padStart(2, '0');
+                                        const ano = date.getFullYear();
+                                        const mes = pad(date.getMonth() + 1);
+                                        const dia = pad(date.getDate());
+                                        const horas = pad(date.getHours());
+                                        const minutos = pad(date.getMinutes());
+                                        const segundos = pad(date.getSeconds());
+                                        return `${ano}-${mes}-${dia} ${horas}:${minutos}:${segundos}`;
+                                    }
+
+                                    if (inputDataRegistro) {
+                                        // Define data atual assim que o DOM carregar
+                                        inputDataRegistro.value = formatarDataLocal(new Date());
+                                    }
+
+                                    if (form && inputDataRegistro) {
+                                        form.addEventListener('submit', function () {
+                                            inputDataRegistro.value = formatarDataLocal(new Date());
+                                        });
+                                    }
+                                });
+                            </script>
+
                         </div>
                     </div>
                 </div>
 
             </div>
         </div>
+    </div>
+
+    </div>
+    </div>
     </div>
 
 </body>
@@ -504,290 +1108,3 @@ try {
 <script src="../../assets/js/main.js"></script>
 
 </html>
-<script>
-    const select = document.getElementById('multiSelect');
-    const fixarBtn = document.getElementById('fixarBtn');
-    const fixedDisplay = document.getElementById('fixedDisplay');
-    const totalDisplay = document.getElementById('total');
-
-    const fixedItems = new Map(); 
-
-    let selectedOption = null;
-
-    select.addEventListener('change', () => {
-      selectedOption = select.options[select.selectedIndex];
-      fixarBtn.disabled = false;
-    });
-
-    fixarBtn.addEventListener('click', () => {
-      if (!selectedOption) return;
-
-      const id = selectedOption.value;
-      const nome = selectedOption.dataset.nome;
-      const preco = parseFloat(selectedOption.dataset.preco);
-
-      if (!fixedItems.has(id)) {
-        fixedItems.set(id, { nome, preco, quantidade: 1 });
-        updateFixedDisplay();
-      }
-
-      fixarBtn.disabled = true;
-      selectedOption = null;
-      select.selectedIndex = -1;
-    });
-
-    function updateFixedDisplay() {
-      fixedDisplay.innerHTML = '';
-
-      if (fixedItems.size === 0) {
-        fixedDisplay.textContent = 'Nenhum item fixado';
-        totalDisplay.textContent = '0.00';
-        return;
-      }
-
-      fixedItems.forEach((item, id) => {
-        const container = document.createElement('span');
-        container.className = 'fixed-item';
-
-        const textNode = document.createTextNode(`${item.nome}`);
-        
-
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.min = 1;
-        input.value = item.quantidade;
-        input.addEventListener('input', () => {
-          const novaQuantidade = parseInt(input.value) || 1;
-          item.quantidade = novaQuantidade;
-          calcularTotal();
-        });
-
-        const btn = document.createElement('button');
-        btn.textContent = '×';
-        btn.className = 'remove-btn';
-        btn.onclick = () => {
-          fixedItems.delete(id);
-          updateFixedDisplay();
-        };
-
-        container.appendChild(textNode);
-        container.appendChild(input);
-        container.appendChild(btn);
-        fixedDisplay.appendChild(container);
-        
-      });
-
-      calcularTotal();
-    }
-    
-    function calcularTotal() {
-      let total = 0;
-      fixedItems.forEach(item => {
-        total += item.preco * item.quantidade;
-      });
-      totalDisplay.textContent = total.toFixed(2);
-      document.getElementById('totalTotal').value = total.toFixed(2);
-    }
-    
-    const finalizarVendaBtn = document.getElementById('finalizarVendaBtn');
-const form = document.querySelector('form');
-
-finalizarVendaBtn.addEventListener('click', (event) => {
-  event.preventDefault();
-
-  if (fixedItems.size === 0) {
-    alert('Selecione ao menos um produto antes de finalizar a venda.');
-    return;
-  }
-
-  // Sincroniza os valores dos inputs visuais com os dados antes de enviar
-  const spans = document.querySelectorAll('.fixed-item');
-  spans.forEach(span => {
-    const nomeProduto = span.querySelector('input[type="number"]').previousSibling.textContent.trim();
-    const quantidadeInput = span.querySelector('input[type="number"]');
-    const novaQuantidade = parseInt(quantidadeInput.value) || 1;
-
-    // Atualiza o objeto fixedItems com a nova quantidade
-    fixedItems.forEach((item, id) => {
-      if (item.nome === nomeProduto) {
-        item.quantidade = novaQuantidade;
-      }
-    });
-  });
-
-  // Remove inputs antigos
-  document.querySelectorAll('.input-produto-dinamico').forEach(input => input.remove());
-
-  // Adiciona os produtos fixados como inputs ocultos
- fixedItems.forEach((item, id) => {
-  // Nome
-  const inputNome = document.createElement('input');
-  inputNome.type = 'hidden';
-  inputNome.name = 'produtos[]';
-  inputNome.value = item.nome;
-  inputNome.classList.add('input-produto-dinamico');
-  form.appendChild(inputNome);
-
-  // Quantidade
-  const inputQuantidade = document.createElement('input');
-  inputQuantidade.type = 'hidden';
-  inputQuantidade.name = 'quantidade[]';
-  inputQuantidade.value = item.quantidade;
-  inputQuantidade.classList.add('input-produto-dinamico');
-  form.appendChild(inputQuantidade);
-
-  // Preço
-  const inputPreco = document.createElement('input');
-  inputPreco.type = 'hidden';
-  inputPreco.name = 'precos[]';
-  inputPreco.value = item.preco;
-  inputPreco.classList.add('input-produto-dinamico');
-  form.appendChild(inputPreco);
-});
-
-  form.submit(); // Agora sim, envia de forma controlada
-});
-
-
-const removerTodosBtn = document.getElementById('removerTodosBtn');
-
-removerTodosBtn.addEventListener('click', () => {
-  if (fixedItems.size === 0) {
-    alert('Nenhum produto para remover.');
-    return;
-  }
-
-  if (confirm('Deseja remover todos os produtos fixados?')) {
-    fixedItems.clear();         
-    updateFixedDisplay();        
-  }
-});
-
- 
-document.addEventListener('DOMContentLoaded', function () {
-    const idCaixa = document.getElementById('id_caixa');
-    const form = document.querySelector('form');
-    const aviso = document.getElementById('avisoSemCaixa');
-
-    if (!idCaixa || !idCaixa.value.trim()) {
-        form.style.display = 'none';     // Oculta o formulário
-        aviso.style.display = 'block';   // Exibe o alerta
-    }
-});
-
-document.addEventListener("DOMContentLoaded", function () {
-    const formaPagamentoSelect = document.getElementById("forma_pagamento");
-    const finalizarBtn = document.getElementById("finalizarVendaBtn");
-
-    function verificarFormaPagamento() {
-        if (formaPagamentoSelect.value === "") {
-            finalizarBtn.disabled = true;
-        } else {
-            finalizarBtn.disabled = false;
-        }
-    }
-
-    // Verifica ao carregar a página
-    verificarFormaPagamento();
-
-    // Verifica toda vez que o usuário mudar a forma de pagamento
-    formaPagamentoSelect.addEventListener("change", verificarFormaPagamento);
-});
-
-
-</script>
-
-
-  <style>
-     h2 {
-      margin-top: 20px;
-    }
-
-    .fixed-items {
-      margin-bottom: 10px;
-      padding: 10px;
-      background-color: #c8e6c9;
-      border: 1px solid rgb(146, 100, 231);
-      border-radius: 5px;
-    }
-
-    .fixed-item {
-      background-color:rgb(146, 100, 231);;
-      color: white;
-      padding: 5px 10px;
-      margin: 5px 5px 0 0;
-      border-radius: 20px;
-      display: inline-flex;
-      align-items: center;
-      position: relative;
-      flex-wrap: wrap;
-    }
-
-    .fixed-item input {
-      margin-left: 10px;
-      width: 50px;
-      border-radius: 5px;
-      border: none;
-      padding: 3px;
-    }
-
-    .remove-btn {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      background: #f44336;
-      border: none;
-      color: white;
-      border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      font-size: 12px;
-      cursor: pointer;
-      line-height: 14px;
-      padding: 0;
-    }
-
-    .total {
-      margin-top: 20px;
-      font-size: 1.2em;
-      font-weight: bold;
-    }
-
-    select {
-      width: 100%;
-      padding: 10px;
-      font-size: 16px;
-    }
-
-    #fixarBtn {
-      margin-top: 10px;
-      padding: 10px 15px;
-      font-size: 16px;
-      background-color:rgb(146, 100, 231);;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    #fixarBtn:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-
-    @media (max-width: 600px) {
-      .fixed-item {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .fixed-item input {
-        margin-top: 5px;
-        margin-left: 0;
-      }
-
-      #fixarBtn {
-        width: 100%;
-      }
-    }
-  </style>

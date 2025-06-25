@@ -45,18 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// Buscar imagem da empresa
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
   $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
   $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
   $logoEmpresa = !empty($empresaSobre['imagem'])
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // Buscar dados do usuário logado
@@ -127,8 +128,9 @@ try {
   <title>ERP - Recursos Humanos</title>
   <meta name="description" content="" />
 
-  <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -222,6 +224,11 @@ try {
                   <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
+                <li class="menu-item">
+                <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
+                </a>
+              </li>
               <li class="menu-item">
                 <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
@@ -254,7 +261,17 @@ try {
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
               </li>
-
+              <li class="menu-item ">
+                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
+                </a>
+              </li>
             </ul>
           </li>
           <!-- Misc -->
@@ -343,7 +360,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -352,7 +369,7 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -369,22 +386,13 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -479,7 +487,8 @@ try {
                               </div>
                               <div class="modal-body">
                                 <p>Você deseja validar o atestado do funcionário
-                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
+                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?
+                                </p>
                                 <p><strong>ID do Atestado:</strong> <?= htmlspecialchars($atestado['id']) ?></p>
                               </div>
                               <div class="modal-footer">
@@ -511,7 +520,8 @@ try {
                               </div>
                               <div class="modal-body">
                                 <p>Você deseja invalidar o atestado do funcionário
-                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?</p>
+                                  <strong><?= htmlspecialchars($atestado['nome_funcionario']) ?></strong>?
+                                </p>
                                 <p><strong>ID do Atestado:</strong> <?= htmlspecialchars($atestado['id']) ?></p>
                               </div>
                               <div class="modal-footer">
@@ -592,7 +602,7 @@ try {
             <script>
               // Modal
               const modal = document.getElementById('detalhesAtestadoModal');
-              modal.addEventListener('show.bs.modal', function (event) {
+              modal.addEventListener('show.bs.modal', function(event) {
                 const button = event.relatedTarget;
                 document.getElementById('modalFuncionario').textContent = button.getAttribute('data-funcionario');
                 document.getElementById('modalDataEnvio').textContent = new Date(button.getAttribute('data-dataenvio')).toLocaleDateString();
@@ -648,7 +658,7 @@ try {
               });
 
               // Pesquisa
-              document.getElementById('searchInput').addEventListener('input', function () {
+              document.getElementById('searchInput').addEventListener('input', function() {
                 const filtro = this.value.toLowerCase();
                 const todasLinhas = document.querySelectorAll('#tabelaAtestados tbody tr');
 

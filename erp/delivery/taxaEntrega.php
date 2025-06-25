@@ -43,6 +43,28 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     exit;
 }
 
+// ✅ Buscar dados da empresa com base no idSelecionado (usando id_selecionado no banco)
+try {
+    $sql = "SELECT * FROM sobre_empresa WHERE id_selecionado = :idSelecionado LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':idSelecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // ✅ Variáveis da empresa com valores padrão caso não haja resultado
+    $nome_empresa = $empresa['nome_empresa'] ?? '';
+    $sobre_empresa = $empresa['sobre_empresa'] ?? '';
+    $imagem_empresa = $empresa['imagem'] ?? 'logo.png';
+
+    // ✅ Caminho da logo para favicon ou exibição
+    $logoEmpresa = !empty($empresa['imagem'])
+        ? "../../assets/img/empresa/" . $empresa['imagem']
+        : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar os dados da empresa: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
+}
+
 // ✅ Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
 $nivelUsuario = 'Comum';
@@ -101,6 +123,7 @@ if ($id_entrega > 0) {
     }
 }
 
+
 ?>
 
 
@@ -118,7 +141,7 @@ if ($id_entrega > 0) {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -379,7 +402,7 @@ if ($id_entrega > 0) {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -389,7 +412,7 @@ if ($id_entrega > 0) {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>

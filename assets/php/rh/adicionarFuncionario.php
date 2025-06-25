@@ -7,21 +7,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $nome_funcionario = trim($_POST["nome"]);
     $data_nascimento = trim($_POST["data_nascimento"]);
     $cpf_funcionario = trim($_POST["cpf"]);
+    // Remove pontos e traço do CPF
+    $cpf_funcionario = str_replace(['.', '-'], '', $cpf_funcionario);
     $rg_funcionario = trim($_POST["rg"]);
     $cargo_funcionario = trim($_POST["cargo"]);
     $setor_funcionario = trim($_POST["setor"]);
     $salario_funcionario = trim($_POST["salario"]);
-    $salario_funcionario = number_format((float)str_replace(',', '.', $salario_funcionario), 2, '.', '');
+    $salario_funcionario = number_format((float) str_replace(',', '.', $salario_funcionario), 2, '.', '');
     $escala_funcionario = trim($_POST["escala"]);
     $dia_inicio = trim($_POST["dia_inicio"]);
     $dia_folga = trim($_POST["dia_folga"]);
-    
+
     // Novos campos de horário
     $entrada = isset($_POST["entrada"]) && trim($_POST["entrada"]) !== "" ? trim($_POST["entrada"]) : null;
     $saida_intervalo = isset($_POST["saida_intervalo"]) && trim($_POST["saida_intervalo"]) !== "" ? trim($_POST["saida_intervalo"]) : null;
     $retorno_intervalo = isset($_POST["retorno_intervalo"]) && trim($_POST["retorno_intervalo"]) !== "" ? trim($_POST["retorno_intervalo"]) : null;
     $saida_final = isset($_POST["saida_final"]) && trim($_POST["saida_final"]) !== "" ? trim($_POST["saida_final"]) : null;
-    
+
     $email_funcionario = trim($_POST["email"]);
     $telefone_funcionario = trim($_POST["telefone"]);
     $endereco_funcionario = trim($_POST["endereco"]);
@@ -44,7 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit();
         }
 
-        // Query de inserção com 4 pontos de marcação
+        // Query de inserção
         $sql = "INSERT INTO funcionarios (
             empresa_id, nome, data_nascimento, cpf, rg,
             cargo, setor, salario, escala,
@@ -99,4 +101,5 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </script>";
     }
 }
+
 ?>

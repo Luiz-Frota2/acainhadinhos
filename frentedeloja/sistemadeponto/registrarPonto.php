@@ -110,7 +110,6 @@ if ($func) {
   exit;
 }
 
-
 ?>
 
 <!DOCTYPE html>
@@ -240,20 +239,21 @@ if ($func) {
                     <!-- Botão de Saída para Intervalo -->
                     <div class="col-12 col-md-auto text-center">
                       <button type="submit" name="acao" value="saida_intervalo" class="btn btn-warning w-100">
-                      <i class="bi bi-arrow-right-square me-1"></i> Saída Intervalo
+                        <i class="bi bi-arrow-right-square me-1"></i> Saída Intervalo
                       </button>
                     </div>
 
                     <!-- Botão de Retorno do Intervalo -->
                     <div class="col-12 col-md-auto text-center">
                       <button type="submit" name="acao" value="retorno_intervalo" class="btn btn-primary w-100">
-                      <i class="bi bi-arrow-left-square me-1"></i> Retorno Intervalo
+                        <i class="bi bi-arrow-left-square me-1"></i> Retorno Intervalo
                       </button>
                     </div>
 
                     <!-- Botão de Saída Final -->
                     <div class="col-12 col-md-auto text-center">
-                      <button type="submit" name="acao" value="saida_final" class="btn btn-warning w-100" id="btnRegistrarSaida">
+                      <button type="submit" name="acao" value="saida_final" class="btn btn-warning w-100"
+                        id="btnRegistrarSaida">
                         <i class="bi bi-box-arrow-left me-1"></i> Registrar Saída
                       </button>
                     </div>
@@ -392,9 +392,9 @@ if ($func) {
             mensagemLocalizacao.innerText = 'Erro: Ative a localização do seu dispositivo.';
             localizacaoObtida = false;
           }, {
-            enableHighAccuracy: true,
-            timeout: 10000
-          }
+          enableHighAccuracy: true,
+          timeout: 10000
+        }
         );
       } else {
         mensagemLocalizacao.className = 'alert alert-warning text-center mb-3';

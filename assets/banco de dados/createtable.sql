@@ -164,13 +164,13 @@ CREATE TABLE endereco_empresa (
 --
 
 CREATE TABLE sobre_empresa (
-    id                                INT AUTO_INCREMENT PRIMARY KEY,
-    id_selecionado                    VARCHAR(255) NOT NULL,
-    nome_empresa                      VARCHAR(255) NOT NULL,
-    sobre_empresa                     TEXT NOT NULL,
-    imagem                            VARCHAR(255) DEFAULT NULL,
-    data_criacao                      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    data_atualizacao                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  id_selecionado                      VARCHAR(255) NOT NULL,
+  nome_empresa                        VARCHAR(255) NOT NULL,
+  sobre_empresa                       TEXT NOT NULL,
+  imagem                              VARCHAR(255) DEFAULT NULL,
+  data_criacao                        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  data_atualizacao                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 --
@@ -283,8 +283,6 @@ CREATE TABLE funcionarios (
   cidade                              VARCHAR(100) NOT NULL,
   criado_em                           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
-
 
 --
 -- Estrutura para tabela `funcionarios_acesso`
@@ -410,6 +408,143 @@ CREATE TABLE folgas (
   nome                                VARCHAR(100) NOT NULL,
   data_folga                          DATE NOT NULL
 );
+
+--
+-- Estrutura para tabela `aberturas`
+--
+
+CREATE TABLE aberturas (
+  id                                  INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  responsavel                         VARCHAR(255) NOT NULL,
+  numero_caixa                        INT NOT NULL,
+  valor_abertura                      DECIMAL(10,2) NOT NULL,
+  valor_total                         DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  valor_sangrias                      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  valor_suprimentos                   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  valor_liquido                       DECIMAL(10,2) AS (valor_total + valor_suprimentos - valor_sangrias) STORED,
+  abertura_datetime                   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fechamento_datetime                 DATETIME DEFAULT NULL,
+  quantidade_vendas                   INT NOT NULL DEFAULT 0,
+  status                              ENUM('aberto', 'fechado') NOT NULL DEFAULT 'aberto',
+  empresa_id                          VARCHAR(40) NOT NULL,
+  cpf_responsavel                     VARCHAR(14) NOT NULL
+);
+
+--
+-- Estrutura para tabela `itens_venda`
+--
+
+CREATE TABLE itens_venda (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  venda_id                            INT NOT NULL,
+  responsavel                         VARCHAR(255) NOT NULL,
+  cpf_responsavel                     VARCHAR(14) NOT NULL,
+  id_caixa                            VARCHAR(40) NOT NULL,
+  empresa_id                          VARCHAR(40) NOT NULL,
+  nome_produto                        VARCHAR(255) NOT NULL,
+  quantidade                          INT NOT NULL,
+  preco_unitario                      DECIMAL(10,2) NOT NULL,
+  preco_total                         DECIMAL(10,2) NOT NULL,
+  id_produto                          INT,             -- ✅ Novo campo
+  categoria                           VARCHAR(100),     -- ✅ Novo campo
+  data_registro                       DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+--
+-- Estrutura para tabela `venda_rapida`
+--
+
+CREATE TABLE venda_rapida (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  cpf_responsavel                     VARCHAR(14) NOT NULL,
+  responsavel                         VARCHAR(255) NOT NULL,
+  produtos                            TEXT NOT NULL,
+  total                               DECIMAL(10,2) NOT NULL,
+  empresa_id                          VARCHAR(40) NOT NULL,
+  id_caixa                            VARCHAR(40) NOT NULL,
+  forma_pagamento                     VARCHAR(50) NOT NULL,
+  data_venda                          DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+--
+-- Estrutura para tabela `suprimentos`
+--
+
+CREATE TABLE suprimentos (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  valor_suprimento                    DECIMAL(10,2) NOT NULL,
+  empresa_id                          VARCHAR(40) NOT NULL,
+  id_caixa                            INT NOT NULL,
+  valor_liquido                       DECIMAL(10,2),
+  responsavel                         VARCHAR(255),
+  cpf_responsavel                     VARCHAR(14),
+  data_registro                       DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+--
+-- Estrutura para tabela `sangrias`
+--
+
+CREATE TABLE sangrias (
+  id                                  INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  valor                               DECIMAL(10,2) NOT NULL,
+  empresa_id                          VARCHAR(40) NOT NULL,
+  id_caixa                            INT NOT NULL,
+  responsavel                         VARCHAR(255) NOT NULL,
+  cpf_responsavel                     VARCHAR(14) NOT NULL,
+  valor_liquido                       DECIMAL(10,2) NOT NULL,
+  data_registro                       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+--
+-- Estrutura para tabela `fornecedores`
+--
+
+CREATE TABLE fornecedores (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  empresa_id                          VARCHAR(200) NOT NULL, -- ID simbólico: 'principal_1', 'filial_1', etc.
+  nome_fornecedor                     VARCHAR(100) NOT NULL,
+  cnpj_fornecedor                     VARCHAR(18) NOT NULL,
+  email_fornecedor                    VARCHAR(100) NOT NULL,
+  telefone_fornecedor                 VARCHAR(20) NOT NULL,
+  endereco_fornecedor                 VARCHAR(255) NOT NULL,
+  created_at                          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+--
+-- Estrutura para tabela `pedidos`
+--
+
+CREATE TABLE pedidos (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  empresa_id                          VARCHAR(50) NOT NULL,  -- ID como string
+  fornecedor                          VARCHAR(100) NOT NULL,
+  produto                             VARCHAR(100) NOT NULL,
+  quantidade                          INT NOT NULL,
+  valor                               DECIMAL(10,2) NOT NULL,
+  data_pedido                         DATE NOT NULL,
+  status                              VARCHAR(20) NOT NULL,  -- Sem ENUM para maior flexibilidade
+  data_cadastro                       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+--
+-- Estrutura para tabela `pagamentos_filiais`
+--
+
+CREATE TABLE pagamentos_filial (
+  id                                  INT AUTO_INCREMENT PRIMARY KEY,
+  id_selecionado                      VARCHAR(50) NOT NULL, -- ex: 'principal_1', 'filial_3'
+  id_filial                           INT NOT NULL,              -- relaciona com a filial
+  descricao                           VARCHAR(255) NOT NULL,
+  valor                               DECIMAL(10,2) NOT NULL,
+  data_vencimento                     DATE NOT NULL,
+  status_pagamento                    ENUM('pendente', 'pago', 'cancelado') DEFAULT 'pendente',
+  criado_em                           DATETIME DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em                       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+
+
 
 
 

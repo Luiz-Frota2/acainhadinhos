@@ -1,5 +1,4 @@
 <?php
-
 session_start();
 require_once '../../assets/php/conexao.php';
 
@@ -11,7 +10,7 @@ if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_id'])
 ) {
   header("Location: .././login.php?id=$idSelecionado");
   exit;
@@ -45,27 +44,24 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
-
-// ✅ Se chegou até aqui, o acesso está liberado
 
 // ✅ Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -83,20 +79,27 @@ try {
   $nivelUsuario = 'Erro ao carregar nível';
 }
 
+// ✅ Buscar fornecedores da empresa
+$fornecedores = [];
+try {
+  $stmt = $pdo->prepare("SELECT * FROM fornecedores WHERE empresa_id = :empresa_id ORDER BY nome_fornecedor");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $fornecedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  // Pode adicionar tratamento de erro se necessário
+}
+
 ?>
 
+
 <!DOCTYPE html>
-<html
-  lang="pt-br"
-  class="light-style layout-menu-fixed"
-  dir="ltr"
-  data-theme="theme-default"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta
-    name="viewport"
+  <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
   <title>ERP - Finanças</title>
@@ -104,7 +107,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -146,7 +149,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -173,16 +177,19 @@ try {
               <div data-i18n="Authentications">Contas</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Adicionadas</div>
                 </a></li>
-              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Futuras</div>
                 </a></li>
               <li class="menu-item"><a href="./contasPagas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagas</div>
                 </a></li>
-              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pendentes</div>
                 </a></li>
             </ul>
@@ -213,10 +220,12 @@ try {
               <div data-i18n="Authentications">Compras</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item active"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item active"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Fornecedores</div>
                 </a></li>
-              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Pedidos</div>
                 </a></li>
             </ul>
@@ -228,19 +237,23 @@ try {
               <div data-i18n="Authentications">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Diário</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Mensal</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Anual</div>
                 </a></li>
               <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Fluxo de Caixa</div>
                 </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
                   <div>Projeções Financeiras</div>
                 </a></li>
             </ul>
@@ -329,10 +342,7 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
+                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -344,7 +354,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -353,7 +363,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -380,15 +391,6 @@ try {
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
@@ -409,9 +411,10 @@ try {
 
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Compras</a>/</span>Fornecedores</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie os fornecedores da empresa</span></h5>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie os
+              fornecedores da empresa</span></h5>
 
-          <!-- Tabela de Contas da Empresa -->
+          <!-- Tabela de Fornecedores da Empresa -->
           <div class="card">
             <h5 class="card-header">Lista de Fornecedores</h5>
             <div class="table-responsive text-nowrap">
@@ -422,82 +425,69 @@ try {
                     <th>CNPJ</th>
                     <th>Telefone</th>
                     <th>Email</th>
-                    <th>Responsável</th>
+                    <th>Endereço</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                  <tr>
-                    <td><strong>ABC Materiais Elétricos</strong></td>
-                    <td>12.345.678/0001-90</td>
-                    <td>(11) 98765-4321</td>
-                    <td>contato@abc-eletricos.com</td>
-                    <td>João Silva</td>
-                    <td>
-                      <button class="btn btn-link text-primary p-0" title="Editar" onclick="window.location.href='editarFornecedor.php';">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
-                      <span class="mx-2">|</span>
-                      <button class="btn btn-link text-danger p-0" title="Excluir" onclick="openDeleteModal();">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td><strong>Construsul Equipamentos</strong></td>
-                    <td>98.765.432/0001-21</td>
-                    <td>(21) 99876-1234</td>
-                    <td>vendas@construsul.com.br</td>
-                    <td>Maria Souza</td>
-                    <td>
-                      <button class="btn btn-link text-primary p-0" title="Editar" onclick="window.location.href='editarFornecedor.php';">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
-                      <span class="mx-2">|</span>
-                      <button class="btn btn-link text-danger p-0" title="Excluir" onclick="openDeleteModal();">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td><strong>OfficePlus Papelaria</strong></td>
-                    <td>23.456.789/0001-55</td>
-                    <td>(31) 91234-5678</td>
-                    <td>suporte@officeplus.com</td>
-                    <td>Ana Costa</td>
-                    <td>
-                      <button class="btn btn-link text-primary p-0" title="Editar" onclick="window.location.href='editarFornecedor.php';">
-                        <i class="tf-icons bx bx-edit"></i>
-                      </button>
-                      <span class="mx-2">|</span>
-                      <button class="btn btn-link text-danger p-0" title="Excluir" onclick="openDeleteModal();">
-                        <i class="tf-icons bx bx-trash"></i>
-                      </button>
-                    </td>
-                  </tr>
+                  <?php if (empty($fornecedores)): ?>
+                    <tr>
+                      <td colspan="6" class="text-center">Nenhum fornecedor cadastrado</td>
+                    </tr>
+                  <?php else: ?>
+                    <?php foreach ($fornecedores as $fornecedor): ?>
+                      <tr>
+                        <td><strong><?= htmlspecialchars($fornecedor['nome_fornecedor']) ?></strong></td>
+                        <td><?= htmlspecialchars($fornecedor['cnpj_fornecedor']) ?></td>
+                        <td><?= htmlspecialchars($fornecedor['telefone_fornecedor']) ?></td>
+                        <td><?= htmlspecialchars($fornecedor['email_fornecedor']) ?></td>
+                        <td><?= htmlspecialchars($fornecedor['endereco_fornecedor']) ?></td>
+                        <td>
+                          <button class="btn btn-link text-primary p-0" title="Editar"
+                            onclick="window.location.href='editarFornecedor.php?id=<?= $idSelecionado ?>&fornecedor_id=<?= $fornecedor['id'] ?>';">
+                            <i class="tf-icons bx bx-edit"></i>
+                          </button>
+                          <span class="mx-2">|</span>
+                          <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
+                            data-bs-target="#deleteContaModal<?= $fornecedor['id'] ?>">
+                            <i class="tf-icons bx bx-trash"></i>
+                          </button>
+                        </td>
+                      </tr>
+
+                      <!-- Modal de Exclusão para cada fornecedor -->
+                      <div class="modal fade" id="deleteContaModal<?= $fornecedor['id'] ?>" tabindex="-1"
+                        aria-labelledby="deleteContaModalLabel" aria-hidden="true">
+                        <div class="modal-dialog">
+                          <div class="modal-content">
+                            <div class="modal-header">
+                              <h5 class="modal-title" id="deleteContaModalLabel">Excluir fornecedor</h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                              <p>Você tem certeza que deseja excluir o fornecedor
+                                <strong><?= htmlspecialchars($fornecedor['nome_fornecedor']) ?></strong>?</p>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                              <a href="excluirFornecedor.php?id=<?= $idSelecionado ?>&fornecedor_id=<?= $fornecedor['id'] ?>"
+                                class="btn btn-danger">Excluir</a>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- /Modal de Exclusão -->
+                       
+                    <?php endforeach; ?>
+                  <?php endif; ?>
                 </tbody>
               </table>
             </div>
           </div>
-          <!-- Modal de Exclusão de Transação -->
-          <div class="modal fade" id="deleteContaModal" tabindex="-1" aria-labelledby="deleteContaModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="deleteContaModalLabel">Excluir fornecedor</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <p>Você tem certeza que deseja excluir este fornecedor?</p>
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                  <button type="button" class="btn btn-danger">Excluir</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center" onclick="window.location.href='adicionarFornecedor.php';" style="cursor: pointer;">
+
+          <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
+            onclick="window.location.href='adicionarFornecedor.php?id=<?= urlencode($idSelecionado); ?>';"
+            style="cursor: pointer;">
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar novo Fornecedor</span>
           </div>
@@ -532,15 +522,6 @@ try {
   <!-- Place this tag in your head or just before your close body tag. -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
 
-  <script>
-    function openEditModal() {
-      new bootstrap.Modal(document.getElementById('editContaModal')).show();
-    }
-
-    function openDeleteModal() {
-      new bootstrap.Modal(document.getElementById('deleteContaModal')).show();
-    }
-  </script>
 </body>
 
 </html>

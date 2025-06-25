@@ -61,24 +61,25 @@ try {
 
 // ✅ Se chegou até aqui, o acesso está liberado
 
-// ✅ Buscar nome e nível do usuário logado
+// Buscar dados do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id);
   $stmt->execute();
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
     $nivelUsuario = $usuario['nivel'];
+    $cpfUsuario = $usuario['cpf'];
+    
   }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+  $nomeUsuario = 'Erro ao carregar';
+  $nivelUsuario = 'Erro';
 }
 ?>
 
@@ -139,7 +140,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-         <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -201,9 +203,14 @@ try {
               <div data-i18n="Sistema de Ponto">Sistema de Ponto</div>
             </a>
             <ul class="menu-sub">
-            <li class="menu-item">
+              <li class="menu-item">
                 <a href="./escalaAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
+                </a>
+              </li>
+               <li class="menu-item">
+                <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
                 </a>
               </li>
               <li class="menu-item">
@@ -236,7 +243,17 @@ try {
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
               </li>
-
+              <li class="menu-item ">
+                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -287,7 +304,7 @@ try {
               <div data-i18n="Authentications"><?= $titulo ?></div>
             </a>
           </li>
-         <li class="menu-item">
+          <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">Usuários </div>
@@ -331,7 +348,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -340,7 +357,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -367,15 +385,6 @@ try {
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
@@ -394,7 +403,8 @@ try {
         <!-- / Navbar -->
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                href="./setoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Setores</a>/</span>Adicionar Setor</h4>
+                href="./setoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Setores</a>/</span>Adicionar Setor
+          </h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Adicione o Setor da sua Empresa
             </span></h5>
 
@@ -413,7 +423,7 @@ try {
                     enctype="multipart/form-data">
                     <!-- Campo oculto com o idSelecionado -->
                     <input type="hidden" name="id_selecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
-
+                      <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpfUsuario);?>">
                     <div class="mb-3">
                       <label class="form-label" for="nome">Nome do Setor</label>
                       <input type="text" class="form-control input-custom" name="nome" id="nome"
