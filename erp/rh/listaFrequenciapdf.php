@@ -1158,7 +1158,11 @@ try {
                                                 <div class="card-body">
                                                     <p><strong>Horário:</strong> DIARIA</p>
                                                     <p><strong>Data Admissão:</strong>
-                                                        <?= formatarData($funcionario['data_admissao']) ?></p>
+                                                        <?php
+                                                            $dataAdmissao = $funcionario['data_admissao'];
+                                                            echo ($dataAdmissao && $dataAdmissao !== '0000-00-00') ? formatarData($dataAdmissao) : '';
+                                                        ?>
+                                                        </p>
                                                 </div>
                                             </div>
                                         </div>
