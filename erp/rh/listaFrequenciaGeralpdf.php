@@ -249,14 +249,9 @@ try {
 
     $nomeMes = mesPortugues($mes);
 
-    $stmt = $pdo->prepare("SELECT DISTINCT f.* 
-    FROM funcionarios f
-    JOIN pontos p ON REPLACE(REPLACE(f.cpf, '.', ''), '-', '') = REPLACE(REPLACE(p.cpf, '.', ''), '-', '')
-    WHERE MONTH(p.data) = ? 
-      AND YEAR(p.data) = ? 
-      AND f.empresa_id = ?");
-
-    $stmt->execute([$mes, $ano, $idSelecionado]);
+    // Buscar todos os funcionários da empresa
+    $stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE empresa_id = ?");
+    $stmt->execute([$idSelecionado]);
     $funcionarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($funcionarios)) {
@@ -264,119 +259,49 @@ try {
         exit;
     }
 
-    foreach ($funcionarios as $funcionario) {
-        $stmt = $pdo->prepare("SELECT * FROM setores WHERE nome = ?");
-        $stmt->execute([$funcionario['setor']]);
-        $setor = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Buscar CNPJ da empresa
+    try {
+        $sqlCnpj = "SELECT cnpj FROM endereco_empresa WHERE empresa_id = :id_selecionado LIMIT 1";
+        $stmtCnpj = $pdo->prepare($sqlCnpj);
+        $stmtCnpj->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+        $stmtCnpj->execute();
+        $resultadoCnpj = $stmtCnpj->fetch(PDO::FETCH_ASSOC);
 
+        $cnpjEmpresa = $resultadoCnpj['cnpj'] ?? 'CNPJ não cadastrado';
+    } catch (PDOException $e) {
+        $cnpjEmpresa = 'Erro ao buscar CNPJ';
+    }
+
+    // Monta um array com todos os funcionários e seus pontos/folgas
+    $relatorioFuncionarios = [];
+    foreach ($funcionarios as $funcionario) {
+        // Buscar pontos do funcionário no mês/ano
         $stmt = $pdo->prepare("SELECT * FROM pontos 
-        WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = REPLACE(REPLACE(?, '.', ''), '-', '')
-        AND MONTH(data) = ? 
-        AND YEAR(data) = ?
-        ORDER BY data DESC");
-        $cpfLimpo = preg_replace('/[^0-9]/', '', $funcionario['cpf']);
+            WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = REPLACE(REPLACE(?, '.', ''), '-', '')
+            AND MONTH(data) = ? 
+            AND YEAR(data) = ?
+            ORDER BY data ASC");
         $stmt->execute([$funcionario['cpf'], $mes, $ano]);
         $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $estatisticas = [
-            'totalDias' => count($pontos),
-            'diasTrabalhados' => 0,
-            'horasTrabalhadas' => 0,
-            'horasExtras' => 0,
-            'horasPendentes' => 0,
-            'atrasos' => 0,
-            'saidasAntecipadas' => 0,
-            'horasDevidas' => 0,
-            'horasExcedentes' => 0,
-            'adicionalNoturno' => 0
+        // Buscar folgas do funcionário no mês/ano
+        $stmt = $pdo->prepare("SELECT data_folga FROM folgas 
+            WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = REPLACE(REPLACE(?, '.', ''), '-', '')
+            AND MONTH(data_folga) = ? 
+            AND YEAR(data_folga) = ?");
+        $stmt->execute([$funcionario['cpf'], $mes, $ano]);
+        $folgas = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+        $relatorioFuncionarios[] = [
+            'funcionario' => $funcionario,
+            'pontos' => $pontos,
+            'folgas' => $folgas
         ];
-
-        foreach ($pontos as $ponto) {
-            $folga = verificarFolga($funcionario['cpf'], $ponto['data'], $pdo);
-            
-            if ($folga) {
-                continue; // Pula dias de folga
-            }
-
-            if ($ponto['entrada'] && $ponto['saida_final']) {
-                $estatisticas['diasTrabalhados']++;
-
-                $horasTrabalhadas = calcularHorasTrabalhadas(
-                    $ponto['entrada'],
-                    $ponto['saida_intervalo'],
-                    $ponto['retorno_intervalo'],
-                    $ponto['saida_final']
-                );
-
-                $estatisticas['horasTrabalhadas'] += $horasTrabalhadas / 60;
-
-                // Verifica tolerância de 10 minutos na entrada
-                $entradaEsperada = $funcionario['entrada'];
-                $entradaRegistrada = $ponto['entrada'];
-                
-                if ($entradaEsperada && $entradaRegistrada) {
-                    $diffEntrada = calcularDiferencaMinutos($entradaEsperada, $entradaRegistrada);
-                    if ($diffEntrada > 10) { // Mais de 10 minutos de atraso
-                        $estatisticas['atrasos']++;
-                        $estatisticas['horasDevidas'] += ($diffEntrada - 10) / 60; // Desconta os 10 minutos de tolerância
-                    }
-                }
-
-                if ($funcionario['saida_final'] && $ponto['saida_final']) {
-                    $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
-                    if ($diffSaida > 0) { // Saída antecipada
-                        $estatisticas['saidasAntecipadas']++;
-                        $estatisticas['horasDevidas'] += $diffSaida / 60;
-                    }
-                }
-
-                // Calcula adicional noturno
-                $minutosNoturnos = calcularAdicionalNoturno(
-                    $ponto['entrada'],
-                    $ponto['saida_intervalo'],
-                    $ponto['retorno_intervalo'],
-                    $ponto['saida_final']
-                );
-                $estatisticas['adicionalNoturno'] += $minutosNoturnos;
-            }
-
-            if ($ponto['hora_extra']) {
-                $estatisticas['horasExtras'] += converterHoraParaDecimal($ponto['hora_extra']);
-                $estatisticas['horasExcedentes'] += converterHoraParaDecimal($ponto['hora_extra']);
-            }
-
-            if ($ponto['horas_pendentes']) {
-                $estatisticas['horasPendentes'] += converterHoraParaDecimal($ponto['horas_pendentes']);
-                $estatisticas['horasDevidas'] += converterHoraParaDecimal($ponto['horas_pendentes']);
-            }
-        }
-
-        if ($estatisticas['diasTrabalhados'] > 0) {
-            $estatisticas['mediaDiaria'] = $estatisticas['horasTrabalhadas'] / $estatisticas['diasTrabalhados'];
-        } else {
-            $estatisticas['mediaDiaria'] = 0;
-        }
-
-        // Buscar CNPJ da empresa
-        try {
-            $sqlCnpj = "SELECT cnpj FROM endereco_empresa WHERE empresa_id = :id_selecionado LIMIT 1";
-            $stmtCnpj = $pdo->prepare($sqlCnpj);
-            $stmtCnpj->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-            $stmtCnpj->execute();
-            $resultadoCnpj = $stmtCnpj->fetch(PDO::FETCH_ASSOC);
-
-            $cnpjEmpresa = $resultadoCnpj['cnpj'] ?? 'CNPJ não cadastrado';
-        } catch (PDOException $e) {
-            $cnpjEmpresa = 'Erro ao buscar CNPJ';
-        }
-
-    
-        }
-    } catch (PDOException $e) {
-        die("Erro de conexão: " . $e->getMessage());
     }
-   
-        
+
+} catch (PDOException $e) {
+    die("Erro de conexão: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
