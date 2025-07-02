@@ -266,7 +266,7 @@ try {
     $resultadoCnpj = $stmtCnpj->fetch(PDO::FETCH_ASSOC);
     $cnpjEmpresa = $resultadoCnpj['cnpj'] ?? 'CNPJ não cadastrado';
 } catch (PDOException $e) {
-    $cnpjEmpresa = 'Erro ao buscar CNPJ';
+    $cnpjEmpresa = '';
 }
 
 // Buscar dados do relatório
@@ -303,7 +303,7 @@ try {
                           WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = ? 
                           AND MONTH(data) = ? 
                           AND YEAR(data) = ?
-                          ORDER BY data DESC");
+                          ORDER BY data ASC");
     $stmt->execute([$cpfLimpo, $mes, $ano]);
     $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
