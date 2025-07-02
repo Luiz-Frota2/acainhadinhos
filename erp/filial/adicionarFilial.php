@@ -193,7 +193,7 @@ try {
               <div data-i18n="Authentications">B2B</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./contaFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Contas Filiais</div>
                 </a>
               </li>

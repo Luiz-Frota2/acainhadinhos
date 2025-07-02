@@ -1,5 +1,4 @@
 <?php
-
 require '../conexao.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -12,6 +11,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Remove dots and dash from CPF
     $cpf = str_replace(['.', '-'], '', $cpf);
     $rg = trim($_POST["rg"] ?? '');
+    $pis = trim($_POST["pis"] ?? '');
+    $matricula = trim($_POST["matricula"] ?? '');
+    $data_admissao = trim($_POST["data_admissao"] ?? '');
     $cargo = trim($_POST["cargo"] ?? '');
     $setor = trim($_POST["setor"] ?? '');
     $salario = trim($_POST["salario"] ?? '');
@@ -64,13 +66,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Format salary to decimal
         $salario = $salario === '' ? null : number_format((float) str_replace(',', '.', $salario), 2, '.', '');
 
-        // Prepare SQL update statement
+        // Prepare SQL update statement with new fields
         $sql = "UPDATE funcionarios SET 
                     empresa_id = :empresa_id,
                     nome = :nome,
                     data_nascimento = :data_nascimento,
                     cpf = :cpf,
                     rg = :rg,
+                    pis = :pis,
+                    matricula = :matricula,
+                    data_admissao = :data_admissao,
                     cargo = :cargo,
                     setor = :setor,
                     salario = :salario,
@@ -99,6 +104,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             ":empresa_id" => $empresa_id,
             ":data_nascimento" => $data_nascimento,
             ":rg" => $rg,
+            ":pis" => $pis,
+            ":matricula" => $matricula,
+            ":data_admissao" => $data_admissao,
             ":cargo" => $cargo,
             ":setor" => $setor,
             ":salario" => $salario,

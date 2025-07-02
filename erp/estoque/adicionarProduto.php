@@ -1,15 +1,106 @@
+<?php
+
+session_start();
+require_once '../../assets/php/conexao.php';
+
+// ✅ Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
+
+// ✅ Verifica se a pessoa está logada
+if (
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+) {
+    header("Location: .././login.php?id=$idSelecionado");
+    exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+        echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+        exit;
+    }
+    $id = 1;
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+        echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+        exit;
+    }
+    $id = $idFilial;
+} else {
+    echo "<script>
+          alert('Empresa não identificada!');
+          window.location.href = '.././login.php?id=$idSelecionado';
+      </script>";
+    exit;
+}
+
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+try {
+    $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $logoEmpresa = !empty($empresaSobre['imagem'])
+        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+        : "../../assets/img/favicon/logo.png"; // fallback padrão
+} catch (PDOException $e) {
+    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+}
+
+// ✅ Se chegou até aqui, o acesso está liberado
+
+// ✅ Buscar nome e nível do usuário logado
+$nomeUsuario = 'Usuário';
+$nivelUsuario = 'Comum'; // Valor padrão
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $nivelUsuario = $usuario['nivel'];
+    }
+} catch (PDOException $e) {
+    $nomeUsuario = 'Erro ao carregar nome';
+    $nivelUsuario = 'Erro ao carregar nível';
+}
+
+// Buscar fornecedores da empresa atual
+try {
+    $stmt = $pdo->prepare("SELECT id, nome_fornecedor FROM fornecedores WHERE empresa_id = :empresa_id ORDER BY nome_fornecedor ASC");
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $fornecedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $fornecedores = [];
+}
+
+?>
+
 <!DOCTYPE html>
-<html
-    lang="pt-br"
-    class="light-style layout-menu-fixed"
-    dir="ltr"
-    data-theme="theme-default"
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
 
 <head>
     <meta charset="utf-8" />
-    <meta
-        name="viewport"
+    <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
     <title>ERP - Estoque</title>
@@ -17,7 +108,7 @@
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../assets/img/favicon/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -57,13 +148,15 @@
 
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
-                    <a href="./dashboard.html" class="app-brand-link">
+                    <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);"
+                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -73,7 +166,7 @@
                 <ul class="menu-inner py-1">
                     <!-- Dashboard -->
                     <li class="menu-item ">
-                        <a href="index.php" class="menu-link">
+                        <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
                             <div data-i18n="Analytics">Dashboard</div>
                         </a>
@@ -92,12 +185,13 @@
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./produtosAdicionados.php" class="menu-link">
+                                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Produtos">Adicionados</div>
                                 </a>
                             </li>
                             <li class="menu-item active">
-                                <a href="./adicionarProduto.php" class="menu-link">
+                                <a href="./adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Produtos">Adicionar Produto</div>
                                 </a>
                             </li>
@@ -112,12 +206,12 @@
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./estoqueAlto.php" class="menu-link">
+                                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="BaixoEstoque">Estoque Alto</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./estoqueBaixo.php" class="menu-link">
+                                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                                 </a>
                             </li>
@@ -130,19 +224,19 @@
                     <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
-                        <a href="../rh/index.php" class="menu-link ">
+                        <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">RH</div>
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="../financas/index.php" class="menu-link ">
+                        <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-dollar"></i>
                             <div data-i18n="Authentications">Finanças</div>
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -160,10 +254,18 @@
                             <div data-i18n="Authentications">Clientes</div>
                         </a>
                     </li>
+                    <?php
+                    $isFilial = str_starts_with($idSelecionado, 'filial_');
+                    $link = $isFilial
+                        ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+                        : '../filial/index.php?id=principal_1';
+                    $titulo = $isFilial ? 'Matriz' : 'Filial';
+                    ?>
+
                     <li class="menu-item">
-                        <a href="../filial/index.php" class="menu-link ">
+                        <a href="<?= $link ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications">Filial</div>
+                            <div data-i18n="Authentications"><?= $titulo ?></div>
                         </a>
                     </li>
                     <li class="menu-item">
@@ -187,8 +289,7 @@
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -206,9 +307,11 @@
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
+                                    data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -217,12 +320,14 @@
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block">John Doe</span>
-                                                    <small class="text-muted">Admin</small>
+                                                    <!-- Exibindo o nome e nível do usuário -->
+                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                                                    <small class="text-muted"><?php echo $nivelUsuario; ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -233,29 +338,21 @@
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <span class="d-flex align-items-center align-middle">
-                                                <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                                                <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                                            </span>
+                                            <span class="align-middle">Configurções</span>
                                         </a>
                                     </li>
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="index.php">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -265,37 +362,49 @@
                             </li>
                             <!--/ User -->
                         </ul>
+
                     </div>
                 </nav>
                 <!-- / Navbar -->
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="./adicionarConta.php">Produtos</a>/</span>Adicionar Produtos</h4>
-                    <h5 class=" mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os detalhes do novo Produto</span></h5>
+                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
+                                href="./adicionarConta.php">Produtos</a>/</span>Adicionar Produtos</h4>
+                    <h5 class=" mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os detalhes do novo
+                            Produto</span></h5>
 
                     <!-- Formulário de Adicionar Conta -->
                     <div class="card">
                         <h5 class="card-header">Adicionar Produto</h5>
                         <div class="card-body">
-                            <form id="addContaForm" action="../../assets/php/estoque/adicionarProduto.php" method="POST">
+                            <form id="addContaForm" action="../../assets/php/estoque/adicionarProduto.php"
+                                method="POST">
+
+                                <input type="text" name="id_selecionado"
+                                    value="<?= htmlspecialchars($idSelecionado); ?>">
+
                                 <div class="row">
                                     <div class="mb-3 col-12 col-md-6">
                                         <label for="nome_produto" class="form-label">Nome do Produto</label>
-                                        <input type="text" class="form-control" id="nome_produto" name="nome_produto" placeholder="Informe o nome do Produto" required />
+                                        <input type="text" class="form-control" id="nome_produto" name="nome_produto"
+                                            placeholder="Informe o nome do Produto" required />
                                     </div>
 
                                     <div class="mb-3 col-12 col-md-6">
                                         <label for="fornecedor_produto" class="form-label">Fornecedor</label>
-                                        <select class="form-select" id="fornecedor_produto" name="fornecedor_produto" required>
+                                        <select class="form-select" id="fornecedor_produto" name="fornecedor_produto"
+                                            required>
                                             <option value="">Selecione o fornecedor</option>
-                                            <option value="Amazon Polpas">Amazon Polpas</option>
-                                            <option value="Frutaria do Norte">Frutaria do Norte</option>
-                                            <option value="Açaí Brasil">Açaí Brasil</option>
-                                            <option value="Outro">Da Empresa</option>
+                                            <?php foreach ($fornecedores as $fornecedor): ?>
+                                                <option value="<?= htmlspecialchars($fornecedor['nome_fornecedor']) ?>">
+                                                    <?= htmlspecialchars($fornecedor['nome_fornecedor']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
                                         </select>
                                     </div>
                                     <div class="mb-3 col-12 col-md-6">
                                         <label for="quantidade_produto" class="form-label">quantidade</label>
-                                        <input type="number" class="form-control" id="quantidade_produto" name="quantidade_produto" placeholder="Ex: 500" required />
+                                        <input type="number" class="form-control" id="quantidade_produto"
+                                            name="quantidade_produto" placeholder="Ex: 500" required />
                                     </div>
 
                                     <div class="mb-3 col-12 col-md-6">
@@ -307,32 +416,16 @@
                                         </select>
                                     </div>
 
-                                    <script>
-                                        const quantidadeInput = document.getElementById("quantidade_produto");
-                                        const statusSelect = document.getElementById("status_produto");
-
-                                        quantidadeInput.addEventListener("input", () => {
-                                            const quantidade = parseInt(quantidadeInput.value);
-
-                                            if (!isNaN(quantidade)) {
-                                                if (quantidade >= 20) {
-                                                    statusSelect.value = "estoque_alto";
-                                                } else {
-                                                    statusSelect.value = "estoque_baixo";
-                                                }
-                                            } else {
-                                                statusSelect.value = ""; // Limpa se for inválido
-                                            }
-                                        });
-                                    </script>
-
                                     <div class="d-flex custom-button">
-                                        <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar Produto</button>
+                                        <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar
+                                            Produto</button>
                                     </div>
 
                             </form>
                         </div>
                     </div>
+                    <!-- /Form de Adicionar Conta -->
+
                 </div>
                 <!-- / Layout wrapper -->
             </div>

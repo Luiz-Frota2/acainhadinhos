@@ -14,27 +14,26 @@ try {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Receber o campo de data/hora enviado pelo formulário
-    $dataRegistro = $_POST['data_registro'] ?? date('Y-m-d H:i:s'); // Se não enviar, usa o horário do servidor
+    $dataRegistro = $_POST['data_registro'] ?? date('Y-m-d H:i:s');
 
-    // Os outros dados do formulário (produtos, quantidades, etc)
-    $produtos      = $_POST['produtos'] ?? [];
-    $quantidade    = $_POST['quantidade'] ?? [];
-    $precos        = $_POST['precos'] ?? [];
-    $idProdutos    = $_POST['id_produto'] ?? [];
-    $idCategorias  = $_POST['id_categoria'] ?? [];
-
-    $total         = isset($_POST['totalTotal']) ? floatval($_POST['totalTotal']) : 0.00;
-    $empresa_id    = $_POST['idSelecionado'] ?? '';
-    $id_caixa      = $_POST['id_caixa'] ?? '';
-    $responsavel   = $_POST['responsavel'] ?? '';
-    $cpf           = preg_replace('/\D/', '', $_POST['cpf'] ?? '');
-    $pagamento     = $_POST['forma_pagamento'] ?? '';
+    // Dados do formulário
+    $produtos = $_POST['produtos'] ?? [];
+    $quantidade = $_POST['quantidade'] ?? [];
+    $precos = $_POST['precos'] ?? [];
+    $idProdutos = $_POST['id_produto'] ?? [];
+    $idCategorias = $_POST['id_categoria'] ?? [];
+    $total = isset($_POST['totalTotal']) ? floatval($_POST['totalTotal']) : 0.00;
+    $empresa_id = $_POST['idSelecionado'] ?? '';
+    $id_caixa = $_POST['id_caixa'] ?? '';
+    $responsavel = $_POST['responsavel'] ?? '';
+    $cpf = preg_replace('/\D/', '', $_POST['cpf'] ?? '');
+    $pagamento = $_POST['forma_pagamento'] ?? '';
 
     // Formatando produtos para venda_rapida
     $itensFormatados = [];
     for ($i = 0; $i < count($produtos); $i++) {
-        $nome  = $produtos[$i];
-        $qtd   = intval($quantidade[$i]);
+        $nome = $produtos[$i];
+        $qtd = intval($quantidade[$i]);
         $preco = floatval($precos[$i]);
         $itensFormatados[] = "$nome (x$qtd) - R$" . number_format($preco, 2, ',', '.');
     }
@@ -43,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
 
-        // 1. Inserir na tabela venda_rapida incluindo data_venda
+        // 1. Inserir na tabela venda_rapida
         $stmt = $pdo->prepare("
             INSERT INTO venda_rapida 
                 (produtos, total, empresa_id, id_caixa, forma_pagamento, cpf_responsavel, responsavel, data_venda) 
@@ -51,25 +50,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (:produtos, :total, :empresa_id, :id_caixa, :forma_pagamento, :cpf_responsavel, :responsavel, :data_venda)
         ");
         $stmt->execute([
-            ':produtos'         => $nomesProdutos,
-            ':total'            => $total,
-            ':empresa_id'       => $empresa_id,
-            ':id_caixa'         => $id_caixa,
-            ':forma_pagamento'  => $pagamento,
-            ':cpf_responsavel'  => $cpf,
-            ':responsavel'      => $responsavel,
-            ':data_venda'       => $dataRegistro,
+            ':produtos' => $nomesProdutos,
+            ':total' => $total,
+            ':empresa_id' => $empresa_id,
+            ':id_caixa' => $id_caixa,
+            ':forma_pagamento' => $pagamento,
+            ':cpf_responsavel' => $cpf,
+            ':responsavel' => $responsavel,
+            ':data_venda' => $dataRegistro,
         ]);
 
         $vendaId = $pdo->lastInsertId();
 
-        // 2. Inserir os itens vendidos incluindo data_registro
+        // 2. Inserir os itens vendidos
         for ($i = 0; $i < count($produtos); $i++) {
-            $nome        = $produtos[$i];
-            $qtd         = intval($quantidade[$i]);
-            $preco       = floatval($precos[$i]);
-            $precoTotal  = $qtd * $preco;
-            $idProduto   = $idProdutos[$i] ?? null;
+            $nome = $produtos[$i];
+            $qtd = intval($quantidade[$i]);
+            $preco = floatval($precos[$i]);
+            $precoTotal = $qtd * $preco;
+            $idProduto = $idProdutos[$i] ?? null;
             $idCategoria = $idCategorias[$i] ?? null;
 
             $stmtItem = $pdo->prepare("
@@ -79,18 +78,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (:venda_id, :id_caixa, :empresa_id, :nome_produto, :quantidade, :preco_unitario, :preco_total, :cpf_responsavel, :responsavel, :id_produto, :categoria, :data_registro)
             ");
             $stmtItem->execute([
-                ':venda_id'        => $vendaId,
-                ':id_caixa'        => $id_caixa,
-                ':empresa_id'      => $empresa_id,
-                ':nome_produto'    => $nome,
-                ':quantidade'      => $qtd,
-                ':preco_unitario'  => $preco,
-                ':preco_total'     => $precoTotal,
+                ':venda_id' => $vendaId,
+                ':id_caixa' => $id_caixa,
+                ':empresa_id' => $empresa_id,
+                ':nome_produto' => $nome,
+                ':quantidade' => $qtd,
+                ':preco_unitario' => $preco,
+                ':preco_total' => $precoTotal,
                 ':cpf_responsavel' => $cpf,
-                ':responsavel'     => $responsavel,
-                ':id_produto'      => $idProduto,
-                ':categoria'       => $idCategoria,
-                ':data_registro'   => $dataRegistro,
+                ':responsavel' => $responsavel,
+                ':id_produto' => $idProduto,
+                ':categoria' => $idCategoria,
+                ':data_registro' => $dataRegistro,
             ]);
 
             // Atualizar estoque
@@ -102,9 +101,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   AND categoria_produto = :categoria_produto
             ");
             $stmtEstoque->execute([
-                ':quantidade'        => $qtd,
-                ':empresa_id'        => $empresa_id,
-                ':codigo_produto'    => $idProduto,
+                ':quantidade' => $qtd,
+                ':empresa_id' => $empresa_id,
+                ':codigo_produto' => $idProduto,
                 ':categoria_produto' => $idCategoria
             ]);
         }
@@ -121,17 +120,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               AND status = 'aberto'
         ");
         $stmtUpdate->execute([
-            ':total'       => $total,
-            ':cpf'         => $cpf,
+            ':total' => $total,
+            ':cpf' => $cpf,
             ':responsavel' => $responsavel,
-            ':empresa_id'  => $empresa_id
+            ':empresa_id' => $empresa_id
         ]);
 
         $pdo->commit();
 
         echo "<script>
-                alert('Venda registrada com sucesso!');
-                window.location.href = '../../../../frentedeloja/caixa/vendaRapida.php?id=" . urlencode($empresa_id) . "';
+            alert('Venda registrada com sucesso!');
+            window.location.href = '../../../../frentedeloja/caixa/notaFiscal.php?id=" . urlencode($empresa_id) . "&venda_id=" . urlencode($vendaId) . "';
               </script>";
         exit;
 

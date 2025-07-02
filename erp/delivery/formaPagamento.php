@@ -78,10 +78,10 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
-// ✅ Buscar formas de pagamento com base na empresa_id
+// ✅ Buscar formas de pagamento
 try {
     $stmt = $pdo->prepare("SELECT * FROM formas_pagamento WHERE empresa_id = :empresa_id LIMIT 1");
-    $stmt->bindParam(':empresa_id', $id, PDO::PARAM_INT);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $formasPagamento = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -94,6 +94,8 @@ try {
     $dinheiro = $pix = $cartaoDebito = $cartaoCredito = 0;
     echo "<script>alert('Erro ao carregar formas de pagamento: " . addslashes($e->getMessage()) . "');</script>";
 }
+
+
 ?>
 
 <!DOCTYPE html>

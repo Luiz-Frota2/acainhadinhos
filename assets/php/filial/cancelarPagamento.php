@@ -9,16 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($id > 0 && $idSelecionado !== '') {
         // Atualiza o status para 'pago'
-        $stmt = $pdo->prepare("UPDATE pagamentos_filial SET status_pagamento = 'pago', atualizado_em = NOW() WHERE id = :id");
+        $stmt = $pdo->prepare("UPDATE pagamentos_filial SET status_pagamento = 'cancelado', atualizado_em = NOW() WHERE id = :id");
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
 
         if ($stmt->execute()) {
             // Sucesso: alerta e redireciona
-            echo "<script>alert('Pagamento confirmado com sucesso!');window.location.href='../../../erp/filial/contasFiliais.php?id=" . urlencode($idSelecionado) . "';</script>";
+            echo "<script>alert('Pagamento cancelado com sucesso!');window.location.href='../../../erp/filial/contasFiliais.php?id=" . urlencode($idSelecionado) . "';</script>";
             exit;
         } else {
             // Erro: alerta e volta
-            echo "<script>alert('Erro ao confirmar pagamento.');history.back();</script>";
+            echo "<script>alert('Erro ao cancelar pagamento.');history.back();</script>";
             exit;
         }
     } else {

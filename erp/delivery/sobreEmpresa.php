@@ -453,7 +453,7 @@ try {
                                         enctype="multipart/form-data">
 
                                         <!-- Campo oculto com o idSelecionado -->
-                                        <input type="hidden" name="idSelecionado"
+                                        <input type="text" name="idSelecionado"
                                             value="<?php echo htmlspecialchars($idSelecionado); ?>">
 
                                         <!-- Imagem e Nome da Empresa -->

@@ -82,6 +82,17 @@ try {
   $nivelUsuario = 'Erro ao carregar nível';
 }
 
+// ✅ Buscar produtos apenas da empresa/filial selecionada
+try {
+  $stmt = $pdo->prepare("SELECT * FROM produtos_estoque WHERE empresa_id = :empresa_id ORDER BY data_cadastro DESC");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao buscar produtos: " . addslashes($e->getMessage()) . "');</script>";
+  $produtos = [];
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -353,38 +364,21 @@ try {
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                href="#">Produtos</a>/</span>Adicionados</h4>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Produtos</a>/</span>Adicionados</h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie os Estoque da
               empresa</span></h5>
 
-          <!-- Tabela de Contas da Empresa -->
+          <!-- Tabela de Produtos da Empresa -->
           <div class="card">
             <h5 class="card-header">Lista de Produtos</h5>
             <div class="table-responsive text-nowrap">
-              <?php
-
-              require '../../assets/php/conexao.php';
-
-              try {
-                // Buscar todos os produtos
-                $stmt = $pdo->query("SELECT * FROM produtos");
-                $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-              } catch (PDOException $e) {
-                echo "Erro ao buscar produtos: " . $e->getMessage();
-                exit;
-              }
-
-              ?>
-
-
               <table class="table table-hover">
                 <thead>
                   <tr>
                     <th>Produto</th>
                     <th>Fornecedor</th>
                     <th>Quantidade</th>
-                    <th>Data do Pedido</th>
+                    <th>Data do Cadastro</th>
                     <th>Status</th>
                     <th>Ações</th>
                   </tr>
@@ -396,67 +390,69 @@ try {
                       <td><?= htmlspecialchars($produto['nome_produto']) ?></td>
                       <td><?= htmlspecialchars($produto['fornecedor_produto']) ?></td>
                       <td><?= htmlspecialchars($produto['quantidade_produto']) ?></td>
-                      <td><?= htmlspecialchars($produto['data_produto']) ?></td>
+                      <td><?= date('d/m/Y', strtotime($produto['data_cadastro'])) ?></td>
                       <td>
                         <?php if ($produto['status_produto'] == 'estoque_alto'): ?>
                           <span class="badge bg-success">Estoque Alto</span>
                         <?php elseif ($produto['status_produto'] == 'estoque_baixo'): ?>
                           <span class="badge bg-danger">Estoque Baixo</span>
                         <?php else: ?>
-                          <span class="badge bg-warning"> nao identificada</span>
+                          <span class="badge bg-warning">Não identificado</span>
                         <?php endif; ?>
                       </td>
                       <td>
-                        <a href="#" data-bs-toggle="modal" data-bs-target="#editProdutoModal_<?= $produto['id'] ?>">
-                          <i class="tf-icons bx bx-edit"></i>
-                        </a>
-                        <!-- Espaço entre os ícones -->
-                        <span class="mx-2">|</span>
+                        <div class="d-flex align-items-center">
+                          <a href="#" data-bs-toggle="modal" data-bs-target="#editProdutoModal_<?= $produto['id'] ?>"
+                            class="text-primary me-2">
+                            <i class="tf-icons bx bx-edit"></i>
+                          </a>
 
-                        <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
-                          data-bs-target="#modalExcluir_<?= $produto['id'] ?>">
-                          <i class="tf-icons bx bx-trash"></i>
-                        </button>
+                          <span class="mx-1">|</span>
 
-                        <!-- Modal de Exclusão de Transação -->
+                          <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
+                            data-bs-target="#modalExcluir_<?= $produto['id'] ?>">
+                            <i class="tf-icons bx bx-trash"></i>
+                          </button>
+                        </div>
+
+                        <!-- Modal de Exclusão de Produto -->
                         <div class="modal fade" id="modalExcluir_<?= $produto['id'] ?>" tabindex="-1"
                           aria-labelledby="modalExcluirLabel_<?= $produto['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="modalExcluirLabel_<?= $produto['id'] ?>">Excluir Produto
-                                </h5>
+                                <h5 class="modal-title" id="modalExcluirLabel_<?= $produto['id'] ?>">Excluir Produto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                                   aria-label="Close"></button>
                               </div>
                               <div class="modal-body">
-                                <p>Tem certeza de que deseja excluir esse Produto?</p>
-                                <a href="../../assets/php/estoque/excluirProduto.php?id=<?= $produto['id'] ?>"
-                                  class="btn btn-danger">Sim, excluir</a>
-                                <button type="button" class="btn btn-secondary mx-2"
-                                  data-bs-dismiss="modal">Cancelar</button>
+                                <p>Tem certeza de que deseja excluir o produto
+                                  "<?= htmlspecialchars($produto['nome_produto']) ?>"?</p>
+                                <div class="d-flex justify-content-end">
+                                  <button type="button" class="btn btn-secondary me-2"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                  <a href="../../assets/php/estoque/excluirProduto.php?id=<?= $produto['id'] ?>&empresa_id=<?= $idSelecionado ?>"
+                                    class="btn btn-danger">Sim, excluir</a>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                        <!-- /Modal de Exclusão de Transação -->
 
-                        <!-- Modal de Editar Conta -->
+                        <!-- Modal de Editar Produto -->
                         <div class="modal fade" id="editProdutoModal_<?= $produto['id'] ?>" tabindex="-1"
                           aria-labelledby="editProdutoModalLabel_<?= $produto['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
-
                               <div class="modal-header">
                                 <h5 class="modal-title" id="editModalLabel_<?= $produto['id'] ?>">Editar Produto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                                   aria-label="Fechar"></button>
                               </div>
-
                               <div class="modal-body">
                                 <form action="../../assets/php/estoque/editarProduto.php" method="POST">
-                                  <!-- ID da conta -->
                                   <input type="hidden" name="id" value="<?= htmlspecialchars($produto['id']) ?>">
+                                  <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                   <div class="mb-3">
                                     <label for="nome_produto" class="form-label">Nome</label>
@@ -473,15 +469,14 @@ try {
 
                                   <div class="mb-3">
                                     <label for="quantidade_produto" class="form-label">Quantidade</label>
-                                    <input type="text" class="form-control" id="quantidade_produto"
+                                    <input type="number" class="form-control" id="quantidade_produto"
                                       name="quantidade_produto"
                                       value="<?= htmlspecialchars($produto['quantidade_produto']) ?>" required>
                                   </div>
 
                                   <div class="mb-3">
                                     <label for="status_produto" class="form-label">Status</label>
-                                    <select class="form-select" id="status_produto" name="status_produto"
-                                      value="<?= htmlspecialchars($produto['status_produto']) ?>" required>
+                                    <select class="form-select" id="status_produto" name="status_produto" required>
                                       <option value="estoque_alto" <?= $produto['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
                                       <option value="estoque_baixo" <?= $produto['status_produto'] === 'estoque_baixo' ? 'selected' : '' ?>>Estoque Baixo</option>
                                     </select>
@@ -494,17 +489,16 @@ try {
                                   </div>
                                 </form>
                               </div>
-
                             </div>
                           </div>
                         </div>
-                        <!--/ Modal de edição-->
-                      <?php endforeach; ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
                 </tbody>
               </table>
             </div>
           </div>
-
 
           <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
             onclick="window.location.href='adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>';"

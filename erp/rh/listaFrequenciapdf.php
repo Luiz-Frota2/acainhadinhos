@@ -32,7 +32,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// Buscar imagem da empresa
 try {
     $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
     $stmt = $pdo->prepare($sql);
@@ -42,12 +42,12 @@ try {
 
     $logoEmpresa = !empty($empresaSobre['imagem'])
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png"; // fallback padrão
+        : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+    $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// Buscar dados do usuário logado
+// Buscar dados do usuário
 $nomeUsuario = 'Usuário';
 $nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
@@ -75,6 +75,7 @@ function timeToMinutes($time)
     list($h, $m, $s) = explode(':', $time);
     return $h * 60 + $m + round($s / 60);
 }
+
 function minutesToHM($min)
 {
     $h = floor($min / 60);
@@ -82,118 +83,304 @@ function minutesToHM($min)
     return sprintf('%02dh %02dm', $h, $m);
 }
 
-// Fetch registros + escala
-try {
-    $sql = "
-    SELECT 
-      p.*,
-      f.dia_inicio, f.dia_folga,
-      f.entrada   AS f_entrada,
-      f.saida_intervalo   AS f_saida_intervalo,
-      f.retorno_intervalo AS f_retorno_intervalo,
-      f.saida_final       AS f_saida_final
-    FROM pontos p
-    LEFT JOIN funcionarios f
-      ON p.cpf = f.cpf AND p.empresa_id = f.empresa_id
-    WHERE p.empresa_id = :empresa_id
-    ORDER BY p.cpf, p.data
-    ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':empresa_id', $idSelecionado);
-    $stmt->execute();
-    $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    die("Erro ao buscar registros: " . $e->getMessage());
+function limparCPF($cpf)
+{
+    return preg_replace('/[^0-9]/', '', $cpf);
 }
 
-// Agrupa por CPF|mês|ano
-$dadosAgrupados = [];
-foreach ($registros as $r) {
-    $cpf = $r['cpf'];
-    $mes = date('m', strtotime($r['data']));
-    $ano = date('Y', strtotime($r['data']));
-    $key = "$cpf|$mes|$ano";
-    if (!isset($dadosAgrupados[$key])) {
-        // calcula dias úteis
-        $sem = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-        $i0 = array_search($r['dia_inicio'], $sem);
-        $i1 = array_search($r['dia_folga'], $sem);
-        $perm = [];
-        for ($i = $i0;; $i = ($i + 1) % 7) {
-            $perm[] = $sem[$i];
-            if ($i === $i1)
-                break;
-        }
-        $dm = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
-        $du = 0;
-        for ($d = 1; $d <= $dm; $d++) {
-            $dw = strtolower(date('l', strtotime("$ano-$mes-" . str_pad($d, 2, '0', STR_PAD_LEFT))));
-            if (in_array($dw, $perm, true))
-                $du++;
-        }
-        // referencia diária
-        $refE = $r['f_entrada'] ?: $r['entrada'];
-        $refSI = $r['f_saida_intervalo'] ?: $r['saida_intervalo'];
-        $refR = $r['f_retorno_intervalo'] ?: $r['retorno_intervalo'];
-        $refS = $r['f_saida_final'] ?: $r['saida_final'];
-        $minTurno = (timeToMinutes($refS) - timeToMinutes($refE))
-            - (timeToMinutes($refR) - timeToMinutes($refSI));
-        $minDevidos = $minTurno * $du;
-        $dadosAgrupados[$key] = [
-            'nome' => $r['nome'],
-            'mes_ano' => "$mes/$ano",
-            'minTrabalhados' => 0,
-            'minPendentes' => 0,
-            'minExtras' => 0,
-            'minDevidos' => $minDevidos,
-            // escala
-            'dia_inicio' => $r['dia_inicio'],
-            'dia_folga' => $r['dia_folga'],
-            'entrada' => $refE,
-            'saida_intervalo' => $refSI,
-            'retorno_intervalo' => $refR,
-            'saida_final' => $refS,
-        ];
-    }
-    // acumula minutos trabalhados com correção para intervalos NULL
-    $m = 0;
-    $entrada = $r['entrada'];
-    $saida_intervalo = $r['saida_intervalo'];
-    $retorno_intervalo = $r['retorno_intervalo'];
-    $saida_final = $r['saida_final'];
-
-    if ($entrada && $saida_final) {
-        if ($saida_intervalo && $retorno_intervalo) {
-            // calcula dois períodos (antes e depois do intervalo)
-            $m += timeToMinutes($saida_intervalo) - timeToMinutes($entrada);
-            $m += timeToMinutes($saida_final) - timeToMinutes($retorno_intervalo);
-        } else {
-            // intervalo não registrado: calcula direto entrada até saída final
-            $m += timeToMinutes($saida_final) - timeToMinutes($entrada);
-        }
-    }
-
-    $dadosAgrupados[$key]['minTrabalhados'] += $m;
-    $dadosAgrupados[$key]['minPendentes'] += timeToMinutes($r['horas_pendentes']);
-    $dadosAgrupados[$key]['minExtras'] += timeToMinutes($r['hora_extra']);
+function formatarData($dataString)
+{
+    if (!$dataString)
+        return '--/--/----';
+    return date('d/m/Y', strtotime($dataString));
 }
 
-// Ajusta saldos e formata horas
-foreach ($dadosAgrupados as &$d) {
-    $p = $d['minPendentes'];
-    $e = $d['minExtras'];
-    if ($e > $p) {
-        $d['minLiquidaExtra'] = $e - $p;
-        $d['minLiquidaPend'] = 0;
+function formatarCPF($cpf)
+{
+    if (empty($cpf))
+        return '';
+    $cpfLimpo = limparCPF($cpf);
+    if (strlen($cpfLimpo) === 11) {
+        return substr($cpfLimpo, 0, 3) . '.' . substr($cpfLimpo, 3, 3) . '.' .
+            substr($cpfLimpo, 6, 3) . '-' . substr($cpfLimpo, 9, 2);
+    }
+    return $cpf;
+}
+
+function formatarTelefone($telefone)
+{
+    if (!$telefone)
+        return '';
+    if (strlen($telefone) === 11) {
+        return '(' . substr($telefone, 0, 2) . ') ' . substr($telefone, 2, 5) . '-' . substr($telefone, 7);
+    }
+    return '(' . substr($telefone, 0, 2) . ') ' . substr($telefone, 2, 4) . '-' . substr($telefone, 6);
+}
+
+function capitalize($str)
+{
+    if (!$str)
+        return '';
+    return ucfirst($str);
+}
+
+function converterHoraParaDecimal($horaString)
+{
+    if (!$horaString)
+        return 0;
+    list($hours, $minutes) = explode(':', $horaString);
+    return $hours + $minutes / 60;
+}
+
+function formatarHoraDecimal($decimal)
+{
+    $horas = floor($decimal);
+    $minutos = round(($decimal - $horas) * 60);
+    return sprintf("%02d:%02d", $horas, $minutos);
+}
+
+function calcularDiferencaMinutos($horaInicial, $horaFinal)
+{
+    if (!$horaInicial || !$horaFinal)
+        return 0;
+    list($hi, $mi) = explode(':', $horaInicial);
+    list($hf, $mf) = explode(':', $horaFinal);
+    return ($hf * 60 + $mf) - ($hi * 60 + $mi);
+}
+
+function calcularHorasTrabalhadas($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal)
+{
+    if (!$entrada || !$saidaFinal)
+        return 0;
+
+    $totalMinutos = 0;
+
+    if ($saidaIntervalo) {
+        $totalMinutos += calcularDiferencaMinutos($entrada, $saidaIntervalo);
+    }
+
+    if ($retornoIntervalo) {
+        $totalMinutos += calcularDiferencaMinutos($retornoIntervalo, $saidaFinal);
     } else {
-        $d['minLiquidaPend'] = $p - $e;
-        $d['minLiquidaExtra'] = 0;
+        $totalMinutos = calcularDiferencaMinutos($entrada, $saidaFinal);
     }
-    $d['horas_trabalhadas'] = minutesToHM($d['minTrabalhados']);
-    $d['hora_extra_liquida'] = minutesToHM($d['minLiquidaExtra']);
-    $d['horas_pendentes_liquida'] = minutesToHM($d['minLiquidaPend']);
+
+    return $totalMinutos / 60;
 }
-unset($d);
+
+function mesPortugues($mes)
+{
+    $meses = [
+        1 => 'Janeiro',
+        2 => 'Fevereiro',
+        3 => 'Março',
+        4 => 'Abril',
+        5 => 'Maio',
+        6 => 'Junho',
+        7 => 'Julho',
+        8 => 'Agosto',
+        9 => 'Setembro',
+        10 => 'Outubro',
+        11 => 'Novembro',
+        12 => 'Dezembro'
+    ];
+    return $meses[$mes] ?? '';
+}
+
+function calcularHorasNoturnas($entrada, $saida)
+{
+    if (!$entrada || !$saida)
+        return 0;
+
+    $entradaTs = strtotime($entrada);
+    $saidaTs = strtotime($saida);
+
+    if ($saidaTs < $entradaTs) {
+        $saidaTs += 86400;
+    }
+
+    $inicioNoturno = strtotime('22:00:00');
+    $fimNoturno = strtotime('05:00:00') + 86400;
+
+    $segundosNoturnos = 0;
+
+    if ($saidaTs <= $inicioNoturno || $entradaTs >= $fimNoturno) {
+        return 0;
+    }
+
+    $inicioTrabalhado = max($entradaTs, $inicioNoturno);
+    $fimTrabalhado = min($saidaTs, $fimNoturno);
+
+    if ($inicioTrabalhado < $fimTrabalhado) {
+        $segundosNoturnos = $fimTrabalhado - $inicioTrabalhado;
+    }
+
+    $horasNoturnas = ($segundosNoturnos / 3600) * (60 / 52.5);
+
+    return round($horasNoturnas, 2);
+}
+
+function calcularTotalHorasNoturnas($pontos)
+{
+    $totalHorasNoturnas = 0;
+
+    foreach ($pontos as $ponto) {
+        if ($ponto['entrada'] && $ponto['saida_final']) {
+            $horasNoturnas = calcularHorasNoturnas(
+                $ponto['entrada'],
+                $ponto['saida_final']
+            );
+            $totalHorasNoturnas += $horasNoturnas;
+        }
+    }
+
+    return $totalHorasNoturnas;
+}
+
+function calcularCargaHorariaDia($ponto, $funcionario)
+{
+    if (!$ponto['entrada'] || !$ponto['saida_final'])
+        return '--:--';
+
+    $entrada = $funcionario['entrada'] ?: '00:00';
+    $saida = $funcionario['saida_final'] ?: '00:00';
+
+    $minutosEsperados = calcularDiferencaMinutos($entrada, $saida);
+
+    if ($ponto['saida_intervalo'] && $ponto['retorno_intervalo']) {
+        $minutosEsperados -= calcularDiferencaMinutos(
+            $ponto['saida_intervalo'],
+            $ponto['retorno_intervalo']
+        );
+    }
+
+    return formatarHoraDecimal($minutosEsperados / 60);
+}
+
+// Buscar CNPJ da empresa
+try {
+    $sqlCnpj = "SELECT cnpj FROM endereco_empresa WHERE empresa_id = :id_selecionado LIMIT 1";
+    $stmtCnpj = $pdo->prepare($sqlCnpj);
+    $stmtCnpj->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmtCnpj->execute();
+    $resultadoCnpj = $stmtCnpj->fetch(PDO::FETCH_ASSOC);
+    $cnpjEmpresa = $resultadoCnpj['cnpj'] ?? 'CNPJ não cadastrado';
+} catch (PDOException $e) {
+    $cnpjEmpresa = 'Erro ao buscar CNPJ';
+}
+
+// Buscar dados do relatório
+try {
+    $cpf = $_GET['cpf'] ?? die('CPF não fornecido');
+    $cpfLimpo = limparCPF($cpf);
+
+    if (strlen($cpfLimpo) != 11)
+        die('CPF inválido');
+
+    $mes = $_GET['mes'] ?? die('Mês não fornecido');
+    $ano = $_GET['ano'] ?? date('Y');
+
+    if (!is_numeric($mes) || $mes < 1 || $mes > 12)
+        die('Mês inválido');
+    if (!is_numeric($ano) || strlen($ano) != 4)
+        die('Ano inválido');
+
+    // Buscar funcionário
+    $stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = ?");
+    $stmt->execute([$cpfLimpo]);
+    $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$funcionario)
+        die('Funcionário não encontrado');
+
+    // Buscar setor
+    $stmt = $pdo->prepare("SELECT * FROM setores WHERE nome = ?");
+    $stmt->execute([$funcionario['setor']]);
+    $setor = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Buscar pontos
+    $stmt = $pdo->prepare("SELECT * FROM pontos 
+                          WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = ? 
+                          AND MONTH(data) = ? 
+                          AND YEAR(data) = ?
+                          ORDER BY data DESC");
+    $stmt->execute([$cpfLimpo, $mes, $ano]);
+    $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Calcular estatísticas
+    $estatisticas = [
+        'totalDias' => count($pontos),
+        'diasTrabalhados' => 0,
+        'horasTrabalhadas' => 0,
+        'horasExtras' => 0,
+        'horasPendentes' => 0,
+        'atrasos' => 0,
+        'saidasAntecipadas' => 0,
+        'horasDevidas' => 0,
+        'horasExcedentes' => 0,
+        'horasNoturnas' => 0
+    ];
+
+    // Calcular horas noturnas para cada dia
+    foreach ($pontos as &$ponto) {
+        if ($ponto['entrada'] && $ponto['saida_final']) {
+            $ponto['horas_noturnas'] = calcularHorasNoturnas(
+                $ponto['entrada'],
+                $ponto['saida_final']
+            );
+            $estatisticas['horasNoturnas'] += $ponto['horas_noturnas'];
+        } else {
+            $ponto['horas_noturnas'] = 0;
+        }
+    }
+    unset($ponto);
+
+    foreach ($pontos as $ponto) {
+        if ($ponto['entrada'] && $ponto['saida_final']) {
+            $estatisticas['diasTrabalhados']++;
+
+            $horasDia = calcularHorasTrabalhadas(
+                $ponto['entrada'],
+                $ponto['saida_intervalo'],
+                $ponto['retorno_intervalo'],
+                $ponto['saida_final']
+            );
+            $estatisticas['horasTrabalhadas'] += $horasDia;
+
+            if ($funcionario['entrada'] && $ponto['entrada'] > $funcionario['entrada']) {
+                $estatisticas['atrasos']++;
+                $estatisticas['horasDevidas'] += calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']) / 60;
+            }
+
+            if ($funcionario['saida_final'] && $ponto['saida_final'] < $funcionario['saida_final']) {
+                $estatisticas['saidasAntecipadas']++;
+                $estatisticas['horasDevidas'] += calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']) / 60;
+            }
+        }
+
+        if ($ponto['hora_extra']) {
+            $estatisticas['horasExtras'] += converterHoraParaDecimal($ponto['hora_extra']);
+            $estatisticas['horasExcedentes'] += converterHoraParaDecimal($ponto['hora_extra']);
+        }
+
+        if ($ponto['horas_pendentes']) {
+            $estatisticas['horasPendentes'] += converterHoraParaDecimal($ponto['horas_pendentes']);
+            $estatisticas['horasDevidas'] += converterHoraParaDecimal($ponto['horas_pendentes']);
+        }
+    }
+
+    if ($estatisticas['diasTrabalhados'] > 0) {
+        $estatisticas['mediaDiaria'] = $estatisticas['horasTrabalhadas'] / $estatisticas['diasTrabalhados'];
+    } else {
+        $estatisticas['mediaDiaria'] = 0;
+    }
+
+    $nomeMes = mesPortugues($mes);
+
+} catch (PDOException $e) {
+    die("Erro ao gerar relatório: " . $e->getMessage());
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -272,7 +459,7 @@ unset($d);
         }
 
         .header-info p {
-            margin: 4px 0;
+            margin: 2px 0;
             display: flex;
         }
 
@@ -384,6 +571,11 @@ unset($d);
             font-weight: bold;
             border-bottom: 1px solid #ddd !important;
             box-shadow: none !important;
+        }
+
+        .card-body p {
+            margin: -3px !important;
+
         }
 
         /* Responsividade para telas menores */
@@ -606,18 +798,25 @@ unset($d);
             }
         }
     </style>
+    <!-- /Page CSS -->
+
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
 
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
     <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="../../assets/js/config.js"></script>
+
 </head>
 
 <body>
+
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
+
+        <!-- layout-container -->
         <div class="layout-container">
+
             <!-- Menu -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
@@ -727,8 +926,7 @@ unset($d);
                                 </a>
                             </li>
                             <li class="menu-item ">
-                                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
+                                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
                                 </a>
                             </li>
@@ -736,6 +934,11 @@ unset($d);
                                 <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Individual</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
                                 </a>
                             </li>
                         </ul>
@@ -802,8 +1005,9 @@ unset($d);
             </aside>
             <!-- / Menu -->
 
-            <!-- Layout container -->
+            <!-- layout-page -->
             <div class="layout-page">
+
                 <!-- Navbar -->
                 <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
@@ -834,6 +1038,7 @@ unset($d);
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
+
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li>
                                         <a class="dropdown-item" href="#">
@@ -880,6 +1085,7 @@ unset($d);
                             </li>
                             <!--/ User -->
                         </ul>
+
                     </div>
                 </nav>
 
@@ -891,441 +1097,286 @@ unset($d);
                             do Funcionário</span></h5>
 
                     <div class="card mt-3">
+
                         <div class="card-body bdy">
+
                             <div class="btn-group-responsive d-flex flex-wrap gap-2 mb-3">
                                 <button onclick="window.print()" class="btn btn-primary print-button flex-grow-1">
                                     <i class="bx bx-printer me-1"></i> Imprimir Relatório
                                 </button>
-                              
 
-<button type="button" class="btn btn-primary color-blue print-button flex-grow-1" onclick="enviarPorEmail()">
-    <i class="bx bx-mail-send me-1"></i> Enviar por E-mail
-</button>
+
+                                <button type="button" class="btn btn-primary color-blue print-button flex-grow-1"
+                                    onclick="enviarPorEmail()">
+                                    <i class="bx bx-mail-send me-1"></i> Enviar por E-mail
+                                </button>
                             </div>
-                            <?php
-                            $host = 'localhost';
-                            $dbname = 'u920914488_ERP';
-                            $username = 'u920914488_ERP';
-                            $password = 'N8r=$&Wrs$';
 
-                          
-                            function limparCPF($cpf)
-                            {
-                                return preg_replace('/[^0-9]/', '', $cpf);
-                            }
+                            <div id="tabela-frequencia" class="report-body">
+                                <div class="report-container">
+                                    <h1 class="report-title">RELATÓRIO ESPELHO PONTO -
+                                        <?= strtoupper($nomeMes) ?>/<?= $ano ?></h1>
 
-                            function formatarData($dataString)
-                            {
-                                if (!$dataString) return '--/--/----';
-                                return date('d/m/Y', strtotime($dataString));
-                            }
-
-                            function formatarCPF($cpf)
-                            {
-                                if (empty($cpf)) {
-                                    return '';
-                                }
-                             
-                                $cpfLimpo = limparCPF($cpf);
-                                if (strlen($cpfLimpo) === 11) {
-                                    return substr($cpfLimpo, 0, 3) . '.' . substr($cpfLimpo, 3, 3) . '.' . substr($cpfLimpo, 6, 3) . '-' . substr($cpfLimpo, 9, 2);
-                                }
-                                return $cpf;
-                            }
-
-                            function formatarTelefone($telefone)
-                            {
-                                if (!$telefone) return '';
-                                if (strlen($telefone) === 11) {
-                                    return '(' . substr($telefone, 0, 2) . ') ' . substr($telefone, 2, 5) . '-' . substr($telefone, 7);
-                                }
-                                return '(' . substr($telefone, 0, 2) . ') ' . substr($telefone, 2, 4) . '-' . substr($telefone, 6);
-                            }
-
-                            function capitalize($str)
-                            {
-                                if (!$str) return '';
-                                return ucfirst($str);
-                            }
-
-                            function converterHoraParaDecimal($horaString)
-                            {
-                                if (!$horaString) return 0;
-                                list($hours, $minutes) = explode(':', $horaString);
-                                return $hours + $minutes / 60;
-                            }
-
-                            function formatarHoraDecimal($decimal)
-                            {
-                                $horas = floor($decimal);
-                                $minutos = round(($decimal - $horas) * 60);
-                                return sprintf("%02d:%02d", $horas, $minutos);
-                            }
-
-                            function calcularDiferencaMinutos($horaInicial, $horaFinal)
-                            {
-                                list($hi, $mi) = explode(':', $horaInicial);
-                                list($hf, $mf) = explode(':', $horaFinal);
-                                return ($hf * 60 + $mf) - ($hi * 60 + $mi);
-                            }
-
-                            function mesPortugues($mes)
-                            {
-                                $meses = [
-                                    1 => 'Janeiro',
-                                    2 => 'Fevereiro',
-                                    3 => 'Março',
-                                    4 => 'Abril',
-                                    5 => 'Maio',
-                                    6 => 'Junho',
-                                    7 => 'Julho',
-                                    8 => 'Agosto',
-                                    9 => 'Setembro',
-                                    10 => 'Outubro',
-                                    11 => 'Novembro',
-                                    12 => 'Dezembro'
-                                ];
-                                return $meses[$mes] ?? '';
-                            }
-
-
-                            try {
-                                $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-                                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-                                // Recebe e valida o CPF da URL (aceita formatado ou não)
-                                $cpf = $_GET['cpf'] ?? die('CPF não fornecido');
-                                $cpfLimpo = limparCPF($cpf);
-
-                                if (strlen($cpfLimpo) != 11) {
-                                    die('CPF inválido');
-                                }
-
-                                $mes = $_GET['mes'] ?? die('Mês não fornecido');
-                                $ano = $_GET['ano'] ?? date('Y');
-
-                                if (!is_numeric($mes) || $mes < 1 || $mes > 12) {
-                                    die('Mês inválido (deve ser entre 1 e 12)');
-                                }
-
-                                if (!is_numeric($ano) || strlen($ano) != 4) {
-                                    die('Ano inválido');
-                                }
-
-                                // Consulta funcionários comparando CPFs limpos
-                                $stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = ?");
-                                $stmt->execute([$cpfLimpo]);
-                                $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                                if (!$funcionario) {
-                                    die('Funcionário não encontrado');
-                                }
-
-                                // Consulta setores (mantida original)
-                                $stmt = $pdo->prepare("SELECT * FROM setores WHERE nome = ?");
-                                $stmt->execute([$funcionario['setor']]);
-                                $setor = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                                // Consulta pontos comparando CPFs limpos
-                                $stmt = $pdo->prepare("SELECT * FROM pontos 
-                          WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = ? 
-                          AND MONTH(data) = ? 
-                          AND YEAR(data) = ?
-                          ORDER BY data DESC");
-                                $stmt->execute([$cpfLimpo, $mes, $ano]);
-                                $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                                $estatisticas = [
-                                    'totalDias' => count($pontos),
-                                    'diasTrabalhados' => 0,
-                                    'horasTrabalhadas' => 0,
-                                    'horasExtras' => 0,
-                                    'horasPendentes' => 0,
-                                    'atrasos' => 0,
-                                    'saidasAntecipadas' => 0,
-                                    'horasDevidas' => 0,
-                                    'horasExcedentes' => 0
-                                ];
-
-                                foreach ($pontos as $ponto) {
-                                    if ($ponto['entrada'] && $ponto['saida_final']) {
-                                        $estatisticas['diasTrabalhados']++;
-
-                                        if ($ponto['total_horas']) {
-                                            $estatisticas['horasTrabalhadas'] += converterHoraParaDecimal($ponto['total_horas']);
-                                        }
-
-                                        if ($funcionario['entrada'] && $ponto['entrada'] > $funcionario['entrada']) {
-                                            $estatisticas['atrasos']++;
-                                            $estatisticas['horasDevidas'] += calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']) / 60;
-                                        }
-
-                                        if ($funcionario['saida_final'] && $ponto['saida_final'] < $funcionario['saida_final']) {
-                                            $estatisticas['saidasAntecipadas']++;
-                                            $estatisticas['horasDevidas'] += calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']) / 60;
-                                        }
-                                    }
-
-                                    if ($ponto['hora_extra']) {
-                                        $estatisticas['horasExtras'] += converterHoraParaDecimal($ponto['hora_extra']);
-                                        $estatisticas['horasExcedentes'] += converterHoraParaDecimal($ponto['hora_extra']);
-                                    }
-
-                                    if ($ponto['horas_pendentes']) {
-                                        $estatisticas['horasPendentes'] += converterHoraParaDecimal($ponto['horas_pendentes']);
-                                        $estatisticas['horasDevidas'] += converterHoraParaDecimal($ponto['horas_pendentes']);
-                                    }
-                                }
-
-                                if ($estatisticas['diasTrabalhados'] > 0) {
-                                    $estatisticas['mediaDiaria'] = $estatisticas['horasTrabalhadas'] / $estatisticas['diasTrabalhados'];
-                                } else {
-                                    $estatisticas['mediaDiaria'] = 0;
-                                }
-
-                                $nomeMes = mesPortugues($mes);
-                            ?>
-                                <div id="tabela-frequencia" class="report-body">
-                                    <div class="report-container">
-                                        <h1 class="report-title">RELATÓRIO ESPELHO PONTO - <?= strtoupper($nomeMes) ?>/<?= $ano ?></h1>
-                                        </h1>
-
-                                        <div class="row mb-4">
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-user me-2"></i> Dados Pessoais</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Nome:</strong> <?= htmlspecialchars($funcionario['nome']) ?></p>
-                                                        <p><strong>CPF:</strong> <?= formatarCPF($funcionario['cpf']) ?></p>
-                                                        <p><strong>RG:</strong> <?= htmlspecialchars($funcionario['rg']) ?></p>
-                                                        <p><strong>Data Nasc.:</strong> <?= formatarData($funcionario['data_nascimento']) ?></p>
-                                                        <p><strong>Endereço:</strong> <?= htmlspecialchars($funcionario['endereco']) ?>, <?= htmlspecialchars($funcionario['cidade']) ?></p>
-                                                        <p><strong>Telefone:</strong> <?= formatarTelefone($funcionario['telefone']) ?></p>
-                                                        <p><strong>E-mail:</strong> <?= htmlspecialchars($funcionario['email']) ?></p>
-                                                    </div>
+                                    <div class="row mb-4">
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-header"><i class="bx bx-user me-2"></i> Dados Pessoais
                                                 </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-building me-2"></i> Dados Empresariais</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Empresa:</strong> <?= htmlspecialchars($setor['id_selecionado'] ?? 'Não informado') ?></p>
-                                                        <p><strong>Setor:</strong> <?= htmlspecialchars($funcionario['setor']) ?></p>
-                                                        <p><strong>Gerente:</strong> <?= htmlspecialchars($setor['gerente'] ?? 'Não informado') ?></p>
-                                                        <p><strong>Código:</strong> <?= htmlspecialchars($funcionario['empresa_id']) ?></p>
-                                                        <p><strong>Data Admissão:</strong> <?= formatarData($funcionario['criado_em']) ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-time me-2"></i> Informações de Trabalho</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Cargo:</strong> <?= htmlspecialchars($funcionario['cargo']) ?></p>
-                                                        <p><strong>Salário:</strong> R$ <?= number_format($funcionario['salario'], 2, ',', '.') ?></p>
-                                                        <p><strong>Escala:</strong> <?= htmlspecialchars($funcionario['escala']) ?></p>
-                                                        <p><strong>Dia Início:</strong> <?= capitalize(htmlspecialchars($funcionario['dia_inicio'])) ?></p>
-                                                        <p><strong>Dia Folga:</strong> <?= capitalize(htmlspecialchars($funcionario['dia_folga'])) ?></p>
-                                                        <p><strong>Horário:</strong> <?= htmlspecialchars($funcionario['entrada']) ?> às <?= htmlspecialchars($funcionario['saida_final']) ?></p>
-                                                    </div>
+                                                <div class="card-body">
+                                                    <p><strong>Nome:</strong>
+                                                        <?= htmlspecialchars($funcionario['nome']) ?></p>
+                                                    <p><strong>CPF:</strong> <?= formatarCPF($funcionario['cpf']) ?></p>
+                                                    <p><strong>Empresa:</strong> N R DOS SANTPS ACAINHA.</p>
+                                                    <p><strong>Matricula:</strong>
+                                                        <?= htmlspecialchars($funcionario['matricula'] ?? 'Não informado') ?>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="table-responsive">
-                                            <table class="report-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Data</th>
-                                                        <th>Entrada</th>
-                                                        <th>Saída Int.</th>
-                                                        <th>Entrada Int.</th>
-                                                        <th>Saída</th>
-                                                        <th>Trab</th>
-                                                        <th>Carga Horária</th>
-                                                        <th>Ocorrências</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($pontos as $ponto):
-                                                        $ocorrencias = [];
-                                                        if ($funcionario['entrada'] && $ponto['entrada'] > $funcionario['entrada']) {
-                                                            $ocorrencias[] = 'Atraso';
-                                                        }
-                                                        if ($funcionario['saida_final'] && $ponto['saida_final'] < $funcionario['saida_final']) {
-                                                            $ocorrencias[] = 'Saída Antecip.';
-                                                        }
-                                                        if (!$ponto['entrada'] || !$ponto['saida_final']) {
-                                                            $ocorrencias[] = 'Dia Incompleto';
-                                                        }
-                                                    ?>
-                                                        <tr>
-                                                            <td><?= formatarData($ponto['data']) ?></td>
-                                                            <td><?= $ponto['entrada'] ? htmlspecialchars($ponto['entrada']) : '--:--' ?></td>
-                                                            <td><?= $ponto['saida_intervalo'] ? htmlspecialchars($ponto['saida_intervalo']) : '--:--' ?></td>
-                                                            <td><?= $ponto['retorno_intervalo'] ? htmlspecialchars($ponto['retorno_intervalo']) : '--:--' ?></td>
-                                                            <td><?= $ponto['saida_final'] ? htmlspecialchars($ponto['saida_final']) : '--:--' ?></td>
-                                                            <td><?= $ponto['total_horas'] ? htmlspecialchars($ponto['total_horas']) : '--:--' ?></td>
-                                                            <td><?= calcularCargaHorariaDia($ponto, $funcionario) ?></td>
-                                                            <td><?= $ocorrencias ? implode(', ', $ocorrencias) : 'Normal' ?></td>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        <div class="row mb-4">
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-time me-2"></i> Carga Horária</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Total Dias:</strong> <?= $estatisticas['totalDias'] ?></p>
-                                                        <p><strong>Dias Trabalhados:</strong> <?= $estatisticas['diasTrabalhados'] ?></p>
-                                                        <p><strong>Horas Trabalhadas:</strong> <?= formatarHoraDecimal($estatisticas['horasTrabalhadas']) ?></p>
-                                                        <p><strong>Média Diária:</strong> <?= formatarHoraDecimal($estatisticas['mediaDiaria']) ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-minus-circle me-2"></i> Débito</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Horas Devidas:</strong> <?= formatarHoraDecimal($estatisticas['horasDevidas']) ?></p>
-                                                        <p><strong>Atrasos:</strong> <?= $estatisticas['atrasos'] ?></p>
-                                                        <p><strong>Saídas Antecip.:</strong> <?= $estatisticas['saidasAntecipadas'] ?></p>
-                                                        <p><strong>Dias Incompletos:</strong> <?= $estatisticas['totalDias'] - $estatisticas['diasTrabalhados'] ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-plus-circle me-2"></i> Crédito</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Horas Extras:</strong> <?= formatarHoraDecimal($estatisticas['horasExtras']) ?></p>
-                                                        <p><strong>Horas Excedentes:</strong> <?= formatarHoraDecimal($estatisticas['horasExcedentes']) ?></p>
-                                                    </div>
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-header"><i class="bx bx-building me-2"></i> Dados
+                                                    Empresariais</div>
+                                                <div class="card-body">
+                                                    <p><strong>PIS:</strong>
+                                                        <?= htmlspecialchars($funcionario['pis'] ?? 'Não informado') ?>
+                                                    </p>
+                                                    <p><strong>CNPJ:</strong> <?= htmlspecialchars($cnpjEmpresa) ?></p>
+                                                    <p><strong>Departamento:</strong>
+                                                        <?= htmlspecialchars($funcionario['setor']) ?></p>
+                                                    <p><strong>Cargo:</strong>
+                                                        <?= htmlspecialchars($funcionario['cargo'] ?? 'Não informado') ?>
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div class="signatures">
-                                            <div class="signature-box">Empregador</div>
-                                            <div class="signature-box">Responsável</div>
-                                            <div class="signature-box">Empregado(a)</div>
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-header"><i class="bx bx-time me-2"></i> Informações de
+                                                    Trabalho</div>
+                                                <div class="card-body">
+                                                    <p><strong>Horário:</strong> DIARIA</p>
+                                                    <p><strong>Data Admissão:</strong>
+                                                        <?= formatarData($funcionario['data_admissao']) ?></p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+
+                                    <div class="table-responsive">
+                                        <table class="report-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Data</th>
+                                                    <th>Entrada</th>
+                                                    <th>Saída Int.</th>
+                                                    <th>Entrada Int.</th>
+                                                    <th>Saída</th>
+                                                    <th>Trab</th>
+                                                    <th>Carga Horária</th>
+                                                    <th>Horas Noturnas</th>
+                                                    <th>Ocorrências</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($pontos as $ponto):
+                                                    $ocorrencias = [];
+                                                    if ($funcionario['entrada'] && $ponto['entrada'] > $funcionario['entrada']) {
+                                                        $ocorrencias[] = 'Atraso';
+                                                    }
+                                                    if ($funcionario['saida_final'] && $ponto['saida_final'] < $funcionario['saida_final']) {
+                                                        $ocorrencias[] = 'Saída Antecip.';
+                                                    }
+                                                    if (!$ponto['entrada'] || !$ponto['saida_final']) {
+                                                        $ocorrencias[] = 'Dia Incompleto';
+                                                    }
+                                                    ?>
+                                                    <tr>
+                                                        <td><?= formatarData($ponto['data']) ?></td>
+                                                        <td><?= $ponto['entrada'] ? date('H:i', strtotime($ponto['entrada'])) : '--:--' ?>
+                                                        </td>
+                                                        <td><?= $ponto['saida_intervalo'] ? date('H:i', strtotime($ponto['saida_intervalo'])) : '--:--' ?>
+                                                        </td>
+                                                        <td><?= $ponto['retorno_intervalo'] ? date('H:i', strtotime($ponto['retorno_intervalo'])) : '--:--' ?>
+                                                        </td>
+                                                        <td><?= $ponto['saida_final'] ? date('H:i', strtotime($ponto['saida_final'])) : '--:--' ?>
+                                                        </td>
+                                                        <td>
+                                                            <?php
+                                                            if ($ponto['entrada'] && $ponto['saida_final']) {
+                                                                $horasDia = calcularHorasTrabalhadas(
+                                                                    $ponto['entrada'],
+                                                                    $ponto['saida_intervalo'],
+                                                                    $ponto['retorno_intervalo'],
+                                                                    $ponto['saida_final']
+                                                                );
+                                                                echo formatarHoraDecimal($horasDia);
+                                                            } else {
+                                                                echo '0';
+                                                            }
+                                                            ?>
+                                                        </td>
+                                                        <td><?= calcularCargaHorariaDia($ponto, $funcionario) ?></td>
+                                                        <td><?= formatarHoraDecimal($ponto['horas_noturnas']) ?></td>
+                                                        <td><?= $ocorrencias ? implode(', ', $ocorrencias) : 'Normal' ?>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="row mb-4">
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-header"><i class="bx bx-time me-2"></i> Carga Horária
+                                                </div>
+                                                <div class="card-body">
+                                                    <p><strong>Total Dias:</strong> <?= $estatisticas['totalDias'] ?>
+                                                    </p>
+                                                    <p><strong>Dias Trabalhados:</strong>
+                                                        <?= $estatisticas['diasTrabalhados'] ?></p>
+                                                    <p><strong>Horas Trabalhadas:</strong>
+                                                        <?= formatarHoraDecimal($estatisticas['horasTrabalhadas']) ?>
+                                                    </p>
+                                                    <p><strong>Média Diária:</strong>
+                                                        <?= formatarHoraDecimal($estatisticas['mediaDiaria']) ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-header"><i class="bx bx-minus-circle me-2"></i> Débito
+                                                </div>
+                                                <div class="card-body">
+                                                    <p><strong>Horas Devidas:</strong>
+                                                        <?= formatarHoraDecimal($estatisticas['horasDevidas']) ?></p>
+                                                    <p><strong>Atrasos:</strong> <?= $estatisticas['atrasos'] ?></p>
+                                                    <p><strong>Saídas Antecip.:</strong>
+                                                        <?= $estatisticas['saidasAntecipadas'] ?></p>
+                                                    <p><strong>Dias Incompletos:</strong>
+                                                        <?= $estatisticas['totalDias'] - $estatisticas['diasTrabalhados'] ?>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-4 mb-3">
+                                            <div class="card h-100">
+                                                <div class="card-header"><i class="bx bx-plus-circle me-2"></i> Crédito
+                                                </div>
+                                                <div class="card-body">
+                                                    <p><strong>Horas Extras:</strong>
+                                                        <?= formatarHoraDecimal($estatisticas['horasExtras']) ?></p>
+                                                    <p><strong>Horas Excedentes:</strong>
+                                                        <?= formatarHoraDecimal($estatisticas['horasExcedentes']) ?></p>
+                                                    <p><strong>Adicional Noturno:</strong>
+                                                        <?= formatarHoraDecimal($estatisticas['horasNoturnas']) ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="signatures">
+                                        <div class="signature-box">Empregador</div>
+                                        <div class="signature-box">Responsável</div>
+                                        <div class="signature-box">Empregado(a)</div>
+                                    </div>
                                 </div>
-                                <script>
-    function enviarPorEmail() {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+                            </div>
 
-        // ✅ Altere este seletor para o ID ou classe da sua tabela!
-        const tabela = document.querySelector("#tabela-frequencia"); 
+                        </div>
 
-        if (!tabela) {
-            alert("Erro: Tabela não encontrada. Verifique o seletor no código.");
-            return;
+                    </div>
+
+                </div>
+
+            </div>
+            <!-- /layout-page -->
+
+        </div>
+        <!-- /layout-container -->
+
+    </div>
+    <!-- /Layout wrapper -->
+
+    <script>
+        function enviarPorEmail() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // ✅ Altere este seletor para o ID ou classe da sua tabela!
+            const tabela = document.querySelector("#tabela-frequencia");
+
+            if (!tabela) {
+                alert("Erro: Tabela não encontrada. Verifique o seletor no código.");
+                return;
+            }
+
+            html2canvas(tabela).then((canvas) => {
+                const imgData = canvas.toDataURL("image/png");
+                const imgWidth = doc.internal.pageSize.getWidth() - 20;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                doc.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+                const pdfBlob = doc.output("blob");
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+
+                const link = document.createElement("a");
+                link.href = pdfUrl;
+                link.download = `<?= htmlspecialchars($funcionario['nome'] ?? 'relatorio') ?>_frequencia.pdf`;
+                link.click();
+
+                const destinatario = "<?= htmlspecialchars($funcionario['email'] ?? 'email@padrao.com') ?>";
+                const assunto = "Relatório de Frequência";
+                const corpo = "Segue em anexo o relatório de frequência em PDF.";
+
+                window.open(
+                    `https://mail.google.com/mail/?view=cm&to=${destinatario}&su=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`,
+                    "_blank"
+                );
+
+                alert("PDF gerado! Verifique seu download e anexe-o ao e-mail.");
+            });
         }
+    </script>
 
-        html2canvas(tabela).then((canvas) => {
-            const imgData = canvas.toDataURL("image/png");
-            const imgWidth = doc.internal.pageSize.getWidth() - 20;
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-            doc.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
-            const pdfBlob = doc.output("blob");
-            const pdfUrl = URL.createObjectURL(pdfBlob);
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-            const link = document.createElement("a");
-            link.href = pdfUrl;
-            link.download = `<?= htmlspecialchars($funcionario['nome'] ?? 'relatorio') ?>_frequencia.pdf`;
-            link.click();
+    <!-- build:js assets/vendor/js/core.js -->
+    <script src="../../js/saudacao.js"></script>
+    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+    <script src="../../assets/vendor/libs/popper/popper.js"></script>
+    <script src="../../assets/vendor/js/bootstrap.js"></script>
+    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 
-            const destinatario = "<?= htmlspecialchars($funcionario['email'] ?? 'email@padrao.com') ?>";
-            const assunto = "Relatório de Frequência";
-            const corpo = "Segue em anexo o relatório de frequência em PDF.";
+    <script src="../../assets/vendor/js/menu.js"></script>
+    <!-- endbuild -->
 
-            window.open(
-                `https://mail.google.com/mail/?view=cm&to=${destinatario}&su=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`,
-                "_blank"
-            );
+    <!-- Vendors JS -->
+    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
-            alert("PDF gerado! Verifique seu download e anexe-o ao e-mail.");
-        });
-    }
-</script>
+    <!-- Main JS -->
+    <script src="../../assets/js/main.js"></script>
 
-<button type="button" class="btn btn-primary" onclick="enviarPorEmail()">
-    <i class="bx bx-mail-send me-1"></i> Enviar por E-mail
-</button>
+    <!-- Page JS -->
+    <script src="../../assets/js/dashboards-analytics.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
-<!-- Botão para acionar a função -->
-<button type="button" class="btn btn-primary color-blue print-button flex-grow-1" onclick="enviarPorEmail()">
-    <i class="bx bx-mail-send me-1"></i> Enviar por E-mail
-</button>               <?php
+    <script>
+        // Adiciona a data atual no rodapé
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR');
 
-                            } catch (PDOException $e) {
-                                die('<div class="alert alert-danger">Erro no banco de dados: ' . htmlspecialchars($e->getMessage()) . '</div>');
-                            }
+        // Configuração para impressão em PDF
+        document.title = "Relatório Espelho Ponto - Naiara Kaliane";
+    </script>
 
-                            function calcularCargaHorariaDia($ponto, $funcionario)
-                            {
-                                if (!$ponto['entrada'] || !$ponto['saida_final']) return '--:--';
-
-                                if (!$ponto['saida_intervalo'] || !$ponto['retorno_intervalo']) {
-                                    return htmlspecialchars($funcionario['saida_final']);
-                                }
-
-                                $entrada = strtotime($ponto['entrada']);
-                                $saida = strtotime($ponto['saida_final']);
-                                $intervaloInicio = strtotime($ponto['saida_intervalo']);
-                                $intervaloFim = strtotime($ponto['retorno_intervalo']);
-
-                                $manha = ($intervaloInicio - $entrada) / 3600;
-                                $tarde = ($saida - $intervaloFim) / 3600;
-                                $totalHoras = $manha + $tarde;
-
-                                $horas = floor($totalHoras);
-                                $minutos = round(($totalHoras - $horas) * 60);
-                                return sprintf("%02d:%02d", $horas, $minutos);
-                            }
-                            ?>
-
-                            <!-- Bootstrap JS -->
-                            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-                            <!-- build:js assets/vendor/js/core.js -->
-                            <script src="../../js/saudacao.js"></script>
-                            <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-                            <script src="../../assets/vendor/libs/popper/popper.js"></script>
-                            <script src="../../assets/vendor/js/bootstrap.js"></script>
-                            <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
-                            <script src="../../assets/vendor/js/menu.js"></script>
-                            <!-- endbuild -->
-
-                            <!-- Vendors JS -->
-                            <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-                            <!-- Main JS -->
-                            <script src="../../assets/js/main.js"></script>
-
-                            <!-- Page JS -->
-                            <script src="../../assets/js/dashboards-analytics.js"></script>
-                            <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-                            <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-
-                            <script>
-                                // Adiciona a data atual no rodapé
-                                document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR');
-
-                                // Configuração para impressão em PDF
-                                document.title = "Relatório Espelho Ponto - Naara Kaliane";
-                            </script>
 </body>
 
 </html>

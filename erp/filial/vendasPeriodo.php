@@ -55,7 +55,7 @@
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
             <span class="app-brand-text demo menu-text fw-bolder ms-2"
-              style=" text-transform: capitalize;">Açaínhadinhos</span>
+              style="text-transform: capitalize;">Açaínhadinhos</span>
 
           </a>
 

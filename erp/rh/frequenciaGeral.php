@@ -119,7 +119,7 @@ foreach ($registros as $r) {
         $i0 = array_search($r['dia_inicio'], $sem);
         $i1 = array_search($r['dia_folga'], $sem);
         $perm = [];
-        for ($i = $i0;; $i = ($i + 1) % 7) {
+        for ($i = $i0; ; $i = ($i + 1) % 7) {
             $perm[] = $sem[$i];
             if ($i === $i1)
                 break;
@@ -194,6 +194,7 @@ foreach ($dadosAgrupados as &$d) {
     $d['horas_pendentes_liquida'] = minutesToHM($d['minLiquidaPend']);
 }
 unset($d);
+
 ?>
 
 
@@ -357,14 +358,12 @@ unset($d);
                                 </a>
                             </li>
                             <li class="menu-item ">
-                                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
+                                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
                                 </a>
                             </li>
                             <li class="menu-item active ">
-                                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
+                                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
                                 </a>
                             </li>
@@ -518,276 +517,284 @@ unset($d);
                         </ul>
                     </div>
                 </nav>
-              
+
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de
                                 Ponto</a>/</span>Frequência Geral</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize as Frequências
                             dos Funcionários</span></h5>
-<div class="card mt-3">
-    <h5 class="card-header">Frequências Mensais</h5>
-    <div class="table-responsive text-nowrap">
-       <?php
+                    <div class="card mt-3">
+                        <h5 class="card-header">Frequências Mensais</h5>
+                        <div class="table-responsive text-nowrap">
+                            <?php
 
-$mesesPortugues = [
-    1 => 'Janeiro',
-    2 => 'Fevereiro',
-    3 => 'Março',
-    4 => 'Abril',
-    5 => 'Maio',
-    6 => 'Junho',
-    7 => 'Julho',
-    8 => 'Agosto',
-    9 => 'Setembro',
-    10 => 'Outubro',
-    11 => 'Novembro',
-    12 => 'Dezembro'
-];
+                            $mesesPortugues = [
+                                1 => 'Janeiro',
+                                2 => 'Fevereiro',
+                                3 => 'Março',
+                                4 => 'Abril',
+                                5 => 'Maio',
+                                6 => 'Junho',
+                                7 => 'Julho',
+                                8 => 'Agosto',
+                                9 => 'Setembro',
+                                10 => 'Outubro',
+                                11 => 'Novembro',
+                                12 => 'Dezembro'
+                            ];
 
-try {
-    if (empty($idSelecionado)) {
-        throw new Exception("Nenhuma empresa selecionada");
-    }
-
-  
-    $sql = "SELECT 
-                YEAR(p.data) as ano, 
-                MONTH(p.data) as mes_numero
-            FROM pontos p
-            WHERE p.empresa_id = :empresa_id
-            GROUP BY YEAR(p.data), MONTH(p.data)
-            ORDER BY ano DESC, mes_numero DESC";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-
-    if ($stmt->rowCount() > 0) {
-        echo '<table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Ano</th>
-                        <th>Mês</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tabelaBancoHoras">';
-        
-        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $mes_nome = $mesesPortugues[$row['mes_numero']] ?? 'Mês desconhecido';
-            
-            echo "<tr>
-                    <td>".htmlspecialchars($row['ano'])."</td>
-                    <td>".htmlspecialchars($mes_nome)."</td>
-                    <td>
-                        <a href='listaFrequenciaGeralpdf.php?id=".urlencode($idSelecionado).
-                          "&ano=".urlencode($row['ano']).
-                          "&mes=".urlencode($row['mes_numero']).
-                          "' class='btn-view'><i class='fas fa-eye'></i></a>
-                        <a href='#' class='btn-enviar-email' 
-                          data-bs-toggle='modal' 
-                          data-bs-target='#enviarEmailModal'
-                          data-ano='".htmlspecialchars($row['ano'])."'
-                          data-mes='".htmlspecialchars($row['mes_numero'])."'>
-                          <i class='fas fa-envelope'></i>
-                        </a>
-                    </td>
-                  </tr>";
-        }
-        
-        echo '</tbody>
-              </table>
-              <div class="d-flex gap-2 m-3">
-                  <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
-                  <div id="paginacaoHoras" class="d-flex gap-1"></div>
-                  <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
-              </div>';
-    } else {
-        echo '<div class="alert alert-danger m-3" role="alert">
-                Nenhum registro de pontos encontrado para esta empresa.
-              </div>';
-    }
-
-} catch (Exception $e) {
-    echo '<div class="alert alert-danger m-3" role="alert">
-            Erro: '.htmlspecialchars($e->getMessage()).'
-          </div>';
-}
-?>
-</div>
+                            try {
+                                if (empty($idSelecionado)) {
+                                    throw new Exception("Nenhuma empresa selecionada");
+                                }
 
 
-<div class="modal fade" id="enviarEmailModal" tabindex="-1" aria-labelledby="enviarEmailModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="enviar_email_frequencia.php" method="POST">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="enviarEmailModalLabel">Enviar Frequência por E-mail</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="funcionario_id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" id="modalAno" name="ano">
-                    <input type="hidden" id="modalMes" name="mes">
-                    
-                    <div class="mb-3">
-                        <label for="emailDestino" class="form-label">E-mail do Destinatário</label>
-                        <input type="email" class="form-control" id="emailDestino" name="email_destino" placeholder="exemplo@email.com" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="mensagemEmail" class="form-label">Mensagem</label>
-                        <textarea class="form-control" id="mensagemEmail" name="mensagem" rows="4" placeholder="Digite uma mensagem opcional..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Enviar</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+                                $sql = "SELECT 
+                                            YEAR(p.data) as ano, 
+                                            MONTH(p.data) as mes_numero
+                                        FROM pontos p
+                                        WHERE p.empresa_id = :empresa_id
+                                        GROUP BY YEAR(p.data), MONTH(p.data)
+                                        ORDER BY ano DESC, mes_numero DESC";
 
-                    <script>
-                        document.addEventListener('DOMContentLoaded', function() {
+                                $stmt = $pdo->prepare($sql);
+                                $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+                                $stmt->execute();
 
-                            const tableBody = document.getElementById('tabelaBancoHoras');
-                            if (tableBody) {
+                                if ($stmt->rowCount() > 0) {
+                                    echo '<table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Ano</th>
+                                            <th>Mês</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tabelaBancoHoras">';
 
-                                let currentPage = 1;
-                                const rowsPerPage = 10;
-                                const rows = tableBody.querySelectorAll('tr');
-                                const pageCount = Math.ceil(rows.length / rowsPerPage);
+                                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                        $mes_nome = $mesesPortugues[$row['mes_numero']] ?? 'Mês desconhecido';
 
-                                function updatePagination() {
-                                    const pagination = document.getElementById('paginacaoHoras');
-                                    pagination.innerHTML = '';
+                                        echo "<tr>
+                                                <td>" . htmlspecialchars($row['ano']) . "</td>
+                                                <td>" . htmlspecialchars($mes_nome) . "</td>
+                                                <td>
+                                                    <a href='listaFrequenciaGeralpdf.php?id=" . urlencode($idSelecionado) .
+                                                                        "&ano=" . urlencode($row['ano']) .
+                                                                        "&mes=" . urlencode($row['mes_numero']) .
+                                                                        "' class='btn-view'><i class='fas fa-eye'></i></a>&nbsp; |
+                                                    &nbsp;<a href='#' class='btn-enviar-email' 
+                                                    data-bs-toggle='modal' 
+                                                    data-bs-target='#enviarEmailModal'
+                                                    data-ano='" . htmlspecialchars($row['ano']) . "'
+                                                    data-mes='" . htmlspecialchars($row['mes_numero']) . "'>
+                                                    <i class='fas fa-envelope'></i>
+                                                    </a>
+                                                </td>
+                                            </tr>";
+                                    }
 
-                                    for (let i = 1; i <= pageCount; i++) {
-                                        const btn = document.createElement('button');
-                                        btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
-                                        btn.textContent = i;
-                                        btn.onclick = () => {
-                                            currentPage = i;
+                                    echo '</tbody>
+                                            </table>
+                                            <div class="d-flex gap-2 m-3">
+                                                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+                                                <div id="paginacaoHoras" class="d-flex gap-1"></div>
+                                                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
+                                            </div>';
+                                                                } else {
+                                                                    echo '<div class="alert alert-danger m-3" role="alert">
+                                                Nenhum registro de pontos encontrado para esta empresa.
+                                            </div>';
+                                }
+
+                            } catch (Exception $e) {
+                                echo '<div class="alert alert-danger m-3" role="alert">
+                                        Erro: ' . htmlspecialchars($e->getMessage()) . '
+                                    </div>';
+                            }
+                            ?>
+                        </div>
+
+
+                        <div class="modal fade" id="enviarEmailModal" tabindex="-1"
+                            aria-labelledby="enviarEmailModalLabel" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form action="enviar_email_frequencia.php" method="POST">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="enviarEmailModalLabel">Enviar Frequência por
+                                                E-mail</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                aria-label="Fechar"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <input type="hidden" name="funcionario_id"
+                                                value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" id="modalAno" name="ano">
+                                            <input type="hidden" id="modalMes" name="mes">
+
+                                            <div class="mb-3">
+                                                <label for="emailDestino" class="form-label">E-mail do
+                                                    Destinatário</label>
+                                                <input type="email" class="form-control" id="emailDestino"
+                                                    name="email_destino" placeholder="exemplo@email.com" required>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="mensagemEmail" class="form-label">Mensagem</label>
+                                                <textarea class="form-control" id="mensagemEmail" name="mensagem"
+                                                    rows="4" placeholder="Digite uma mensagem opcional..."></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-primary">Enviar</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <script>
+                            document.addEventListener('DOMContentLoaded', function () {
+
+                                const tableBody = document.getElementById('tabelaBancoHoras');
+                                if (tableBody) {
+
+                                    let currentPage = 1;
+                                    const rowsPerPage = 10;
+                                    const rows = tableBody.querySelectorAll('tr');
+                                    const pageCount = Math.ceil(rows.length / rowsPerPage);
+
+                                    function updatePagination() {
+                                        const pagination = document.getElementById('paginacaoHoras');
+                                        pagination.innerHTML = '';
+
+                                        for (let i = 1; i <= pageCount; i++) {
+                                            const btn = document.createElement('button');
+                                            btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
+                                            btn.textContent = i;
+                                            btn.onclick = () => {
+                                                currentPage = i;
+                                                updateTable();
+                                                updatePagination();
+                                            };
+                                            pagination.appendChild(btn);
+                                        }
+                                    }
+
+                                    function updateTable() {
+                                        const start = (currentPage - 1) * rowsPerPage;
+                                        const end = start + rowsPerPage;
+
+                                        rows.forEach((row, index) => {
+                                            row.style.display = (index >= start && index < end) ? '' : 'none';
+                                        });
+                                    }
+
+                                    document.getElementById('prevPageHoras').onclick = () => {
+                                        if (currentPage > 1) {
+                                            currentPage--;
                                             updateTable();
                                             updatePagination();
-                                        };
-                                        pagination.appendChild(btn);
-                                    }
+                                        }
+                                    };
+
+                                    document.getElementById('nextPageHoras').onclick = () => {
+                                        if (currentPage < pageCount) {
+                                            currentPage++;
+                                            updateTable();
+                                            updatePagination();
+                                        }
+                                    };
+
+
+                                    updateTable();
+                                    updatePagination();
                                 }
 
-                                function updateTable() {
-                                    const start = (currentPage - 1) * rowsPerPage;
-                                    const end = start + rowsPerPage;
 
-                                    rows.forEach((row, index) => {
-                                        row.style.display = (index >= start && index < end) ? '' : 'none';
+                                document.querySelectorAll('.btn-enviar-email').forEach(btn => {
+                                    btn.addEventListener('click', function () {
+                                        const ano = this.getAttribute('data-ano');
+                                        const mes = this.getAttribute('data-mes');
+
+                                        document.getElementById('modalAno').value = ano;
+                                        document.getElementById('modalMes').value = mes;
                                     });
-                                }
-
-                                document.getElementById('prevPageHoras').onclick = () => {
-                                    if (currentPage > 1) {
-                                        currentPage--;
-                                        updateTable();
-                                        updatePagination();
-                                    }
-                                };
-
-                                document.getElementById('nextPageHoras').onclick = () => {
-                                    if (currentPage < pageCount) {
-                                        currentPage++;
-                                        updateTable();
-                                        updatePagination();
-                                    }
-                                };
-
-
-                                updateTable();
-                                updatePagination();
-                            }
-
-
-                            document.querySelectorAll('.btn-enviar-email').forEach(btn => {
-                                btn.addEventListener('click', function() {
-                                    const ano = this.getAttribute('data-ano');
-                                    const mes = this.getAttribute('data-mes');
-
-                                    document.getElementById('modalAno').value = ano;
-                                    document.getElementById('modalMes').value = mes;
                                 });
                             });
-                        });
-                    </script>
+                        </script>
 
 
 
-                    <script>
-                        const searchInput = document.getElementById('searchInput');
-                        const allRows = Array.from(document.querySelectorAll('#tabelaBancoHoras tbody tr'));
-                        const prevBtn = document.getElementById('prevPageHoras');
-                        const nextBtn = document.getElementById('nextPageHoras');
-                        const pageContainer = document.getElementById('paginacaoHoras');
-                        const perPage = 10;
-                        let currentPage = 1;
+                        <script>
+                            const searchInput = document.getElementById('searchInput');
+                            const allRows = Array.from(document.querySelectorAll('#tabelaBancoHoras tbody tr'));
+                            const prevBtn = document.getElementById('prevPageHoras');
+                            const nextBtn = document.getElementById('nextPageHoras');
+                            const pageContainer = document.getElementById('paginacaoHoras');
+                            const perPage = 10;
+                            let currentPage = 1;
 
-                        function renderTable() {
-                            const filter = searchInput.value.trim().toLowerCase();
-                            const filteredRows = allRows.filter(row => {
-                                if (!filter) return true;
-                                return Array.from(row.cells).some(td =>
-                                    td.textContent.toLowerCase().includes(filter)
-                                );
+                            function renderTable() {
+                                const filter = searchInput.value.trim().toLowerCase();
+                                const filteredRows = allRows.filter(row => {
+                                    if (!filter) return true;
+                                    return Array.from(row.cells).some(td =>
+                                        td.textContent.toLowerCase().includes(filter)
+                                    );
+                                });
+
+                                const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
+                                currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+                                // Hide all, then show slice
+                                allRows.forEach(r => r.style.display = 'none');
+                                filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
+                                    .forEach(r => r.style.display = '');
+
+                                // Render page buttons
+                                pageContainer.innerHTML = '';
+                                for (let i = 1; i <= totalPages; i++) {
+                                    const btn = document.createElement('button');
+                                    btn.textContent = i;
+                                    btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                                    btn.style.marginRight = '4px';
+                                    btn.onclick = () => {
+                                        currentPage = i;
+                                        renderTable();
+                                    };
+                                    pageContainer.appendChild(btn);
+                                }
+
+                                prevBtn.disabled = currentPage === 1;
+                                nextBtn.disabled = currentPage === totalPages;
+                            }
+
+                            prevBtn.addEventListener('click', () => {
+                                if (currentPage > 1) {
+                                    currentPage--;
+                                    renderTable();
+                                }
+                            });
+                            nextBtn.addEventListener('click', () => {
+                                currentPage++;
+                                renderTable();
+                            });
+                            searchInput.addEventListener('input', () => {
+                                currentPage = 1;
+                                renderTable();
                             });
 
-                            const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
-                            currentPage = Math.min(Math.max(1, currentPage), totalPages);
+                            document.addEventListener('DOMContentLoaded', renderTable);
+                        </script>
 
-                            // Hide all, then show slice
-                            allRows.forEach(r => r.style.display = 'none');
-                            filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
-                                .forEach(r => r.style.display = '');
-
-                            // Render page buttons
-                            pageContainer.innerHTML = '';
-                            for (let i = 1; i <= totalPages; i++) {
-                                const btn = document.createElement('button');
-                                btn.textContent = i;
-                                btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-                                btn.style.marginRight = '4px';
-                                btn.onclick = () => {
-                                    currentPage = i;
-                                    renderTable();
-                                };
-                                pageContainer.appendChild(btn);
-                            }
-
-                            prevBtn.disabled = currentPage === 1;
-                            nextBtn.disabled = currentPage === totalPages;
-                        }
-
-                        prevBtn.addEventListener('click', () => {
-                            if (currentPage > 1) {
-                                currentPage--;
-                                renderTable();
-                            }
-                        });
-                        nextBtn.addEventListener('click', () => {
-                            currentPage++;
-                            renderTable();
-                        });
-                        searchInput.addEventListener('input', () => {
-                            currentPage = 1;
-                            renderTable();
-                        });
-
-                        document.addEventListener('DOMContentLoaded', renderTable);
-                    </script>
-
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
     </div>
 
 

@@ -154,7 +154,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -177,6 +178,31 @@ try {
           <!-- SEÇÃO ADMINISTRATIVO -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Administrativo</span>
+          </li>
+
+          <!-- SUBMENU: SEFAZ -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-file"></i>
+              <div data-i18n="Authentications">SEFAZ</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">NFC-e</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./sefazSAT.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">SAT</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Consulta</div>
+                </a>
+              </li>
+            </ul>
           </li>
 
           <!-- SUBMENU: CAIXA -->
@@ -353,7 +379,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -408,7 +435,8 @@ try {
 
         <!-- Content -->
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Caixas Abertos</h4>
+          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Caixas
+            Abertos</h4>
           <div class="card">
             <h5 class="card-header">Lista de Caixa Abertos</h5>
             <div class="table-responsive text-nowrap">

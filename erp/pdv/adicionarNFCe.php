@@ -168,13 +168,13 @@ try {
                     </li>
 
                     <!-- SUBMENU: SEFAZ -->
-                    <li class="menu-item">
+                    <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-file"></i>
                             <div data-i18n="Authentications">SEFAZ</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">NFC-e</div>
                                 </a>
@@ -214,7 +214,7 @@ try {
                         </ul>
                     </li>
                     <!-- ESTOQUE COM SUBMENU -->
-                    <li class="menu-item active open">
+                    <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Basic">Estoque</div>
@@ -227,7 +227,7 @@ try {
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Adicionar Produto </div>
                                 </a>
@@ -435,82 +435,318 @@ try {
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;"><a
                                 href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>">PDV</a></span>/Adicionar
-                        Produto</h4>
+                        Integração</h4>
 
                     <!-- / Content -->
                     <div class="card">
-                        <h5 class="card-header">Adicionar Produto</h5>
+                        <h5 class="card-header">Configuração da Integração NFC-e</h5>
                         <div class="card-body">
-                            <form id="addContaForm" action="../../assets/php/pdv/adicionarEstoque.php" method="POST">
 
-                                <!-- Campo oculto para passar o idSelecionado -->
-                                <input type="text" name="idSelecionado"
-                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
+                            <form action="../../assets/php/pdv/adicionarIntegracaoNFCe.php" method="POST" id="formIntegracaoNfce">
+
+                                <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                 <div class="row">
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="codigo_produto" class="form-label">Código do Produto</label>
-                                        <input type="text" class="form-control" id="codigo_produto"
-                                            name="codigo_produto" placeholder="Ex: AC500" required />
+                                    <!-- Dados da Empresa -->
+                                    <div class="mb-3 col-md-6">
+                                        <label for="cnpj">CNPJ da Empresa</label>
+                                        <input type="text" class="form-control" name="cnpj" id="cnpj" required
+                                            placeholder="00.000.000/0001-00" oninput="formatarCNPJ(this)">
+                                        <div class="invalid-feedback">Por favor, insira um CNPJ válido.</div>
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="nome_produto" class="form-label">Nome do Produto</label>
-                                        <input type="text" class="form-control" id="nome_produto" name="nome_produto"
-                                            placeholder="Informe o nome do Produto" required />
+                                    <div class="mb-3 col-md-6">
+                                        <label for="razao_social">Razão Social</label>
+                                        <input type="text" class="form-control" name="razao_social" id="razao_social"
+                                            required maxlength="60">
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="categoria_produto" class="form-label">Categoria</label>
-                                        <input type="text" class="form-control" id="categoria_produto"
-                                            name="categoria_produto" placeholder="Informe a categoria" required />
+                                    <div class="mb-3 col-md-6">
+                                        <label for="nome_fantasia">Nome Fantasia</label>
+                                        <input type="text" class="form-control" name="nome_fantasia" id="nome_fantasia"
+                                            required maxlength="60">
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="quantidade_produto" class="form-label">Quantidade</label>
-                                        <input type="number" class="form-control" id="quantidade_produto"
-                                            name="quantidade_produto" placeholder="Ex: 500" required />
+                                    <div class="mb-3 col-md-6">
+                                        <label for="inscricao_estadual">Inscrição Estadual</label>
+                                        <input type="text" class="form-control" name="inscricao_estadual" id="inscricao_estadual"
+                                            required>
+                                        <div class="invalid-feedback">Inscrição Estadual é obrigatória.</div>
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="preco_produto" class="form-label">Preço Unitário</label>
-                                        <input type="text" class="form-control" id="preco_produto" name="preco_produto"
-                                            placeholder="Ex: R$ 10,00" required />
+                                    <!-- Endereço -->
+                                    <div class="mb-3 col-md-6">
+                                        <label for="cep">CEP</label>
+                                        <input type="text" class="form-control" name="cep" id="cep" required
+                                            placeholder="00000-000" oninput="formatarCEP(this)">
+                                        <div class="invalid-feedback">CEP inválido.</div>
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="status_produto" class="form-label">Status</label>
-                                        <select class="form-select" id="status_produto" name="status_produto" required>
-                                            <option value=""></option>
-                                            <option value="estoque_alto">Estoque Alto</option>
-                                            <option value="estoque_baixo">Estoque Baixo</option>
+                                    <div class="mb-3 col-md-6">
+                                        <label for="logradouro">Logradouro</label>
+                                        <input type="text" class="form-control" name="logradouro" id="logradouro"
+                                            required>
+                                    </div>
+
+                                    <div class="mb-3 col-md-4">
+                                        <label for="numero_endereco">Número</label>
+                                        <input type="text" class="form-control" name="numero_endereco" id="numero_endereco"
+                                            required>
+                                    </div>
+
+                                    <div class="mb-3 col-md-4">
+                                        <label for="complemento">Complemento</label>
+                                        <input type="text" class="form-control" name="complemento" id="complemento">
+                                    </div>
+
+                                    <div class="mb-3 col-md-4">
+                                        <label for="bairro">Bairro</label>
+                                        <input type="text" class="form-control" name="bairro" id="bairro" required>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="cidade">Cidade</label>
+                                        <input type="text" class="form-control" name="cidade" id="cidade" required>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="uf">UF</label>
+                                        <select name="uf" id="uf" class="form-select" required>
+                                            <option value="">Selecione</option>
+                                            <option value="AC">AC</option>
+                                            <option value="AL">AL</option>
+                                            <option value="AP">AP</option>
+                                            <option value="AM">AM</option>
+                                            <option value="BA">BA</option>
+                                            <option value="CE">CE</option>
+                                            <option value="DF">DF</option>
+                                            <option value="ES">ES</option>
+                                            <option value="GO">GO</option>
+                                            <option value="MA">MA</option>
+                                            <option value="MT">MT</option>
+                                            <option value="MS">MS</option>
+                                            <option value="MG">MG</option>
+                                            <option value="PA">PA</option>
+                                            <option value="PB">PB</option>
+                                            <option value="PR">PR</option>
+                                            <option value="PE">PE</option>
+                                            <option value="PI">PI</option>
+                                            <option value="RJ">RJ</option>
+                                            <option value="RN">RN</option>
+                                            <option value="RS">RS</option>
+                                            <option value="RO">RO</option>
+                                            <option value="RR">RR</option>
+                                            <option value="SC">SC</option>
+                                            <option value="SP">SP</option>
+                                            <option value="SE">SE</option>
+                                            <option value="TO">TO</option>
                                         </select>
                                     </div>
 
-                                    <div class="d-flex custom-button">
-                                        <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar
-                                            Produto</button>
+                                    <!-- Configurações NFC-e -->
+                                    <div class="mb-3 col-md-6">
+                                        <label for="token_api">Token da API (Focus, TecnoSpeed, etc.)</label>
+                                        <input type="password" class="form-control" name="token_api" id="token_api"
+                                            required>
+                                        <small class="text-muted">Mantenha este token em segredo.</small>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="certificado_digital">Certificado Digital (arquivo .pfx)</label>
+                                        <input type="file" class="form-control" name="certificado_digital" id="certificado_digital"
+                                            accept=".pfx">
+                                        <small class="text-muted">Necessário para emissão direta com a SEFAZ.</small>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="senha_certificado">Senha do Certificado Digital</label>
+                                        <input type="password" class="form-control" name="senha_certificado" id="senha_certificado">
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="ambiente">Ambiente</label>
+                                        <select name="ambiente" id="ambiente" class="form-select" required>
+                                            <option value="">Selecione</option>
+                                            <option value="1">Produção</option>
+                                            <option value="2">Homologação</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="serie">Série da Nota</label>
+                                        <input type="number" class="form-control" name="serie" id="serie" value="1"
+                                            required min="1" max="999">
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="numero">Número Inicial da Nota</label>
+                                        <input type="number" class="form-control" name="numero" id="numero" value="1"
+                                            required min="1">
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="regime_tributario">Regime Tributário</label>
+                                        <select name="regime_tributario" id="regime_tributario" class="form-select"
+                                            required>
+                                            <option value="">Selecione</option>
+                                            <option value="1">Simples Nacional</option>
+                                            <option value="2">Simples Nacional - excesso sublimite</option>
+                                            <option value="3">Regime Normal</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="csc">Código de Segurança do Contribuinte (CSC)</label>
+                                        <input type="text" class="form-control" name="csc" id="csc">
+                                        <small class="text-muted">Obrigatório para geração do QR Code.</small>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="id_token">ID do Token</label>
+                                        <input type="text" class="form-control" name="id_token" id="id_token">
+                                        <small class="text-muted">Identificador do CSC (normalmente 000001).</small>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="timeout">Timeout da Conexão (segundos)</label>
+                                        <input type="number" class="form-control" name="timeout" id="timeout" value="30"
+                                            min="10" max="120">
+                                    </div>
+
+                                    <!-- Configurações Avançadas -->
+                                    <div class="mb-3 col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="contingencia" id="contingencia">
+                                            <label class="form-check-label" for="contingencia">
+                                                Ativar modo contingência automático
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3 col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="salvar_xml" id="salvar_xml" checked>
+                                            <label class="form-check-label" for="salvar_xml">
+                                                Salvar XMLs localmente
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3 col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="envio_email" id="envio_email">
+                                            <label class="form-check-label" for="envio_email">
+                                                Enviar NFC-e por e-mail automaticamente
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3 col-12">
+                                        <button type="submit" class="btn btn-primary w-100" id="btnSalvarConfig">Salvar Configuração</button>
                                     </div>
                                 </div>
                             </form>
+
+                            <script>
+                                // Funções de formatação e validação
+                                function formatarCNPJ(input) {
+                                    let value = input.value.replace(/\D/g, '');
+
+                                    if (value.length > 14) {
+                                        value = value.substring(0, 14);
+                                    }
+
+                                    if (value.length > 12) {
+                                        value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+                                    } else if (value.length > 8) {
+                                        value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/, '$1.$2.$3/$4');
+                                    } else if (value.length > 5) {
+                                        value = value.replace(/^(\d{2})(\d{3})(\d{3})/, '$1.$2.$3');
+                                    } else if (value.length > 2) {
+                                        value = value.replace(/^(\d{2})(\d{3})/, '$1.$2');
+                                    }
+
+                                    input.value = value;
+                                }
+
+                                function formatarCEP(input) {
+                                    let value = input.value.replace(/\D/g, '');
+
+                                    if (value.length > 8) {
+                                        value = value.substring(0, 8);
+                                    }
+
+                                    if (value.length > 5) {
+                                        value = value.replace(/^(\d{5})(\d{3})/, '$1-$2');
+                                    }
+
+                                    input.value = value;
+
+                                    // Buscar endereço se CEP estiver completo
+                                    if (value.length === 9) {
+                                        buscarEnderecoPorCEP(value);
+                                    }
+                                }
+
+                                function buscarEnderecoPorCEP(cep) {
+                                    // Remover máscara
+                                    cep = cep.replace(/\D/g, '');
+
+                                    if (cep.length !== 8) return;
+
+                                    fetch(`https://viacep.com.br/ws/${cep}/json/`)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (!data.erro) {
+                                                document.getElementById('logradouro').value = data.logradouro || '';
+                                                document.getElementById('bairro').value = data.bairro || '';
+                                                document.getElementById('cidade').value = data.localidade || '';
+                                                document.getElementById('uf').value = data.uf || '';
+                                                document.getElementById('complemento').value = data.complemento || '';
+                                            } else {
+                                                alert('CEP não encontrado!');
+                                            }
+                                        })
+                                        .catch(error => {
+                                            console.error('Erro ao buscar CEP:', error);
+                                        });
+                                }
+
+                                // Validação do formulário
+                                document.getElementById('formIntegracaoNfce').addEventListener('submit', function(event) {
+                                    let isValid = true;
+
+                                    // Validar CNPJ
+                                    const cnpj = document.getElementById('cnpj').value.replace(/\D/g, '');
+                                    if (cnpj.length !== 14) {
+                                        document.getElementById('cnpj').classList.add('is-invalid');
+                                        isValid = false;
+                                    } else {
+                                        document.getElementById('cnpj').classList.remove('is-invalid');
+                                    }
+
+                                    // Validar CEP
+                                    const cep = document.getElementById('cep').value.replace(/\D/g, '');
+                                    if (cep.length !== 8) {
+                                        document.getElementById('cep').classList.add('is-invalid');
+                                        isValid = false;
+                                    } else {
+                                        document.getElementById('cep').classList.remove('is-invalid');
+                                    }
+
+                                    if (!isValid) {
+                                        event.preventDefault();
+                                        alert('Por favor, corrija os campos destacados antes de enviar.');
+                                    } else {
+                                        document.getElementById('btnSalvarConfig').disabled = true;
+                                        document.getElementById('btnSalvarConfig').innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...';
+                                    }
+                                });
+                            </script>
+
                         </div>
                     </div>
                 </div>
-                <!-- Footer -->
-                <footer class="content-footer footer bg-footer-theme text-center">
-                    <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-                        <div class="mb-2 mb-md-0">
-                            &copy;
-                            <script>
-                                document.write(new Date().getFullYear());
-                            </script>
-                            , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por <strong>CodeGeek</strong>.
-                        </div>
-                    </div>
-                </footer>
-
-                <!-- / Footer -->
 
             </div>
             <!-- Content wrapper -->

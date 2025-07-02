@@ -26,7 +26,6 @@ if (str_starts_with($idSelecionado, 'principal_')) {
         exit;
     }
     $id = 1;
-    $tipoEmpresa = 'principal';
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
     $idFilial = (int) str_replace('filial_', '', $idSelecionado);
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
@@ -37,7 +36,6 @@ if (str_starts_with($idSelecionado, 'principal_')) {
         exit;
     }
     $id = $idFilial;
-    $tipoEmpresa = 'filial';
 } else {
     echo "<script>
         alert('Empresa não identificada!');
@@ -81,47 +79,7 @@ try {
     $nivelUsuario = 'Erro ao carregar nível';
 }
 
-$solicitacoes = [];
-
-try {
-    // Modificado para incluir JOIN com produtos_estoque
-    $sql = "SELECT sp.*, pe.nome_produto 
-            FROM solicitacoes_produtos sp
-            LEFT JOIN produtos_estoque pe ON sp.produto_id = pe.id
-            WHERE sp.empresa_destino = :empresa_destino 
-            ORDER BY sp.data_solicitacao DESC";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':empresa_destino', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-    $solicitacoes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    echo "Erro ao buscar solicitações: " . $e->getMessage();
-}
-
-// Funções auxiliares
-function formatarData($data)
-{
-    return date('d/m/Y', strtotime($data));
-}
-
-function getBadgeClass($status)
-{
-    switch ($status) {
-        case 'pendente':
-            return 'bg-label-warning';
-        case 'aprovada':
-            return 'bg-label-success';
-        case 'recusada':
-            return 'bg-label-danger';
-        case 'entregue':
-            return 'bg-label-info';
-        default:
-            return 'bg-label-secondary';
-    }
-}
-
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
@@ -183,10 +141,15 @@ function getBadgeClass($status)
                             <div data-i18n="B2B">B2B - Filial</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
                                     <div>Produtos Solicitados</div>
+                                </a>
+                            </li>
+                            <li class="menu-item active">
+                                <a href="#" class="menu-link">
+                                    <div>Solicitar Produtos</div>
                                 </a>
                             </li>
                             <li class="menu-item">
@@ -391,144 +354,93 @@ function getBadgeClass($status)
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="./produtosSolicitados.php">B2B</a>/</span> Produtos
-                        Solicitados
+                        <span class="text-muted fw-light"><a
+                                href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>">B2B</a>/</span>
+                        Solicitar Produto
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Visualize e gerencie as Solicitações de Produtos das
-                            Filiais</span>
+                        <span class="text-muted fw-light">Selecione um produto da Matriz e informe a quantidade
+                            desejada</span>
                     </h5>
 
-                    <!-- Tabela com botão para abrir a modal -->
                     <div class="card">
-                        <h5 class="card-header">Pedidos de Estoque da Matriz</h5>
-                        <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Produto</th>
-                                        <th>Quantidade Solicitada</th>
-                                        <th>Data do Pedido</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-border-bottom-0">
-                                    <?php if (empty($solicitacoes)): ?>
-                                        <tr>
-                                            <td colspan="6" class="text-center">Nenhuma solicitação encontrada</td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($solicitacoes as $solicitacao): ?>
-                                            <tr>
-                                                <td><?= htmlspecialchars($solicitacao['nome_produto'] ?? 'Produto não encontrado') ?>
-                                                </td>
-                                                </td>
-                                                <td><?= htmlspecialchars($solicitacao['quantidade']) ?> unidades</td>
-                                                <td><?= formatarData($solicitacao['data_solicitacao']) ?></td>
-                                                <td>
-                                                    <span class="badge <?= getBadgeClass($solicitacao['status']) ?>">
-                                                        <?= ucfirst($solicitacao['status']) ?>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <!-- Botão para abrir a modal -->
-                                                    <button class="btn btn-link text-info p-0" title="Visualizar Solicitação"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#visualizarSolicitacaoModal<?= $solicitacao['id'] ?>">
-                                                        <i class="tf-icons bx bx-show"></i>
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
+                        <div class="card-body">
+
+                            <form method="post" action="../../assets/php/matriz/adicionarSolicitacaoProduto.php">
+
+                                <input type="hidden" name="id_selecionado"
+                                    value="<?= htmlspecialchars($idSelecionado); ?>">
+
+                                <div class="mb-3">
+                                    <label for="empresa_origem" class="form-label">Solicitar da Empresa</label>
+                                    <select class="form-select" id="empresa_origem" name="empresa_origem" required>
+                                        <option value="">Selecione a empresa</option>
+                                        <?php
+                                        // Busca a empresa principal (id_selecionado = 'principal_1')
+                                        try {
+                                            $sqlEmpresa = "SELECT id_selecionado, nome_empresa FROM sobre_empresa WHERE id_selecionado = 'principal_1' LIMIT 1";
+                                            $stmtEmpresa = $pdo->prepare($sqlEmpresa);
+                                            $stmtEmpresa->execute();
+                                            $empresa = $stmtEmpresa->fetch(PDO::FETCH_ASSOC);
+                                            if ($empresa) {
+                                                $idSelecionadoEmpresa = htmlspecialchars($empresa['id_selecionado']);
+                                                $nomeEmpresa = htmlspecialchars($empresa['nome_empresa']);
+                                                echo "<option value=\"$idSelecionadoEmpresa\">$nomeEmpresa</option>";
+                                            }
+                                        } catch (PDOException $e) {
+                                            echo '<option disabled>Erro ao carregar empresa</option>';
+                                        }
+                                        ?>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="produto" class="form-label">Produto disponível</label>
+                                    <select class="form-select" id="produto" name="produto" required>
+                                        <option value="">Selecione o produto</option>
+                                        <?php
+                                            try {
+                                                $sql = "SELECT id, nome_produto, quantidade_produto 
+                                                        FROM produtos_estoque 
+                                                        WHERE empresa_id = :empresa_id";
+                                                $empresaPrincipal = 'principal_1';
+                                                $stmt = $pdo->prepare($sql);
+                                                $stmt->bindParam(':empresa_id', $empresaPrincipal, PDO::PARAM_STR);
+                                                $stmt->execute();
+                                                $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                                                if ($produtos) {
+                                                    foreach ($produtos as $produto) {
+                                                        $nome = htmlspecialchars($produto['nome_produto']);
+                                                        $quantidade = htmlspecialchars($produto['quantidade_produto']);
+                                                        $idProduto = (int) $produto['id'];
+                                                        echo "<option value=\"$idProduto\">$nome (Disponível: $quantidade)</option>";
+                                                    }
+                                                }
+                                            } catch (PDOException $e) {
+                                                echo '<option disabled>Erro ao carregar produtos</option>';
+                                            }
+                                        ?>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="quantidade" class="form-label">Quantidade desejada</label>
+                                    <input type="number" class="form-control" id="quantidade" name="quantidade" min="1"
+                                        required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="justificativa" class="form-label">Justificativa da solicitação</label>
+                                    <textarea class="form-control" id="justificativa" name="justificativa" rows="3"
+                                        required placeholder="Descreva o motivo da solicitação"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary col-md-12">Solicitar Produto</button>
+                            </form>
+
                         </div>
                     </div>
-
-                    <!-- Modais para visualizar as solicitações de produto -->
-                    <?php if (!empty($solicitacoes)): ?>
-                        <?php foreach ($solicitacoes as $solicitacao): ?>
-                            <div class="modal fade" id="visualizarSolicitacaoModal<?= $solicitacao['id'] ?>" tabindex="-1"
-                                aria-labelledby="visualizarSolicitacaoModalLabel<?= $solicitacao['id'] ?>" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered modal-lg">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title"
-                                                id="visualizarSolicitacaoModalLabel<?= $solicitacao['id'] ?>">
-                                                Detalhes da Solicitação #<?= $solicitacao['id'] ?>
-                                            </h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                aria-label="Fechar"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <div class="row g-3">
-                                                <div class="col-12 col-md-12">
-                                                    <p><strong>Produto Solicitado:</strong>
-                                                        <?= htmlspecialchars($solicitacao['nome_produto'] ?? 'Produto não encontrado') ?>
-                                                    </p>
-                                                </div>
-                                                <div class="col-12 col-md-6">
-                                                    <p><strong>Quantidade Solicitada:</strong>
-                                                        <?= htmlspecialchars($solicitacao['quantidade']) ?> unidades
-                                                    </p>
-                                                </div>
-                                                <div class="col-12 col-md-6">
-                                                    <p><strong>Data do Pedido:</strong>
-                                                        <?= date('d/m/Y', strtotime($solicitacao['data_solicitacao'])) ?>
-                                                    </p>
-                                                </div>
-                                                <div class="col-12">
-                                                    <p><strong>Justificativa do Pedido:</strong>
-                                                        <span style="display: inline-block; text-align: justify; width: 100%;">
-                                                            <?= nl2br(htmlspecialchars($solicitacao['justificativa'])) ?>
-                                                        </span>
-                                                    </p>
-                                                </div>
-                                                <div class="col-12">
-                                                    <p><strong>Status:</strong>
-                                                        <span class="badge <?= getBadgeClass($solicitacao['status']) ?>">
-                                                            <?= ucfirst($solicitacao['status']) ?>
-                                                        </span>
-                                                    </p>
-                                                </div>
-                                                <?php if (!empty($solicitacao['resposta_matriz'])): ?>
-                                                    <div class="col-12">
-                                                        <p><strong>Comentário de Aprovação/Recusa:</strong>
-                                                            <span style="display: inline-block; text-align: justify; width: 100%;">
-                                                                <?= nl2br(htmlspecialchars($solicitacao['resposta_matriz'])) ?>
-                                                            </span>
-                                                        </p>
-                                                    </div>
-                                                <?php endif; ?>
-                                                <?php if (!empty($solicitacao['data_resposta'])): ?>
-                                                    <div class="col-12 col-md-6">
-                                                        <p><strong>Data da Resposta:</strong>
-                                                            <?= formatarData($solicitacao['data_resposta']) ?>
-                                                        </p>
-                                                    </div>
-                                                <?php endif; ?>
-                                            </div>
-                                            <div class="d-flex justify-content-end mt-4 gap-2">
-                                                <button type="button" class="btn btn-secondary"
-                                                    data-bs-dismiss="modal">Fechar</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-
-                    <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-                        onclick="window.location.href='./solicitarProduto.php?id=<?= urlencode($idSelecionado); ?>';"
-                        style="cursor: pointer;">
-                        <i class="tf-icons bx bx-plus me-2"></i>
-                        <span>Adicionar Solicitação</span>
-                    </div>
-
                 </div>
+
             </div>
         </div>
     </div>

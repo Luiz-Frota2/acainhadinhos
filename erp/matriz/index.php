@@ -194,7 +194,7 @@ try {
               <!-- Acompanhar status das transferências em andamento -->
               <li class="menu-item">
                 <a href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Status da Transferência</div>
+                  <div>Status da Transf.</div>
                 </a>
               </li>
 
@@ -202,6 +202,13 @@ try {
               <li class="menu-item">
                 <a href="./estoqueFilial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Estoque da Filial</div>
+                </a>
+              </li>
+
+              <!-- Solicitar pagamento de conta -->
+              <li class="menu-item">
+                <a href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Solicitar Pagamento</div>
                 </a>
               </li>
             </ul>
@@ -291,6 +298,7 @@ try {
             </a>
           </li>
           <!--/MISC-->
+          
         </ul>
       </aside>
       <!-- / Menu -->

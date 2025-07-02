@@ -1,4 +1,5 @@
 <?php
+
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
@@ -32,7 +33,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// Buscar imagem da empresa
 try {
     $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
     $stmt = $pdo->prepare($sql);
@@ -42,12 +43,12 @@ try {
 
     $logoEmpresa = !empty($empresaSobre['imagem'])
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png"; // fallback padrão
+        : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+    $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// Buscar dados do usuário logado
+// Buscar dados do usuário
 $nomeUsuario = 'Usuário';
 $nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
@@ -67,133 +68,153 @@ try {
     $nivelUsuario = 'Erro';
 }
 
-// Helpers
-function timeToMinutes($time)
+// Funções auxiliares para cálculo de horas
+function timeToSeconds($time)
 {
     if (!$time || $time === '00:00:00')
         return 0;
     list($h, $m, $s) = explode(':', $time);
-    return $h * 60 + $m + round($s / 60);
+    return $h * 3600 + $m * 60 + $s;
 }
-function minutesToHM($min)
+
+function secondsToHM($seconds)
 {
-    $h = floor($min / 60);
-    $m = $min % 60;
+    $h = floor($seconds / 3600);
+    $m = floor(($seconds % 3600) / 60);
     return sprintf('%02dh %02dm', $h, $m);
 }
 
-// Fetch registros + escala
-try {
-    $sql = "
-    SELECT 
-      p.*,
-      f.dia_inicio, f.dia_folga,
-      f.entrada   AS f_entrada,
-      f.saida_intervalo   AS f_saida_intervalo,
-      f.retorno_intervalo AS f_retorno_intervalo,
-      f.saida_final       AS f_saida_final
-    FROM pontos p
-    LEFT JOIN funcionarios f
-      ON p.cpf = f.cpf AND p.empresa_id = f.empresa_id
-    WHERE p.empresa_id = :empresa_id
-    ORDER BY p.cpf, p.data
-    ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':empresa_id', $idSelecionado);
-    $stmt->execute();
-    $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    die("Erro ao buscar registros: " . $e->getMessage());
-}
+function calcularHorasTrabalhadas($entrada, $saida_intervalo, $retorno_intervalo, $saida_final)
+{
+    $total = 0;
 
-// Agrupa por CPF|mês|ano
-$dadosAgrupados = [];
-foreach ($registros as $r) {
-    $cpf = $r['cpf'];
-    $mes = date('m', strtotime($r['data']));
-    $ano = date('Y', strtotime($r['data']));
-    $key = "$cpf|$mes|$ano";
-    if (!isset($dadosAgrupados[$key])) {
-        // calcula dias úteis
-        $sem = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-        $i0 = array_search($r['dia_inicio'], $sem);
-        $i1 = array_search($r['dia_folga'], $sem);
-        $perm = [];
-        for ($i = $i0;; $i = ($i + 1) % 7) {
-            $perm[] = $sem[$i];
-            if ($i === $i1)
-                break;
-        }
-        $dm = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
-        $du = 0;
-        for ($d = 1; $d <= $dm; $d++) {
-            $dw = strtolower(date('l', strtotime("$ano-$mes-" . str_pad($d, 2, '0', STR_PAD_LEFT))));
-            if (in_array($dw, $perm, true))
-                $du++;
-        }
-        // referencia diária
-        $refE = $r['f_entrada'] ?: $r['entrada'];
-        $refSI = $r['f_saida_intervalo'] ?: $r['saida_intervalo'];
-        $refR = $r['f_retorno_intervalo'] ?: $r['retorno_intervalo'];
-        $refS = $r['f_saida_final'] ?: $r['saida_final'];
-        $minTurno = (timeToMinutes($refS) - timeToMinutes($refE))
-            - (timeToMinutes($refR) - timeToMinutes($refSI));
-        $minDevidos = $minTurno * $du;
-        $dadosAgrupados[$key] = [
-            'nome' => $r['nome'],
-            'mes_ano' => "$mes/$ano",
-            'minTrabalhados' => 0,
-            'minPendentes' => 0,
-            'minExtras' => 0,
-            'minDevidos' => $minDevidos,
-            // escala
-            'dia_inicio' => $r['dia_inicio'],
-            'dia_folga' => $r['dia_folga'],
-            'entrada' => $refE,
-            'saida_intervalo' => $refSI,
-            'retorno_intervalo' => $refR,
-            'saida_final' => $refS,
-        ];
-    }
-    // acumula minutos trabalhados com correção para intervalos NULL
-    $m = 0;
-    $entrada = $r['entrada'];
-    $saida_intervalo = $r['saida_intervalo'];
-    $retorno_intervalo = $r['retorno_intervalo'];
-    $saida_final = $r['saida_final'];
-
-    if ($entrada && $saida_final) {
-        if ($saida_intervalo && $retorno_intervalo) {
-            // calcula dois períodos (antes e depois do intervalo)
-            $m += timeToMinutes($saida_intervalo) - timeToMinutes($entrada);
-            $m += timeToMinutes($saida_final) - timeToMinutes($retorno_intervalo);
-        } else {
-            // intervalo não registrado: calcula direto entrada até saída final
-            $m += timeToMinutes($saida_final) - timeToMinutes($entrada);
-        }
+    // Período da manhã (entrada até saída para intervalo)
+    if ($entrada && $saida_intervalo) {
+        $total += timeToSeconds($saida_intervalo) - timeToSeconds($entrada);
     }
 
-    $dadosAgrupados[$key]['minTrabalhados'] += $m;
-    $dadosAgrupados[$key]['minPendentes'] += timeToMinutes($r['horas_pendentes']);
-    $dadosAgrupados[$key]['minExtras'] += timeToMinutes($r['hora_extra']);
+    // Período da tarde (retorno do intervalo até saída final)
+    if ($retorno_intervalo && $saida_final) {
+        $total += timeToSeconds($saida_final) - timeToSeconds($retorno_intervalo);
+    }
+
+    // Se não houve intervalo registrado, calcula direto da entrada até saída final
+    if ($entrada && $saida_final && (!$saida_intervalo || !$retorno_intervalo)) {
+        $total = timeToSeconds($saida_final) - timeToSeconds($entrada);
+    }
+
+    return $total;
 }
 
-// Ajusta saldos e formata horas
-foreach ($dadosAgrupados as &$d) {
-    $p = $d['minPendentes'];
-    $e = $d['minExtras'];
-    if ($e > $p) {
-        $d['minLiquidaExtra'] = $e - $p;
-        $d['minLiquidaPend'] = 0;
-    } else {
-        $d['minLiquidaPend'] = $p - $e;
-        $d['minLiquidaExtra'] = 0;
+// Processar requisição para visualizar frequência individual
+if (isset($_GET['cpf']) && !empty($_GET['cpf'])) {
+    $cpfBusca = preg_replace('/[^0-9]/', '', $_GET['cpf']);
+
+    try {
+        // Buscar nome do funcionário
+        $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf AND empresa_id = :empresa_id LIMIT 1");
+        $stmt->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
+        $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+        $stmt->execute();
+        $funcionario = $stmt->fetch();
+
+        if (!$funcionario) {
+            throw new Exception("Funcionário não encontrado");
+        }
+
+        $nomeFuncionario = $funcionario['nome'];
+
+        // Consulta para agrupar por mês/ano
+        $sql = "SELECT 
+                YEAR(data) as ano,
+                MONTH(data) as mes_numero,
+                cpf as cpf
+            FROM pontos 
+            WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf
+            AND empresa_id = :empresa_id
+            GROUP BY YEAR(data), MONTH(data)
+            ORDER BY ano DESC, mes_numero DESC";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
+        $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+        $stmt->execute();
+        $mesesAnos = $stmt->fetchAll();
+
+        // Para cada mês/ano, calcular totais
+        $registros = [];
+        foreach ($mesesAnos as $ma) {
+            // Buscar todos os registros do mês
+            $sqlDias = "SELECT 
+                    entrada, saida_intervalo, retorno_intervalo, saida_final,
+                    horas_pendentes, hora_extra
+                FROM pontos 
+                WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf
+                AND empresa_id = :empresa_id
+                AND YEAR(data) = :ano
+                AND MONTH(data) = :mes
+                ORDER BY data";
+
+            $stmtDias = $pdo->prepare($sqlDias);
+            $stmtDias->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
+            $stmtDias->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+            $stmtDias->bindParam(':ano', $ma['ano'], PDO::PARAM_INT);
+            $stmtDias->bindParam(':mes', $ma['mes_numero'], PDO::PARAM_INT);
+            $stmtDias->execute();
+            $dias = $stmtDias->fetchAll();
+
+            // Calcular totais
+            $totalSegundos = 0;
+            $pendentesSegundos = 0;
+            $extrasSegundos = 0;
+
+            foreach ($dias as $dia) {
+                $totalSegundos += calcularHorasTrabalhadas(
+                    $dia['entrada'],
+                    $dia['saida_intervalo'],
+                    $dia['retorno_intervalo'],
+                    $dia['saida_final']
+                );
+
+                $pendentesSegundos += timeToSeconds($dia['horas_pendentes']);
+                $extrasSegundos += timeToSeconds($dia['hora_extra']);
+            }
+
+            $registros[] = [
+                'ano' => $ma['ano'],
+                'mes_numero' => $ma['mes_numero'],
+                'total_segundos' => $totalSegundos,
+                'pendentes_segundos' => $pendentesSegundos,
+                'extras_segundos' => $extrasSegundos,
+                'cpf' => $ma['cpf']
+            ];
+        }
+    } catch (PDOException $e) {
+        die("Erro no banco de dados: " . $e->getMessage());
+    } catch (Exception $e) {
+        die("Erro: " . $e->getMessage());
     }
-    $d['horas_trabalhadas'] = minutesToHM($d['minTrabalhados']);
-    $d['hora_extra_liquida'] = minutesToHM($d['minLiquidaExtra']);
-    $d['horas_pendentes_liquida'] = minutesToHM($d['minLiquidaPend']);
 }
-unset($d);
+
+function mesPortugues($mesNumero)
+{
+    $meses = [
+        1 => 'Janeiro',
+        2 => 'Fevereiro',
+        3 => 'Março',
+        4 => 'Abril',
+        5 => 'Maio',
+        6 => 'Junho',
+        7 => 'Julho',
+        8 => 'Agosto',
+        9 => 'Setembro',
+        10 => 'Outubro',
+        11 => 'Novembro',
+        12 => 'Dezembro'
+    ];
+    return $meses[$mesNumero] ?? '';
+}
+
 ?>
 
 
@@ -357,8 +378,7 @@ unset($d);
                                 </a>
                             </li>
                             <li class="menu-item ">
-                                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
+                                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
                                 </a>
                             </li>
@@ -366,6 +386,12 @@ unset($d);
                                 <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Individual</div>
+                                </a>
+                            </li>
+
+                            <li class="menu-item">
+                                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
                                 </a>
                             </li>
 
@@ -526,194 +552,123 @@ unset($d);
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize a Frequência
                             do Funcionário</span></h5>
 
-                    <?php
-
-                    function conectarBanco()
-                    {
-                        $host = 'localhost';
-                        $dbname = 'u920914488_ERP';
-                        $username = 'u920914488_ERP';
-                        $password = 'N8r=$&Wrs$';
-
-                        try {
-                            $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-                            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                            return $pdo;
-                        } catch (PDOException $e) {
-                            die("Erro na conexão com o banco de dados: " . $e->getMessage());
-                        }
-                    }
-
-                    function formatarHoras($segundos)
-                    {
-                        if ($segundos === null || $segundos == 0) {
-                            return '00h 00m';
-                        }
-
-                        $horas = floor($segundos / 3600);
-                        $minutos = floor(($segundos % 3600) / 60);
-
-                        return sprintf("%02dh %02dm", $horas, $minutos);
-                    }
-
-                    function mesPortugues($mesNumero)
-                    {
-                        $meses = [
-                            1 => 'Janeiro',
-                            2 => 'Fevereiro',
-                            3 => 'Março',
-                            4 => 'Abril',
-                            5 => 'Maio',
-                            6 => 'Junho',
-                            7 => 'Julho',
-                            8 => 'Agosto',
-                            9 => 'Setembro',
-                            10 => 'Outubro',
-                            11 => 'Novembro',
-                            12 => 'Dezembro'
-                        ];
-
-                        return $meses[$mesNumero] ?? '';
-                    }
-
-                    try {
-                        // Validação e limpeza do CPF da URL
-                        if (!isset($_GET['cpf']) || empty($_GET['cpf'])) {
-                            throw new Exception("CPF não informado na URL");
-                        }
-
-                        // Remove qualquer formatação do CPF (pontos e traço)
-                        $cpfBusca = preg_replace('/[^0-9]/', '', $_GET['cpf']);
-
-                        if (strlen($cpfBusca) != 11) {
-                            throw new Exception("CPF inválido");
-                        }
-
-                        $pdo = conectarBanco();
-
-                        // Consulta que funciona com CPF formatado ou não no banco
-                        $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf LIMIT 1");
-                        $stmt->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
-                        $stmt->execute();
-
-                        $funcionario = $stmt->fetch();
-
-                        if (!$funcionario) {
-                            throw new Exception("Funcionário não encontrado");
-                        }
-
-                        $nomeFuncionario = $funcionario['nome'];
-
-                        // Consulta principal também adaptada para comparar CPFs limpos
-                        $sql = "SELECT 
-                YEAR(data) as ano,
-                MONTH(data) as mes_numero,
-                SUM(TIME_TO_SEC(total_horas)) as total_segundos,
-                SUM(TIME_TO_SEC(horas_pendentes)) as pendentes_segundos,
-                SUM(TIME_TO_SEC(hora_extra)) as extras_segundos,
-                cpf as cpf
-            FROM pontos 
-            WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf
-            GROUP BY YEAR(data), MONTH(data)
-            ORDER BY ano DESC, mes_numero DESC";
-
-                        $stmt = $pdo->prepare($sql);
-                        $stmt->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
-                        $stmt->execute();
-
-                        $registros = $stmt->fetchAll();
-                    } catch (PDOException $e) {
-                        die("Erro no banco de dados: " . $e->getMessage());
-                    } catch (Exception $e) {
-                        die("Erro: " . $e->getMessage());
-                    }
-                    ?>
-                    <div class="container mt-4">
-                        <div class="card mt-3">
-                            <h5 class="card-header">Frequência do Funcionário: <?= htmlspecialchars($nomeFuncionario) ?></h5>
-                            <div class="table-responsive text-nowarp">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Ano</th>
-                                            <th>Mês</th>
-                                            <th>Horas Trabalhadas</th>
-                                            <th>Horas Pendentes</th>
-                                            <th>Horas Extras</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($registros as $registro):
-                                            $mesPortugues = mesPortugues($registro['mes_numero']);
-                                        ?>
+                    <?php if (isset($nomeFuncionario)): ?>
+                        <div class="container mt-4">
+                            <div class="card mt-3">
+                                <h5 class="card-header">Frequência do Funcionário: <?= htmlspecialchars($nomeFuncionario) ?>
+                                </h5>
+                                <div class="table-responsive text-nowarp">
+                                    <table class="table table-hover">
+                                        <thead>
                                             <tr>
-                                                <td><?= htmlspecialchars($registro['ano']) ?></td>
-                                                <td><?= htmlspecialchars($mesPortugues) ?></td>
-                                                <td><?= formatarHoras($registro['total_segundos']) ?></td>
-                                                <td><?= formatarHoras($registro['pendentes_segundos']) ?></td>
-                                                <td><?= formatarHoras($registro['extras_segundos']) ?></td>
+                                                <th>Ano</th>
+                                                <th>Mês</th>
+                                                <th>Horas Trabalhadas</th>
+                                                <th>Horas Pendentes</th>
+                                                <th>Horas Extras</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($registros as $registro):
+                                                $mesPortugues = mesPortugues($registro['mes_numero']);
+                                                ?>
+                                                <tr>
+                                                    <td><?= htmlspecialchars($registro['ano']) ?></td>
+                                                    <td><?= htmlspecialchars($mesPortugues) ?></td>
+                                                    <td><?= secondsToHM($registro['total_segundos']) ?></td>
+                                                    <td><?= secondsToHM($registro['pendentes_segundos']) ?></td>
+                                                    <td><?= secondsToHM($registro['extras_segundos']) ?></td>
+                                                    <td>
+                                                        <a href="listaFrequenciapdf.php?id=<?= urlencode($idSelecionado); ?>&cpf=<?= htmlspecialchars($registro['cpf']) ?>&mes=<?= htmlspecialchars($registro['mes_numero']) ?>&ano=<?= htmlspecialchars($registro['ano']) ?>"
+                                                            title="Visualizar">
+                                                            <i class="fas fa-eye"></i>
+                                                        </a>
+                                                        &nbsp; | &nbsp;
+                                                        <a href="#" data-bs-toggle="modal"
+                                                            data-bs-target="#emailModal<?= $registro['ano'] . $registro['mes_numero'] ?>"
+                                                            title="Enviar por e-mail">
+                                                            <i class="fas fa-envelope"></i>
+                                                        </a>
 
-                                                <td>
-                                                    <a href="listaFrequenciapdf.php?id=<?= urlencode($idSelecionado); ?>&cpf=<?= htmlspecialchars($registro['cpf']) ?>&mes=<?= htmlspecialchars($registro['mes_numero']) ?>&ano=<?= htmlspecialchars($registro['ano']) ?>" title="Visualizar">
-                                                        <i class="fas fa-eye"></i>
-                                                    </a>
-                                                    &nbsp; | &nbsp;
-                                                    <a href="#" data-bs-toggle="modal" data-bs-target="#emailModal<?= $registro['ano'] . $registro['mes_numero'] ?>" title="Enviar por e-mail">
-                                                        <i class="fas fa-envelope"></i>
-                                                    </a>
-
-
-                                                    <div class="modal fade" id="emailModal<?= $registro['ano'] . $registro['mes_numero'] ?>" tabindex="-1" aria-hidden="true">
-                                                        <div class="modal-dialog">
-                                                            <div class="modal-content">
-                                                                <form action="enviar_email.php" method="POST">
-                                                                    <input type="hidden" name="cpf" value="<?= $cpf ?>">
-                                                                    <input type="hidden" name="ano" value="<?= $registro['ano'] ?>">
-                                                                    <input type="hidden" name="mes" value="<?= $registro['mes_numero'] ?>">
-                                                                    <div class="modal-header">
-                                                                        <h5 class="modal-title" id="enviarEmailModalLabel">Enviar Frequência por E-mail</h5>
-                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                                                    </div>
-                                                                    <div class="modal-body">
-                                                                        <div class="mb-3">
-                                                                            <label for="emailDestino" class="form-label">E-mail do Destinatário</label>
-                                                                            <input type="email" class="form-control" id="emailDestino" name="emailDestino" placeholder="exemplo@email.com" required>
+                                                        <div class="modal fade"
+                                                            id="emailModal<?= $registro['ano'] . $registro['mes_numero'] ?>"
+                                                            tabindex="-1" aria-hidden="true">
+                                                            <div class="modal-dialog">
+                                                                <div class="modal-content">
+                                                                    <form action="enviar_email.php" method="POST">
+                                                                        <input type="hidden" name="cpf"
+                                                                            value="<?= $cpfBusca ?>">
+                                                                        <input type="hidden" name="ano"
+                                                                            value="<?= $registro['ano'] ?>">
+                                                                        <input type="hidden" name="mes"
+                                                                            value="<?= $registro['mes_numero'] ?>">
+                                                                        <input type="hidden" name="empresa_id"
+                                                                            value="<?= $idSelecionado ?>">
+                                                                        <div class="modal-header">
+                                                                            <h5 class="modal-title" id="enviarEmailModalLabel">
+                                                                                Enviar Frequência por E-mail</h5>
+                                                                            <button type="button" class="btn-close"
+                                                                                data-bs-dismiss="modal"
+                                                                                aria-label="Fechar"></button>
                                                                         </div>
-                                                                        <div class="mb-3">
-                                                                            <label for="assunto" class="form-label">Assunto</label>
-                                                                            <input type="text" class="form-control" id="assunto" name="assunto"
-                                                                                value="Relatório de Frequência - <?= $mesPortugues ?>/<?= $registro['ano'] ?>">
+                                                                        <div class="modal-body">
                                                                             <div class="mb-3">
-                                                                                <label for="mensagemEmail" class="form-label">Mensagem</label>
-                                                                                <textarea class="form-control" id="mensagemEmail" name="mensagemEmail" rows="4" placeholder="Digite uma mensagem opcional..."></textarea>
+                                                                                <label for="emailDestino"
+                                                                                    class="form-label">E-mail do
+                                                                                    Destinatário</label>
+                                                                                <input type="email" class="form-control"
+                                                                                    id="emailDestino" name="emailDestino"
+                                                                                    placeholder="exemplo@email.com" required>
+                                                                            </div>
+                                                                            <div class="mb-3">
+                                                                                <label for="assunto"
+                                                                                    class="form-label">Assunto</label>
+                                                                                <input type="text" class="form-control"
+                                                                                    id="assunto" name="assunto"
+                                                                                    value="Relatório de Frequência - <?= $mesPortugues ?>/<?= $registro['ano'] ?>">
+                                                                            </div>
+                                                                            <div class="mb-3">
+                                                                                <label for="mensagemEmail"
+                                                                                    class="form-label">Mensagem</label>
+                                                                                <textarea class="form-control"
+                                                                                    id="mensagemEmail" name="mensagemEmail"
+                                                                                    rows="4"
+                                                                                    placeholder="Digite uma mensagem opcional..."></textarea>
                                                                             </div>
                                                                         </div>
                                                                         <div class="modal-footer">
-                                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                                            <button type="submit" class="btn btn-primary">Enviar</button>
+                                                                            <button type="button" class="btn btn-secondary"
+                                                                                data-bs-dismiss="modal">Cancelar</button>
+                                                                            <button type="submit"
+                                                                                class="btn btn-primary">Enviar</button>
                                                                         </div>
-                                                                </form>
+                                                                    </form>
+                                                                </div>
                                                             </div>
                                                         </div>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
 
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
+                                <div class="d-flex gap-2 m-3">
+                                    <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo;
+                                        Anterior</button>
+                                    <div id="paginacaoHoras" class="d-flex gap-1"></div>
+                                    <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima
+                                        &raquo;</button>
+                                </div>
+
                             </div>
                         </div>
-                    </div>
 
-                    <div class="d-flex gap-2 m-3">
-                        <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
-                        <div id="paginacaoHoras" class="d-flex gap-1"></div>
-                        <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
-                    </div>
+                    <?php else: ?>
+                        <div class="alert alert-warning">Nenhum funcionário selecionado para visualização.</div>
+                    <?php endif; ?>
                 </div>
-
-
 
                 <script>
                     const searchInput = document.getElementById('searchInput');
@@ -785,9 +740,7 @@ unset($d);
 
 
 
-    <!-- build:js assets/vendor/js/core.js -->
     <script src="../../js/saudacao.js"></script>
-    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
@@ -801,11 +754,10 @@ unset($d);
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
 
-    <!-- Page JS -->
-    <script src="../../assets/js/dashboards-analytics.js"></script>
 
     <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
+
 </body>
 
 </html>

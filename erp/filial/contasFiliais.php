@@ -197,11 +197,12 @@ $contas = $stmt->fetchAll();
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
+                        
                         <ul class="menu-sub">
                             <!-- Contas das Filiais -->
                             <li class="menu-item active">
-                                <a href="./contaFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Contas Filiais</div>
+                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Solic. Pagamento</div>
                                 </a>
                             </li>
 
@@ -479,7 +480,7 @@ $contas = $stmt->fetchAll();
                                                         <div class="modal fade" id="modalPagar<?= $row['id'] ?>" tabindex="-1" aria-labelledby="modalLabelPagar<?= $row['id'] ?>" aria-hidden="true">
                                                             <div class="modal-dialog">
                                                                 <div class="modal-content">
-                                                                    <form method="post" action="pagarConta.php">
+                                                                    <form method="post" action="../../assets/php/filial/confirmarPagamento.php">
                                                                         <input type="hidden" name="id_selecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
                                                                         <input type="hidden" name="id" value="<?= $row['id'] ?>">
                                                                         <div class="modal-header">
@@ -508,7 +509,7 @@ $contas = $stmt->fetchAll();
                                                         <div class="modal fade" id="modalCancelar<?= $row['id'] ?>" tabindex="-1" aria-labelledby="modalLabelCancelar<?= $row['id'] ?>" aria-hidden="true">
                                                             <div class="modal-dialog">
                                                                 <div class="modal-content">
-                                                                    <form method="post" action="cancelarConta.php">
+                                                                    <form method="post" action="../../assets/php/filial/cancelarPagamento.php">
                                                                         <input type="hidden" name="id_selecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
                                                                         <input type="hidden" name="id" value="<?= $row['id'] ?>">
                                                                         <div class="modal-header">

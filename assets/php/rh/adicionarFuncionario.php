@@ -10,6 +10,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Remove pontos e traço do CPF
     $cpf_funcionario = str_replace(['.', '-'], '', $cpf_funcionario);
     $rg_funcionario = trim($_POST["rg"]);
+    $pis_funcionario = trim($_POST["pis"]);
+    $matricula_funcionario = trim($_POST["matricula"]);
+    $data_admissao = trim($_POST["data_admissao"]);
     $cargo_funcionario = trim($_POST["cargo"]);
     $setor_funcionario = trim($_POST["setor"]);
     $salario_funcionario = trim($_POST["salario"]);
@@ -46,15 +49,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit();
         }
 
-        // Query de inserção
+        // Query de inserção atualizada com os novos campos
         $sql = "INSERT INTO funcionarios (
-            empresa_id, nome, data_nascimento, cpf, rg,
+            empresa_id, nome, data_nascimento, cpf, rg, pis, matricula, data_admissao,
             cargo, setor, salario, escala,
             dia_inicio, dia_folga, 
             entrada, saida_intervalo, retorno_intervalo, saida_final,
             email, telefone, endereco, cidade
         ) VALUES (
-            :empresa_id, :nome, :data_nascimento, :cpf, :rg,
+            :empresa_id, :nome, :data_nascimento, :cpf, :rg, :pis, :matricula, :data_admissao,
             :cargo, :setor, :salario, :escala,
             :dia_inicio, :dia_folga, 
             :entrada, :saida_intervalo, :retorno_intervalo, :saida_final,
@@ -67,6 +70,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->bindParam(":data_nascimento", $data_nascimento);
         $stmt->bindParam(":cpf", $cpf_funcionario);
         $stmt->bindParam(":rg", $rg_funcionario);
+        $stmt->bindParam(":pis", $pis_funcionario);
+        $stmt->bindParam(":matricula", $matricula_funcionario);
+        $stmt->bindParam(":data_admissao", $data_admissao);
         $stmt->bindParam(":cargo", $cargo_funcionario);
         $stmt->bindParam(":setor", $setor_funcionario);
         $stmt->bindParam(":salario", $salario_funcionario);

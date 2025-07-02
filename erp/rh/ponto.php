@@ -262,8 +262,7 @@ try {
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
+                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
                 </a>
               </li>
@@ -302,10 +301,18 @@ try {
               <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
+          <?php
+          $isFilial = str_starts_with($idSelecionado, 'filial_');
+          $link = $isFilial
+            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+            : '../filial/index.php?id=principal_1';
+          $titulo = $isFilial ? 'Matriz' : 'Filial';
+          ?>
+
           <li class="menu-item">
-            <a href="../filial/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="<?= $link ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications">Filial</div>
+              <div data-i18n="Authentications"><?= $titulo ?></div>
             </a>
           </li>
           <li class="menu-item">
@@ -324,6 +331,7 @@ try {
         </ul>
 
       </aside>
+
       <!-- / Menu -->
 
       <!-- Layout container -->
@@ -366,7 +374,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -410,7 +419,8 @@ try {
         </nav>
         <!-- / Navbar -->
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="./relatorio.php?id=<?= urlencode($idSelecionado); ?>">Relatório</a>/</span>Visualização
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
+                href="./relatorio.php?id=<?= urlencode($idSelecionado); ?>">Relatório</a>/</span>Visualização
             Geral</h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize todos os
               Registros</span></h5>
@@ -470,10 +480,7 @@ try {
                         </td>
 
                         <td class="text-center">
-                          <button
-                            class="btn btn-sm btn-info"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalFoto"
+                          <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalFoto"
                             data-fotoam="<?= base64_encode($registro['foto_entrada'] ?? '') ?>"
                             data-fotoamS="<?= base64_encode($registro['foto_saida_intervalo'] ?? '') ?>"
                             data-fotopm="<?= base64_encode($registro['foto_retorno_intervalo'] ?? '') ?>"
@@ -483,10 +490,7 @@ try {
                         </td>
 
                         <td class="text-center">
-                          <button
-                            class="btn btn-sm btn-primary"
-                            data-bs-toggle="modal"
-                            data-bs-target="#modalMapa"
+                          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMapa"
                             data-locam="<?= htmlspecialchars($registro['localizacao_entrada']) ?>"
                             data-locamS="<?= htmlspecialchars($registro['localizacao_saida_intervalo']) ?>"
                             data-locpm="<?= htmlspecialchars($registro['localizacao_retorno_intervalo']) ?>"
@@ -528,7 +532,8 @@ try {
                     <div class="col-12 col-md-6">
                       <h6>Entrada AM</h6>
                       <div class="ratio ratio-4x3">
-                        <img id="fotoEntradaAM" src="" alt="Foto Entrada AM" class="img-fluid rounded" style="object-fit: cover;">
+                        <img id="fotoEntradaAM" src="" alt="Foto Entrada AM" class="img-fluid rounded"
+                          style="object-fit: cover;">
                       </div>
                       <h6 class="mt-3">Saída Intervalo</h6>
                       <div class="ratio ratio-4x3">
@@ -538,11 +543,13 @@ try {
                     <div class="col-12 col-md-6">
                       <h6>Retorno Intervalo</h6>
                       <div class="ratio ratio-4x3">
-                        <img id="fotoRetornoIntervalo" src="" alt="Foto Retorno Intervalo" class="img-fluid rounded" style="object-fit: cover;">
+                        <img id="fotoRetornoIntervalo" src="" alt="Foto Retorno Intervalo" class="img-fluid rounded"
+                          style="object-fit: cover;">
                       </div>
                       <h6 class="mt-3">Saída Final</h6>
                       <div class="ratio ratio-4x3">
-                        <img id="fotoSaidaFinal" src="" alt="Foto Saída Final" class="img-fluid rounded" style="object-fit: cover;">
+                        <img id="fotoSaidaFinal" src="" alt="Foto Saída Final" class="img-fluid rounded"
+                          style="object-fit: cover;">
                       </div>
                     </div>
                   </div>
@@ -565,25 +572,29 @@ try {
                     <div class="col-12 col-md-6">
                       <h6>Entrada AM</h6>
                       <div class="ratio ratio-4x3">
-                        <iframe id="mapEntradaAM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                        <iframe id="mapEntradaAM" frameborder="0" allowfullscreen loading="lazy"
+                          style="border:0;"></iframe>
                       </div>
                     </div>
                     <div class="col-12 col-md-6">
                       <h6>Saída Intervalo</h6>
                       <div class="ratio ratio-4x3">
-                        <iframe id="mapSaidaAM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                        <iframe id="mapSaidaAM" frameborder="0" allowfullscreen loading="lazy"
+                          style="border:0;"></iframe>
                       </div>
                     </div>
                     <div class="col-12 col-md-6">
                       <h6>Retorno Intervalo</h6>
                       <div class="ratio ratio-4x3">
-                        <iframe id="mapEntradaPM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                        <iframe id="mapEntradaPM" frameborder="0" allowfullscreen loading="lazy"
+                          style="border:0;"></iframe>
                       </div>
                     </div>
                     <div class="col-12 col-md-6">
                       <h6>Saída Final</h6>
                       <div class="ratio ratio-4x3">
-                        <iframe id="mapSaidaPM" frameborder="0" allowfullscreen loading="lazy" style="border:0;"></iframe>
+                        <iframe id="mapSaidaPM" frameborder="0" allowfullscreen loading="lazy"
+                          style="border:0;"></iframe>
                       </div>
                     </div>
                   </div>
@@ -601,7 +612,7 @@ try {
           <script>
             // Modal de Fotos
             const modalFoto = document.getElementById('modalFoto');
-            modalFoto.addEventListener('show.bs.modal', function(event) {
+            modalFoto.addEventListener('show.bs.modal', function (event) {
               const button = event.relatedTarget;
               const fotoEntradaAM = button.getAttribute('data-fotoam') || '';
               const fotoSaidaIntervalo = button.getAttribute('data-fotoamS') || '';
@@ -616,7 +627,7 @@ try {
 
             // Modal de Mapas (Google Maps embed)
             const modalMapa = document.getElementById('modalMapa');
-            modalMapa.addEventListener('show.bs.modal', function(event) {
+            modalMapa.addEventListener('show.bs.modal', function (event) {
               const button = event.relatedTarget;
               const locam = button.getAttribute('data-locam') || '';
               const locamS = button.getAttribute('data-locamS') || '';

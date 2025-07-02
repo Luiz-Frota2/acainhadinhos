@@ -29,9 +29,9 @@ if (str_starts_with($idSelecionado, 'principal_')) {
         </script>";
         exit;
     }
-    $id = 1;
+    $empresa_id = $idSelecionado; // Usa o idSelecionado diretamente
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+    $idFilial = str_replace('filial_', '', $idSelecionado);
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
             alert('Acesso negado!');
@@ -39,7 +39,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
         </script>";
         exit;
     }
-    $id = $idFilial;
+    $empresa_id = $idSelecionado; // Usa o idSelecionado diretamente
 } else {
     echo "<script>
         alert('Empresa não identificada!');
@@ -84,7 +84,7 @@ try {
 
 // ✅ Buscar horários de funcionamento com base no ID da empresa
 $query = $pdo->prepare("SELECT * FROM horarios_funcionamento WHERE empresa_id = :empresa_id");
-$query->bindParam(':empresa_id', $id, PDO::PARAM_INT);
+$query->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado diretamente
 $query->execute();
 $horarios = $query->fetchAll(PDO::FETCH_ASSOC);
 
@@ -97,6 +97,7 @@ $dias_da_semana = [
     "sabado" => "Sábado",
     "domingo" => "Domingo"
 ];
+
 ?>
 
 <!DOCTYPE html>

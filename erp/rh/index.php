@@ -1,5 +1,4 @@
 <?php
-
 session_start();
 require_once '../../assets/php/conexao.php';
 
@@ -11,7 +10,7 @@ if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_id'])
 ) {
   header("Location: .././login.php?id=$idSelecionado");
   exit;
@@ -45,7 +44,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// ✅ Buscar imagem da tabela sobre_empresa
 try {
   $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
   $stmt = $pdo->prepare($sql);
@@ -55,16 +54,14 @@ try {
 
   $logoEmpresa = !empty($empresaSobre['imagem'])
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
+    : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+  $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
-
-// ✅ Se chegou até aqui, o acesso está liberado
 
 // ✅ Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -82,6 +79,148 @@ try {
   $nivelUsuario = 'Erro ao carregar nível';
 }
 
+// ✅ Buscar dados estatísticos da empresa
+$totalFuncionarios = 0;
+$taxaAbsenteismo = 0;
+$distribuicaoSetores = [];
+$ultimosRegistros = [];
+$horasTrabalhadas = [];
+$bancoHoras = 0;
+$pontosAdicionados = 0;
+$frequenciaMensal = [];
+$funcionariosAtrasados = [];
+
+// Filtros para os últimos registros
+$filtroRegistros = $_GET['filtro_registros'] ?? 'hoje';
+
+try {
+  // Total de funcionários
+  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM funcionarios WHERE empresa_id = :empresa_id");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $result = $stmt->fetch(PDO::FETCH_ASSOC);
+  $totalFuncionarios = $result['total'] ?? 0;
+
+  // Taxa de absenteísmo (simplificado)
+  $hoje = date('Y-m-d');
+  $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cpf) as ausentes FROM pontos WHERE empresa_id = :empresa_id AND data = :hoje AND entrada IS NULL");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->bindParam(':hoje', $hoje, PDO::PARAM_STR);
+  $stmt->execute();
+  $result = $stmt->fetch(PDO::FETCH_ASSOC);
+  $ausentes = $result['ausentes'] ?? 0;
+  $taxaAbsenteismo = $totalFuncionarios > 0 ? round(($ausentes / $totalFuncionarios) * 100, 2) : 0;
+
+  // Distribuição por setor
+  $stmt = $pdo->prepare("SELECT setor, COUNT(*) as total FROM funcionarios WHERE empresa_id = :empresa_id GROUP BY setor");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $distribuicaoSetores = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+  // Últimos registros de ponto com filtros
+  $sqlUltimosRegistros = "SELECT nome, data, entrada, saida_final FROM pontos WHERE empresa_id = :empresa_id";
+
+  switch ($filtroRegistros) {
+    case 'hoje':
+      $sqlUltimosRegistros .= " AND data = CURDATE()";
+      break;
+    case 'ontem':
+      $sqlUltimosRegistros .= " AND data = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+      break;
+    case 'semana':
+      $sqlUltimosRegistros .= " AND data BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()";
+      break;
+    case 'ano':
+      $sqlUltimosRegistros .= " AND YEAR(data) = YEAR(CURDATE())";
+      break;
+  }
+
+  $sqlUltimosRegistros .= " ORDER BY data DESC, entrada DESC LIMIT 5";
+
+  $stmt = $pdo->prepare($sqlUltimosRegistros);
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $ultimosRegistros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+  // Horas trabalhadas nos últimos 12 meses (inteiro)
+  $currentYear = date('Y');
+  for ($i = 1; $i <= 12; $i++) {
+    $stmt = $pdo->prepare("SELECT SUM(HOUR(TIMEDIFF(saida_final, entrada))) as total_horas 
+                          FROM pontos 
+                          WHERE empresa_id = :empresa_id 
+                          AND MONTH(data) = :mes 
+                          AND YEAR(data) = :ano 
+                          AND entrada IS NOT NULL 
+                          AND saida_final IS NOT NULL");
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+    $stmt->bindParam(':mes', $i, PDO::PARAM_INT);
+    $stmt->bindParam(':ano', $currentYear, PDO::PARAM_INT);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $horasTrabalhadas[] = $result['total_horas'] ?? 0;
+  }
+
+  // Banco de horas (simplificado)
+  $stmt = $pdo->prepare("SELECT SEC_TO_TIME(SUM(TIME_TO_SEC(hora_extra))) as total FROM pontos WHERE empresa_id = :empresa_id AND YEAR(data) = YEAR(CURDATE())");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $result = $stmt->fetch(PDO::FETCH_ASSOC);
+  $bancoHoras = $result['total'] ?? '00:00:00';
+
+  // Pontos adicionados (simplificado - contagem de registros este ano)
+  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM pontos WHERE empresa_id = :empresa_id AND YEAR(data) = YEAR(CURDATE())");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $result = $stmt->fetch(PDO::FETCH_ASSOC);
+  $pontosAdicionados = $result['total'] ?? 0;
+
+  // Frequência mensal (últimos 12 meses)
+  for ($i = 1; $i <= 12; $i++) {
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cpf) as total FROM pontos WHERE empresa_id = :empresa_id AND MONTH(data) = :mes AND YEAR(data) = :ano");
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+    $stmt->bindParam(':mes', $i, PDO::PARAM_INT);
+    $stmt->bindParam(':ano', $currentYear, PDO::PARAM_INT);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $frequenciaMensal[] = $result['total'] ?? 0;
+  }
+
+  // Funcionários atrasados (entrada após 10 minutos de tolerância)
+  $stmt = $pdo->prepare("SELECT nome, data, entrada 
+                        FROM pontos 
+                        WHERE empresa_id = :empresa_id 
+                        AND TIME(entrada) > '08:10:00' 
+                        AND TIME(entrada) < '18:00:00'
+                        AND data = CURDATE()
+                        ORDER BY entrada DESC");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $funcionariosAtrasados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+  error_log("Erro ao buscar dados estatísticos: " . $e->getMessage());
+}
+
+// Preparar dados para os gráficos
+$labelsMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dec'];
+
+// Converter banco de horas para formato legível
+$bancoHorasArray = explode(':', $bancoHoras);
+$bancoHorasFormatado = $bancoHorasArray[0] . 'h ' . $bancoHorasArray[1] . 'min';
+
+// Preparar dados para o gráfico de setores
+$setoresChartLabels = [];
+$setoresChartData = [];
+foreach ($distribuicaoSetores as $setor) {
+  $setoresChartLabels[] = $setor['setor'];
+  $setoresChartData[] = $setor['total'];
+}
+
+// Se não houver dados de setores, usar valores padrão
+if (empty($setoresChartLabels)) {
+  $setoresChartLabels = ['Administrativo', 'Operacional', 'Vendas', 'Suporte'];
+  $setoresChartData = [12, 30, 10, 6];
+}
 ?>
 
 <!DOCTYPE html>
@@ -121,7 +260,6 @@ try {
   <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
   <!-- Page CSS -->
-
   <!-- Helpers -->
   <script src="../../assets/vendor/js/helpers.js"></script>
 
@@ -221,8 +359,6 @@ try {
 
             </ul>
           </li>
-
-          <!-- Menu Relatórios -->
           <!-- Menu Relatórios -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
@@ -247,8 +383,7 @@ try {
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
+                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
                 </a>
               </li>
@@ -355,7 +490,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -401,7 +537,6 @@ try {
         <!-- / Navbar -->
 
         <!-- Content -->
-
         <div class="container-xxl flex-grow-1 container-p-y">
           <div class="row">
             <div class="col-lg-8 mb-4 order-0">
@@ -409,15 +544,14 @@ try {
                 <div class="d-flex align-items-end row">
                   <div class="col-sm-7">
                     <div class="card-body">
-                      <h5 class="card-title saudacao  text-primary" data-setor="RH"></h5>
-                      <p class="mb-4">Suas configurações foram atualizadas no seu perfil. Continue explorando e
-                        ajustando-as de acordo com suas preferências. </p>
-
+                      <h5 class="card-title saudacao text-primary" data-setor="RH"></h5>
+                      <p class="mb-4">Bem-vindo ao painel de controle. Aqui você pode acompanhar todas as métricas
+                        importantes da sua empresa.</p>
                     </div>
                   </div>
                   <div class="col-sm-5 text-center text-sm-left">
                     <div class="card-body pb-0 px-0 px-md-4">
-                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="140"
+                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="154"
                         alt="View Badge User" data-app-dark-img="illustrations/man-with-laptop-dark.png"
                         data-app-light-img="illustrations/man-with-laptop-light.png" />
                     </div>
@@ -427,13 +561,15 @@ try {
             </div>
             <div class="col-lg-4 col-md-4 order-1">
               <div class="row">
-                <div class="col-lg-6 col-md-12 col-6 mb-4">
-                  <div class="card">
+
+                <div class="col-lg-6 col-md-12 col-6 mb-4 d-flex align-items-stretch" height="170">
+                  <div class="card w-100">
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/chart-success.png" alt="gráfico de sucesso"
-                            class="rounded" />
+                        <div class="avatar flex-shrink-0 me-3">
+                          <span class="avatar-initial rounded bg-label-info">
+                            <i class="bx bx-user"></i>
+                          </span>
                         </div>
                         <div class="dropdown">
                           <button class="btn p-0" type="button" id="cardOpt3" data-bs-toggle="dropdown"
@@ -442,23 +578,25 @@ try {
                           </button>
                           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt3">
                             <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
                           </div>
                         </div>
                       </div>
-                      <span class="fw-semibold d-block mb-1">Lucro</span>
-                      <h3 class="card-title mb-2">$12.628</h3>
-                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> +72,80%</small>
+                      <span class="fw-semibold d-block mb-1">Total de Funcionários</span>
+                      <h3 class="card-title mb-2"><?= $totalFuncionarios ?></h3>
+                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i>
+                        +<?= round($totalFuncionarios * 0.1) ?> novos</small>
                     </div>
                   </div>
                 </div>
-                <div class="col-lg-6 col-md-12 col-6 mb-4">
-                  <div class="card">
+
+                <div class="col-lg-6 col-md-12 col-6 mb-4 d-flex align-items-stretch h-100">
+                  <div class="card w-100">
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Cartão de Crédito"
-                            class="rounded" />
+                        <div class="avatar flex-shrink-0 me-3">
+                          <span class="avatar-initial rounded bg-label-danger">
+                            <i class="bx bx-time"></i>
+                          </span>
                         </div>
                         <div class="dropdown">
                           <button class="btn p-0" type="button" id="cardOpt6" data-bs-toggle="dropdown"
@@ -467,16 +605,17 @@ try {
                           </button>
                           <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt6">
                             <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
                           </div>
                         </div>
                       </div>
-                      <span>Vendas</span>
-                      <h3 class="card-title text-nowrap mb-1">$4.679</h3>
-                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> +28,42%</small>
+                      <span>Taxa de Absenteísmo</span>
+                      <h3 class="card-title text-nowrap mb-1">+<?= $taxaAbsenteismo ?>%</h3>
+                      <small class="text-danger fw-semibold"><i class="bx bx-up-arrow-alt"></i>
+                        +<?= round($taxaAbsenteismo * 0.1, 2) ?>%</small>
                     </div>
                   </div>
                 </div>
+
               </div>
             </div>
 
@@ -484,49 +623,9 @@ try {
             <div class="col-12 col-lg-8 order-2 order-md-3 order-lg-2 mb-4">
               <div class="card">
                 <div class="row row-bordered g-0">
-                  <div class="col-md-8">
-                    <h5 class="card-header m-0 me-2 pb-3">Receita Total</h5>
+                  <div class="col-md-12">
+                    <h5 class="card-header m-0 me-2 pb-3">Horas Trabalhadas (<?= date('Y') ?>)</h5>
                     <div id="totalRevenueChart" class="px-2"></div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="card-body">
-                      <div class="text-center">
-                        <div class="dropdown">
-                          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                            id="growthReportId" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            2025
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="growthReportId">
-                            <a class="dropdown-item" href="javascript:void(0);">2024</a>
-                            <a class="dropdown-item" href="javascript:void(0);">2023</a>
-                            <a class="dropdown-item" href="javascript:void(0);">2022</a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div id="growthChart"></div>
-                    <div class="text-center fw-semibold pt-3 mb-2">62% de Crescimento da Empresa</div>
-
-                    <div class="d-flex px-xxl-4 px-lg-2 p-4 gap-xxl-3 gap-lg-1 gap-3 justify-content-between">
-                      <div class="d-flex">
-                        <div class="me-2">
-                          <span class="badge bg-label-primary p-2"><i class="bx bx-dollar text-primary"></i></span>
-                        </div>
-                        <div class="d-flex flex-column">
-                          <small>2022</small>
-                          <h6 class="mb-0">$32.5k</h6>
-                        </div>
-                      </div>
-                      <div class="d-flex">
-                        <div class="me-2">
-                          <span class="badge bg-label-info p-2"><i class="bx bx-wallet text-info"></i></span>
-                        </div>
-                        <div class="d-flex flex-column">
-                          <small>2021</small>
-                          <h6 class="mb-0">$41.2k</h6>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -535,53 +634,21 @@ try {
             <!--/ Total Revenue -->
             <div class="col-12 col-md-8 col-lg-4 order-3 order-md-2">
               <div class="row">
-                <div class="col-6 mb-4">
+                <div class="col-12 mb-4">
                   <div class="card">
                     <div class="card-body">
-                      <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/paypal.png" alt="Cartão de Crédito"
-                            class="rounded" />
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt4" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt4">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
+                      <div class="d-flex justify-content-between flex-sm-row flex-column gap-3">
+                        <div class="d-flex flex-sm-column flex-row align-items-start justify-content-between">
+                          <div class="card-title">
+                            <h5 class="text-nowrap mb-2">Banco de Horas</h5>
+                            <span class="badge bg-label-warning rounded-pill">Ano <?= date('Y') ?></span>
+                          </div>
+                          <div class="mt-sm-auto">
+                            <h3 class="mb-0"><?= $bancoHorasFormatado ?></h3>
                           </div>
                         </div>
+                        <div id="bankHoursChart"></div>
                       </div>
-                      <span class="d-block mb-1">Pagamentos</span>
-                      <h3 class="card-title text-nowrap mb-2">$2.456</h3>
-                      <small class="text-danger fw-semibold"><i class="bx bx-down-arrow-alt"></i> -14.82%</small>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 mb-4">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Cartão de Crédito"
-                            class="rounded" />
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt1" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu" aria-labelledby="cardOpt1">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
-                          </div>
-                        </div>
-                      </div>
-                      <span class="fw-semibold d-block mb-1">Transações</span>
-                      <h3 class="card-title mb-2">$14.857</h3>
-                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> +28.14%</small>
                     </div>
                   </div>
                 </div>
@@ -593,16 +660,14 @@ try {
                       <div class="d-flex justify-content-between flex-sm-row flex-column gap-3">
                         <div class="d-flex flex-sm-column flex-row align-items-start justify-content-between">
                           <div class="card-title">
-                            <h5 class="text-nowrap mb-2">Relatório de Perfil</h5>
-                            <span class="badge bg-label-warning rounded-pill">Ano 2021</span>
+                            <h5 class="text-nowrap mb-2">Pontos Registrados</h5>
+                            <span class="badge bg-label-warning rounded-pill">Ano <?= date('Y') ?></span>
                           </div>
-                          <div class="mt-sm-auto">
-                            <small class="text-success text-nowrap fw-semibold"><i class="bx bx-chevron-up"></i>
-                              68.2%</small>
-                            <h3 class="mb-0">$84.686k</h3>
+                          <div class="">
+                            <h3 class="mb-0"><?= $pontosAdicionados ?></h3>
                           </div>
                         </div>
-                        <div id="profileReportChart"></div>
+                        <div id="profileReportChart2"></div>
                       </div>
                     </div>
                   </div>
@@ -616,8 +681,8 @@ try {
               <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between pb-0">
                   <div class="card-title mb-0">
-                    <h5 class="m-0 me-2">Estatísticas de Pedidos</h5>
-                    <small class="text-muted">42.82k Vendas Totais</small>
+                    <h5 class="m-0 me-2">Distribuição por Setor</h5>
+                    <small class="text-muted">Total: <?= $totalFuncionarios ?> funcionários</small>
                   </div>
                   <div class="dropdown">
                     <button class="btn p-0" type="button" id="orederStatistics" data-bs-toggle="dropdown"
@@ -627,83 +692,37 @@ try {
                     <div class="dropdown-menu dropdown-menu-end" aria-labelledby="orederStatistics">
                       <a class="dropdown-item" href="javascript:void(0);">Selecionar Tudo</a>
                       <a class="dropdown-item" href="javascript:void(0);">Atualizar</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Compartilhar</a>
                     </div>
                   </div>
                 </div>
                 <div class="card-body">
                   <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="d-flex flex-column align-items-center gap-1">
-                      <h2 class="mb-2">8.258</h2>
-                      <span>Pedidos Totais</span>
+                      <h2 class="mb-2"><?= $totalFuncionarios ?></h2>
+                      <span>Funcionários Totais</span>
                     </div>
                     <div id="orderStatisticsChart"></div>
                   </div>
                   <ul class="p-0 m-0">
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-primary">
-                          <i class="bx bx-mobile-alt"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Eletrônicos</h6>
-                          <small class="text-muted">Celular, Fones de Ouvido, TV</small>
+                    <?php foreach ($distribuicaoSetores as $index => $setor): ?>
+                      <li class="d-flex mb-4 pb-1">
+                        <div class="avatar flex-shrink-0 me-3">
+                          <span
+                            class="avatar-initial rounded bg-label-<?= ['primary', 'success', 'warning', 'info'][$index % 4] ?>">
+                            <i class="bx bx-<?= ['user', 'store', 'cart', 'support'][$index % 4] ?>"></i>
+                          </span>
                         </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">82.5k</small>
+                        <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                          <div class="me-2">
+                            <h6 class="mb-0"><?= htmlspecialchars($setor['setor']) ?></h6>
+                            <small class="text-muted"><?= $setor['total'] ?> funcionários</small>
+                          </div>
+                          <div class="user-progress">
+                            <small class="fw-semibold"><?= round(($setor['total'] / $totalFuncionarios) * 100) ?>%</small>
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-success">
-                          <i class="bx bx-closet"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Moda</h6>
-                          <small class="text-muted">Camiseta, Calça Jeans, Sapatos</small>
-                        </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">23.8k</small>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-info">
-                          <i class="bx bx-home-alt"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Decoração</h6>
-                          <small class="text-muted">Arte, Jantar</small>
-                        </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">849k</small>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-secondary">
-                          <i class="bx bx-football"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Esportes</h6>
-                          <small class="text-muted">Futebol, Kit de Críquete</small>
-                        </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">99</small>
-                        </div>
-                      </div>
-                    </li>
+                      </li>
+                    <?php endforeach; ?>
                   </ul>
                 </div>
               </div>
@@ -717,163 +736,137 @@ try {
                   <ul class="nav nav-pills" role="tablist">
                     <li class="nav-item">
                       <button type="button" class="nav-link active" role="tab" data-bs-toggle="tab"
-                        data-bs-target="#navs-tabs-line-card-income" aria-controls="navs-tabs-line-card-income"
+                        data-bs-target="#navs-tabs-line-card-frequencia" aria-controls="navs-tabs-line-card-frequencia"
                         aria-selected="true">
-                        Receita
+                        Frequências
                       </button>
                     </li>
                     <li class="nav-item">
-                      <button type="button" class="nav-link" role="tab">Despesas</button>
-                    </li>
-                    <li class="nav-item">
-                      <button type="button" class="nav-link" role="tab">Lucro</button>
+                      <button type="button" class="nav-link" role="tab" data-bs-toggle="tab"
+                        data-bs-target="#navs-tabs-line-card-atrasos" aria-controls="navs-tabs-line-card-atrasos">
+                        Atrasos
+                      </button>
                     </li>
                   </ul>
                 </div>
                 <div class="card-body px-0">
                   <div class="tab-content p-0">
-                    <div class="tab-pane fade show active" id="navs-tabs-line-card-income" role="tabpanel">
+                    <div class="tab-pane fade show active" id="navs-tabs-line-card-frequencia" role="tabpanel">
                       <div class="d-flex p-4 pt-3">
                         <div class="avatar flex-shrink-0 me-3">
-                          <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" />
+                          <span class="avatar-initial rounded bg-label-info">
+                            <i class="bx bx-calendar text-black"></i>
+                          </span>
                         </div>
                         <div>
-                          <small class="text-muted d-block">Saldo Total</small>
+                          <small class="text-muted d-block">Total Frequência</small>
                           <div class="d-flex align-items-center">
-                            <h6 class="mb-0 me-1">$459.10</h6>
-                            <small class="text-success fw-semibold">
-                              <i class="bx bx-chevron-up"></i>
-                              42,9%
-                            </small>
+                            <h6 class="mb-0 me-1"><?= array_sum($frequenciaMensal) ?></h6>
                           </div>
                         </div>
                       </div>
                       <div id="incomeChart"></div>
-                      <div class="d-flex justify-content-center pt-4 gap-2">
-                        <div class="flex-shrink-0">
-                          <div id="expensesOfWeek"></div>
+                    </div>
+                    <div class="tab-pane fade" id="navs-tabs-line-card-atrasos" role="tabpanel">
+                      <div class="d-flex p-4 pt-3">
+                        <div class="avatar flex-shrink-0 me-3">
+                          <span class="avatar-initial rounded bg-label-danger">
+                            <i class="bx bx-time-five text-black"></i>
+                          </span>
                         </div>
                         <div>
-                          <p class="mb-n1 mt-1">Despesas desta semana</p>
-                          <small class="text-muted">$39 a menos que na semana passada</small>
+                          <small class="text-muted d-block">Atrasos Hoje</small>
+                          <div class="d-flex align-items-center">
+                            <h6 class="mb-0 me-1"><?= count($funcionariosAtrasados) ?></h6>
+                          </div>
                         </div>
                       </div>
+                      <ul class="p-0 m-0">
+                        <?php foreach ($funcionariosAtrasados as $index => $atrasado):
+                          $entrada = $atrasado['entrada'] ? date('H:i', strtotime($atrasado['entrada'])) : '--:--';
+                          $bgColors = ['primary', 'success', 'warning', 'info', 'secondary'];
+                          ?>
+                          <li class="d-flex mb-4 pb-1">
+                            <div class="avatar flex-shrink-0 me-3">
+                              <span class="avatar-initial rounded bg-label-<?= $bgColors[$index % count($bgColors)] ?>">
+                                <i class="bx bx-user"></i>
+                              </span>
+                            </div>
+                            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                              <div class="me-2">
+                                <h6 class="mb-0"><?= htmlspecialchars($atrasado['nome']) ?></h6>
+                                <small class="text-muted d-block mb-1">Entrada: <?= $entrada ?></small>
+                              </div>
+                            </div>
+                          </li>
+                        <?php endforeach; ?>
+                        <?php if (empty($funcionariosAtrasados)): ?>
+                          <li class="d-flex mb-4 pb-1">
+                            <div class="w-100 text-center text-muted py-2">
+                              Nenhum atraso registrado hoje
+                            </div>
+                          </li>
+                        <?php endif; ?>
+                      </ul>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+
             <!--/ Expense Overview -->
 
             <!-- Transactions -->
             <div class="col-md-6 col-lg-4 order-2 mb-4">
               <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                  <h5 class="card-title m-0 me-2">Transações</h5>
+                  <h5 class="card-title m-0 me-2">Últimos Registros</h5>
                   <div class="dropdown">
-                    <button class="btn p-0" type="button" id="transactionID" data-bs-toggle="dropdown"
+                    <button class="btn p-0" type="button" id="ultimosRegistrosID" data-bs-toggle="dropdown"
                       aria-haspopup="true" aria-expanded="false">
                       <i class="bx bx-dots-vertical-rounded"></i>
                     </button>
-                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="transactionID">
-                      <a class="dropdown-item" href="javascript:void(0);">Últimos 28 dias</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Último mês</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Último ano</a>
+                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="ultimosRegistrosID">
+                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=hoje">Hoje</a>
+                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=ontem">Ontem</a>
+                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=semana">Últimos 7
+                        dias</a>
+                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=ano">Ano</a>
                     </div>
                   </div>
                 </div>
                 <div class="card-body">
                   <ul class="p-0 m-0">
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/paypal.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Paypal</small>
-                          <h6 class="mb-0">Enviar dinheiro</h6>
+                    <?php foreach ($ultimosRegistros as $index => $registro):
+                      $entrada = $registro['entrada'] ? date('H:i', strtotime($registro['entrada'])) : '--:--';
+                      $saida = $registro['saida_final'] ? date('H:i', strtotime($registro['saida_final'])) : '--:--';
+                      $dataFormatada = date('d/m', strtotime($registro['data']));
+                      $bgColors = ['primary', 'success', 'warning', 'info', 'secondary'];
+                      ?>
+                      <li class="d-flex mb-4 pb-1">
+                        <div class="avatar flex-shrink-0 me-3">
+                          <span class="avatar-initial rounded bg-label-<?= $bgColors[$index % count($bgColors)] ?>">
+                            <i class="bx bx-user"></i>
+                          </span>
                         </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+82.6</h6>
-                          <span class="text-muted">USD</span>
+                        <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                          <div class="me-2">
+                            <h6 class="mb-0"><?= htmlspecialchars($registro['nome']) ?></h6>
+                            <small class="text-muted d-block mb-1">Entrada: <?= $entrada ?> | Saída: <?= $saida ?></small>
+                          </div>
+                          <div class="user-progress d-flex align-items-center gap-1">
+                            <span class="text-muted"><?= $dataFormatada ?></span>
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Carteira</small>
-                          <h6 class="mb-0">Mac'D</h6>
+                      </li>
+                    <?php endforeach; ?>
+                    <?php if (empty($ultimosRegistros)): ?>
+                      <li class="d-flex mb-4 pb-1">
+                        <div class="w-100 text-center text-muted py-2">
+                          Nenhum registro encontrado
                         </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+270.69</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/chart.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Transferência</small>
-                          <h6 class="mb-0">Reembolso</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+637.91</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/cc-success.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Cartão de Crédito</small>
-                          <h6 class="mb-0">Pedido de comida</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">-838.71</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Carteira</small>
-                          <h6 class="mb-0">Starbucks</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+203.33</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/cc-warning.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Mastercard</small>
-                          <h6 class="mb-0">Pedido de comida</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">-92.45</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
+                      </li>
+                    <?php endif; ?>
                   </ul>
                 </div>
               </div>
@@ -891,8 +884,8 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>CodeGeek</strong>.
+              , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
         </footer>
@@ -907,15 +900,270 @@ try {
 
   </div>
 
+
   <!-- Overlay -->
   <div class="layout-overlay layout-menu-toggle"></div>
   </div>
-  <!-- / Layout wrapper -->
 
-  <!-- Core JS -->
-  <!-- build:js assets/vendor/js/core.js -->
+  <script>
+    // Aguarde o DOM estar totalmente carregado
+    document.addEventListener('DOMContentLoaded', function () {
+      // Verifique se ApexCharts está disponível
+      if (typeof ApexCharts === 'undefined') {
+        console.error('ApexCharts não foi carregado corretamente');
+        return;
+      }
+
+      // Total Revenue Chart - Gráfico de horas trabalhadas
+      const totalRevenueEl = document.getElementById('totalRevenueChart');
+      if (totalRevenueEl) {
+        const totalRevenueChart = new ApexCharts(totalRevenueEl, {
+          series: [{
+            name: 'Horas',
+            data: <?= json_encode($horasTrabalhadas) ?>
+          }],
+          chart: {
+            type: 'bar',
+            height: 350,
+            toolbar: {
+              show: false
+            }
+          },
+          plotOptions: {
+            bar: {
+              borderRadius: 8,
+              columnWidth: '40%'
+            }
+          },
+          dataLabels: {
+            enabled: false
+          },
+          colors: [config.colors.primary],
+          stroke: {
+            width: 2,
+            colors: ['transparent']
+          },
+          grid: {
+            borderColor: '#e0e0e0',
+            strokeDashArray: 4
+          },
+          xaxis: {
+            categories: <?= json_encode($labelsMeses) ?>,
+            axisBorder: {
+              show: false
+            },
+            axisTicks: {
+              show: false
+            }
+          },
+          yaxis: {
+            title: {
+              text: 'Horas'
+            },
+            labels: {
+              formatter: function (val) {
+                return Math.round(val); // Garante números inteiros
+              }
+            }
+          },
+          tooltip: {
+            y: {
+              formatter: function (val) {
+                return val + " horas";
+              }
+            }
+          }
+        });
+        totalRevenueChart.render();
+      }
+
+      // Order Statistics Chart - Gráfico de distribuição por setor
+      const orderStatisticsEl = document.getElementById('orderStatisticsChart');
+      if (orderStatisticsEl) {
+        const orderStatisticsChart = new ApexCharts(orderStatisticsEl, {
+          chart: {
+            type: 'donut',
+            height: 120,
+            width: 130
+          },
+          labels: <?= json_encode($setoresChartLabels) ?>,
+          series: <?= json_encode($setoresChartData) ?>,
+          colors: [
+            config.colors.primary,
+            config.colors.success,
+            config.colors.warning,
+            config.colors.info
+          ],
+          stroke: {
+            width: 0
+          },
+          dataLabels: {
+            enabled: false
+          },
+          legend: {
+            show: false
+          },
+          plotOptions: {
+            pie: {
+              donut: {
+                labels: {
+                  show: true,
+                  name: {
+                    show: false
+                  },
+                  value: {
+                    fontSize: '1.5rem',
+                    fontFamily: 'Public Sans',
+                    color: '#2d3748',
+                    offsetY: 0,
+                    formatter: function (val) {
+                      return val;
+                    }
+                  },
+                  total: {
+                    show: true,
+                    label: 'Total',
+                    color: '#718096',
+                    formatter: function () {
+                      return '<?= $totalFuncionarios ?>';
+                    }
+                  }
+                }
+              }
+            }
+          }
+        });
+        orderStatisticsChart.render();
+      }
+
+      // Income Chart - Gráfico de frequência
+      const incomeChartEl = document.getElementById('incomeChart');
+      if (incomeChartEl) {
+        const incomeChart = new ApexCharts(incomeChartEl, {
+          series: [{
+            name: 'Frequência',
+            data: <?= json_encode($frequenciaMensal) ?>
+          }],
+          chart: {
+            type: 'area',
+            height: 215,
+            sparkline: {
+              enabled: false
+            },
+            toolbar: {
+              show: false
+            }
+          },
+          colors: [config.colors.primary],
+          fill: {
+            type: 'gradient',
+            gradient: {
+              shadeIntensity: 0.6,
+              opacityFrom: 0.4,
+              opacityTo: 0.2,
+              stops: [0, 95, 100]
+            }
+          },
+          stroke: {
+            width: 2,
+            curve: 'smooth'
+          },
+          xaxis: {
+            categories: <?= json_encode($labelsMeses) ?>,
+            axisBorder: {
+              show: false
+            },
+            axisTicks: {
+              show: false
+            }
+          },
+          yaxis: {
+            show: false,
+            min: 0
+          },
+          tooltip: {
+            y: {
+              formatter: function (val) {
+                return val + " registros";
+              }
+            }
+          }
+        });
+        incomeChart.render();
+      }
+
+      // Profile Report Chart 2 - Gráfico de pontos adicionados (linha simples)
+      const profileReportChart2El = document.getElementById('profileReportChart2');
+      if (profileReportChart2El) {
+        const profileReportChart2 = new ApexCharts(profileReportChart2El, {
+          series: [{
+            name: 'Pontos',
+            data: [5, 8, 12, 7, 10, 6, 9]
+          }],
+          chart: {
+            type: 'line',
+            height: 80,
+            sparkline: { enabled: true },
+            toolbar: { show: false }
+          },
+          stroke: {
+            width: 4,
+            curve: 'smooth'
+          },
+          colors: [config.colors.warning],
+          dataLabels: { enabled: false },
+          grid: { show: false },
+          xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
+          yaxis: { show: false },
+          tooltip: {
+            y: {
+              formatter: function (val) {
+                return val + " pontos";
+              }
+            }
+          }
+        });
+        profileReportChart2.render();
+      }
+
+      // Bank Hours Chart - Gráfico de banco de horas (linha simples)
+      const bankHoursChartEl = document.getElementById('bankHoursChart');
+      if (bankHoursChartEl) {
+        const bankHoursChart = new ApexCharts(bankHoursChartEl, {
+          series: [{
+            name: 'Banco de Horas',
+            data: [2, 4, 6, 8, 12, 18, 24]
+          }],
+          chart: {
+            type: 'line',
+            height: 80,
+            sparkline: { enabled: true },
+            toolbar: { show: false }
+          },
+          stroke: {
+            width: 4,
+            curve: 'smooth'
+          },
+          colors: [config.colors.info],
+          dataLabels: { enabled: false },
+          grid: { show: false },
+          axis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
+          yaxis: { show: false },
+          tooltip: {
+            y: {
+              formatter: function (val) {
+                return val + "h";
+              }
+            }
+          }
+        });
+        bankHoursChart.render();
+      }
+
+    });
+  </script>
+
   <script src="../../js/saudacao.js"></script>
-  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../../assets/vendor/libs/popper/popper.js"></script>
   <script src="../../assets/vendor/js/bootstrap.js"></script>
   <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
@@ -929,8 +1177,6 @@ try {
   <!-- Main JS -->
   <script src="../../assets/js/main.js"></script>
 
-  <!-- Page JS -->
-  <script src="../../assets/js/dashboards-analytics.js"></script>
 
   <!-- Place this tag in your head or just before your close body tag. -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>

@@ -250,6 +250,31 @@ $mostrar_modal = ($filtro_periodo === 'personalizar' && (empty($data_inicio) || 
             <span class="menu-header-text">Administrativo</span>
           </li>
 
+          <!-- SUBMENU: SEFAZ -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-file"></i>
+              <div data-i18n="Authentications">SEFAZ</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">NFC-e</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./sefazSAT.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">SAT</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Consulta</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
           <!-- SUBMENU: CAIXA -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
@@ -424,7 +449,8 @@ $mostrar_modal = ($filtro_periodo === 'personalizar' && (empty($data_inicio) || 
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">

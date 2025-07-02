@@ -188,7 +188,7 @@ try {
               <!-- Contas das Filiais -->
               <li class="menu-item">
                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Contas Filiais</div>
+                  <div>Solic. Pagamento</div>
                 </a>
               </li>
 

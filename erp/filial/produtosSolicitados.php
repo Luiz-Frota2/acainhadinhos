@@ -1,23 +1,22 @@
 <?php
-
 session_start();
 require_once '../../assets/php/conexao.php';
 
-// ✅ Recupera o identificador vindo da URL
+// Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
-// ✅ Verifica se a pessoa está logada
+// Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+    !isset($_SESSION['usuario_id'])
 ) {
     header("Location: .././login.php?id=$idSelecionado");
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
+// Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
@@ -45,7 +44,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// Buscar imagem da tabela sobre_empresa
 try {
     $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
     $stmt = $pdo->prepare($sql);
@@ -55,16 +54,14 @@ try {
 
     $logoEmpresa = !empty($empresaSobre['imagem'])
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png"; // fallback padrão
+        : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+    $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// ✅ Se chegou até aqui, o acesso está liberado
-
-// ✅ Buscar nome e nível do usuário logado
+// Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$nivelUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -80,6 +77,29 @@ try {
 } catch (PDOException $e) {
     $nomeUsuario = 'Erro ao carregar nome';
     $nivelUsuario = 'Erro ao carregar nível';
+}
+
+// Buscar solicitações de produtos - versão modificada
+$solicitacoes = [];
+try {
+    // Consulta tanto solicitações feitas POR esta empresa quanto PARA esta empresa
+    $sql = "SELECT sp.*, 
+                   p.nome_produto, 
+                   fo.nome as nome_filial_origem,
+                   fd.nome as nome_filial_destino
+            FROM solicitacoes_produtos sp
+            JOIN produtos_estoque p ON sp.produto_id = p.id
+            LEFT JOIN filiais fo ON sp.empresa_origem = CONCAT('filial_', fo.id_filial)
+            LEFT JOIN filiais fd ON sp.empresa_destino = CONCAT('filial_', fd.id_filial)
+            WHERE sp.empresa_origem = :id_selecionado OR sp.empresa_destino = :id_selecionado
+            ORDER BY sp.data_solicitacao DESC";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $solicitacoes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log("Erro ao buscar solicitações: " . $e->getMessage());
 }
 
 ?>
@@ -372,80 +392,153 @@ try {
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie as
                             Solicitações de Produtos das Filiais</span></h5>
 
-                    <!-- Tabela com botão para abrir a modal -->
+                    <!-- Restante do HTML permanece similar, mas com ajustes na exibição -->
                     <div class="card">
-                        <h5 class="card-header">Pedidos de Estoque</h5>
+                        <h5 class="card-header">Histórico Completo de Solicitações</h5>
                         <div class="card">
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
                                             <th>Produto</th>
-                                            <th>Filial</th>
-                                            <th>Quantidade Solicitada</th>
-                                            <th>Data do Pedido</th>
+                                            <th>Origem</th>
+                                            <th>Destino</th>
+                                            <th>Quantidade</th>
+                                            <th>Data</th>
                                             <th>Status</th>
                                             <th>Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody class="table-border-bottom-0">
-                                        <tr>
-                                            <td>Polpa de Açaí 10kg</td>
-                                            <td><strong>Filial São Paulo</strong></td>
-                                            <td>150 unidades</td>
-                                            <td>06/04/2025</td>
-                                            <td><span class="badge bg-warning">Aguardando Aprovação</span></td>
-                                            <td>
-                                                <!-- Botão para abrir a modal -->
-                                                <button class="btn btn-link text-info p-0"
-                                                    title="Visualizar Solicitação" data-bs-toggle="modal"
-                                                    data-bs-target="#visualizarSolicitacaoModal">
-                                                    <i class="tf-icons bx bx-show"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
+                                        <?php if (empty($solicitacoes)): ?>
+                                            <tr>
+                                                <td colspan="7" class="text-center">Nenhuma solicitação encontrada</td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($solicitacoes as $solicitacao): ?>
+                                                <?php
+                                                $badgeClass = match ($solicitacao['status']) {
+                                                    'aprovada' => 'bg-success',
+                                                    'recusada' => 'bg-danger',
+                                                    'entregue' => 'bg-info',
+                                                    default => 'bg-warning'
+                                                };
+
+                                                // Determina os nomes de origem e destino
+                                                $origem = $solicitacao['empresa_origem'] === 'principal_1'
+                                                    ? 'Matriz'
+                                                    : ($solicitacao['nome_filial_origem'] ?? 'Filial Desconhecida');
+
+                                                $destino = $solicitacao['empresa_destino'] === 'principal_1'
+                                                    ? 'Matriz'
+                                                    : ($solicitacao['nome_filial_destino'] ?? 'Filial Desconhecida');
+                                                ?>
+                                                <tr>
+                                                    <td><?= htmlspecialchars($solicitacao['nome_produto']) ?></td>
+                                                    <td><?= htmlspecialchars($origem) ?></td>
+                                                    <td><?= htmlspecialchars($destino) ?></td>
+                                                    <td><?= htmlspecialchars($solicitacao['quantidade']) ?> un.</td>
+                                                    <td><?= date('d/m/Y H:i', strtotime($solicitacao['data_solicitacao'])) ?>
+                                                    </td>
+                                                    <td><span
+                                                            class="badge <?= $badgeClass ?>"><?= ucfirst($solicitacao['status']) ?></span>
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-link text-info p-0" title="Visualizar"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#modalSolicitacao<?= $solicitacao['id'] ?>">
+                                                            <i class="tf-icons bx bx-show"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Modal para visualizar a solicitação de produto -->
-                    <div class="modal fade" id="visualizarSolicitacaoModal" tabindex="-1"
-                        aria-labelledby="visualizarSolicitacaoModalLabel" aria-hidden="true">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
+                    <?php foreach ($solicitacoes as $solicitacao): ?>
+                        <!-- Modal para cada solicitação -->
+                        <div class="modal fade" id="modalSolicitacao<?= $solicitacao['id'] ?>" tabindex="-1"
+                            aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Detalhes da Solicitação #<?= $solicitacao['id'] ?></h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <strong>Origem:</strong><br>
+                                                <?= htmlspecialchars($origem) ?>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Destino:</strong><br>
+                                                <?= htmlspecialchars($destino) ?>
+                                            </div>
+                                        </div>
 
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="visualizarSolicitacaoModalLabel">Solicitação de Produto
-                                    </h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                        aria-label="Fechar"></button>
-                                </div>
+                                        <div class="mb-3">
+                                            <strong>Produto:</strong><br>
+                                            <?= htmlspecialchars($solicitacao['nome_produto']) ?>
+                                        </div>
 
-                                <div class="modal-body">
-                                    <p><strong>Produto Solicitado:</strong> Polpa de Açaí 10kg</p>
-                                    <p><strong>Filial Solicitante:</strong> Filial São Paulo</p>
-                                    <p><strong>Quantidade Solicitada:</strong> 150 unidades</p>
-                                    <p><strong>Data do Pedido:</strong> 06/04/2025</p>
-                                    <p><strong>Justificativa do Pedido:</strong> Necessidade de reposição de estoque
-                                        devido ao aumento da demanda de vendas durante o mês de abril.</p>
-                                    <p><strong>Status:</strong> Aguardando Aprovação</p>
-                                    <p><strong>Comentário de Aprovação/Recusa:</strong></p>
-                                    <textarea class="form-control" rows="3"
-                                        placeholder="Digite seu comentário aqui..."></textarea>
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <strong>Quantidade:</strong><br>
+                                                <?= htmlspecialchars($solicitacao['quantidade']) ?> unidades
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Status:</strong><br>
+                                                <span
+                                                    class="badge <?= $badgeClass ?>"><?= ucfirst($solicitacao['status']) ?></span>
+                                            </div>
+                                        </div>
 
+                                        <div class="mb-3">
+                                            <strong>Justificativa:</strong><br>
+                                            <?= nl2br(htmlspecialchars($solicitacao['justificativa'])) ?>
+                                        </div>
 
-                                    <div class="d-flex justify-content-between mt-4">
-                                        <button type="button" class="btn btn-secondary"
-                                            data-bs-dismiss="modal">Recusado</button>
-                                        <button type="submit" class="btn btn-primary">Aprovado</button>
+                                        <?php if (!empty($solicitacao['resposta_matriz'])): ?>
+                                            <div class="mb-3">
+                                                <strong>Resposta:</strong><br>
+                                                <?= nl2br(htmlspecialchars($solicitacao['resposta_matriz'])) ?>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <?php if ($solicitacao['status'] === 'pendente' && $_SESSION['tipo_empresa'] === 'principal'): ?>
+                                            <form action="../../assets/php/filial/confirmarSolicitacao.php" method="POST">
+                                                <input type="hidden" name="id" value="<?= $solicitacao['id'] ?>">
+
+                                                <input type="hidden" name="empresa_destino"
+                                                    value="<?= htmlspecialchars($solicitacao['empresa_destino']) ?>">
+
+                                                <input type="text" name="id_selecionado"
+                                                    value="<?= htmlspecialchars($idSelecionado); ?>">
+
+                                                <div class="mb-3">
+                                                    <label class="form-label">Resposta:</label>
+                                                    <textarea name="resposta" class="form-control" rows="3" required></textarea>
+                                                </div>
+
+                                                <div class="d-flex justify-content-between">
+                                                    <button type="submit" name="acao" value="recusar"
+                                                        class="btn btn-danger">Recusar</button>
+                                                    <button type="submit" name="acao" value="aprovar"
+                                                        class="btn btn-success">Aprovar</button>
+                                                </div>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
+                    <?php endforeach; ?>
                     <!-- Modal de Exclusão -->
 
 

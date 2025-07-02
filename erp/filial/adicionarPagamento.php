@@ -188,7 +188,7 @@ try {
                         <ul class="menu-sub">
                             <!-- Contas das Filiais -->
                             <li class="menu-item">
-                                <a href="./contaFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Contas Filiais</div>
                                 </a>
                             </li>
