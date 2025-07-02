@@ -1,5 +1,4 @@
 <?php
-
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
@@ -225,6 +224,14 @@ function calcularCargaHorariaDia($funcionario) {
     return minutesToHM($minutos);
 }
 
+function verificarFolga($cpf, $data, $pdo) {
+    $stmt = $pdo->prepare("SELECT * FROM folgas 
+                          WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = REPLACE(REPLACE(?, '.', ''), '-', '')
+                          AND data_folga = ?");
+    $stmt->execute([$cpf, $data]);
+    return $stmt->fetch(PDO::FETCH_ASSOC) !== false;
+}
+
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -285,6 +292,12 @@ try {
         ];
 
         foreach ($pontos as $ponto) {
+            $folga = verificarFolga($funcionario['cpf'], $ponto['data'], $pdo);
+            
+            if ($folga) {
+                continue; // Pula dias de folga
+            }
+
             if ($ponto['entrada'] && $ponto['saida_final']) {
                 $estatisticas['diasTrabalhados']++;
 
@@ -297,6 +310,26 @@ try {
 
                 $estatisticas['horasTrabalhadas'] += $horasTrabalhadas / 60;
 
+                // Verifica tolerância de 10 minutos na entrada
+                $entradaEsperada = $funcionario['entrada'];
+                $entradaRegistrada = $ponto['entrada'];
+                
+                if ($entradaEsperada && $entradaRegistrada) {
+                    $diffEntrada = calcularDiferencaMinutos($entradaEsperada, $entradaRegistrada);
+                    if ($diffEntrada > 10) { // Mais de 10 minutos de atraso
+                        $estatisticas['atrasos']++;
+                        $estatisticas['horasDevidas'] += ($diffEntrada - 10) / 60; // Desconta os 10 minutos de tolerância
+                    }
+                }
+
+                if ($funcionario['saida_final'] && $ponto['saida_final']) {
+                    $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
+                    if ($diffSaida > 0) { // Saída antecipada
+                        $estatisticas['saidasAntecipadas']++;
+                        $estatisticas['horasDevidas'] += $diffSaida / 60;
+                    }
+                }
+
                 // Calcula adicional noturno
                 $minutosNoturnos = calcularAdicionalNoturno(
                     $ponto['entrada'],
@@ -305,16 +338,6 @@ try {
                     $ponto['saida_final']
                 );
                 $estatisticas['adicionalNoturno'] += $minutosNoturnos;
-
-                if ($funcionario['entrada'] && $ponto['entrada'] > $funcionario['entrada']) {
-                    $estatisticas['atrasos']++;
-                    $estatisticas['horasDevidas'] += calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']) / 60;
-                }
-
-                if ($funcionario['saida_final'] && $ponto['saida_final'] < $funcionario['saida_final']) {
-                    $estatisticas['saidasAntecipadas']++;
-                    $estatisticas['horasDevidas'] += calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']) / 60;
-                }
             }
 
             if ($ponto['hora_extra']) {
@@ -346,6 +369,7 @@ try {
         } catch (PDOException $e) {
             $cnpjEmpresa = 'Erro ao buscar CNPJ';
         }
+        
 ?>
 
 <!DOCTYPE html>
@@ -1036,166 +1060,214 @@ try {
                     </nav>
                     <!-- / Navbar -->
 
-                    <div class="container-xxl flex-grow-1 container-p-y">
-                        <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de
-                                    Ponto</a>/</span>Frequência Geral</h4>
-                        <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize as
-                                Frequências dos Funcionários</span></h5>
+                    
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Frequência Geral</h4>
+    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize as Frequências dos Funcionários</span></h5>
 
-                        <div class="card mt-3">
-                            <div class="card-body bdy">
-                                <div class="btn-group-responsive d-flex flex-wrap gap-2 mb-3">
-                                    <button onclick="window.print()" class="btn btn-primary print-button flex-grow-1">
-                                        <i class="bx bx-printer me-1"></i> Imprimir Relatório
-                                    </button>
-                                    <button type="button" class="btn btn-primary color-blue print-button flex-grow-1"
-                                        onclick="enviarPorEmail()">
-                                        <i class="bx bx-mail-send me-1"></i> Enviar por E-mail
-                                    </button>
+    <div class="card mt-3">
+        <div class="card-body bdy">
+            <div class="btn-group-responsive d-flex flex-wrap gap-2 mb-3">
+                <button onclick="window.print()" class="btn btn-primary print-button flex-grow-1">
+                    <i class="bx bx-printer me-1"></i> Imprimir Relatório
+                </button>
+                <button type="button" class="btn btn-primary color-blue print-button flex-grow-1" onclick="enviarPorEmail()">
+                    <i class="bx bx-mail-send me-1"></i> Enviar por E-mail
+                </button>
+            </div>
+
+            <div class="report-body">
+                <div class="report-container">
+                    <h1 class="report-title">RELATÓRIO ESPELHO PONTO - <?= strtoupper($nomeMes) ?>/<?= $ano ?></h1>
+
+                    <div class="row mb-4">
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="bx bx-user me-2"></i> Dados Pessoais</div>
+                                <div class="card-body">
+                                    <p><strong>Nome:</strong> <?= htmlspecialchars($funcionario['nome']) ?></p>
+                                    <p><strong>CPF:</strong> <?= formatarCPF($funcionario['cpf']) ?></p>
+                                    <p><strong>Empresa:</strong> N R DOS SANTPS ACAINHA.</p>
+                                    <p><strong>Matricula:</strong> <?= htmlspecialchars($funcionario['matricula'] ?? 'Não informado') ?></p>
                                 </div>
+                            </div>
+                        </div>
 
-                                <div class="report-body">
-                                    <div class="report-container">
-                                        <h1 class="report-title">RELATÓRIO ESPELHO PONTO - <?= strtoupper($nomeMes) ?>/<?= $ano ?></h1>
-
-                                        <div class="row mb-4">
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-user me-2"></i> Dados Pessoais</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Nome:</strong> <?= htmlspecialchars($funcionario['nome']) ?></p>
-                                                        <p><strong>CPF:</strong> <?= formatarCPF($funcionario['cpf']) ?></p>
-                                                        <p><strong>Empresa:</strong> N R DOS SANTPS ACAINHA.</p>
-                                                        <p><strong>Matricula:</strong> <?= htmlspecialchars($funcionario['matricula'] ?? 'Não informado') ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-building me-2"></i> Dados Empresariais</div>
-                                                    <div class="card-body">
-                                                        <p><strong>PIS:</strong> <?= htmlspecialchars($funcionario['pis'] ?? 'Não informado') ?></p>
-                                                        <p><strong>CNPJ:</strong> <?= htmlspecialchars($cnpjEmpresa) ?></p>
-                                                        <p><strong>Departamento:</strong> <?= htmlspecialchars($funcionario['setor']) ?></p>
-                                                        <p><strong>Cargo:</strong> <?= htmlspecialchars($funcionario['cargo'] ?? 'Não informado') ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-time me-2"></i> Informações de Trabalho</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Horário:</strong> DIARIA</p>
-                                                        <p><strong>Data Admissão:</strong> <?= formatarData($funcionario['data_admissao']) ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="table-responsive">
-                                            <table class="report-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Data</th>
-                                                        <th>Entrada</th>
-                                                        <th>Saída Int.</th>
-                                                        <th>Entrada Int.</th>
-                                                        <th>Saída</th>
-                                                        <th>Horas Trab.</th>
-                                                        <th>Carga Horária</th>
-                                                        <th>Ocorrências</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($pontos as $ponto):
-                                                        $ocorrencias = [];
-                                                        if ($funcionario['entrada'] && $ponto['entrada'] > $funcionario['entrada']) {
-                                                            $ocorrencias[] = 'Atraso';
-                                                        }
-                                                        if ($funcionario['saida_final'] && $ponto['saida_final'] < $funcionario['saida_final']) {
-                                                            $ocorrencias[] = 'Saída Antecip.';
-                                                        }
-                                                        if (!$ponto['entrada'] || !$ponto['saida_final']) {
-                                                            $ocorrencias[] = 'Dia Incompleto';
-                                                        }
-
-                                                        $horasTrabalhadas = calcularHorasTrabalhadas(
-                                                            $ponto['entrada'],
-                                                            $ponto['saida_intervalo'],
-                                                            $ponto['retorno_intervalo'],
-                                                            $ponto['saida_final']
-                                                        );
-                                                    ?>
-                                                    <tr>
-                                                        <td><?= formatarData($ponto['data']) ?></td>
-                                                        <td><?= $ponto['entrada'] ? date('H:i', strtotime($ponto['entrada'])) : '--:--' ?></td>
-                                                        <td><?= $ponto['saida_intervalo'] ? date('H:i', strtotime($ponto['saida_intervalo'])) : '--:--' ?></td>
-                                                        <td><?= $ponto['retorno_intervalo'] ? date('H:i', strtotime($ponto['retorno_intervalo'])) : '--:--' ?></td>
-                                                        <td><?= $ponto['saida_final'] ? date('H:i', strtotime($ponto['saida_final'])) : '--:--' ?></td>
-                                                        <td><?= $horasTrabalhadas > 0 ? minutesToHM($horasTrabalhadas) : '--:--' ?></td>
-                                                        <td><?= calcularCargaHorariaDia($funcionario) ?></td>
-                                                        <td><?= $ocorrencias ? implode(', ', $ocorrencias) : 'Normal' ?></td>
-                                                    </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        <div class="row mb-4">
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-time me-2"></i> Carga Horária</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Total Dias:</strong> <?= $estatisticas['totalDias'] ?></p>
-                                                        <p><strong>Dias Trabalhados:</strong> <?= $estatisticas['diasTrabalhados'] ?></p>
-                                                        <p><strong>Horas Trabalhadas:</strong> <?= formatarHoraDecimal($estatisticas['horasTrabalhadas']) ?></p>
-                                                        <p><strong>Média Diária:</strong> <?= formatarHoraDecimal($estatisticas['mediaDiaria']) ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-minus-circle me-2"></i> Débito</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Horas Devidas:</strong> <?= formatarHoraDecimal($estatisticas['horasDevidas']) ?></p>
-                                                        <p><strong>Atrasos:</strong> <?= $estatisticas['atrasos'] ?></p>
-                                                        <p><strong>Saídas Antecip.:</strong> <?= $estatisticas['saidasAntecipadas'] ?></p>
-                                                        <p><strong>Dias Incompletos:</strong> <?= $estatisticas['totalDias'] - $estatisticas['diasTrabalhados'] ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div class="col-md-4 mb-3">
-                                                <div class="card h-100">
-                                                    <div class="card-header"><i class="bx bx-plus-circle me-2"></i> Crédito</div>
-                                                    <div class="card-body">
-                                                        <p><strong>Horas Extras:</strong> <?= formatarHoraDecimal($estatisticas['horasExtras']) ?></p>
-                                                        <p><strong>Horas Excedentes:</strong> <?= formatarHoraDecimal($estatisticas['horasExcedentes']) ?></p>
-                                                        <p><strong>Adicional Noturno:</strong> <?= minutesToHM($estatisticas['adicionalNoturno']) ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="signatures">
-                                            <div class="signature-box">Empregador</div>
-                                            <div class="signature-box">Responsável</div>
-                                            <div class="signature-box">Empregado(a)</div>
-                                        </div>
-                                    </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="bx bx-building me-2"></i> Dados Empresariais</div>
+                                <div class="card-body">
+                                    <p><strong>PIS:</strong> <?= htmlspecialchars($funcionario['pis'] ?? 'Não informado') ?></p>
+                                    <p><strong>CNPJ:</strong> <?= htmlspecialchars($cnpjEmpresa) ?></p>
+                                    <p><strong>Departamento:</strong> <?= htmlspecialchars($funcionario['setor']) ?></p>
+                                    <p><strong>Cargo:</strong> <?= htmlspecialchars($funcionario['cargo'] ?? 'Não informado') ?></p>
                                 </div>
-                                <?php
-                                    }
-                                } catch (PDOException $e) {
-                                    die("Erro de conexão: " . $e->getMessage());
-                                }
-                                ?>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="bx bx-time me-2"></i> Informações de Trabalho</div>
+                                <div class="card-body">
+                                    <p><strong>Horário:</strong> DIARIA</p>
+                                    <p><strong>Data Admissão:</strong> <?= formatarData($funcionario['data_admissao']) ?></p>
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <div class="table-responsive">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Entrada</th>
+                                    <th>Saída Int.</th>
+                                    <th>Entrada Int.</th>
+                                    <th>Saída</th>
+                                    <th>Horas Trab.</th>
+                                    <th>Carga Horária</th>
+                                    <th>Ocorrências</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($pontos as $ponto):
+                                    $folga = verificarFolga($funcionario['cpf'], $ponto['data'], $pdo);
+                                    
+                                    if ($folga) {
+                                        echo "<tr>
+                                            <td>".formatarData($ponto['data'])."</td>
+                                            <td>--:--</td>
+                                            <td>--:--</td>
+                                            <td>--:--</td>
+                                            <td>--:--</td>
+                                            <td>--:--</td>
+                                            <td>--:--</td>
+                                            <td>Folga</td>
+                                        </tr>";
+                                        continue;
+                                    }
+
+                                    $ocorrencias = [];
+                                    $normal = true;
+                                    
+                                    // Verifica se a carga horária trabalhada é maior ou igual à esperada
+                                    $horasTrabalhadas = calcularHorasTrabalhadas(
+                                        $ponto['entrada'],
+                                        $ponto['saida_intervalo'],
+                                        $ponto['retorno_intervalo'],
+                                        $ponto['saida_final']
+                                    );
+                                    
+                                    $cargaHorariaEsperada = timeToMinutes($funcionario['saida_final']) - timeToMinutes($funcionario['entrada']);
+                                    
+                                    if ($horasTrabalhadas < $cargaHorariaEsperada) {
+                                        $normal = false;
+                                    }
+                                    
+                                    // Verifica atraso com tolerância de 10 minutos
+                                    if ($funcionario['entrada'] && $ponto['entrada']) {
+                                        $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
+                                        if ($diffEntrada > 10) {
+                                            $ocorrencias[] = 'Atraso';
+                                            $normal = false;
+                                        }
+                                    }
+                                    
+                                    // Verifica saída antecipada
+                                    if ($funcionario['saida_final'] && $ponto['saida_final']) {
+                                        $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
+                                        if ($diffSaida > 0) {
+                                            $ocorrencias[] = 'Saída Antecip.';
+                                            $normal = false;
+                                        }
+                                    }
+                                    
+                                    if (!$ponto['entrada'] || !$ponto['saida_final']) {
+                                        $ocorrencias[] = 'Dia Incompleto';
+                                        $normal = false;
+                                    }
+                                    
+                                    // Verifica adicional noturno
+                                    $minutosNoturnos = calcularAdicionalNoturno(
+                                        $ponto['entrada'],
+                                        $ponto['saida_intervalo'],
+                                        $ponto['retorno_intervalo'],
+                                        $ponto['saida_final']
+                                    );
+                                    
+                                    if ($minutosNoturnos > 0) {
+                                        $ocorrencias[] = 'Adicional Noturno: ' . minutesToHM($minutosNoturnos);
+                                    }
+                                ?>
+                                <tr>
+                                    <td><?= formatarData($ponto['data']) ?></td>
+                                    <td><?= $ponto['entrada'] ? date('H:i', strtotime($ponto['entrada'])) : '--:--' ?></td>
+                                    <td><?= $ponto['saida_intervalo'] ? date('H:i', strtotime($ponto['saida_intervalo'])) : '--:--' ?></td>
+                                    <td><?= $ponto['retorno_intervalo'] ? date('H:i', strtotime($ponto['retorno_intervalo'])) : '--:--' ?></td>
+                                    <td><?= $ponto['saida_final'] ? date('H:i', strtotime($ponto['saida_final'])) : '--:--' ?></td>
+                                    <td><?= $horasTrabalhadas > 0 ? minutesToHM($horasTrabalhadas) : '--:--' ?></td>
+                                    <td><?= calcularCargaHorariaDia($funcionario) ?></td>
+                                    <td><?= $normal ? 'Normal' : implode(', ', $ocorrencias) ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="bx bx-time me-2"></i> Carga Horária</div>
+                                <div class="card-body">
+                                    <p><strong>Total Dias:</strong> <?= $estatisticas['totalDias'] ?></p>
+                                    <p><strong>Dias Trabalhados:</strong> <?= $estatisticas['diasTrabalhados'] ?></p>
+                                    <p><strong>Horas Trabalhadas:</strong> <?= formatarHoraDecimal($estatisticas['horasTrabalhadas']) ?></p>
+                                    <p><strong>Média Diária:</strong> <?= formatarHoraDecimal($estatisticas['mediaDiaria']) ?></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="bx bx-minus-circle me-2"></i> Débito</div>
+                                <div class="card-body">
+                                    <p><strong>Horas Devidas:</strong> <?= formatarHoraDecimal($estatisticas['horasDevidas']) ?></p>
+                                    <p><strong>Atrasos:</strong> <?= $estatisticas['atrasos'] ?></p>
+                                    <p><strong>Saídas Antecip.:</strong> <?= $estatisticas['saidasAntecipadas'] ?></p>
+                                    <p><strong>Dias Incompletos:</strong> <?= $estatisticas['totalDias'] - $estatisticas['diasTrabalhados'] ?></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header"><i class="bx bx-plus-circle me-2"></i> Crédito</div>
+                                <div class="card-body">
+                                    <p><strong>Horas Extras:</strong> <?= formatarHoraDecimal($estatisticas['horasExtras']) ?></p>
+                                    <p><strong>Horas Excedentes:</strong> <?= formatarHoraDecimal($estatisticas['horasExcedentes']) ?></p>
+                                    <p><strong>Adicional Noturno:</strong> <?= minutesToHM($estatisticas['adicionalNoturno']) ?></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="signatures">
+                        <div class="signature-box">Empregador</div>
+                        <div class="signature-box">Responsável</div>
+                        <div class="signature-box">Empregado(a)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php
+    }
+} catch (PDOException $e) {
+    die("Erro de conexão: " . $e->getMessage());
+}
+?>
                 </div>
             </div>
         </div>
