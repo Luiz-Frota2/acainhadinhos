@@ -369,6 +369,13 @@ try {
         } catch (PDOException $e) {
             $cnpjEmpresa = 'Erro ao buscar CNPJ';
         }
+
+    
+        }
+    } catch (PDOException $e) {
+        die("Erro de conexão: " . $e->getMessage());
+    }
+   
         
 ?>
 
@@ -1262,12 +1269,7 @@ try {
             </div>
         </div>
     </div>
-    <?php
-        }
-    } catch (PDOException $e) {
-        die("Erro de conexão: " . $e->getMessage());
-    }
-    ?>
+    
                     </div>
             </div>
         </div>
