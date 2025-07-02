@@ -359,7 +359,7 @@ try {
 
             $cnpjEmpresa = $resultadoCnpj['cnpj'] ?? 'CNPJ não cadastrado';
         } catch (PDOException $e) {
-            $cnpjEmpresa = 'Erro ao buscar CNPJ';
+            $cnpjEmpresa = '';
         }
 
         $relatoriosFuncionarios[] = [
@@ -1092,7 +1092,7 @@ try {
                                                     <div class="card-body">
                                                         <p><strong>Nome:</strong> <?= htmlspecialchars($funcionario['nome']) ?></p>
                                                         <p><strong>CPF:</strong> <?= formatarCPF($funcionario['cpf']) ?></p>
-                                                        <p><strong>Empresa:</strong> N R DOS SANTPS ACAINHA.</p>
+                                                        <p><strong>Empresa:</strong> N R DOS SANTOS ACAINHA.</p>
                                                         <p><strong>Matricula:</strong> <?= htmlspecialchars($funcionario['matricula'] ?? 'Não informado') ?></p>
                                                     </div>
                                                 </div>
