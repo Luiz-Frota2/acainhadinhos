@@ -542,10 +542,10 @@ try {
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
-                         
-                            <input  name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
-                            <input  name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
-                            <input  name="data" id="data" value="<?= date('d/m/Y', strtotime($ponto['data'])) ?>">
+                            <input type="hidden" name="ponto_id" id="pontoId">
+                            <input type="hidden" name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
+                            <input type="hidden" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
+                            <input type="hidden" name="data" id="data" value="<?= date('d/m/Y', strtotime($ponto['data'])) ?>">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>

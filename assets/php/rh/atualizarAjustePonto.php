@@ -2,21 +2,44 @@
 require_once '../conexao.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Debug: Verificar dados recebidos
+    error_log("Dados recebidos no POST: " . print_r($_POST, true));
+    
     // Receber e sanitizar os dados
     $cpf = $_POST['cpf'] ?? '';
     $empresa_id = $_POST['empresa_id'] ?? '';
-    $data = $_POST['data'] ?? '';
+    $data_br = $_POST['data'] ?? ''; // Data no formato d/m/Y
     
+    // Converter data para formato do banco (Y-m-d)
+    $data = DateTime::createFromFormat('d/m/Y', $data_br);
+    if (!$data) {
+        die("<script>
+                alert('Formato de data inválido! Use DD/MM/AAAA');
+                history.back();
+            </script>");
+    }
+    $data_formatada = $data->format('Y-m-d');
+
     // Converter campos vazios para NULL
     $entrada = !empty($_POST['entrada']) ? $_POST['entrada'] : null;
     $saida_intervalo = !empty($_POST['saida_intervalo']) ? $_POST['saida_intervalo'] : null;
     $retorno_intervalo = !empty($_POST['retorno_intervalo']) ? $_POST['retorno_intervalo'] : null;
     $saida_final = !empty($_POST['saida_final']) ? $_POST['saida_final'] : null;
 
+    // Debug: Verificar valores
+    error_log("Valores a serem atualizados:");
+    error_log("CPF: $cpf");
+    error_log("Empresa ID: $empresa_id");
+    error_log("Data: $data_formatada");
+    error_log("Entrada: " . ($entrada ?? 'NULL'));
+    error_log("Saída Intervalo: " . ($saida_intervalo ?? 'NULL'));
+    error_log("Retorno Intervalo: " . ($retorno_intervalo ?? 'NULL'));
+    error_log("Saída Final: " . ($saida_final ?? 'NULL'));
+
     // Verificar se todos os campos obrigatórios estão presentes
-    if (empty($cpf) || empty($empresa_id) || empty($data)) {
+    if (empty($cpf) || empty($empresa_id) || empty($data_br)) {
         die("<script>
-                alert('Dados incompletos para atualização!');
+                alert('Dados incompletos para atualização! CPF, Empresa ID e Data são obrigatórios.');
                 history.back();
             </script>");
     }
@@ -30,13 +53,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     LIMIT 1";
         $stmtCheck = $pdo->prepare($sqlCheck);
         $stmtCheck->bindParam(':cpf', $cpf);
-        $stmtCheck->bindParam(':data', $data);
+        $stmtCheck->bindParam(':data', $data_formatada);
         $stmtCheck->bindParam(':empresa_id', $empresa_id);
         $stmtCheck->execute();
 
         if ($stmtCheck->rowCount() === 0) {
+            $error_msg = "Registro não encontrado com os parâmetros:\n";
+            $error_msg .= "CPF: $cpf\n";
+            $error_msg .= "Data: $data_br (convertido para $data_formatada no banco)\n";
+            $error_msg .= "Empresa ID: $empresa_id";
+            
             die("<script>
-                    alert('Registro de ponto não encontrado!');
+                    alert('".addslashes($error_msg)."');
                     history.back();
                 </script>");
         }
@@ -67,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 AND empresa_id = :empresa_id";
                     $stmtPend = $pdo->prepare($sqlPend);
                     $stmtPend->bindParam(':cpf', $cpf);
-                    $stmtPend->bindParam(':data', $data);
+                    $stmtPend->bindParam(':data', $data_formatada);
                     $stmtPend->bindParam(':empresa_id', $empresa_id);
                     $stmtPend->execute();
                 }
@@ -90,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindParam(':retorno_intervalo', $retorno_intervalo);
         $stmt->bindParam(':saida_final', $saida_final);
         $stmt->bindParam(':cpf', $cpf);
-        $stmt->bindParam(':data', $data);
+        $stmt->bindParam(':data', $data_formatada);
         $stmt->bindParam(':empresa_id', $empresa_id);
 
         $stmt->execute();
@@ -108,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </script>";
         }
     } catch (PDOException $e) {
+        error_log("Erro ao atualizar ponto: " . $e->getMessage());
         echo "<script>
                 alert('Erro ao atualizar ponto: " . addslashes($e->getMessage()) . "');
                 history.back();
