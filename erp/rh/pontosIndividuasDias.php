@@ -553,7 +553,7 @@ try {
                             <div class="modal-body">
                                 <div class="mb-3">
                                     <label for="editEntrada" class="form-label">Entrada</label>
-                                    <input type="time" class="form-control" id="entrada" name="entrada">
+                                    <input type="time" class="form-control" id="editEntrada" name="entrada">
                                 </div>
                                 <div class="mb-3">
                                     <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>

@@ -8,10 +8,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = $_POST['data'] ?? '';
     
     // Converter campos vazios para NULL
-    $entrada = !empty($_POST['editEntrada']) ? $_POST['editEntrada'] : null;
-    $saida_intervalo = !empty($_POST['editSaidaIntervalo']) ? $_POST['editSaidaIntervalo'] : null;
-    $retorno_intervalo = !empty($_POST['editRetornoIntervalo']) ? $_POST['editRetornoIntervalo'] : null;
-    $saida_final = !empty($_POST['editSaidaFinal']) ? $_POST['editSaidaFinal'] : null;
+    $entrada = !empty($_POST['entrada']) ? $_POST['entrada'] : null;
+    $saida_intervalo = !empty($_POST['saida_intervalo']) ? $_POST['saida_intervalo'] : null;
+    $retorno_intervalo = !empty($_POST['retorno_intervalo']) ? $_POST['retorno_intervalo'] : null;
+    $saida_final = !empty($_POST['saida_final']) ? $_POST['saida_final'] : null;
 
     // Verificar se todos os campos obrigatórios estão presentes
     if (empty($cpf) || empty($empresa_id) || empty($data)) {
