@@ -544,27 +544,27 @@ try {
                         <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
                             <input type="hidden" name="ponto_id" id="pontoId">
                             <input type="hidden" name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
-                            <input type="text" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
+                            <input type="hidden" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                             </div>
                             <div class="modal-body">
                                 <div class="mb-3">
-                                    <label for="entrada" class="form-label">Entrada</label>
+                                    <label for="editEntrada" class="form-label">Entrada</label>
                                     <input type="time" class="form-control" id="entrada" name="entrada">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="saida_intervalo" class="form-label">Saída Intervalo</label>
-                                    <input type="time" class="form-control" id="saida_intervalo" name="saida_intervalo">
+                                    <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>
+                                    <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="retorno_intervalo" class="form-label">Entrada Intervalo</label>
-                                    <input type="time" class="form-control" id="retorno_intervalo" name="retorno_intervalo">
+                                    <label for="editRetornoIntervalo" class="form-label">Entrada Intervalo</label>
+                                    <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo">
                                 </div>
                                 <div class="mb-3">
-                                    <label for="saida_final" class="form-label">Saída</label>
-                                    <input type="time" class="form-control" id="saida_final" name="saida_final">
+                                    <label for="editSaidaFinal" class="form-label">Saída</label>
+                                    <input type="time" class="form-control" id="editSaidaFinal" name="saida_final">
                                 </div>
                                 <div class="mb-3">
                                     <label for="editCarga" class="form-label">Carga Horária</label>
