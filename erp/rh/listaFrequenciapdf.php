@@ -1282,9 +1282,6 @@ try {
                                                         $horasExtrasDia = converterHoraParaDecimal($registro['hora_extra']);
                                                         $temHorasExtras = $horasExtrasDia > 0;
 
-                                                        // Verificar se bateu a carga horária (com 5 minutos de tolerância)
-                                                        $diferencaCargaHoraria = abs($horasTrabalhadasMinutos - $cargaHorariaMinutos);
-
                                                         // Verificar atraso (com tolerância de 10 minutos)
                                                         $temAtraso = false;
                                                         if ($funcionario['entrada']) {
@@ -1309,8 +1306,8 @@ try {
                                                             }
                                                         }
 
-                                                        // Se bateu exatamente a carga horária ou com pequena diferença
-                                                        if ($diferencaCargaHoraria <= 5) {
+                                                        // Se horas trabalhadas for igual ou maior que carga horária, considera "Normal"
+                                                        if ($horasTrabalhadasMinutos >= $cargaHorariaMinutos) {
                                                             $ocorrencias[] = 'Normal';
                                                         } else {
                                                             // Verificar atraso
