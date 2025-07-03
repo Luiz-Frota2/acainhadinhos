@@ -126,12 +126,24 @@ function capitalize($str)
     return ucfirst($str);
 }
 
-function converterHoraParaDecimal($horaString)
-{
-    if (!$horaString)
+function converterHoraParaDecimal($horaString) {
+    if (!$horaString || $horaString === '00:00:00' || $horaString === '00:00') {
         return 0;
-    list($hours, $minutes) = explode(':', $horaString);
-    return $hours + $minutes / 60;
+    }
+    
+    // Remove segundos se existirem
+    $parts = explode(':', $horaString);
+    if (count($parts) === 3) {
+        list($hours, $minutes, $seconds) = $parts;
+    } else {
+        list($hours, $minutes) = $parts;
+    }
+    
+    // Converte para números inteiros
+    $hours = (int)$hours;
+    $minutes = (int)$minutes;
+    
+    return $hours + ($minutes / 60);
 }
 
 function formatarHoraDecimal($decimal)
