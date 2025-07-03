@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     echo "<script>
             alert('Registro de ponto atualizado com sucesso!');
-            window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "';
+            window.location.href = '../../../erp/rh/pontosIndividuasMes.php?id=" . urlencode($empresa_id) . "cpf=" . urlencode($cpf) . "';
           </script>";
   } catch (PDOException $e) {
     echo "<script>
