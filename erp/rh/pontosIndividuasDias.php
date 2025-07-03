@@ -543,6 +543,7 @@ try {
                         <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
                             <input type="hidden" name="ponto_id" id="pontoId">
                             <input type="hidden" name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
+                            <input type="hidden" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
