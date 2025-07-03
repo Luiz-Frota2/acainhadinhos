@@ -1390,8 +1390,6 @@ try {
                                                 <div class="card-body">
                                                     <p><strong>Horas Devidas:</strong> <?= formatarHoraDecimal($estatisticas['horasDevidas']) ?></p>
                                                     <p><strong>Atrasos:</strong> <?= $estatisticas['atrasos'] ?></p>
-                                                    <p><strong>Saídas Antecip.:</strong> <?= $estatisticas['saidasAntecipadas'] ?></p>
-                                                    <p><strong>Dias Incompletos:</strong> <?= $estatisticas['totalDias'] - $estatisticas['diasTrabalhados'] - $estatisticas['diasFolga'] ?></p>
                                                 </div>
                                             </div>
                                         </div>
