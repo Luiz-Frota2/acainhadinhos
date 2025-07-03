@@ -430,7 +430,6 @@ try {
 } catch (PDOException $e) {
     die("Erro de conexão: " . $e->getMessage());
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -1119,6 +1118,8 @@ try {
                 </nav>
                 <!-- / Navbar -->
 
+
+
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Frequência Geral</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize as Frequências dos Funcionários</span></h5>
@@ -1259,13 +1260,13 @@ try {
                                                                     $normal = true;
                                                                 }
 
-                                                                // Se horas trabalhadas forem diferentes da carga horária, verifica ocorrências
-                                                                if (!$normal) {
-                                                                    // Adiciona adicional noturno se houver
-                                                                    if ($minutosNoturnos > 0) {
-                                                                        $ocorrencias[] = 'Ad. Noturno';
-                                                                    }
+                                                                // Adiciona adicional noturno se houver, independente de ser dia normal
+                                                                if ($minutosNoturnos > 0) {
+                                                                    $ocorrencias[] = 'Ad. Noturno';
+                                                                }
 
+                                                                // Se não for dia normal, verifica outras ocorrências
+                                                                if (!$normal) {
                                                                     // Adiciona horas extras se houver
                                                                     if ($horasExtras > 0) {
                                                                         $ocorrencias[] = 'Hora Extra';
@@ -1304,7 +1305,15 @@ try {
                                                                 <td><?= $horasExtras > 0 ? minutesToHM($horasExtras) : '--:--' ?></td>
                                                                 <td><?= $minutosNoturnos > 0 ? minutesToHM($minutosNoturnos) : '--:--' ?></td>
                                                                 <td>
-                                                                    <?= $normal ? 'Normal' : (empty($ocorrencias) ? '--' : implode(', ', $ocorrencias)) ?>
+                                                                    <?php
+                                                                    if ($normal && $minutosNoturnos > 0) {
+                                                                        echo 'Normal, Ad. Noturno';
+                                                                    } elseif ($normal) {
+                                                                        echo 'Normal';
+                                                                    } else {
+                                                                        echo empty($ocorrencias) ? '--' : implode(', ', $ocorrencias);
+                                                                    }
+                                                                    ?>
                                                                 </td>
                                                             </tr>
                                                         <?php else: ?>
@@ -1366,7 +1375,7 @@ try {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+
                                         <div class="signatures">
                                             <div class="signature-box">Empregador</div>
                                             <div class="signature-box">Responsável</div>
@@ -1377,6 +1386,7 @@ try {
                                     </div>
                                 <?php endforeach; ?>
                             </div>
+
                         </div>
                     </div>
                 </div>
