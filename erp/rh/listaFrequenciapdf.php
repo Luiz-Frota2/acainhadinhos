@@ -127,22 +127,32 @@ function capitalize($str)
 }
 
 function converterHoraParaDecimal($horaString) {
-    if (!$horaString || $horaString === '00:00:00' || $horaString === '00:00') {
+    // Verifica se a string está vazia ou é zero
+    if (empty($horaString) || $horaString === '00:00:00' || $horaString === '00:00') {
         return 0;
     }
+
+    // Remove espaços em branco
+    $horaString = trim($horaString);
     
-    // Remove segundos se existirem
-    $parts = explode(':', $horaString);
-    if (count($parts) === 3) {
-        list($hours, $minutes, $seconds) = $parts;
-    } else {
-        list($hours, $minutes) = $parts;
+    // Verifica se o formato contém ':'
+    if (strpos($horaString, ':') === false) {
+        return 0; // ou você pode retornar (float)$horaString se for apenas horas
     }
+
+    // Divide a string em partes
+    $parts = explode(':', $horaString);
     
-    // Converte para números inteiros
-    $hours = (int)$hours;
-    $minutes = (int)$minutes;
+    // Garante que temos pelo menos horas e minutos
+    if (count($parts) < 2) {
+        return 0;
+    }
+
+    // Converte para inteiros
+    $hours = (int)$parts[0];
+    $minutes = (int)$parts[1];
     
+    // Calcula o valor decimal
     return $hours + ($minutes / 60);
 }
 
@@ -247,7 +257,7 @@ function calcularHorasNoturnas($entrada, $saida, $saidaIntervalo = null, $retorn
     }
     
     $segundosNoturnos = $fimTrabalhado - $inicioTrabalhado;
-    $horasNoturnas = ($segundosNoturnos / 3600) * (60 / 52.5);
+    $horasNoturnas = ($segundosNoturnos / 3600) * (60 / 60.0);
     
     return round($horasNoturnas, 2);
 }
@@ -445,15 +455,18 @@ try {
                 }
             }
 
-            if ($registro['hora_extra']) {
-                $estatisticas['horasExtras'] += converterHoraParaDecimal($registro['hora_extra']);
-                $estatisticas['horasExcedentes'] += converterHoraParaDecimal($registro['hora_extra']);
-            }
+           // No seu loop onde calcula as estatísticas, modifique para:
+if (!empty($registro['hora_extra'])) {
+    $valorExtra = converterHoraParaDecimal($registro['hora_extra']);
+    $estatisticas['horasExtras'] += $valorExtra;
+    $estatisticas['horasExcedentes'] += $valorExtra;
+}
 
-            if ($registro['horas_pendentes']) {
-                $estatisticas['horasPendentes'] += converterHoraParaDecimal($registro['horas_pendentes']);
-                $estatisticas['horasDevidas'] += converterHoraParaDecimal($registro['horas_pendentes']);
-            }
+if (!empty($registro['horas_pendentes'])) {
+    $valorPendente = converterHoraParaDecimal($registro['horas_pendentes']);
+    $estatisticas['horasPendentes'] += $valorPendente;
+    $estatisticas['horasDevidas'] += $valorPendente;
+}
         }
     }
 
