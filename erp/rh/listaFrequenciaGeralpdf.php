@@ -1178,9 +1178,12 @@ try {
                                                         <p><strong>Horário:</strong> DIARIA</p>
                                                         <p><strong>Carga Horária Diária:</strong> <?= $cargaHorariaDiaria ?></p>
                                                         <?php
-                                                        $dataAdmissao = !empty($funcionario['data_admissao']) ? formatarData($funcionario['data_admissao']) : '--/--/----';
+                                                        $dataAdmissao = $funcionario['data_admissao'] ?? '';
+                                                        $admissaoFormatada = ($dataAdmissao && $dataAdmissao !== '0000-00-00' && $dataAdmissao !== '1970-01-01' && $dataAdmissao !== '-0001-11-30')
+                                                            ? formatarData($dataAdmissao)
+                                                            : '';
                                                         ?>
-                                                        <p><strong>Data Admissão:</strong> <?= $dataAdmissao ?></p>
+                                                        <p><strong>Data Admissão:</strong> <?= $admissaoFormatada ?></p>
                                                     </div>
                                                 </div>
                                             </div>
