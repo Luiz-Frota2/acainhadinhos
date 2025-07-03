@@ -362,20 +362,23 @@ try {
                     }
                 }
 
-                // Verifica saída antecipada
-                $saidaEsperada = $funcionario['saida_final'];
-                $saidaRegistrada = $ponto['saida_final'];
+                // Calcula horas extras (considerando carga horária diária)
+                $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria);
 
-                if ($saidaEsperada && $saidaRegistrada && $saidaEsperada !== '--:--' && $saidaRegistrada !== '--:--') {
-                    $diffSaida = calcularDiferencaMinutos($saidaRegistrada, $saidaEsperada);
-                    if ($diffSaida > 0) { // Saída antecipada
-                        $estatisticas['saidasAntecipadas']++;
-                        $estatisticas['horasDevidas'] += $diffSaida / 60;
+                // Verifica saída antecipada apenas se não houver horas extras
+                if ($horasExtras <= 0) {
+                    $saidaEsperada = $funcionario['saida_final'];
+                    $saidaRegistrada = $ponto['saida_final'];
+
+                    if ($saidaEsperada && $saidaRegistrada && $saidaEsperada !== '--:--' && $saidaRegistrada !== '--:--') {
+                        $diffSaida = calcularDiferencaMinutos($saidaRegistrada, $saidaEsperada);
+                        if ($diffSaida > 0) { // Saída antecipada
+                            $estatisticas['saidasAntecipadas']++;
+                            $estatisticas['horasDevidas'] += $diffSaida / 60;
+                        }
                     }
                 }
 
-                // Calcula horas extras (considerando carga horária diária)
-                $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria);
                 $estatisticas['horasExtras'] += $horasExtras / 60;
                 $estatisticas['horasExcedentes'] += $horasExtras / 60;
 
@@ -1246,15 +1249,6 @@ try {
                                                                     }
                                                                 }
 
-                                                                // Verifica saída antecipada
-                                                                if ($funcionario['saida_final'] && $funcionario['saida_final'] !== '--:--') {
-                                                                    $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
-                                                                    if ($diffSaida > 0) {
-                                                                        $ocorrencias[] = 'Saída Antecip.';
-                                                                        $normal = false;
-                                                                    }
-                                                                }
-
                                                                 // Calcula adicional noturno
                                                                 $minutosNoturnos = calcularAdicionalNoturno(
                                                                     $ponto['entrada'],
@@ -1269,6 +1263,18 @@ try {
 
                                                                 // Calcula horas extras
                                                                 $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria);
+
+                                                                // Verifica saída antecipada apenas se não houver horas extras
+                                                                if ($horasExtras <= 0) {
+                                                                    if ($funcionario['saida_final'] && $funcionario['saida_final'] !== '--:--') {
+                                                                        $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
+                                                                        if ($diffSaida > 0) {
+                                                                            $ocorrencias[] = 'Saída Antecip.';
+                                                                            $normal = false;
+                                                                        }
+                                                                    }
+                                                                }
+
                                                                 if ($horasExtras > 0) {
                                                                     $ocorrencias[] = 'Hora Extra';
                                                                 }
