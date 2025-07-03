@@ -146,16 +146,16 @@ function calcularDiferencaMinutos($horaInicial, $horaFinal)
 {
     if (!$horaInicial || !$horaFinal)
         return 0;
-    
+
     // Converter para timestamp
     $hi = strtotime($horaInicial);
     $hf = strtotime($horaFinal);
-    
+
     // Se a saída for no dia seguinte (após meia-noite)
     if ($hf < $hi) {
         $hf += 86400; // Adiciona 24 horas em segundos
     }
-    
+
     return ($hf - $hi) / 60;
 }
 
