@@ -84,6 +84,13 @@ function minutesToHM($min)
     return sprintf('%02dh %02dm', $h, $m);
 }
 
+function decimalToHM($decimal)
+{
+    $horas = floor($decimal);
+    $minutos = round(($decimal - $horas) * 60);
+    return sprintf('%02dh %02dm', $horas, $minutos);
+}
+
 function formatarData($dataString)
 {
     if (!$dataString) return '--/--/----';
@@ -106,13 +113,6 @@ function converterHoraParaDecimal($horaString)
     if (!$horaString || $horaString === '--:--') return 0;
     list($hours, $minutes) = explode(':', $horaString);
     return $hours + $minutes / 60;
-}
-
-function formatarHoraDecimal($decimal)
-{
-    $horas = floor($decimal);
-    $minutos = round(($decimal - $horas) * 60);
-    return sprintf("%02d:%02d", $horas, $minutos);
 }
 
 function calcularDiferencaMinutos($horaInicial, $horaFinal)
@@ -431,7 +431,7 @@ try {
     die("Erro de conexão: " . $e->getMessage());
 }
 
-?>
+?>  
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
