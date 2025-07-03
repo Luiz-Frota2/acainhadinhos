@@ -208,7 +208,7 @@ function calcularHorasExtras($entrada, $saida, $saidaIntervalo = null, $retornoI
         $totalMinutos -= calcularDiferencaMinutos($saidaIntervalo, $retornoIntervalo);
     }
 
-    if ($totalMinutos <= 480) {
+    if ($totalMinutos <= 480) { // 8 horas = 480 minutos
         return 0;
     }
 
@@ -222,24 +222,57 @@ function calcularHorasNoturnas($entrada, $saida, $saidaIntervalo = null, $retorn
     $entradaTs = strtotime($entrada);
     $saidaTs = strtotime($saida);
 
+    // Se a saída for no dia seguinte (após meia-noite)
     if ($saidaTs < $entradaTs) {
         $saidaTs += 86400;
     }
 
     $inicioNoturno = strtotime('22:00:00');
-    $fimNoturno = strtotime('05:00:00') + 86400;
+    $fimNoturno = strtotime('05:00:00') + 86400; // 05:00 do dia seguinte
 
-    $inicioTrabalhado = max($entradaTs, $inicioNoturno);
-    $fimTrabalhado = min($saidaTs, $fimNoturno);
+    // Calcular horas noturnas considerando intervalo
+    $horasNoturnas = 0;
 
-    if ($inicioTrabalhado >= $fimTrabalhado) {
-        return 0;
+    // Período antes do intervalo (se houver)
+    if ($saidaIntervalo) {
+        $saidaIntervaloTs = strtotime($saidaIntervalo);
+        if ($saidaIntervaloTs < $entradaTs) {
+            $saidaIntervaloTs += 86400;
+        }
+
+        $inicioTrabalhado = max($entradaTs, $inicioNoturno);
+        $fimTrabalhado = min($saidaIntervaloTs, $fimNoturno);
+
+        if ($inicioTrabalhado < $fimTrabalhado) {
+            $horasNoturnas += ($fimTrabalhado - $inicioTrabalhado) / 3600;
+        }
     }
 
-    $segundosNoturnos = $fimTrabalhado - $inicioTrabalhado;
-    $horasNoturnas = ($segundosNoturnos / 3600) * (60 / 60.0);
+    // Período após o intervalo (se houver)
+    if ($retornoIntervalo) {
+        $retornoIntervaloTs = strtotime($retornoIntervalo);
+        if ($retornoIntervaloTs < $entradaTs) {
+            $retornoIntervaloTs += 86400;
+        }
 
-    return round($horasNoturnas, 2);
+        $inicioTrabalhado = max($retornoIntervaloTs, $inicioNoturno);
+        $fimTrabalhado = min($saidaTs, $fimNoturno);
+
+        if ($inicioTrabalhado < $fimTrabalhado) {
+            $horasNoturnas += ($fimTrabalhado - $inicioTrabalhado) / 3600;
+        }
+    } else {
+        // Sem intervalo - calcular todo o período
+        $inicioTrabalhado = max($entradaTs, $inicioNoturno);
+        $fimTrabalhado = min($saidaTs, $fimNoturno);
+
+        if ($inicioTrabalhado < $fimTrabalhado) {
+            $horasNoturnas = ($fimTrabalhado - $inicioTrabalhado) / 3600;
+        }
+    }
+
+    // Aplicar fator de redução (52.5/60) para adicional noturno
+    return $horasNoturnas * (52.5 / 60);
 }
 
 function calcularCargaHorariaDia($ponto, $funcionario)
@@ -404,32 +437,78 @@ try {
                 );
                 $estatisticas['horasTrabalhadas'] += $horasDia;
 
-                // Verificar tolerância de 10 minutos na entrada
-                $temAtraso = false;
-                if ($funcionario['entrada']) {
-                    $entradaEsperada = strtotime($funcionario['entrada']);
-                    $entradaRegistrada = strtotime($registro['entrada']);
-                    $diferencaMinutos = ($entradaRegistrada - $entradaEsperada) / 60;
+                // Calcular carga horária esperada para o dia
+                $cargaHorariaDia = calcularCargaHorariaDia($registro, $funcionario) / 60; // em horas
 
-                    if ($diferencaMinutos > 10) {
-                        $temAtraso = true;
-                        $estatisticas['atrasos']++;
-                        $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
+                // Verificar se horas trabalhadas são iguais à carga horária
+                $diferencaHoras = abs($horasDia - $cargaHorariaDia);
+
+                // Se a diferença for menor que 10 minutos (0.166 horas), considerar como normal
+                if ($diferencaHoras < 0.166) {
+                    $registro['ocorrencia'] = 'Normal';
+                } else {
+                    // Verificar tolerância de 10 minutos na entrada
+                    $temAtraso = false;
+                    if ($funcionario['entrada']) {
+                        $entradaEsperada = strtotime($funcionario['entrada']);
+                        $entradaRegistrada = strtotime($registro['entrada']);
+                        $diferencaMinutos = ($entradaRegistrada - $entradaEsperada) / 60;
+
+                        if ($diferencaMinutos > 10) {
+                            $temAtraso = true;
+                            $estatisticas['atrasos']++;
+                            $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
+                            $registro['ocorrencia'] = 'Atraso';
+                        }
+                    }
+
+                    // Verificar saída antecipada
+                    $temSaidaAntecipada = false;
+                    if ($funcionario['saida_final']) {
+                        $saidaEsperada = strtotime($funcionario['saida_final']);
+                        $saidaRegistrada = strtotime($registro['saida_final']);
+                        $diferencaMinutos = ($saidaEsperada - $saidaRegistrada) / 60;
+
+                        if ($diferencaMinutos > 10) {
+                            $temSaidaAntecipada = true;
+                            $estatisticas['saidasAntecipadas']++;
+                            $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
+                            if (isset($registro['ocorrencia'])) {
+                                $registro['ocorrencia'] .= ', Saída Antecip.';
+                            } else {
+                                $registro['ocorrencia'] = 'Saída Antecip.';
+                            }
+                        }
+                    }
+
+                    // Se não houver atraso nem saída antecipada, mas horas trabalhadas < carga horária
+                    if (!$temAtraso && !$temSaidaAntecipada && $horasDia < $cargaHorariaDia) {
+                        $registro['ocorrencia'] = 'Horas Pendentes';
                     }
                 }
 
-                // Verificar saída antecipada
-                $temSaidaAntecipada = false;
-                if ($funcionario['saida_final']) {
-                    $saidaEsperada = strtotime($funcionario['saida_final']);
-                    $saidaRegistrada = strtotime($registro['saida_final']);
-                    $diferencaMinutos = ($saidaEsperada - $saidaRegistrada) / 60;
-
-                    if ($diferencaMinutos > 0) {
-                        $temSaidaAntecipada = true;
-                        $estatisticas['saidasAntecipadas']++;
-                        $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
+                // Adicionar Adicional Noturno se houver horas noturnas
+                if ($registro['horas_noturnas'] > 0) {
+                    if (isset($registro['ocorrencia'])) {
+                        $registro['ocorrencia'] .= ', Adicional Noturno';
+                    } else {
+                        $registro['ocorrencia'] = 'Adicional Noturno';
                     }
+                }
+
+                // Adicionar Horas Extras se houver
+                $horasExtrasDia = converterHoraParaDecimal($registro['hora_extra']);
+                if ($horasExtrasDia > 0) {
+                    if (isset($registro['ocorrencia'])) {
+                        $registro['ocorrencia'] .= ', Horas Extras';
+                    } else {
+                        $registro['ocorrencia'] = 'Horas Extras';
+                    }
+                }
+
+                // Se não houver nenhuma ocorrência, marcar como Normal
+                if (!isset($registro['ocorrencia'])) {
+                    $registro['ocorrencia'] = 'Normal';
                 }
             }
 
@@ -458,6 +537,7 @@ try {
     die("Erro ao gerar relatório: " . $e->getMessage());
 }
 
+// HTML do relatório
 ?>
 
 <!DOCTYPE html>
