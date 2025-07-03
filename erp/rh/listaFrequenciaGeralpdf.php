@@ -431,7 +431,7 @@ try {
     die("Erro de conexão: " . $e->getMessage());
 }
 
-?>  
+?>
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -1337,8 +1337,8 @@ try {
                                                         <p><strong>Total Dias:</strong> <?= $estatisticas['totalDias'] ?></p>
                                                         <p><strong>Dias Trabalhados:</strong> <?= $estatisticas['diasTrabalhados'] ?></p>
                                                         <p><strong>Dias de Folga:</strong> <?= $estatisticas['diasFolga'] ?></p>
-                                                        <p><strong>Horas Trabalhadas:</strong> <?= formatarHoraDecimal($estatisticas['horasTrabalhadas']) ?></p>
-                                                        <p><strong>Média Diária:</strong> <?= formatarHoraDecimal($estatisticas['mediaDiaria']) ?></p>
+                                                        <p><strong>Horas Trabalhadas:</strong> <?= decimalToHM($estatisticas['horasTrabalhadas']) ?></p>
+                                                        <p><strong>Média Diária:</strong> <?= decimalToHM($estatisticas['mediaDiaria']) ?></p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1347,7 +1347,7 @@ try {
                                                 <div class="card h-100">
                                                     <div class="card-header"><i class="bx bx-minus-circle me-2"></i> Débito</div>
                                                     <div class="card-body">
-                                                        <p><strong>Horas Devidas:</strong> <?= formatarHoraDecimal($estatisticas['horasDevidas']) ?></p>
+                                                        <p><strong>Horas Devidas:</strong> <?= decimalToHM($estatisticas['horasDevidas']) ?></p>
                                                         <p><strong>Atrasos:</strong> <?= $estatisticas['atrasos'] ?></p>
                                                         <p><strong>Saídas Antecip.:</strong> <?= $estatisticas['saidasAntecipadas'] ?></p>
                                                         <p><strong>Dias Incompletos:</strong> <?= $estatisticas['totalDias'] - $estatisticas['diasTrabalhados'] - $estatisticas['diasFolga'] ?></p>
@@ -1359,14 +1359,14 @@ try {
                                                 <div class="card h-100">
                                                     <div class="card-header"><i class="bx bx-plus-circle me-2"></i> Crédito</div>
                                                     <div class="card-body">
-                                                        <p><strong>Horas Extras:</strong> <?= formatarHoraDecimal($estatisticas['horasExtras']) ?></p>
-                                                        <p><strong>Horas Excedentes:</strong> <?= formatarHoraDecimal($estatisticas['horasExcedentes']) ?></p>
+                                                        <p><strong>Horas Extras:</strong> <?= decimalToHM($estatisticas['horasExtras']) ?></p>
+                                                        <p><strong>Horas Excedentes:</strong> <?= decimalToHM($estatisticas['horasExcedentes']) ?></p>
                                                         <p><strong>Adicional Noturno:</strong> <?= minutesToHM($estatisticas['adicionalNoturno']) ?></p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-
+                                        
                                         <div class="signatures">
                                             <div class="signature-box">Empregador</div>
                                             <div class="signature-box">Responsável</div>
@@ -1377,7 +1377,6 @@ try {
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-
                         </div>
                     </div>
                 </div>
