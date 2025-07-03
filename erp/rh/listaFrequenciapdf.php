@@ -68,6 +68,8 @@ try {
 }
 
 // Helpers
+
+// Helpers
 function timeToMinutes($time)
 {
     if (!$time || $time === '00:00:00')
@@ -187,36 +189,54 @@ function mesPortugues($mes)
     return $meses[$mes] ?? '';
 }
 
-function calcularHorasNoturnas($entrada, $saida)
-{
-    if (!$entrada || !$saida)
+function calcularHorasExtras($entrada, $saida, $saidaIntervalo = null, $retornoIntervalo = null) {
+    if (!$entrada || !$saida) return 0;
+    
+    $totalMinutos = calcularDiferencaMinutos($entrada, $saida);
+    
+    if ($saidaIntervalo && $retornoIntervalo) {
+        $totalMinutos -= calcularDiferencaMinutos($saidaIntervalo, $retornoIntervalo);
+    }
+    
+    if ($totalMinutos <= 480) {
         return 0;
+    }
+    
+    return ($totalMinutos - 480) / 60;
+}
 
+function calcularHorasNoturnas($entrada, $saida, $saidaIntervalo = null, $retornoIntervalo = null) {
+    if (!$entrada || !$saida) return 0;
+    
+    $horasExtras = calcularHorasExtras($entrada, $saida, $saidaIntervalo, $retornoIntervalo);
+    if ($horasExtras <= 0) return 0;
+    
     $entradaTs = strtotime($entrada);
     $saidaTs = strtotime($saida);
-
+    
     if ($saidaTs < $entradaTs) {
         $saidaTs += 86400;
     }
-
+    
     $inicioNoturno = strtotime('22:00:00');
     $fimNoturno = strtotime('05:00:00') + 86400;
-
-    $segundosNoturnos = 0;
-
-    if ($saidaTs <= $inicioNoturno || $entradaTs >= $fimNoturno) {
+    $inicioExtras = $entradaTs + (8 * 3600);
+    
+    if ($saidaIntervalo && $retornoIntervalo) {
+        $intervalo = strtotime($retornoIntervalo) - strtotime($saidaIntervalo);
+        $inicioExtras += $intervalo;
+    }
+    
+    $inicioTrabalhado = max($inicioExtras, $inicioNoturno);
+    $fimTrabalhado = min($saidaTs, $fimNoturno);
+    
+    if ($inicioTrabalhado >= $fimTrabalhado) {
         return 0;
     }
-
-    $inicioTrabalhado = max($entradaTs, $inicioNoturno);
-    $fimTrabalhado = min($saidaTs, $fimNoturno);
-
-    if ($inicioTrabalhado < $fimTrabalhado) {
-        $segundosNoturnos = $fimTrabalhado - $inicioTrabalhado;
-    }
-
+    
+    $segundosNoturnos = $fimTrabalhado - $inicioTrabalhado;
     $horasNoturnas = ($segundosNoturnos / 3600) * (60 / 52.5);
-
+    
     return round($horasNoturnas, 2);
 }
 
@@ -344,14 +364,27 @@ try {
         'horasNoturnas' => 0
     ];
 
-    // Calcular horas noturnas para cada dia
+    // Calcular horas noturnas e extras para cada dia
     foreach ($registros as &$registro) {
         if ($registro['tipo'] === 'ponto' && $registro['entrada'] && $registro['saida_final']) {
             $registro['horas_noturnas'] = calcularHorasNoturnas(
                 $registro['entrada'],
-                $registro['saida_final']
+                $registro['saida_final'],
+                $registro['saida_intervalo'],
+                $registro['retorno_intervalo']
             );
+            
+            $registro['hora_extra'] = formatarHoraDecimal(
+                calcularHorasExtras(
+                    $registro['entrada'],
+                    $registro['saida_final'],
+                    $registro['saida_intervalo'],
+                    $registro['retorno_intervalo']
+                )
+            );
+            
             $estatisticas['horasNoturnas'] += $registro['horas_noturnas'];
+            $estatisticas['horasExtras'] += converterHoraParaDecimal($registro['hora_extra']);
         } else {
             $registro['horas_noturnas'] = 0;
         }
