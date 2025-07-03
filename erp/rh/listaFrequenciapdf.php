@@ -146,9 +146,17 @@ function calcularDiferencaMinutos($horaInicial, $horaFinal)
 {
     if (!$horaInicial || !$horaFinal)
         return 0;
-    list($hi, $mi) = explode(':', $horaInicial);
-    list($hf, $mf) = explode(':', $horaFinal);
-    return ($hf * 60 + $mf) - ($hi * 60 + $mi);
+    
+    // Converter para timestamp
+    $hi = strtotime($horaInicial);
+    $hf = strtotime($horaFinal);
+    
+    // Se a saída for no dia seguinte (após meia-noite)
+    if ($hf < $hi) {
+        $hf += 86400; // Adiciona 24 horas em segundos
+    }
+    
+    return ($hf - $hi) / 60;
 }
 
 function calcularHorasTrabalhadas($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal)
