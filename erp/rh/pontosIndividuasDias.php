@@ -397,7 +397,7 @@ try {
                 <!-- / Navbar -->
 
                <?php
-
+// Configurações de conexão com o banco de dados
 // Função para calcular a carga horária
 function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal) {
     if (empty($entrada) || empty($saidaFinal)) {
@@ -432,11 +432,16 @@ function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $sai
     return sprintf('%02dh %02dm', $horas, $minutos);
 }
 
-// Obter parâmetros da URL
-$empresa_id = isset($_GET['empresa_id']) ? $_GET['empresa_id'] : '';
+// Obter parâmetros da URL (obrigatórios)
+$empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
 $cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
 $mes = isset($_GET['mes']) ? intval($_GET['mes']) : date('m');
 $ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
+
+// Validar parâmetros obrigatórios
+if (empty($empresa_id) || empty($cpf)) {
+    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
+}
 
 // Validar mês e ano
 if ($mes < 1 || $mes > 12) $mes = date('m');
@@ -446,38 +451,36 @@ if ($ano < 2000 || $ano > 2100) $ano = date('Y');
 $pontos = [];
 $nomeFuncionario = '';
 
-if (!empty($empresa_id) && !empty($cpf)) {
-    try {
-        // Primeiro, pegar o nome do funcionário
-        $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
-        $stmt->bindParam(':empresa_id', $empresa_id);
-        $stmt->bindParam(':cpf', $cpf);
-        $stmt->execute();
-        
-        if ($stmt->rowCount() > 0) {
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            $nomeFuncionario = htmlspecialchars($result['nome']);
-        }
-
-        // Agora pegar todos os pontos do mês/ano
-        $dataInicio = "$ano-$mes-01";
-        $dataFim = date("Y-m-t", strtotime($dataInicio));
-
-        $stmt = $pdo->prepare("SELECT * FROM pontos 
-                              WHERE empresa_id = :empresa_id 
-                              AND cpf = :cpf 
-                              AND data BETWEEN :data_inicio AND :data_fim
-                              ORDER BY data ASC");
-        $stmt->bindParam(':empresa_id', $empresa_id);
-        $stmt->bindParam(':cpf', $cpf);
-        $stmt->bindParam(':data_inicio', $dataInicio);
-        $stmt->bindParam(':data_fim', $dataFim);
-        $stmt->execute();
-
-        $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        die("Erro ao consultar pontos: " . $e->getMessage());
+try {
+    // Primeiro, pegar o nome do funcionário
+    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
+    $stmt->execute();
+    
+    if ($stmt->rowCount() > 0) {
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $nomeFuncionario = htmlspecialchars($result['nome']);
     }
+
+    // Agora pegar todos os pontos do mês/ano
+    $dataInicio = "$ano-$mes-01";
+    $dataFim = date("Y-m-t", strtotime($dataInicio));
+
+    $stmt = $pdo->prepare("SELECT * FROM pontos 
+                          WHERE empresa_id = :empresa_id 
+                          AND cpf = :cpf 
+                          AND data BETWEEN :data_inicio AND :data_fim
+                          ORDER BY data ASC");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
+    $stmt->bindParam(':data_inicio', $dataInicio);
+    $stmt->bindParam(':data_fim', $dataFim);
+    $stmt->execute();
+
+    $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    die("Erro ao consultar pontos: " . $e->getMessage());
 }
 ?>
 
@@ -487,35 +490,9 @@ if (!empty($empresa_id) && !empty($cpf)) {
 
     <div class="container mt-4">
         <div class="card mt-3">
-            <h5 class="card-header">Frequência do Funcionário: <?= $nomeFuncionario ?></h5>
-            
-            <!-- Filtros -->
-            <div class="card-body">
-                <form method="get" class="row g-3">
-                    <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_id) ?>">
-                    <div class="col-md-3">
-                        <label for="cpf" class="form-label">CPF</label>
-                        <input type="text" class="form-control" id="cpf" name="cpf" value="<?= htmlspecialchars($cpf) ?>" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="mes" class="form-label">Mês</label>
-                        <select class="form-select" id="mes" name="mes">
-                            <?php for ($i = 1; $i <= 12; $i++): ?>
-                                <option value="<?= $i ?>" <?= $i == $mes ? 'selected' : '' ?>>
-                                    <?= str_pad($i, 2, '0', STR_PAD_LEFT) ?>
-                                </option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label for="ano" class="form-label">Ano</label>
-                        <input type="number" class="form-control" id="ano" name="ano" min="2000" max="2100" value="<?= $ano ?>">
-                    </div>
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary">Filtrar</button>
-                    </div>
-                </form>
-            </div>
+            <h5 class="card-header">Frequência do Funcionário: <?= $nomeFuncionario ?>
+                <span class="float-end">Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
+            </h5>
 
             <div class="table-responsive text-nowrap">
                 <table class="table table-hover" id="tabelaBancoHoras">
