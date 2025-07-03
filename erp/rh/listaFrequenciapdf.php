@@ -1318,8 +1318,8 @@ try {
                                                                 $ocorrencias[] = 'Atraso';
                                                             }
 
-                                                            // Verificar saída antecipada (só mostra se não tiver adicional noturno ou horas extras)
-                                                            if ($temSaidaAntecipada && !$temAdicionalNoturno && !$temHorasExtras) {
+                                                            // Verificar saída antecipada APENAS se as horas trabalhadas forem MENORES que a carga horária
+                                                            if ($temSaidaAntecipada && $horasTrabalhadasMinutos < $cargaHorariaMinutos && !$temAdicionalNoturno && !$temHorasExtras) {
                                                                 $ocorrencias[] = 'Saída Antecip.';
                                                             }
                                                         }
@@ -1390,9 +1390,6 @@ try {
                                                 <div class="card-body">
                                                     <p><strong>Horas Devidas:</strong> <?= formatarHoraDecimal($estatisticas['horasDevidas']) ?></p>
                                                     <p><strong>Atrasos:</strong> <?= $estatisticas['atrasos'] ?></p>
-                                                    <p><strong>Saídas Antecip.:</strong> <?= $estatisticas['saidasAntecipadas'] ?></p>
-                                                    <p><strong>Dias Incompletos:</strong> <?= $estatisticas['totalDias'] - $estatisticas['diasTrabalhados'] - $estatisticas['diasFolga'] ?></p>
-                                                </div>
                                             </div>
                                         </div>
 
