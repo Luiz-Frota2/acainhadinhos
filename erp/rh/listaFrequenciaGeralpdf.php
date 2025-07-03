@@ -364,6 +364,11 @@ try {
                 $estatisticas['horasExtras'] += $horasExtras / 60;
                 $estatisticas['horasExcedentes'] += $horasExtras / 60;
 
+                // Calcula horas devidas (quando trabalhou menos que a carga horária)
+                if ($horasTrabalhadas < timeToMinutes($cargaHorariaDiaria)) {
+                    $estatisticas['horasDevidas'] += (timeToMinutes($cargaHorariaDiaria) - $horasTrabalhadas) / 60;
+                }
+
                 // Verifica atraso apenas se não houver horas extras ou adicional noturno
                 if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
                     $entradaEsperada = $funcionario['entrada'];
@@ -373,7 +378,6 @@ try {
                         $diffEntrada = calcularDiferencaMinutos($entradaEsperada, $entradaRegistrada);
                         if ($diffEntrada > 10) { // Mais de 10 minutos de atraso
                             $estatisticas['atrasos']++;
-                            $estatisticas['horasDevidas'] += ($diffEntrada - 10) / 60;
                         }
                     }
                 }
@@ -387,7 +391,6 @@ try {
                         $diffSaida = calcularDiferencaMinutos($saidaRegistrada, $saidaEsperada);
                         if ($diffSaida > 0) { // Saída antecipada
                             $estatisticas['saidasAntecipadas']++;
-                            $estatisticas['horasDevidas'] += $diffSaida / 60;
                         }
                     }
                 }
@@ -1226,12 +1229,11 @@ try {
 
                                                         if ($ponto && !isset($ponto['folga'])):
                                                             $ocorrencias = [];
-                                                            $normal = true;
+                                                            $normal = false;
 
                                                             // Verifica se o dia está completo
                                                             if (!$ponto['entrada'] || !$ponto['saida_final'] || $ponto['entrada'] === '--:--' || $ponto['saida_final'] === '--:--') {
                                                                 $ocorrencias[] = 'Dia Incompleto';
-                                                                $normal = false;
                                                             } else {
                                                                 // Calcula horas trabalhadas
                                                                 $horasTrabalhadas = calcularHorasTrabalhadas(
@@ -1252,41 +1254,42 @@ try {
                                                                 // Calcula horas extras
                                                                 $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria);
 
-                                                                // Se horas trabalhadas forem exatamente iguais à carga horária, marca como normal
+                                                                // Verifica se é um dia normal (horas trabalhadas = carga horária)
                                                                 if ($horasTrabalhadas == timeToMinutes($cargaHorariaDiaria)) {
                                                                     $normal = true;
-                                                                } else {
-                                                                    $normal = false;
                                                                 }
 
-                                                                // Verifica atraso apenas se não houver horas extras ou adicional noturno
-                                                                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
-                                                                    if ($funcionario['entrada'] && $funcionario['entrada'] !== '--:--') {
-                                                                        $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
-                                                                        if ($diffEntrada > 10) {
-                                                                            $ocorrencias[] = 'Atraso';
-                                                                            $normal = false;
+                                                                // Se horas trabalhadas forem diferentes da carga horária, verifica ocorrências
+                                                                if (!$normal) {
+                                                                    // Adiciona adicional noturno se houver
+                                                                    if ($minutosNoturnos > 0) {
+                                                                        $ocorrencias[] = 'Ad. Noturno';
+                                                                    }
+
+                                                                    // Adiciona horas extras se houver
+                                                                    if ($horasExtras > 0) {
+                                                                        $ocorrencias[] = 'Hora Extra';
+                                                                    }
+
+                                                                    // Verifica atraso apenas se não houver horas extras ou adicional noturno
+                                                                    if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
+                                                                        if ($funcionario['entrada'] && $funcionario['entrada'] !== '--:--') {
+                                                                            $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
+                                                                            if ($diffEntrada > 10) {
+                                                                                $ocorrencias[] = 'Atraso';
+                                                                            }
                                                                         }
                                                                     }
-                                                                }
 
-                                                                // Verifica saída antecipada apenas se não houver horas extras ou adicional noturno
-                                                                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
-                                                                    if ($funcionario['saida_final'] && $funcionario['saida_final'] !== '--:--') {
-                                                                        $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
-                                                                        if ($diffSaida > 0) {
-                                                                            $ocorrencias[] = 'Saída Antecip.';
-                                                                            $normal = false;
+                                                                    // Verifica saída antecipada apenas se não houver horas extras ou adicional noturno
+                                                                    if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
+                                                                        if ($funcionario['saida_final'] && $funcionario['saida_final'] !== '--:--') {
+                                                                            $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
+                                                                            if ($diffSaida > 0) {
+                                                                                $ocorrencias[] = 'Saída Antecip.';
+                                                                            }
                                                                         }
                                                                     }
-                                                                }
-
-                                                                if ($minutosNoturnos > 0) {
-                                                                    $ocorrencias[] = 'Ad. Noturno';
-                                                                }
-
-                                                                if ($horasExtras > 0) {
-                                                                    $ocorrencias[] = 'Hora Extra';
                                                                 }
                                                             }
                                                         ?>
@@ -1301,7 +1304,7 @@ try {
                                                                 <td><?= $horasExtras > 0 ? minutesToHM($horasExtras) : '--:--' ?></td>
                                                                 <td><?= $minutosNoturnos > 0 ? minutesToHM($minutosNoturnos) : '--:--' ?></td>
                                                                 <td>
-                                                                    <?= $normal ? 'Normal' : implode(', ', $ocorrencias) ?>
+                                                                    <?= $normal ? 'Normal' : (empty($ocorrencias) ? '--' : implode(', ', $ocorrencias)) ?>
                                                                 </td>
                                                             </tr>
                                                         <?php else: ?>
@@ -1374,44 +1377,48 @@ try {
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-                        </div>
-                    </div>
-                </div>
+</body>
 
-            </div>
-        </div>
-    </div>
+</html>
 
-    <script src="../../js/saudacao.js"></script>
-    <script src="../../assets/vendor/libs/popper/popper.js"></script>
-    <script src="../../assets/vendor/js/bootstrap.js"></script>
-    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+</div>
+</div>
+</div>
 
-    <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
+</div>
+</div>
+</div>
 
-    <!-- Vendors JS -->
-    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+<script src="../../js/saudacao.js"></script>
+<script src="../../assets/vendor/libs/popper/popper.js"></script>
+<script src="../../assets/vendor/js/bootstrap.js"></script>
+<script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 
-    <!-- Main JS -->
-    <script src="../../assets/js/main.js"></script>
+<script src="../../assets/vendor/js/menu.js"></script>
+<!-- endbuild -->
+
+<!-- Vendors JS -->
+<script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+
+<!-- Main JS -->
+<script src="../../assets/js/main.js"></script>
 
 
-    <!-- Place this tag in your head or just before your close body tag. -->
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
+<!-- Place this tag in your head or just before your close body tag. -->
+<script async defer src="https://buttons.github.io/buttons.js"></script>
 
-    <script>
-        // Adiciona a data atual no rodapé
-        document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR');
+<script>
+    // Adiciona a data atual no rodapé
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR');
 
-        // Configuração para impressão em PDF
-        document.title = "Relatório Espelho Ponto - Naara Kaliane";
+    // Configuração para impressão em PDF
+    document.title = "Relatório Espelho Ponto - Naara Kaliane";
 
-        function enviarPorEmail() {
-            alert('Funcionalidade de envio por e-mail em desenvolvimento.');
-            // Aqui você pode abrir um modal ou redirecionar para um endpoint PHP para envio real
-        }
-    </script>
+    function enviarPorEmail() {
+        alert('Funcionalidade de envio por e-mail em desenvolvimento.');
+        // Aqui você pode abrir um modal ou redirecionar para um endpoint PHP para envio real
+    }
+</script>
 </body>
 
 </html>
