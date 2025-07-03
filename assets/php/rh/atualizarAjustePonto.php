@@ -2,33 +2,27 @@
 require_once '../conexao.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Debug: Verificar dados recebidos
-    error_log("Dados recebidos no POST: " . print_r($_POST, true));
-    
     // Receber e sanitizar os dados
     $cpf = $_POST['cpf'] ?? '';
     $empresa_id = $_POST['empresa_id'] ?? '';
-    $data_br = $_POST['data'] ?? ''; // Data no formato d/m/Y
+    $data_br = $_POST['data'] ?? '';
     
     // Converter data para formato do banco (Y-m-d)
     $data_obj = DateTime::createFromFormat('d/m/Y', $data_br);
     if (!$data_obj) {
-        die(json_encode([
-            'status' => 'error',
-            'message' => 'Formato de data inválido! Use DD/MM/AAAA'
-        ]));
+        die("<script>
+                alert('Formato de data inválido! Use DD/MM/AAAA');
+                history.back();
+            </script>");
     }
     $data_formatada = $data_obj->format('Y-m-d');
 
     // Função para formatar horários
     function formatarHora($hora) {
         if (empty($hora)) return null;
-        
-        // Se já estiver no formato HH:MM
         if (preg_match('/^\d{2}:\d{2}$/', $hora)) {
-            return $hora . ':00'; // Adiciona os segundos
+            return $hora . ':00';
         }
-        
         return $hora;
     }
 
@@ -38,12 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $retorno_intervalo = formatarHora($_POST['retorno_intervalo'] ?? null);
     $saida_final = formatarHora($_POST['saida_final'] ?? null);
 
-    // Verificar se todos os campos obrigatórios estão presentes
+    // Verificar campos obrigatórios
     if (empty($cpf) || empty($empresa_id) || empty($data_br)) {
-        die(json_encode([
-            'status' => 'error',
-            'message' => 'Dados incompletos para atualização! CPF, Empresa ID e Data são obrigatórios.'
-        ]));
+        die("<script>
+                alert('Dados incompletos para atualização!');
+                history.back();
+            </script>");
     }
 
     try {
@@ -63,13 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $registroAtual = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
         if (!$registroAtual) {
-            die(json_encode([
-                'status' => 'error',
-                'message' => "Registro não encontrado com os parâmetros:\nCPF: $cpf\nData: $data_br\nEmpresa ID: $empresa_id"
-            ]));
+            die("<script>
+                    alert('Registro não encontrado!');
+                    history.back();
+                </script>");
         }
 
-        // Verificar se há alterações
+        // Verificar alterações
         $alteracoes = [];
         if ($entrada != $registroAtual['entrada']) $alteracoes['entrada'] = $entrada;
         if ($saida_intervalo != $registroAtual['saida_intervalo']) $alteracoes['saida_intervalo'] = $saida_intervalo;
@@ -77,13 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($saida_final != $registroAtual['saida_final']) $alteracoes['saida_final'] = $saida_final;
 
         if (empty($alteracoes)) {
-            die(json_encode([
-                'status' => 'info',
-                'message' => 'Nenhuma alteração detectada. Os valores são iguais aos atuais.'
-            ]));
+            echo "<script>
+                    alert('Nenhuma alteração detectada!');
+                    window.location.href = '../../../erp/rh/pontosIndividuaisMes.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "';
+                </script>";
+            exit;
         }
 
-        // Construir a query dinamicamente
+        // Construir e executar a query
         $sql = "UPDATE pontos SET ";
         $params = [];
         
@@ -93,40 +88,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         $sql = rtrim($sql, ', ') . " WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id";
-        
         $params[':cpf'] = $cpf;
         $params[':data'] = $data_formatada;
         $params[':empresa_id'] = $empresa_id;
 
-        // Executar a atualização
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
 
-        // Verificar se a atualização foi bem-sucedida
+        // Redirecionar após sucesso
         if ($stmt->rowCount() > 0) {
-            echo json_encode([
-                'status' => 'success',
-                'message' => 'Registro de ponto atualizado com sucesso!',
-                'changes' => $alteracoes
-            ]);
+            echo "<script>
+                    alert('Registro atualizado com sucesso!');
+                    window.location.href = '../../../erp/rh/pontosIndividuaisMes.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "';
+                </script>";
         } else {
-            echo json_encode([
-                'status' => 'warning',
-                'message' => 'A atualização foi executada, mas nenhuma linha foi afetada.'
-            ]);
+            echo "<script>
+                    alert('Nenhum dado alterado!');
+                    window.location.href = '../../../erp/rh/pontosIndividuaisMes.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "';
+                </script>";
         }
 
     } catch (PDOException $e) {
-        error_log("Erro ao atualizar ponto: " . $e->getMessage());
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Erro ao atualizar ponto: ' . $e->getMessage()
-        ]);
+        echo "<script>
+                alert('Erro ao atualizar: " . addslashes($e->getMessage()) . "');
+                history.back();
+            </script>";
     }
 } else {
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'Método de requisição inválido!'
-    ]);
+    echo "<script>
+            alert('Requisição inválida!');
+            window.location.href = '../../../erp/rh/pontosIndividuaisMes.php';
+        </script>";
 }
 ?>
