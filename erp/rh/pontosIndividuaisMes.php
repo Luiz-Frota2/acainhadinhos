@@ -487,7 +487,7 @@ $mesesPortugues = [
                                 <td><?= $item['ano'] ?></td>
                                 <td><?= $mesPortugues ?></td>
                                 <td>
-                                    <a href="./pontosIndividuasDias.php?empresa_id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
+                                    <a href="./pontosIndividuasDias.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
                                         <i class="fas fa-eye"></i> Visualizar
                                     </a>
                                 </td>
