@@ -1306,21 +1306,9 @@ try {
                                                             }
                                                         }
 
-                                                        // Lógica para "Normal" e outras ocorrências
+                                                        // Se horas trabalhadas for igual ou maior que carga horária, considera "Normal"
                                                         if ($horasTrabalhadasMinutos >= $cargaHorariaMinutos) {
-                                                            if ($temHorasExtras) {
-                                                                // Se tem hora extra, não mostra "Normal"
-                                                                $ocorrencias[] = 'Horas Extras';
-                                                                if ($temAdicionalNoturno) {
-                                                                    $ocorrencias[] = 'Adicional Noturno';
-                                                                }
-                                                            } elseif ($temAdicionalNoturno) {
-                                                                // Se só tem adicional noturno, mostra só "Normal"
-                                                                $ocorrencias[] = 'Normal';
-                                                            } else {
-                                                                // Nenhuma extra ou adicional noturno, só "Normal"
-                                                                $ocorrencias[] = 'Normal';
-                                                            }
+                                                            $ocorrencias[] = 'Normal';
                                                         } else {
                                                             // Verificar atraso
                                                             if ($temAtraso) {
@@ -1331,14 +1319,16 @@ try {
                                                             if ($temSaidaAntecipada && $horasTrabalhadasMinutos < $cargaHorariaMinutos && !$temAdicionalNoturno && !$temHorasExtras) {
                                                                 $ocorrencias[] = 'Saída Antecip.';
                                                             }
+                                                        }
 
-                                                            // Adicional noturno e hora extra só aparecem se não for "Normal"
-                                                            if ($temAdicionalNoturno) {
-                                                                $ocorrencias[] = 'Adicional Noturno';
-                                                            }
-                                                            if ($temHorasExtras) {
-                                                                $ocorrencias[] = 'Horas Extras';
-                                                            }
+                                                        // Adicionar adicional noturno se houver
+                                                        if ($temAdicionalNoturno) {
+                                                            $ocorrencias[] = 'Adicional Noturno';
+                                                        }
+
+                                                        // Adicionar horas extras se houver
+                                                        if ($temHorasExtras) {
+                                                            $ocorrencias[] = 'Horas Extras';
                                                         }
                                                     } else {
                                                         $ocorrencias[] = 'Dia Incompleto';
