@@ -540,7 +540,7 @@ try {
             <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
                 <div class="modal-dialog">
                     <div class="modal-content">
-                        <form id="formEditarPonto" method="post" action=".../.../assets/php/rh/atualizarAjustePonto.php">
+                        <form id="formEditarPonto" method="post" action=".../../../assets/php/rh/atualizarAjustePonto.php">
                             <input type="hidden" name="ponto_id" id="pontoId">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
