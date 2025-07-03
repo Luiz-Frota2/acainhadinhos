@@ -350,23 +350,36 @@ try {
 
                 $estatisticas['horasTrabalhadas'] += $horasTrabalhadas / 60;
 
-                // Verifica tolerância de 10 minutos na entrada
-                $entradaEsperada = $funcionario['entrada'];
-                $entradaRegistrada = $ponto['entrada'];
+                // Calcula adicional noturno
+                $minutosNoturnos = calcularAdicionalNoturno(
+                    $ponto['entrada'],
+                    $ponto['saida_intervalo'],
+                    $ponto['retorno_intervalo'],
+                    $ponto['saida_final']
+                );
+                $estatisticas['adicionalNoturno'] += $minutosNoturnos;
 
-                if ($entradaEsperada && $entradaRegistrada && $entradaEsperada !== '--:--' && $entradaRegistrada !== '--:--') {
-                    $diffEntrada = calcularDiferencaMinutos($entradaEsperada, $entradaRegistrada);
-                    if ($diffEntrada > 10) { // Mais de 10 minutos de atraso
-                        $estatisticas['atrasos']++;
-                        $estatisticas['horasDevidas'] += ($diffEntrada - 10) / 60;
+                // Calcula horas extras
+                $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria);
+                $estatisticas['horasExtras'] += $horasExtras / 60;
+                $estatisticas['horasExcedentes'] += $horasExtras / 60;
+
+                // Verifica atraso apenas se não houver horas extras ou adicional noturno
+                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
+                    $entradaEsperada = $funcionario['entrada'];
+                    $entradaRegistrada = $ponto['entrada'];
+
+                    if ($entradaEsperada && $entradaRegistrada && $entradaEsperada !== '--:--' && $entradaRegistrada !== '--:--') {
+                        $diffEntrada = calcularDiferencaMinutos($entradaEsperada, $entradaRegistrada);
+                        if ($diffEntrada > 10) { // Mais de 10 minutos de atraso
+                            $estatisticas['atrasos']++;
+                            $estatisticas['horasDevidas'] += ($diffEntrada - 10) / 60;
+                        }
                     }
                 }
 
-                // Calcula horas extras (considerando carga horária diária)
-                $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria);
-
-                // Verifica saída antecipada apenas se não houver horas extras
-                if ($horasExtras <= 0) {
+                // Verifica saída antecipada apenas se não houver horas extras ou adicional noturno
+                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
                     $saidaEsperada = $funcionario['saida_final'];
                     $saidaRegistrada = $ponto['saida_final'];
 
@@ -378,18 +391,6 @@ try {
                         }
                     }
                 }
-
-                $estatisticas['horasExtras'] += $horasExtras / 60;
-                $estatisticas['horasExcedentes'] += $horasExtras / 60;
-
-                // Calcula adicional noturno
-                $minutosNoturnos = calcularAdicionalNoturno(
-                    $ponto['entrada'],
-                    $ponto['saida_intervalo'],
-                    $ponto['retorno_intervalo'],
-                    $ponto['saida_final']
-                );
-                $estatisticas['adicionalNoturno'] += $minutosNoturnos;
             }
 
             if ($ponto['horas_pendentes'] && $ponto['horas_pendentes'] !== '--:--') {
@@ -1240,15 +1241,6 @@ try {
                                                                     $ponto['saida_final']
                                                                 );
 
-                                                                // Verifica atraso com tolerância de 10 minutos
-                                                                if ($funcionario['entrada'] && $funcionario['entrada'] !== '--:--') {
-                                                                    $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
-                                                                    if ($diffEntrada > 10) {
-                                                                        $ocorrencias[] = 'Atraso';
-                                                                        $normal = false;
-                                                                    }
-                                                                }
-
                                                                 // Calcula adicional noturno
                                                                 $minutosNoturnos = calcularAdicionalNoturno(
                                                                     $ponto['entrada'],
@@ -1257,15 +1249,29 @@ try {
                                                                     $ponto['saida_final']
                                                                 );
 
-                                                                if ($minutosNoturnos > 0) {
-                                                                    $ocorrencias[] = 'Ad. Noturno';
-                                                                }
-
                                                                 // Calcula horas extras
                                                                 $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria);
 
-                                                                // Verifica saída antecipada apenas se não houver horas extras
-                                                                if ($horasExtras <= 0) {
+                                                                // Se horas trabalhadas forem exatamente iguais à carga horária, marca como normal
+                                                                if ($horasTrabalhadas == timeToMinutes($cargaHorariaDiaria)) {
+                                                                    $normal = true;
+                                                                } else {
+                                                                    $normal = false;
+                                                                }
+
+                                                                // Verifica atraso apenas se não houver horas extras ou adicional noturno
+                                                                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
+                                                                    if ($funcionario['entrada'] && $funcionario['entrada'] !== '--:--') {
+                                                                        $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
+                                                                        if ($diffEntrada > 10) {
+                                                                            $ocorrencias[] = 'Atraso';
+                                                                            $normal = false;
+                                                                        }
+                                                                    }
+                                                                }
+
+                                                                // Verifica saída antecipada apenas se não houver horas extras ou adicional noturno
+                                                                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
                                                                     if ($funcionario['saida_final'] && $funcionario['saida_final'] !== '--:--') {
                                                                         $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
                                                                         if ($diffSaida > 0) {
@@ -1273,6 +1279,10 @@ try {
                                                                             $normal = false;
                                                                         }
                                                                     }
+                                                                }
+
+                                                                if ($minutosNoturnos > 0) {
+                                                                    $ocorrencias[] = 'Ad. Noturno';
                                                                 }
 
                                                                 if ($horasExtras > 0) {
