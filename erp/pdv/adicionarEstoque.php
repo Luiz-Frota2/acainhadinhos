@@ -140,7 +140,8 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                       <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
@@ -164,6 +165,31 @@ try {
                     <!-- SEÇÃO ADMINISTRATIVO -->
                     <li class="menu-header small text-uppercase">
                         <span class="menu-header-text">Administrativo</span>
+                    </li>
+
+                    <!-- SUBMENU: SEFAZ -->
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-file"></i>
+                            <div data-i18n="Authentications">SEFAZ</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Basic">NFC-e</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./sefazSAT.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Basic">SAT</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Basic">Consulta</div>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
 
                     <!-- SUBMENU: CAIXA -->
@@ -229,13 +255,6 @@ try {
                             <div data-i18n="Authentications">Relatórios</div>
                         </a>
                         <ul class="menu-sub">
-                            <!-- Relatório Financeiro: Dados financeiros -->
-                            <li class="menu-item">
-                                <a href="./relatorioFinanceiro.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div data-i18n="Basic">Financeiro</div>
-                                </a>
-                            </li>
                             <!-- Relatório Operacional: Desempenho de operações -->
                             <li class="menu-item">
                                 <a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>"
@@ -345,7 +364,7 @@ try {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -355,7 +374,7 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
@@ -414,8 +433,9 @@ try {
 
 
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold py-3 mb-4"><span class="fw-light"
-                            style="color: #696cff !important;"><a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>">PDV</a></span>/Adicionar Produto</h4>
+                    <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;"><a
+                                href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>">PDV</a></span>/Adicionar
+                        Produto</h4>
 
                     <!-- / Content -->
                     <div class="card">
@@ -424,7 +444,8 @@ try {
                             <form id="addContaForm" action="../../assets/php/pdv/adicionarEstoque.php" method="POST">
 
                                 <!-- Campo oculto para passar o idSelecionado -->
-                                <input type="text" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
+                                <input type="text" name="idSelecionado"
+                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
 
                                 <div class="row">
                                     <div class="mb-3 col-12 col-md-6">

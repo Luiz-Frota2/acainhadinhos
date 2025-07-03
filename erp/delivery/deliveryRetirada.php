@@ -12,7 +12,7 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id']) // Verificação do id do usuário
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -21,7 +21,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
                 alert('Acesso negado!');
-                window.location.href = '.././login.php?id=$idSelecionado';
+                window.location.href = '../../erp/login.php?id=$idSelecionado';
             </script>";
         exit;
     }
@@ -31,7 +31,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
                 alert('Acesso negado!');
-                window.location.href = '.././login.php?id=$idSelecionado';
+                window.location.href = '../../erp/login.php?id=$idSelecionado';
             </script>";
         exit;
     }
@@ -39,7 +39,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
           alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
+          window.location.href = '../../erp/login.php?id=$idSelecionado';
       </script>";
     exit;
 }
@@ -138,7 +138,7 @@ try {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -183,7 +183,8 @@ try {
 
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
@@ -293,7 +294,7 @@ try {
 
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
@@ -301,7 +302,7 @@ try {
 
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
@@ -309,7 +310,7 @@ try {
 
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>"
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
@@ -318,7 +319,7 @@ try {
 
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioVendas.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -346,7 +347,7 @@ try {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -425,7 +426,7 @@ try {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -436,7 +437,7 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../assets/img/avatars/1.png" alt
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
@@ -453,13 +454,13 @@ try {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>
@@ -640,7 +641,8 @@ try {
 
                                         <!-- Link para taxa -->
                                         <div class="col-12 mt-4 taxa <?php echo $entrega ? '' : 'hidden'; ?>">
-                                            <a href="./taxaEntrega.php?id=<?php echo $idSelecionado; ?>&idEntrega=<?php echo $idEntrega; ?>">
+                                            <a
+                                                href="./taxaEntrega.php?id=<?php echo $idSelecionado; ?>&idEntrega=<?php echo $idEntrega; ?>">
                                                 <div class="add-item mb-2">
                                                     <i class="bx bx-cog"></i> Configurações da taxa de entrega
                                                 </div>

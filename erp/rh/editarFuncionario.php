@@ -45,19 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
   $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
   $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
   $logoEmpresa = !empty($empresaSobre['imagem'])
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Dados do usuário logado
@@ -109,15 +109,40 @@ try {
 
 // ✅ Carregando escalas da empresa
 $escalas = [];
+$escala_funcionario = null; // Armazenará a escala atual do funcionário
+
 try {
-  $stmtEscalas = $pdo->prepare("SELECT nome_escala FROM escalas WHERE empresa_id = :empresa_id");
-  $stmtEscalas->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
-  $stmtEscalas->execute();
-  $escalas = $stmtEscalas->fetchAll(PDO::FETCH_ASSOC);
+    // Primeiro carrega a escala atual do funcionário (se existir)
+    if (!empty($funcionario_id) && isset($funcionario['escala'])) {
+        $escala_funcionario = $funcionario['escala'];
+    }
+
+    // Carrega todas as escalas disponíveis para a empresa
+    $stmtEscalas = $pdo->prepare("SELECT nome_escala FROM escalas WHERE empresa_id = :empresa_id");
+    $stmtEscalas->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+    $stmtEscalas->execute();
+    $escalas = $stmtEscalas->fetchAll(PDO::FETCH_ASSOC);
+
+    // Verifica se a escala do funcionário existe na lista de escalas disponíveis
+    if ($escala_funcionario) {
+        $escala_existe = false;
+        foreach ($escalas as $escala) {
+            if ($escala['nome_escala'] === $escala_funcionario) {
+                $escala_existe = true;
+                break;
+            }
+        }
+        
+        // Se não existir, adiciona a escala do funcionário à lista
+        if (!$escala_existe) {
+            $escalas[] = ['nome_escala' => $escala_funcionario];
+        }
+    }
 } catch (PDOException $e) {
-  echo "Erro ao carregar escalas: " . $e->getMessage();
-  exit;
+    echo "Erro ao carregar escalas: " . $e->getMessage();
+    exit;
 }
+
 ?>
 
 
@@ -177,7 +202,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -246,6 +272,11 @@ try {
                 </a>
               </li>
               <li class="menu-item">
+                <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
+                </a>
+              </li>
+              <li class="menu-item">
                 <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
                 </a>
@@ -277,7 +308,16 @@ try {
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
               </li>
-
+              <li class="menu-item ">
+                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -371,7 +411,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -380,7 +420,8 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -404,15 +445,6 @@ try {
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
                       <span class="align-middle">Configurações</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
                     </a>
                   </li>
                   <li>
@@ -475,10 +507,10 @@ try {
                             value="<?= htmlspecialchars($funcionario['cpf']) ?>" required maxlength="14" />
                         </div>
                         <script>
-                          document.addEventListener("DOMContentLoaded", function() {
+                          document.addEventListener("DOMContentLoaded", function () {
                             const cpfInput = document.getElementById('cpf');
                             if (cpfInput) {
-                              cpfInput.addEventListener('input', function(e) {
+                              cpfInput.addEventListener('input', function (e) {
                                 let v = cpfInput.value.replace(/\D/g, '');
                                 if (v.length > 11) v = v.slice(0, 11);
                                 v = v.replace(/(\d{3})(\d)/, '$1.$2');
@@ -505,6 +537,16 @@ try {
                       <h6>Informações Profissionais</h6>
 
                       <div class="row">
+
+                        <div class="col-12 col-md-6 mb-3">
+                          <label class="form-label" for="data_admissao">Data de Admissão</label>
+                          <input type="date" class="form-control input-custom" name="data_admissao" id="data_admissao"
+                            value="<?= htmlspecialchars($funcionario['data_admissao']) ?>" required />
+                        </div>
+
+                      </div>
+
+                      <div class="row">
                         <div class="col-12 col-md-6 mb-3">
                           <label class="form-label" for="cargo">Cargo</label>
                           <input type="text" class="form-control input-custom" name="cargo" id="cargo"
@@ -527,25 +569,42 @@ try {
                       </div>
 
                       <div class="row">
+
                         <div class="col-12 col-md-6 mb-3">
                           <label class="form-label" for="salario">Salário</label>
                           <input type="text" class="form-control input-custom" name="salario" id="salario"
                             value="<?= htmlspecialchars($funcionario['salario']) ?>" placeholder="Informe o salário"
                             required />
                         </div>
+
                         <div class="col-12 col-md-6 mb-3">
-                          <label class="form-label" for="escala">Escala</label>
-                          <select class="form-control input-custom" name="escala" id="escala">
-                            <option value="" disabled <?= empty($funcionario['escala']) ? 'selected' : '' ?>>Selecione a
-                              escala</option>
-                            <?php foreach ($escalas as $escala): ?>
-                              <option value="<?= htmlspecialchars($escala['nome_escala']) ?>"
-                                <?= $funcionario['escala'] == $escala['nome_escala'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($escala['nome_escala']) ?>
-                              </option>
-                            <?php endforeach; ?>
-                          </select>
+                          <label class="form-label" for="pis">Número do PIS</label>
+                          <input type="text" class="form-control input-custom" name="pis" id="pis"
+                             value="<?= htmlspecialchars($funcionario['pis']) ?>" placeholder="Informe o PIS" required />
                         </div>
+
+                      </div>
+
+                      <div class="row">
+
+                        <div class="col-12 col-md-6 mb-3">
+                          <label class="form-label" for="matricula">N° Matrícula</label>
+                          <input type="text" class="form-control input-custom" name="matricula" id="matricula"
+                            placeholder="Informe o número de matrícula" value="<?= htmlspecialchars($funcionario['matricula']) ?>" required />
+                        </div>
+
+                        <div class="col-12 col-md-6 mb-3">
+                            <label class="form-label" for="escala">Escala</label>
+                            <select class="form-control input-custom" name="escala" id="escala" required>
+                                <?php foreach ($escalas as $escala): ?>
+                                    <option value="<?= htmlspecialchars($escala['nome_escala']) ?>"
+                                        <?= (isset($funcionario['escala']) && $funcionario['escala'] === $escala['nome_escala']) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($escala['nome_escala']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
                       </div>
 
                       <div class="row">
@@ -649,7 +708,7 @@ try {
                   </form>
 
                   <script>
-                    document.addEventListener("DOMContentLoaded", function() {
+                    document.addEventListener("DOMContentLoaded", function () {
                       const nextButtons = document.querySelectorAll('.next-step');
                       const prevButtons = document.querySelectorAll('.prev-step');
                       const steps = document.querySelectorAll('.step');
@@ -664,7 +723,7 @@ try {
                       showStep(currentStep);
 
                       nextButtons.forEach(button => {
-                        button.addEventListener('click', function() {
+                        button.addEventListener('click', function () {
                           if (currentStep < steps.length - 1) {
                             currentStep++;
                             showStep(currentStep);
@@ -673,7 +732,7 @@ try {
                       });
 
                       prevButtons.forEach(button => {
-                        button.addEventListener('click', function() {
+                        button.addEventListener('click', function () {
                           if (currentStep > 0) {
                             currentStep--;
                             showStep(currentStep);

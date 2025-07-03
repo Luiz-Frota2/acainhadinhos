@@ -15,7 +15,7 @@ if (
     !isset($_SESSION['usuario_id']) // Verificação do ID do usuário
 ) {
     // Redireciona para a página de login com o ID da empresa como parâmetro
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -25,7 +25,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
             alert('Acesso negado! Você não tem permissão para acessar a empresa principal.');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -36,7 +36,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
             alert('Acesso negado! Você não tem permissão para acessar esta filial.');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -44,7 +44,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
         alert('Empresa não identificada!');
-        window.location.href = '.././login.php?id=$idSelecionado';
+        window.location.href = '../../erp/login.php?id=$idSelecionado';
     </script>";
     exit;
 }
@@ -61,6 +61,7 @@ if (!$usuario_id) {
     exit();
 }
 
+
 try {
     // Busca os dados do usuário (nome e nível) no banco de dados
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -75,6 +76,21 @@ try {
 } catch (PDOException $e) {
     $nomeUsuario = 'Erro ao carregar nome';
     $nivelUsuario = 'Erro ao carregar nível';
+}
+
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+try {
+    $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $logoEmpresa = !empty($empresaSobre['imagem'])
+        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+        : "../../assets/img/favicon/logo.png"; // fallback padrão
+} catch (PDOException $e) {
+    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Verifica se o id do produto foi passado e é válido
@@ -94,7 +110,6 @@ if (isset($id_produto) && !empty($id_produto)) {
     exit();
 }
 
-
 ?>
 
 <!DOCTYPE html>
@@ -111,7 +126,7 @@ if (isset($id_produto) && !empty($id_produto)) {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/favicon/logo.png" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -154,7 +169,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
@@ -184,7 +200,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
@@ -238,7 +255,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Horário</div>
                                 </a>
                             </li>
@@ -251,28 +269,29 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioVendas.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -294,7 +313,7 @@ if (isset($id_produto) && !empty($id_produto)) {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -368,7 +387,7 @@ if (isset($id_produto) && !empty($id_produto)) {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -378,13 +397,15 @@ if (isset($id_produto) && !empty($id_produto)) {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../assets/img/avatars/1.png" alt
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($nivelUsuario); ?></small>
+                                                    <span
+                                                        class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
+                                                    <small
+                                                        class="text-muted"><?= htmlspecialchars($nivelUsuario); ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -395,13 +416,13 @@ if (isset($id_produto) && !empty($id_produto)) {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>
@@ -418,7 +439,8 @@ if (isset($id_produto) && !empty($id_produto)) {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href=".././logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -436,7 +458,8 @@ if (isset($id_produto) && !empty($id_produto)) {
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                                href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Cardápio</a>/</span>Editar Produto</h4>
+                                href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Cardápio</a>/</span>Editar
+                        Produto</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Atualize as informações
                             do produto</span></h5>
 

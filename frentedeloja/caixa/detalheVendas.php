@@ -4,35 +4,62 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
-$idSelecionado = $_GET['id'] ?? '';
+include "../../assets/php/conexao.php";
 
-// ✅ Verifica se a pessoa está logada
+// Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
+$chaveCaixa = $_GET['chave'] ?? '';
+
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // Verifica se o ID do usuário está na sessão
+    !isset($_SESSION['usuario_id'])
 ) {
     header("Location: ../index.php?id=$idSelecionado");
     exit;
 }
 
-// ✅ Conexão com o banco de dados
-require '../../assets/php/conexao.php';
+// Validação do tipo de empresa
+if (str_starts_with($idSelecionado, 'principal_')) {
+    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+        echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '../index.php?id=$idSelecionado';
+          </script>";
+        exit;
+    }
+    $id = 1;
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+        echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '../index.php?id=$idSelecionado';
+          </script>";
+        exit;
+    }
+    $id = $idFilial;
+} else {
+    echo "<script>
+          alert('Empresa não identificada!');
+          window.location.href = '../index.php?id=$idSelecionado';
+      </script>";
+    exit;
+}
 
+// Obter informações do usuário
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
+$tipoUsuarioSessao = $_SESSION['nivel'];
+$cpfUsuario = '';
 
 try {
     if ($tipoUsuarioSessao === 'Admin') {
-        // Buscar na tabela de Admins
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
     } else {
-        // Buscar na tabela de Funcionários
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
     }
 
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
@@ -42,6 +69,7 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
+        $cpfUsuario = $usuario['cpf'];
     } else {
         echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
@@ -51,35 +79,7 @@ try {
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-        alert('Empresa não identificada!');
-        window.location.href = '../index.php?id=$idSelecionado';
-    </script>";
-    exit;
-}
-
-// ✅ Buscar imagem da empresa para usar como favicon
+// Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
@@ -94,7 +94,123 @@ try {
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
+
+// Buscar dados das vendas
+$vendas = [];
+$totalVendas = 0;
+$produtosVendas = [];
+
+try {
+    // Busca os itens de venda com venda_id incluído
+    $stmt = $pdo->prepare("
+        SELECT 
+            iv.id,
+            iv.venda_id,
+            iv.nome_produto, 
+            iv.quantidade, 
+            iv.preco_unitario, 
+            iv.preco_total, 
+            iv.categoria,
+            vr.data_venda,
+            vr.forma_pagamento,
+            vr.total as total_venda
+        FROM itens_venda iv
+        JOIN venda_rapida vr ON iv.venda_id = vr.id
+        WHERE iv.empresa_id = :empresa_id 
+        AND iv.id_caixa = :id_caixa
+        AND iv.cpf_responsavel = :cpf_responsavel
+        ORDER BY iv.data_registro DESC
+    ");
+    $stmt->bindParam(':empresa_id', $idSelecionado);
+    $stmt->bindParam(':id_caixa', $chaveCaixa);
+    $stmt->bindParam(':cpf_responsavel', $cpfUsuario);
+    $stmt->execute();
+    $produtosVendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Calcular total de vendas
+    $stmtTotal = $pdo->prepare("
+        SELECT SUM(total) as total_vendas 
+        FROM venda_rapida 
+        WHERE empresa_id = :empresa_id 
+        AND id_caixa = :id_caixa
+        AND cpf_responsavel = :cpf_responsavel
+    ");
+    $stmtTotal->bindParam(':empresa_id', $idSelecionado);
+    $stmtTotal->bindParam(':id_caixa', $chaveCaixa);
+    $stmtTotal->bindParam(':cpf_responsavel', $cpfUsuario);
+    $stmtTotal->execute();
+    $totalVendas = $stmtTotal->fetch(PDO::FETCH_ASSOC)['total_vendas'] ?? 0;
+
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar vendas: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+// Buscar dados das sangrias
+$sangrias = [];
+$totalSangrias = 0;
+
+try {
+    $stmt = $pdo->prepare("
+        SELECT valor, valor_liquido, data_registro 
+        FROM sangrias 
+        WHERE empresa_id = :empresa_id 
+        AND id_caixa = :id_caixa
+        AND cpf_responsavel = :cpf_responsavel
+        ORDER BY data_registro DESC
+    ");
+    $stmt->bindParam(':empresa_id', $idSelecionado);
+    $stmt->bindParam(':id_caixa', $chaveCaixa);
+    $stmt->bindParam(':cpf_responsavel', $cpfUsuario);
+    $stmt->execute();
+    $sangrias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($sangrias as $sangria) {
+        $totalSangrias += $sangria['valor'];
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar sangrias: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+// Buscar dados dos suprimentos
+$suprimentos = [];
+$totalSuprimentos = 0;
+
+try {
+    $stmt = $pdo->prepare("
+        SELECT valor_suprimento, valor_liquido, data_registro 
+        FROM suprimentos 
+        WHERE empresa_id = :empresa_id 
+        AND id_caixa = :id_caixa
+        AND cpf_responsavel = :cpf_responsavel
+        ORDER BY data_registro DESC
+    ");
+    $stmt->bindParam(':empresa_id', $idSelecionado);
+    $stmt->bindParam(':id_caixa', $chaveCaixa);
+    $stmt->bindParam(':cpf_responsavel', $cpfUsuario);
+    $stmt->execute();
+    $suprimentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($suprimentos as $suprimento) {
+        $totalSuprimentos += $suprimento['valor_suprimento'];
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar suprimentos: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+// Extrair a data do primeiro registro
+$dataRelatorio = "Data não identificada";
+if (!empty($produtosVendas)) {
+    $dataVenda = new DateTime($produtosVendas[0]['data_venda']);
+    $dataRelatorio = $dataVenda->format('Y-m-d');
+} elseif (!empty($sangrias)) {
+    $dataSangria = new DateTime($sangrias[0]['data_registro']);
+    $dataRelatorio = $dataSangria->format('Y-m-d');
+} elseif (!empty($suprimentos)) {
+    $dataSuprimento = new DateTime($suprimentos[0]['data_registro']);
+    $dataRelatorio = $dataSuprimento->format('Y-m-d');
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/" data-template="vertical-menu-template-free">
@@ -103,7 +219,12 @@ try {
     <meta charset="utf-8" />
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-    <title>ERP - Fechamento de Caixa</title>
+
+    <!-- Favicon da empresa carregado dinamicamente -->
+    <link rel="icon" type="image/x-icon"
+        href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+
+    <title>ERP - PDV</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -297,7 +418,7 @@ try {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -307,14 +428,14 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
                                                     <!-- Exibindo o nome e nível do usuário -->
                                                     <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                                                    <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+
                                                 </div>
                                             </div>
                                         </a>
@@ -364,199 +485,166 @@ try {
 
                 <!-- / Navbar -->
 
-                <?php
-                
-                include "../../assets/php/conexao.php";
-
-                try {
-                    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-                    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                } catch (PDOException $e) {
-                    die("Erro de conexão: " . $e->getMessage());
-                }
-
-                $id_caixa = $_GET['chave'] ?? '';
-                $empresa_id = $_GET['id'] ?? '';
-
-                if (!$id_caixa || !$empresa_id) {
-                    die("Parâmetros inválidos.");
-                }
-
-                // Buscar as vendas correspondentes
-                $stmt = $pdo->prepare("SELECT * FROM itens_venda WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
-                $stmt->execute([
-                    'id_caixa' => $id_caixa,
-                    'empresa_id' => $empresa_id
-                ]);
-
-                $vendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-                // Buscar as vendas correspondentes
-                $stmt = $pdo->prepare("SELECT * FROM sangrias WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
-                $stmt->execute([
-                    'id_caixa' => $id_caixa,
-                    'empresa_id' => $empresa_id
-                ]);
-
-                $sangrias = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                // Buscar as vendas correspondentes
-                $stmt = $pdo->prepare("SELECT * FROM suprimentos WHERE id_caixa = :id_caixa AND empresa_id = :empresa_id");
-                $stmt->execute([
-                    'id_caixa' => $id_caixa,
-                    'empresa_id' => $empresa_id
-                ]);
-
-                $suprimentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                ?>
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
                         <span class="text-muted fw-light">
-                            <a href="./relatorioVendas.php">Relatório</a> /
+                            <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado) ?>">Relatório</a> /
                         </span>
-                        Detalhes de Vendas - 2023-10-01
+                        Detalhes de Vendas - <?= date('d/m/Y', strtotime($dataRelatorio)) ?>
                     </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Visualize os detalhes das vendas do dia selecionado
                     </h5>
-                    <?php if (!empty($vendas)): ?>
-                        <div class="row">
-                            <div class="col-lg-12 mb-4 order-0">
-                                <div class="card">
-                                    <h5 class="card-header">Detalhes de Vendas</h5>
-                                    <div class="table-responsive text-nowrap">
-                                        <table class="table table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Produto</th>
-                                                    <th>Quantidade</th>
-                                                    <th>Valor Unitário</th>
-                                                    <th>Valor Total</th>
-                                                </tr>
-                                            </thead>
 
-                                            <tbody class="table-border-bottom-0">
-                                                <?php
-                                                $somaTotal = 0;
-                                                foreach ($vendas as $venda):
-                                                    $somaTotal += $venda['preco_total'];
-                                                    ?>
-                                                    <tr>
-                                                        <td><?= htmlspecialchars($venda['nome_produto']) ?></td>
-                                                        <td><?= htmlspecialchars($venda['quantidade']) ?></td>
-                                                        <td>R$ <?= number_format($venda['preco_unitario'], 2, ',', '.') ?></td>
-                                                        <td>R$ <?= number_format($venda['preco_total'], 2, ',', '.') ?></td>
-                                                    </tr>
-                                                <?php endforeach; ?>
-
+                    <!-- Tabela de Vendas (modificada) -->
+                    <div class="row">
+                        <div class="col-lg-12 mb-4 order-0">
+                            <div class="card">
+                                <h5 class="card-header">Detalhes de Vendas</h5>
+                                <div class="table-responsive text-nowrap">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Produto</th>
+                                                <th>Categoria</th>
+                                                <th>Quantidade</th>
+                                                <th>Valor Unitário</th>
+                                                <th>Valor Total</th>
+                                                <th>Forma de Pagamento</th>
+                                                <th>Data/Hora</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="table-border-bottom-0">
+                                            <?php if (empty($produtosVendas)): ?>
                                                 <tr>
-                                                    <td colspan="3" class="text-end fw-bold">Total</td>
-                                                    <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?>
+                                                    <td colspan="7" class="text-center">Nenhum produto vendido encontrado
                                                     </td>
                                                 </tr>
-                                            </tbody>
-
-                                        </table>
-
-                                    </div>
+                                            <?php else: ?>
+                                                <?php foreach ($produtosVendas as $produto):
+                                                    $dataVenda = new DateTime($produto['data_venda']);
+                                                    ?>
+                                                    <tr>
+                                                        <td>#<?= isset($produto['venda_id']) ? htmlspecialchars($produto['venda_id']) : 'N/A' ?>
+                                                        </td>
+                                                        <td><?= htmlspecialchars($produto['nome_produto']) ?></td>
+                                                        <td><?= htmlspecialchars($produto['categoria'] ?? 'N/A') ?></td>
+                                                        <td><?= htmlspecialchars($produto['quantidade']) ?></td>
+                                                        <td>R$ <?= number_format($produto['preco_unitario'], 2, ',', '.') ?>
+                                                        </td>
+                                                        <td>R$ <?= number_format($produto['preco_total'], 2, ',', '.') ?></td>
+                                                        <td><?= htmlspecialchars($produto['forma_pagamento']) ?></td>
+                                                        <td><?= $dataVenda->format('d/m/Y H:i') ?></td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                                <tr>
+                                                    <td colspan="4" class="text-end fw-bold">Total Geral</td>
+                                                    <td colspan="3" class="fw-bold">R$
+                                                        <?= number_format($totalVendas, 2, ',', '.') ?>
+                                                    </td>
+                                                </tr>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
-                    <?php endif; ?>
-                    <?php if (!empty($vendas)): ?>
-                        <div class="row">
-                            <div class="col-lg-12 mb-4 order-0">
-                                <div class="card">
-                                    <h5 class="card-header">Detalhes da Sangrias</h5>
-                                    <div class="table-responsive text-nowrap">
-                                        <table class="table table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Data da Retirada</th>
-                                                    <th>Hora da Retirada</th>
-                                                    <th>Valor no Caixa</th>
-                                                    <th>Valor da Retirada</th>
+                    </div>
 
+                    <!-- Tabela de Sangrias -->
+                    <div class="row">
+                        <div class="col-lg-12 mb-4 order-0">
+                            <div class="card">
+                                <h5 class="card-header">Detalhes das Sangrias</h5>
+                                <div class="table-responsive text-nowrap">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Data da Retirada</th>
+                                                <th>Hora da Retirada</th>
+                                                <th>Valor no Caixa</th>
+                                                <th>Valor da Retirada</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="table-border-bottom-0">
+                                            <?php if (empty($sangrias)): ?>
+                                                <tr>
+                                                    <td colspan="4" class="text-center">Nenhuma sangria encontrada</td>
                                                 </tr>
-                                            </thead>
-                                            <tbody class="table-border-bottom-0">
-                                                <?php
-                                                $somaTotal = 0;
-                                                foreach ($sangrias as $sangria):
-                                                    $somaTotal += $sangria['valor'];
+                                            <?php else: ?>
+                                                <?php foreach ($sangrias as $sangria):
+                                                    $dataSangria = new DateTime($sangria['data_registro']);
                                                     ?>
                                                     <tr>
-                                                        <td><?= htmlspecialchars($sangria['data_sangria']) ?></td>
-                                                        <td><?= htmlspecialchars($sangria['hora_sangria']) ?></td>
+                                                        <td><?= $dataSangria->format('d-m-Y') ?></td>
+                                                        <td><?= $dataSangria->format('H:i') ?></td>
                                                         <td>R$ <?= number_format($sangria['valor_liquido'], 2, ',', '.') ?></td>
                                                         <td>R$ <?= number_format($sangria['valor'], 2, ',', '.') ?></td>
-
                                                     </tr>
                                                 <?php endforeach; ?>
                                                 <tr>
                                                     <td colspan="3" class="text-end fw-bold">Total</td>
-                                                    <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?>
+                                                    <td class="fw-bold">R$ <?= number_format($totalSangrias, 2, ',', '.') ?>
                                                     </td>
                                                 </tr>
-                                            </tbody>
-
-                                        </table>
-
-                                    </div>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
-                    <?php endif; ?>
-                    <?php if (!empty($suprimentos)): ?>
-                        <div class="row">
-                            <div class="col-lg-12 mb-4 order-0">
-                                <div class="card">
-                                    <h5 class="card-header">Detalhes da Suprimento</h5>
-                                    <div class="table-responsive text-nowrap">
-                                        <table class="table table-hover">
-                                            <thead>
-                                                <tr>
-                                                    <th>Data da Entrada</th>
-                                                    <th>Hora da Entrada</th>
-                                                    <th>Valor no Caixa</th>
-                                                    <th>Valor da Entrada</th>
+                    </div>
 
+                    <!-- Tabela de Suprimentos -->
+                    <div class="row">
+                        <div class="col-lg-12 mb-4 order-0">
+                            <div class="card">
+                                <h5 class="card-header">Detalhes dos Suprimentos</h5>
+                                <div class="table-responsive text-nowrap">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Data da Entrada</th>
+                                                <th>Hora da Entrada</th>
+                                                <th>Valor no Caixa</th>
+                                                <th>Valor da Entrada</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="table-border-bottom-0">
+                                            <?php if (empty($suprimentos)): ?>
+                                                <tr>
+                                                    <td colspan="4" class="text-center">Nenhum suprimento encontrado</td>
                                                 </tr>
-                                            </thead>
-                                            <tbody class="table-border-bottom-0">
-                                                <?php
-                                                $somaTotal = 0;
-                                                foreach ($suprimentos as $suprimento):
-                                                    $somaTotal += $suprimento['valor_suprimento'];
+                                            <?php else: ?>
+                                                <?php foreach ($suprimentos as $suprimento):
+                                                    $dataSuprimento = new DateTime($suprimento['data_registro']);
                                                     ?>
                                                     <tr>
-                                                        <td><?= htmlspecialchars($suprimento['data_suprimento']) ?></td>
-                                                        <td><?= htmlspecialchars($suprimento['hora_suprimento']) ?></td>
+                                                        <td><?= $dataSuprimento->format('d-m-Y') ?></td>
+                                                        <td><?= $dataSuprimento->format('H:i') ?></td>
                                                         <td>R$ <?= number_format($suprimento['valor_liquido'], 2, ',', '.') ?>
                                                         </td>
                                                         <td>R$
                                                             <?= number_format($suprimento['valor_suprimento'], 2, ',', '.') ?>
                                                         </td>
-
                                                     </tr>
                                                 <?php endforeach; ?>
                                                 <tr>
                                                     <td colspan="3" class="text-end fw-bold">Total</td>
-                                                    <td class="fw-bold">R$ <?= number_format($somaTotal, 2, ',', '.') ?>
+                                                    <td class="fw-bold">R$
+                                                        <?= number_format($totalSuprimentos, 2, ',', '.') ?>
                                                     </td>
                                                 </tr>
-                                            </tbody>
-
-                                        </table>
-
-                                    </div>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
-                    <?php endif; ?>
-                </div>
+                    </div>
 
+                </div>
 
                 <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
                 <script src="../../assets/vendor/libs/popper/popper.js"></script>

@@ -16,7 +16,7 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -25,25 +25,25 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
-    $id = 1;
+    $empresa_id = $idSelecionado; // Usa o idSelecionado diretamente
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+    $idFilial = str_replace('filial_', '', $idSelecionado);
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
-    $id = $idFilial;
+    $empresa_id = $idSelecionado; // Usa o idSelecionado diretamente
 } else {
     echo "<script>
         alert('Empresa não identificada!');
-        window.location.href = '.././login.php?id=$idSelecionado';
+        window.location.href = '../../erp/login.php?id=$idSelecionado';
     </script>";
     exit;
 }
@@ -84,7 +84,7 @@ try {
 
 // ✅ Buscar horários de funcionamento com base no ID da empresa
 $query = $pdo->prepare("SELECT * FROM horarios_funcionamento WHERE empresa_id = :empresa_id");
-$query->bindParam(':empresa_id', $id, PDO::PARAM_INT);
+$query->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado diretamente
 $query->execute();
 $horarios = $query->fetchAll(PDO::FETCH_ASSOC);
 
@@ -97,6 +97,7 @@ $dias_da_semana = [
     "sabado" => "Sábado",
     "domingo" => "Domingo"
 ];
+
 ?>
 
 <!DOCTYPE html>
@@ -251,28 +252,28 @@ $dias_da_semana = [
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioVendas.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -295,7 +296,7 @@ $dias_da_semana = [
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -367,7 +368,7 @@ $dias_da_semana = [
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -376,7 +377,7 @@ $dias_da_semana = [
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
@@ -392,13 +393,13 @@ $dias_da_semana = [
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>

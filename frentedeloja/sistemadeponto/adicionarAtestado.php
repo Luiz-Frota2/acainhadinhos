@@ -122,8 +122,8 @@ try {
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
-?>
 
+?>
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -316,7 +316,7 @@ try {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -326,7 +326,7 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
@@ -383,7 +383,7 @@ try {
                 <!-- Content wrapper -->
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                                href="adiconarAtestado.php?id=<?= urlencode($idSelecionado); ?>">Atestados</a>/</span>Adicionar
+                                href="atestadosEnviados.php?id=<?= urlencode($idSelecionado); ?>">Atestados</a>/</span>Adicionar
                         Atestado</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os dados do
                             novo Atestado</span></h5>

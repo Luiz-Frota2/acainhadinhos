@@ -1,3 +1,100 @@
+<?php
+
+session_start();
+require_once '../../assets/php/conexao.php';
+
+// ✅ Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
+
+// ✅ Verifica se a pessoa está logada
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+) {
+  header("Location: .././login.php?id=$idSelecionado");
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = $idFilial;
+} else {
+  echo "<script>
+          alert('Empresa não identificada!');
+          window.location.href = '.././login.php?id=$idSelecionado';
+      </script>";
+  exit;
+}
+
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+try {
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+}
+
+// ✅ Se chegou até aqui, o acesso está liberado
+
+// ✅ Buscar nome e nível do usuário logado
+$nomeUsuario = 'Usuário';
+$nivelUsuario = 'Comum'; // Valor padrão
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $nivelUsuario = $usuario['nivel'];
+  }
+} catch (PDOException $e) {
+  $nomeUsuario = 'Erro ao carregar nome';
+  $nivelUsuario = 'Erro ao carregar nível';
+}
+
+// ✅ Buscar produtos apenas da empresa/filial selecionada
+try {
+  $stmt = $pdo->prepare("SELECT * FROM produtos_estoque WHERE empresa_id = :empresa_id ORDER BY data_cadastro DESC");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao buscar produtos: " . addslashes($e->getMessage()) . "');</script>";
+  $produtos = [];
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
@@ -12,7 +109,7 @@
   <meta name="description" content="" />
 
   <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="../assets/img/favicon/favicon.ico" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -52,9 +149,10 @@
 
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
-          <a href="./dashboard.html" class="app-brand-link">
+          <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
 
           </a>
 
@@ -67,8 +165,8 @@
 
         <ul class="menu-inner py-1">
           <!-- Dashboard -->
-          <li class="menu-item ">
-            <a href="index.php" class="menu-link">
+          <li class="menu-item">
+            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -87,31 +185,12 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item active">
-                <a href="./produtosAdicionados.php" class="menu-link">
+                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Produtos">Adicionados</div>
                 </a>
               </li>
             </ul>
           </li>
-
-          <!---B2B-->
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div data-i18n="Authentications">B2B</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./produtosSolicitados.php" class="menu-link">
-                  <div> Produtos Solicitados</div>
-                </a></li>
-            </ul>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./produtosEnviados.php" class="menu-link">
-                  <div> Produtos Enviados</div>
-                </a></li>
-            </ul>
-          </li>
-          <!---/ B2B-->
 
           <!-- Relatórios -->
           <li class="menu-item">
@@ -121,12 +200,12 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./estoqueAlto.php" class="menu-link">
+                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="BaixoEstoque">Estoque Alto</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./estoqueBaixo.php" class="menu-link">
+                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                 </a>
               </li>
@@ -139,40 +218,48 @@
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
-            <a href="../rh/index.php" class="menu-link ">
+            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">RH</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../financas/index.php" class="menu-link ">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-dollar"></i>
               <div data-i18n="Authentications">Finanças</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-desktop"></i>
               <div data-i18n="Authentications">PDV</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../delivery/index.php" class="menu-link ">
+            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
             </a>
           </li>
 
           <li class="menu-item">
-            <a href="../clientes/index.php" class="menu-link ">
+            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-user"></i>
               <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
+          <?php
+          $isFilial = str_starts_with($idSelecionado, 'filial_');
+          $link = $isFilial
+            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+            : '../filial/index.php?id=principal_1';
+          $titulo = $isFilial ? 'Matriz' : 'Filial';
+          ?>
+
           <li class="menu-item">
-            <a href="../filial/index.php" class="menu-link ">
+            <a href="<?= $link ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications">Filial</div>
+              <div data-i18n="Authentications"><?= $titulo ?></div>
             </a>
           </li>
           <li class="menu-item">
@@ -222,7 +309,7 @@
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -231,12 +318,14 @@
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <span class="fw-semibold d-block">John Doe</span>
-                          <small class="text-muted">Admin</small>
+                          <!-- Exibindo o nome e nível do usuário -->
+                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
                         </div>
                       </div>
                     </a>
@@ -247,29 +336,20 @@
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="index.php">
+                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-power-off me-2"></i>
                       <span class="align-middle">Sair</span>
                     </a>
@@ -284,38 +364,21 @@
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                href="./produtosAdicionados.php">Produtos</a>/</span>Adicionados</h4>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Produtos</a>/</span>Adicionados</h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie os Estoque da
               empresa</span></h5>
 
-          <!-- Tabela de Contas da Empresa -->
+          <!-- Tabela de Produtos da Empresa -->
           <div class="card">
             <h5 class="card-header">Lista de Produtos</h5>
             <div class="table-responsive text-nowrap">
-              <?php
-
-              require '../../assets/php/conexao.php';
-
-              try {
-                // Buscar todos os produtos
-                $stmt = $pdo->query("SELECT * FROM produtos");
-                $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-              } catch (PDOException $e) {
-                echo "Erro ao buscar produtos: " . $e->getMessage();
-                exit;
-              }
-
-              ?>
-
-
               <table class="table table-hover">
                 <thead>
                   <tr>
                     <th>Produto</th>
                     <th>Fornecedor</th>
                     <th>Quantidade</th>
-                    <th>Data do Pedido</th>
+                    <th>Data do Cadastro</th>
                     <th>Status</th>
                     <th>Ações</th>
                   </tr>
@@ -327,67 +390,69 @@
                       <td><?= htmlspecialchars($produto['nome_produto']) ?></td>
                       <td><?= htmlspecialchars($produto['fornecedor_produto']) ?></td>
                       <td><?= htmlspecialchars($produto['quantidade_produto']) ?></td>
-                      <td><?= htmlspecialchars($produto['data_produto']) ?></td>
+                      <td><?= date('d/m/Y', strtotime($produto['data_cadastro'])) ?></td>
                       <td>
                         <?php if ($produto['status_produto'] == 'estoque_alto'): ?>
                           <span class="badge bg-success">Estoque Alto</span>
                         <?php elseif ($produto['status_produto'] == 'estoque_baixo'): ?>
                           <span class="badge bg-danger">Estoque Baixo</span>
                         <?php else: ?>
-                          <span class="badge bg-warning"> nao identificada</span>
+                          <span class="badge bg-warning">Não identificado</span>
                         <?php endif; ?>
                       </td>
                       <td>
-                        <a href="#" data-bs-toggle="modal" data-bs-target="#editProdutoModal_<?= $produto['id'] ?>">
-                          <i class="tf-icons bx bx-edit"></i>
-                        </a>
-                        <!-- Espaço entre os ícones -->
-                        <span class="mx-2">|</span>
+                        <div class="d-flex align-items-center">
+                          <a href="#" data-bs-toggle="modal" data-bs-target="#editProdutoModal_<?= $produto['id'] ?>"
+                            class="text-primary me-2">
+                            <i class="tf-icons bx bx-edit"></i>
+                          </a>
 
-                        <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
-                          data-bs-target="#modalExcluir_<?= $produto['id'] ?>">
-                          <i class="tf-icons bx bx-trash"></i>
-                        </button>
+                          <span class="mx-1">|</span>
 
-                        <!-- Modal de Exclusão de Transação -->
+                          <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
+                            data-bs-target="#modalExcluir_<?= $produto['id'] ?>">
+                            <i class="tf-icons bx bx-trash"></i>
+                          </button>
+                        </div>
+
+                        <!-- Modal de Exclusão de Produto -->
                         <div class="modal fade" id="modalExcluir_<?= $produto['id'] ?>" tabindex="-1"
                           aria-labelledby="modalExcluirLabel_<?= $produto['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="modalExcluirLabel_<?= $produto['id'] ?>">Excluir Produto
-                                </h5>
+                                <h5 class="modal-title" id="modalExcluirLabel_<?= $produto['id'] ?>">Excluir Produto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                                   aria-label="Close"></button>
                               </div>
                               <div class="modal-body">
-                                <p>Tem certeza de que deseja excluir esse Produto?</p>
-                                <a href="../../assets/php/estoque/excluirProduto.php?id=<?= $produto['id'] ?>"
-                                  class="btn btn-danger">Sim, excluir</a>
-                                <button type="button" class="btn btn-secondary mx-2"
-                                  data-bs-dismiss="modal">Cancelar</button>
+                                <p>Tem certeza de que deseja excluir o produto
+                                  "<?= htmlspecialchars($produto['nome_produto']) ?>"?</p>
+                                <div class="d-flex justify-content-end">
+                                  <button type="button" class="btn btn-secondary me-2"
+                                    data-bs-dismiss="modal">Cancelar</button>
+                                  <a href="../../assets/php/estoque/excluirProduto.php?id=<?= $produto['id'] ?>&empresa_id=<?= $idSelecionado ?>"
+                                    class="btn btn-danger">Sim, excluir</a>
+                                </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                        <!-- /Modal de Exclusão de Transação -->
 
-                        <!-- Modal de Editar Conta -->
+                        <!-- Modal de Editar Produto -->
                         <div class="modal fade" id="editProdutoModal_<?= $produto['id'] ?>" tabindex="-1"
                           aria-labelledby="editProdutoModalLabel_<?= $produto['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
-
                               <div class="modal-header">
                                 <h5 class="modal-title" id="editModalLabel_<?= $produto['id'] ?>">Editar Produto</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                                   aria-label="Fechar"></button>
                               </div>
-
                               <div class="modal-body">
                                 <form action="../../assets/php/estoque/editarProduto.php" method="POST">
-                                  <!-- ID da conta -->
                                   <input type="hidden" name="id" value="<?= htmlspecialchars($produto['id']) ?>">
+                                  <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                   <div class="mb-3">
                                     <label for="nome_produto" class="form-label">Nome</label>
@@ -404,15 +469,14 @@
 
                                   <div class="mb-3">
                                     <label for="quantidade_produto" class="form-label">Quantidade</label>
-                                    <input type="text" class="form-control" id="quantidade_produto"
+                                    <input type="number" class="form-control" id="quantidade_produto"
                                       name="quantidade_produto"
                                       value="<?= htmlspecialchars($produto['quantidade_produto']) ?>" required>
                                   </div>
 
                                   <div class="mb-3">
                                     <label for="status_produto" class="form-label">Status</label>
-                                    <select class="form-select" id="status_produto" name="status_produto"
-                                      value="<?= htmlspecialchars($produto['status_produto']) ?>" required>
+                                    <select class="form-select" id="status_produto" name="status_produto" required>
                                       <option value="estoque_alto" <?= $produto['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
                                       <option value="estoque_baixo" <?= $produto['status_produto'] === 'estoque_baixo' ? 'selected' : '' ?>>Estoque Baixo</option>
                                     </select>
@@ -425,22 +489,20 @@
                                   </div>
                                 </form>
                               </div>
-
                             </div>
                           </div>
                         </div>
-                      <?php endforeach; ?>
+                      </td>
+                    </tr>
+                  <?php endforeach; ?>
                 </tbody>
               </table>
-              <!--/ Modal de edição-->
-
             </div>
           </div>
 
-
-
           <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-            onclick="window.location.href='adicionarProduto.php';" style="cursor: pointer;">
+            onclick="window.location.href='adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>';"
+            style="cursor: pointer;">
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar novo Produto</span>
           </div>

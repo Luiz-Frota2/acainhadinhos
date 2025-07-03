@@ -1,17 +1,13 @@
 <?php
+
 require '../conexao.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Recupera o valor enviado via input hidden
     $idSelecionado = $_POST['idSelecionado'] ?? '';
-
-    // Determina o empresa_id com base no idSelecionado
-    $empresa_id = 0;
-    if (str_starts_with($idSelecionado, 'filial_')) {
-        $empresa_id = (int) str_replace('filial_', '', $idSelecionado);
-    } elseif (str_starts_with($idSelecionado, 'principal_')) {
-        $empresa_id = 1;
-    }
+    
+    // O empresa_id será exatamente o valor recebido (principal_1, filial_1, etc)
+    $empresa_id = $idSelecionado;
 
     foreach ($_POST['dias_de'] as $index => $dia_de) {
         $id = !empty($_POST['id'][$index]) ? $_POST['id'][$index] : null;
@@ -64,4 +60,5 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     echo "<script>alert('Erro ao processar os dados!'); history.back();</script>";
     exit();
 }
+
 ?>

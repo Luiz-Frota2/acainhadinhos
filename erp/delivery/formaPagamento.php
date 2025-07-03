@@ -12,7 +12,7 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -21,7 +21,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -31,7 +31,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
         </script>";
         exit;
     }
@@ -39,7 +39,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
         alert('Empresa não identificada!');
-        window.location.href = '.././login.php?id=$idSelecionado';
+        window.location.href = '../../erp/login.php?id=$idSelecionado';
     </script>";
     exit;
 }
@@ -78,10 +78,10 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
-// ✅ Buscar formas de pagamento com base na empresa_id
+// ✅ Buscar formas de pagamento
 try {
     $stmt = $pdo->prepare("SELECT * FROM formas_pagamento WHERE empresa_id = :empresa_id LIMIT 1");
-    $stmt->bindParam(':empresa_id', $id, PDO::PARAM_INT);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $formasPagamento = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -94,6 +94,8 @@ try {
     $dinheiro = $pix = $cartaoDebito = $cartaoCredito = 0;
     echo "<script>alert('Erro ao carregar formas de pagamento: " . addslashes($e->getMessage()) . "');</script>";
 }
+
+
 ?>
 
 <!DOCTYPE html>
@@ -110,7 +112,7 @@ try {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -244,28 +246,28 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioVendas.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -288,7 +290,7 @@ try {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -305,10 +307,18 @@ try {
                             <div data-i18n="Authentications">Clientes</div>
                         </a>
                     </li>
+                    <?php
+                    $isFilial = str_starts_with($idSelecionado, 'filial_');
+                    $link = $isFilial
+                        ? '../matriz/index.php?id=' . urlencode($idSelecionado)
+                        : '../filial/index.php?id=principal_1';
+                    $titulo = $isFilial ? 'Matriz' : 'Filial';
+                    ?>
+
                     <li class="menu-item">
-                        <a href="../filial/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications">Filial</div>
+                        <a href="<?= $link ?>" class="menu-link">
+                        <i class="menu-icon tf-icons bx bx-cog"></i>
+                        <div data-i18n="Authentications"><?= $titulo ?></div>
                         </a>
                     </li>
                     <li class="menu-item">
@@ -352,7 +362,7 @@ try {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -362,7 +372,7 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
@@ -380,13 +390,13 @@ try {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>

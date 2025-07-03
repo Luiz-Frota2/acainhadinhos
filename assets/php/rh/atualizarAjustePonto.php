@@ -9,22 +9,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $saida_intervalo = $_POST['saida_intervalo'] ?: null;
   $retorno_intervalo = $_POST['retorno_intervalo'] ?: null;
 
-  // Verifica tolerância de 10 minutos para entrada e retorno_intervalo
-  if ($entrada && $retorno_intervalo) {
-    // Busca horários padrão do funcionário
-    $sqlFunc = "SELECT entrada, retorno_intervalo FROM funcionarios WHERE cpf = :cpf AND empresa_id = :empresa_id";
+  // Verifica tolerância de 10 minutos apenas para entrada
+  if ($entrada) {
+    // Busca horário padrão de entrada do funcionário
+    $sqlFunc = "SELECT entrada FROM funcionarios WHERE cpf = :cpf AND empresa_id = :empresa_id";
     $stmtFunc = $pdo->prepare($sqlFunc);
     $stmtFunc->bindParam(':cpf', $cpf);
     $stmtFunc->bindParam(':empresa_id', $empresa_id);
     $stmtFunc->execute();
     $func = $stmtFunc->fetch(PDO::FETCH_ASSOC);
 
-    if ($func && $func['entrada'] && $func['retorno_intervalo']) {
+    if ($func && $func['entrada']) {
       // Calcula diferença em minutos
       $entradaDiff = abs(strtotime($entrada) - strtotime($func['entrada'])) / 60;
-      $retornoDiff = abs(strtotime($retorno_intervalo) - strtotime($func['retorno_intervalo'])) / 60;
 
-      if ($entradaDiff <= 10 && $retornoDiff <= 10) {
+      if ($entradaDiff <= 10) {
         // Zera horas_pendentes na tabela pontos
         $sqlPend = "UPDATE pontos SET horas_pendentes = 0 WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id";
         $stmtPend = $pdo->prepare($sqlPend);

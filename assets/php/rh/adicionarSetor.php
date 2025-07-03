@@ -5,7 +5,7 @@ require '../conexao.php';
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $nomeSetor = trim($_POST["nome"]);
     $gerenteSetor = trim($_POST["gerente"]);
-    $idSelecionado = trim($_POST["id_selecionado"]); // ✅ captura o id_selecionado
+    $idSelecionado = trim($_POST["id_selecionado"]);
 
     try {
         // Preparar a query SQL com o campo id_selecionado

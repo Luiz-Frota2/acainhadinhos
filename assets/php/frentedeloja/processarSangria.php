@@ -11,71 +11,108 @@ try {
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $valor_sangria = floatval($_POST["valor"] ?? 0);
-    $saldoCaixa = floatval($_POST["saldo_caixa"] ?? 0);
     $empresa_id = $_POST["idSelecionado"] ?? '';
     $responsavel = $_POST["responsavel"] ?? '';
     $id_caixa = $_POST["id_caixa"] ?? '';
-
-    $valor_liquido = $saldoCaixa - $valor_sangria;
+    $cpf_form = preg_replace('/\D/', '', $_POST["cpf"] ?? '');
+    $data_registro = $_POST["data_registro"] ?? null;
 
     try {
-        // 1. Inserir a sangria
-        $sql = "INSERT INTO sangrias (valor, empresa_id, id_caixa, valor_liquido, responsavel) 
-                VALUES (:valor, :empresa_id, :id_caixa, :valor_liquido, :responsavel)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(":valor", $valor_sangria);
-        $stmt->bindParam(":empresa_id", $empresa_id);
-        $stmt->bindParam(":id_caixa", $id_caixa);
-        $stmt->bindParam(":valor_liquido", $valor_liquido);
-        $stmt->bindParam(":responsavel", $responsavel);
-        $stmt->execute();
-
-        // 2. Somar todas as sangrias do mesmo caixa, empresa, responsável e status 'aberto'
-        $somaStmt = $pdo->prepare("
-            SELECT SUM(valor) AS total_sangrias 
-            FROM sangrias 
-            WHERE empresa_id = :empresa_id 
-              AND id_caixa = :id_caixa 
-              AND responsavel = :responsavel
-        ");
-        $somaStmt->execute([
-            ':empresa_id' => $empresa_id,
-            ':id_caixa' => $id_caixa,
-            ':responsavel' => $responsavel
-        ]);
-        $resultadoSoma = $somaStmt->fetch(PDO::FETCH_ASSOC);
-        $total_sangrias = $resultadoSoma['total_sangrias'] ?? 0;
-
-        // 3. Atualizar a tabela aberturas
-        $updateStmt = $pdo->prepare("
-            UPDATE aberturas 
-            SET valor_liquido = :valor_liquido,
-                valor_sangrias = :total_sangrias
+        // 1. Buscar dados da abertura pelo CPF
+        $stmt = $pdo->prepare("
+            SELECT valor_total, valor_suprimentos, valor_sangrias, cpf_responsavel
+            FROM aberturas 
             WHERE id = :id_caixa 
               AND empresa_id = :empresa_id 
-              AND responsavel = :responsavel 
-              AND status_abertura = 'aberto'
+              AND cpf_responsavel = :cpf_responsavel
+              AND status = 'aberto'
         ");
-        $updateStmt->execute([
-            ':valor_liquido' => $valor_liquido,
-            ':total_sangrias' => $total_sangrias,
+        $stmt->execute([
             ':id_caixa' => $id_caixa,
             ':empresa_id' => $empresa_id,
-            ':responsavel' => $responsavel
+            ':cpf_responsavel' => $cpf_form
         ]);
 
-        // 4. Redirecionar com sucesso
+        $abertura = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$abertura) {
+            throw new Exception("Abertura não encontrada ou CPF inválido.");
+        }
+
+        // 2. Calcular valor_liquido atual
+        $valor_total = floatval($abertura['valor_total']);
+        $valor_suprimentos = floatval($abertura['valor_suprimentos']);
+        $valor_sangrias = floatval($abertura['valor_sangrias']);
+
+        $valor_liquido_atual = $valor_total + $valor_suprimentos - $valor_sangrias;
+
+        // 3. Verificar se o valor da sangria é permitido
+        if ($valor_sangria > $valor_liquido_atual) {
+            echo "<script>
+                    alert('Valor da sangria excede o valor disponível no caixa (R$ " . number_format($valor_liquido_atual, 2, ',', '.') . ").');
+                    history.back();
+                  </script>";
+            exit();
+        }
+
+        $data_registro = $_POST["data_registro"] ?? null;
+
+        if ($data_registro) {
+            $data_registro_formatada = date('Y-m-d H:i:s', strtotime($data_registro));
+        } else {
+            $data_registro_formatada = date('Y-m-d H:i:s'); // agora
+        }
+
+
+        // 4. Calcular novo total de sangrias e novo valor_liquido
+        $novo_total_sangrias = $valor_sangrias + $valor_sangria;
+        $novo_valor_liquido = $valor_total + $valor_suprimentos - $novo_total_sangrias;
+
+        // 5. Inserir a sangria
+        $sql = "INSERT INTO sangrias (
+            valor, empresa_id, id_caixa, valor_liquido, responsavel, cpf_responsavel, data_registro
+        ) VALUES (
+            :valor, :empresa_id, :id_caixa, :valor_liquido, :responsavel, :cpf_responsavel, :data_registro
+        )";
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':valor' => $valor_sangria,
+            ':empresa_id' => $empresa_id,
+            ':id_caixa' => $id_caixa,
+            ':valor_liquido' => $novo_valor_liquido,
+            ':responsavel' => $responsavel,
+            ':cpf_responsavel' => $cpf_form,
+            ':data_registro' => $data_registro_formatada
+        ]);
+
+
+        // 6. Atualizar aberturas com o novo valor de sangrias
+        $update = $pdo->prepare("
+            UPDATE aberturas 
+            SET valor_sangrias = :valor_sangrias
+            WHERE id = :id_caixa 
+              AND empresa_id = :empresa_id 
+              AND cpf_responsavel = :cpf_responsavel
+              AND status = 'aberto'
+        ");
+        $update->execute([
+            ':valor_sangrias' => $novo_total_sangrias,
+            ':id_caixa' => $id_caixa,
+            ':empresa_id' => $empresa_id,
+            ':cpf_responsavel' => $cpf_form
+        ]);
+
+        // 7. Sucesso
         echo "<script>
-                alert('Sangria registrada e abertura atualizada com sucesso!');
+                alert('Sangria registrada com sucesso!');
                 window.location.href = '../../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
               </script>";
         exit();
-
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         echo "<script>
-                alert('Erro no banco de dados: " . addslashes($e->getMessage()) . "');
+                alert('Erro: " . addslashes($e->getMessage()) . "');
                 history.back();
               </script>";
     }
 }
-?>

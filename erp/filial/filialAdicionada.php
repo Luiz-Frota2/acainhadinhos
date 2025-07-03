@@ -1,3 +1,89 @@
+<?php
+
+session_start();
+require_once '../../assets/php/conexao.php';
+
+// ✅ Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
+
+// ✅ Verifica se a pessoa está logada
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+) {
+  header("Location: .././login.php?id=$idSelecionado");
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = $idFilial;
+} else {
+  echo "<script>
+          alert('Empresa não identificada!');
+          window.location.href = '.././login.php?id=$idSelecionado';
+      </script>";
+  exit;
+}
+
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+try {
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+}
+
+// ✅ Se chegou até aqui, o acesso está liberado
+
+// ✅ Buscar nome e nível do usuário logado
+$nomeUsuario = 'Usuário';
+$nivelUsuario = 'Comum'; // Valor padrão
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $nivelUsuario = $usuario['nivel'];
+  }
+} catch (PDOException $e) {
+  $nomeUsuario = 'Erro ao carregar nome';
+  $nivelUsuario = 'Erro ao carregar nível';
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
@@ -11,8 +97,8 @@
 
   <meta name="description" content="" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="../assets/img/favicon/favicon.ico" />
+  <!-- Favicon da empresa carregado dinamicamente -->
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -52,9 +138,10 @@
 
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
-          <a href="./dashboard.html" class="app-brand-link">
+          <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
 
           </a>
 
@@ -68,7 +155,7 @@
         <ul class="menu-inner py-1">
           <!-- Dashboard -->
           <li class="menu-item">
-            <a href="index.php" class="menu-link">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
@@ -87,8 +174,31 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item active">
-                <a href="./filialAdicionada.php" class="menu-link">
+                <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Filiais">Adicionadas</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">B2B</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Contas Filiais</div>
+                </a>
+              </li>
+              <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div> Produtos Solicitados</div>
+                </a>
+              </li>
+              <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div> Produtos Enviados</div>
                 </a>
               </li>
             </ul>
@@ -102,23 +212,23 @@
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./VendasFiliais.php" class="menu-link">
+                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Vendas">Vendas por Filial</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./MaisVendidos.php" class="menu-link">
+                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="MaisVendidos">Mais Vendidos</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./vendasPeriodo.php" class="menu-link">
+                <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Pedidos">Vendas por Período</div>
                 </a>
               </li>
 
               <li class="menu-item">
-                <a href="./FinanceiroFilial.php" class="menu-link">
+                <a href="./FinanceiroFilial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Financeiro">Financeiro</div>
                 </a>
               </li>
@@ -130,31 +240,31 @@
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
-            <a href="../rh/index.php" class="menu-link ">
+            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">RH</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../financas/index.php" class="menu-link ">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-dollar"></i>
               <div data-i18n="Authentications">Finanças</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-desktop"></i>
               <div data-i18n="Authentications">PDV</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../delivery/index.php" class="menu-link ">
+            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../estoque/index.php" class="menu-link ">
+            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
             </a>
@@ -212,7 +322,7 @@
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -221,12 +331,14 @@
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                              class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <span class="fw-semibold d-block">John Doe</span>
-                          <small class="text-muted">Admin</small>
+                          <!-- Exibindo o nome e nível do usuário -->
+                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
                         </div>
                       </div>
                     </a>
@@ -237,29 +349,20 @@
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">My Profile</span>
+                      <span class="align-middle">Minha Conta</span>
                     </a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Settings</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
+                      <span class="align-middle">Configurções</span>
                     </a>
                   </li>
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="index.php">
+                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-power-off me-2"></i>
                       <span class="align-middle">Sair</span>
                     </a>
@@ -277,7 +380,7 @@
 
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                href="./filialAdicionada.php">Filial</a>/</span>Filiais Adicionadas</h4>
+                href="#">Filial</a>/</span>Filiais Adicionadas</h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie as filiais da
               empresa</span></h5>
 
@@ -304,7 +407,7 @@
                   try {
                     $stmt = $pdo->query("SELECT * FROM filiais ORDER BY nome");
                     while ($filial = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                  ?>
+                      ?>
                       <tr>
                         <td><strong><?= htmlspecialchars($filial['nome']) ?></strong></td>
                         <td><?= htmlspecialchars($filial['cnpj']) ?></td>
@@ -402,7 +505,7 @@
                         <!-- /Modal de Exclusão de Filial -->
 
                       </tr>
-                  <?php
+                      <?php
                     }
                   } catch (PDOException $e) {
                     echo "<tr><td colspan='6'>Erro ao buscar filiais: " . $e->getMessage() . "</td></tr>";
@@ -415,7 +518,7 @@
           </div>
 
           <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-            onclick="window.location.href='adicionarFilial.php';" style="cursor: pointer;">
+            onclick="window.location.href='adicionarFilial.php?id=<?= urlencode($idSelecionado); ?>';" style="cursor: pointer;">
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar nova Filial</span>
           </div>

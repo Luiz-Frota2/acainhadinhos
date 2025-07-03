@@ -44,7 +44,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
   $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
   $stmt = $pdo->prepare($sql);
@@ -54,9 +54,9 @@ try {
 
   $logoEmpresa = !empty($empresaSobre['imagem'])
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Dados do usuário logado
@@ -214,6 +214,11 @@ try {
                   <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
+              <li class="menu-item">
+                <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
+                </a>
+              </li>
               <li class="menu-item ">
                 <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
@@ -246,7 +251,17 @@ try {
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
               </li>
-
+              <li class="menu-item ">
+                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
+                </a>
+              </li>
             </ul>
           </li>
           <!-- Misc -->
@@ -345,7 +360,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -354,7 +369,7 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -377,16 +392,7 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">COnfigurações</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -442,9 +448,57 @@ try {
                           <span class="mx-2">|</span>
 
                           <!-- Visualizar -->
-                          <button class="btn btn-link text-muted p-0" title="Visualizar">
+                          <button class="btn btn-link text-muted p-0" title="Visualizar" data-bs-toggle="modal"
+                            data-bs-target="#modalVisualizar_<?= $funcionario['id'] ?>">
                             <i class="fas fa-eye"></i>
                           </button>
+
+                          <!-- Modal Visualizar Funcionário -->
+                          <div class="modal fade" id="modalVisualizar_<?= $funcionario['id'] ?>" tabindex="-1"
+                            aria-labelledby="modalVisualizarLabel_<?= $funcionario['id'] ?>" aria-hidden="true">
+                            <div class="modal-dialog">
+                              <div class="modal-content">
+                                <div class="modal-header">
+                                  <h5 class="modal-title" id="modalVisualizarLabel_<?= $funcionario['id'] ?>">
+                                    Detalhes do Funcionário
+                                  </h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                    aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                  <div class="mb-2">
+                                    <strong>Nome:</strong>
+                                    <span style="word-break: break-word; white-space: pre-line; display: inline;">
+                                      <?= htmlspecialchars($funcionario['nome']) ?>
+                                    </span>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Escala:</strong>
+                                    <?= htmlspecialchars($funcionario['escala'] ?? 'Não informado') ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Entrada:</strong>
+                                    <?= !empty($funcionario['entrada']) ? date('H:i', strtotime($funcionario['entrada'])) : 'Não informado' ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Saída Intervalo:</strong>
+                                    <?= !empty($funcionario['saida_intervalo']) ? date('H:i', strtotime($funcionario['saida_intervalo'])) : 'Não informado' ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Retorno Intervalo:</strong>
+                                    <?= !empty($funcionario['retorno_intervalo']) ? date('H:i', strtotime($funcionario['retorno_intervalo'])) : 'Não informado' ?>
+                                  </div>
+                                  <div class="mb-2">
+                                    <strong>Saída Final:</strong>
+                                    <?= !empty($funcionario['saida_final']) ? date('H:i', strtotime($funcionario['saida_final'])) : 'Não informado' ?>
+                                  </div>
+                                </div>
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
 
                           <span class="mx-2">|</span>
 

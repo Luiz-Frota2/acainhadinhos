@@ -13,7 +13,7 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -22,7 +22,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
                 alert('Acesso negado!');
-                window.location.href = '.././login.php?id=$idSelecionado';
+                window.location.href = '../../erp/login.php?id=$idSelecionado';
               </script>";
         exit;
     }
@@ -31,15 +31,37 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
                 alert('Acesso negado!');
-                window.location.href = '.././login.php?id=$idSelecionado';
+                window.location.href = '../../erp/login.php?id=$idSelecionado';
               </script>";
         exit;
     }
 } else {
     echo "<script>
             alert('Empresa não identificada!');
-            window.location.href = '.././login.php?id=$idSelecionado';
+            window.location.href = '../../erp/login.php?id=$idSelecionado';
           </script>";
+    exit;
+}
+
+// ✅ Buscar dados da empresa com base no idSelecionado (usando id_selecionado no banco)
+try {
+    $sql = "SELECT * FROM sobre_empresa WHERE id_selecionado = :idSelecionado LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':idSelecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // ✅ Variáveis da empresa com valores padrão caso não haja resultado
+    $nome_empresa = $empresa['nome_empresa'] ?? '';
+    $sobre_empresa = $empresa['sobre_empresa'] ?? '';
+    $imagem_empresa = $empresa['imagem'] ?? 'logo.png';
+
+    // ✅ Caminho da logo para favicon ou exibição
+    $logoEmpresa = !empty($empresa['imagem'])
+        ? "../../assets/img/empresa/" . $empresa['imagem']
+        : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar os dados da empresa: " . $e->getMessage() . "'); history.back();</script>";
     exit;
 }
 
@@ -101,6 +123,7 @@ if ($id_entrega > 0) {
     }
 }
 
+
 ?>
 
 
@@ -118,7 +141,7 @@ if ($id_entrega > 0) {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/favicon/logo.png" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -161,7 +184,8 @@ if ($id_entrega > 0) {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
@@ -213,7 +237,7 @@ if ($id_entrega > 0) {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item active">
-                                <a href="./taxaEntrega.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./taxaEntrega.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Taxa de Entrega</div>
                                 </a>
                             </li>
@@ -261,21 +285,21 @@ if ($id_entrega > 0) {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>"
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
@@ -283,7 +307,7 @@ if ($id_entrega > 0) {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioVendas.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -306,7 +330,7 @@ if ($id_entrega > 0) {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -318,7 +342,7 @@ if ($id_entrega > 0) {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="../clientes/index.ph?id=<?= urlencode($idSelecionado); ?>p" class="menu-link ">
+                        <a href="../clientes/index.ph?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-user"></i>
                             <div data-i18n="Authentications">Clientes</div>
                         </a>
@@ -378,7 +402,7 @@ if ($id_entrega > 0) {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -388,7 +412,7 @@ if ($id_entrega > 0) {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
@@ -406,13 +430,13 @@ if ($id_entrega > 0) {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>

@@ -12,7 +12,7 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: ../../erp/login.php?id=$idSelecionado");
     exit;
 }
 
@@ -21,7 +21,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
         echo "<script>
               alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
+              window.location.href = '../../erp/login.php?id=$idSelecionado';
           </script>";
         exit;
     }
@@ -31,7 +31,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
         echo "<script>
               alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
+              window.location.href = '../../erp/login.php?id=$idSelecionado';
           </script>";
         exit;
     }
@@ -39,7 +39,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
           alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
+          window.location.href = '../../erp/login.php?id=$idSelecionado';
       </script>";
     exit;
 }
@@ -68,7 +68,7 @@ try {
 try {
     $sql = "SELECT * FROM endereco_empresa WHERE empresa_id = :empresa_id LIMIT 1";
     $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':empresa_id', $id, PDO::PARAM_INT);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Alterado para usar $idSelecionado diretamente
     $stmt->execute();
     $endereco = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -79,8 +79,9 @@ try {
     $cidade = $endereco['cidade'] ?? '';
     $complemento = $endereco['complemento'] ?? '';
     $uf = $endereco['uf'] ?? '';
+    $cnpj = $endereco['cnpj'] ?? ''; // Corrigido de $cnpj['cnpj'] para $endereco['cnpj']
 } catch (PDOException $e) {
-    $cep = $endereco_nome = $bairro = $numero = $cidade = $complemento = $uf = 'Erro ao carregar';
+    $cep = $endereco_nome = $bairro = $numero = $cidade = $complemento = $uf = $cnpj = '';
 }
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
@@ -93,25 +94,19 @@ try {
 
     $logoEmpresa = !empty($empresaSobre['imagem'])
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/.png"; // fallback padrão
+        : "../../assets/img/favicon/logo.png"; // Corrigido o caminho do fallback
 } catch (PDOException $e) {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 ?>
 
 <!DOCTYPE html>
-<html
-    lang="en"
-    class="light-style layout-menu-fixed"
-    dir="ltr"
-    data-theme="theme-default"
-    data-assets-path="../assets/"
-    data-template="vertical-menu-template-free">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+    data-assets-path="../assets/" data-template="vertical-menu-template-free">
 
 <head>
     <meta charset="utf-8" />
-    <meta
-        name="viewport"
+    <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
     <title>ERP - Delivery</title>
@@ -162,11 +157,13 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
 
                     </a>
 
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);"
+                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -191,7 +188,8 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item ">
-                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
@@ -238,7 +236,8 @@ try {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./horarioFuncionamento.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Horário</div>
                                 </a>
                             </li>
@@ -251,28 +250,29 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./listarPedidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./listarPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Lista de Pedidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./maisVendidos.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Mais vendidos</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Clientes</div>
                                 </a>
                             </li>
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioVendas.html?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
@@ -295,7 +295,7 @@ try {
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="./pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a>
@@ -347,8 +347,7 @@ try {
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -365,9 +364,11 @@ try {
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
+                                    data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -376,7 +377,8 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
@@ -392,13 +394,13 @@ try {
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">My Profile</span>
+                                            <span class="align-middle">Minha Conta</span>
                                         </a>
                                     </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Settings</span>
+                                            <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
                                     <li>
@@ -406,7 +408,8 @@ try {
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span
+                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -414,7 +417,8 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -428,8 +432,11 @@ try {
 
                 <!-- / Navbar -->
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold "><span class="text-muted fw-light"><a href="./enderecoEmpresa.php?id=<?= urlencode($idSelecionado); ?>">Empresa</a>/</span>Endereço</h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os Dados da Empresa</span></h5>
+                    <h4 class="fw-bold "><span class="text-muted fw-light"><a
+                                href="./enderecoEmpresa.php?id=<?= urlencode($idSelecionado); ?>">Empresa</a>/</span>Endereço
+                    </h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Preencha os Dados da
+                            Empresa</span></h5>
                     <!-- Basic Layout -->
                     <div class="row">
                         <div class="col-xl">
@@ -439,79 +446,92 @@ try {
                                 </div>
                                 <div class="card-body">
 
-                                    <form action="../../assets/php/delivery/adicionarEnderecoEmpresa.php" method="POST" enctype="multipart/form-data">
-
+                                    <form action="../../assets/php/delivery/adicionarEnderecoEmpresa.php" method="POST"
+                                        enctype="multipart/form-data">
                                         <!-- Campo oculto com o id selecionado -->
-                                        <input type="hidden" name="id_selecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                        <input type="hidden" name="id_selecionado"
+                                            value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                         <div class="row">
-
                                             <!-- CEP -->
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label" for="basic-default-cep">CEP</label>
                                                 <div class="input-group">
                                                     <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                                    <input type="text" class="form-control" name="empresa_cep" id="basic-default-cep"
-                                                        placeholder="Informe o CEP" maxlength="9" value="<?= htmlspecialchars($cep) ?>" />
+                                                    <input type="text" class="form-control" name="empresa_cep"
+                                                        id="basic-default-cep" placeholder="Informe o CEP" maxlength="9"
+                                                        value="<?= htmlspecialchars($cep) ?>" />
                                                 </div>
                                             </div>
 
+                                            <!-- CNPJ -->
+                                            <div class="col-md-6 mb-3">
+                                                <label class="form-label" for="basic-default-cnpj">CNPJ</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                                    <input type="text" class="form-control" name="empresa_cnpj"
+                                                        id="basic-default-cnpj" placeholder="Informe o CNPJ"
+                                                        maxlength="18" value="<?= htmlspecialchars($cnpj) ?>" />
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div class="row">
-
                                             <!-- Endereço -->
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label" for="basic-default-endereco">Endereço</label>
-                                                <input type="text" class="form-control" name="empresa_endereco" id="basic-default-endereco"
-                                                    placeholder="Informe o Endereço" value="<?= htmlspecialchars($endereco_nome) ?>" />
+                                                <input type="text" class="form-control" name="empresa_endereco"
+                                                    id="basic-default-endereco" placeholder="Informe o Endereço"
+                                                    value="<?= htmlspecialchars($endereco_nome) ?>" />
                                             </div>
 
                                             <!-- Bairro -->
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label" for="basic-default-bairro">Bairro</label>
-                                                <input type="text" class="form-control" name="empresa_bairro" id="basic-default-bairro"
-                                                    placeholder="Informe o Bairro" value="<?= htmlspecialchars($bairro) ?>" />
+                                                <input type="text" class="form-control" name="empresa_bairro"
+                                                    id="basic-default-bairro" placeholder="Informe o Bairro"
+                                                    value="<?= htmlspecialchars($bairro) ?>" />
                                             </div>
-
                                         </div>
 
                                         <div class="row">
                                             <!-- Número -->
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label" for="basic-default-numero">Número</label>
-                                                <input type="text" class="form-control" name="empresa_numero" id="basic-default-numero"
-                                                    placeholder="Informe o Número" value="<?= htmlspecialchars($numero) ?>" />
+                                                <input type="text" class="form-control" name="empresa_numero"
+                                                    id="basic-default-numero" placeholder="Informe o Número"
+                                                    value="<?= htmlspecialchars($numero) ?>" />
                                             </div>
 
                                             <!-- Cidade -->
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label" for="basic-default-cidade">Cidade</label>
-                                                <input type="text" class="form-control" name="empresa_cidade" id="basic-default-cidade"
-                                                    placeholder="Informe a Cidade" value="<?= htmlspecialchars($cidade) ?>" />
+                                                <input type="text" class="form-control" name="empresa_cidade"
+                                                    id="basic-default-cidade" placeholder="Informe a Cidade"
+                                                    value="<?= htmlspecialchars($cidade) ?>" />
                                             </div>
-
                                         </div>
 
                                         <div class="row">
                                             <!-- Complemento -->
                                             <div class="col-md-6 mb-3">
-                                                <label class="form-label" for="basic-default-complemento">Complemento</label>
-                                                <input type="text" class="form-control" name="empresa_complemento" id="basic-default-complemento"
-                                                    placeholder="Informe o Complemento" value="<?= htmlspecialchars($complemento) ?>" />
+                                                <label class="form-label"
+                                                    for="basic-default-complemento">Complemento</label>
+                                                <input type="text" class="form-control" name="empresa_complemento"
+                                                    id="basic-default-complemento" placeholder="Informe o Complemento"
+                                                    value="<?= htmlspecialchars($complemento) ?>" />
                                             </div>
 
                                             <!-- UF -->
                                             <div class="col-md-6 mb-3">
                                                 <label class="form-label" for="basic-default-uf">UF</label>
-                                                <input type="text" class="form-control" name="empresa_uf" id="basic-default-uf"
-                                                    placeholder="Informe a UF" value="<?= htmlspecialchars($uf) ?>" />
+                                                <input type="text" class="form-control" name="empresa_uf"
+                                                    id="basic-default-uf" placeholder="Informe a UF" maxlength="2"
+                                                    value="<?= htmlspecialchars($uf) ?>" />
                                             </div>
-
                                         </div>
 
                                         <button type="submit" class="w-100 btn btn-primary">Adicionar Endereço</button>
-
                                     </form>
 
                                 </div>

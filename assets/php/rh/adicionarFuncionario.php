@@ -7,21 +7,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $nome_funcionario = trim($_POST["nome"]);
     $data_nascimento = trim($_POST["data_nascimento"]);
     $cpf_funcionario = trim($_POST["cpf"]);
+    // Remove pontos e traço do CPF
+    $cpf_funcionario = str_replace(['.', '-'], '', $cpf_funcionario);
     $rg_funcionario = trim($_POST["rg"]);
+    $pis_funcionario = trim($_POST["pis"]);
+    $matricula_funcionario = trim($_POST["matricula"]);
+    $data_admissao = trim($_POST["data_admissao"]);
     $cargo_funcionario = trim($_POST["cargo"]);
     $setor_funcionario = trim($_POST["setor"]);
     $salario_funcionario = trim($_POST["salario"]);
-    $salario_funcionario = number_format((float)str_replace(',', '.', $salario_funcionario), 2, '.', '');
+    $salario_funcionario = number_format((float) str_replace(',', '.', $salario_funcionario), 2, '.', '');
     $escala_funcionario = trim($_POST["escala"]);
     $dia_inicio = trim($_POST["dia_inicio"]);
     $dia_folga = trim($_POST["dia_folga"]);
-    
+
     // Novos campos de horário
     $entrada = isset($_POST["entrada"]) && trim($_POST["entrada"]) !== "" ? trim($_POST["entrada"]) : null;
     $saida_intervalo = isset($_POST["saida_intervalo"]) && trim($_POST["saida_intervalo"]) !== "" ? trim($_POST["saida_intervalo"]) : null;
     $retorno_intervalo = isset($_POST["retorno_intervalo"]) && trim($_POST["retorno_intervalo"]) !== "" ? trim($_POST["retorno_intervalo"]) : null;
     $saida_final = isset($_POST["saida_final"]) && trim($_POST["saida_final"]) !== "" ? trim($_POST["saida_final"]) : null;
-    
+
     $email_funcionario = trim($_POST["email"]);
     $telefone_funcionario = trim($_POST["telefone"]);
     $endereco_funcionario = trim($_POST["endereco"]);
@@ -44,15 +49,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit();
         }
 
-        // Query de inserção com 4 pontos de marcação
+        // Query de inserção atualizada com os novos campos
         $sql = "INSERT INTO funcionarios (
-            empresa_id, nome, data_nascimento, cpf, rg,
+            empresa_id, nome, data_nascimento, cpf, rg, pis, matricula, data_admissao,
             cargo, setor, salario, escala,
             dia_inicio, dia_folga, 
             entrada, saida_intervalo, retorno_intervalo, saida_final,
             email, telefone, endereco, cidade
         ) VALUES (
-            :empresa_id, :nome, :data_nascimento, :cpf, :rg,
+            :empresa_id, :nome, :data_nascimento, :cpf, :rg, :pis, :matricula, :data_admissao,
             :cargo, :setor, :salario, :escala,
             :dia_inicio, :dia_folga, 
             :entrada, :saida_intervalo, :retorno_intervalo, :saida_final,
@@ -65,6 +70,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $stmt->bindParam(":data_nascimento", $data_nascimento);
         $stmt->bindParam(":cpf", $cpf_funcionario);
         $stmt->bindParam(":rg", $rg_funcionario);
+        $stmt->bindParam(":pis", $pis_funcionario);
+        $stmt->bindParam(":matricula", $matricula_funcionario);
+        $stmt->bindParam(":data_admissao", $data_admissao);
         $stmt->bindParam(":cargo", $cargo_funcionario);
         $stmt->bindParam(":setor", $setor_funcionario);
         $stmt->bindParam(":salario", $salario_funcionario);
@@ -99,4 +107,5 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </script>";
     }
 }
+
 ?>

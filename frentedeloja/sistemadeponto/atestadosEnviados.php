@@ -9,14 +9,14 @@ $idSelecionado = $_GET['id'] ?? '';
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) ||
-  !isset($_SESSION['nivel']) // Garante que o nível do usuário esteja presente
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) // Garante que o nível do usuário esteja presente
 ) {
-  header("Location: ../index.php?id=$idSelecionado");
-  exit;
+    header("Location: ../index.php?id=$idSelecionado");
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -29,79 +29,79 @@ $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
 
 // ✅ Buscar nome e tipo de usuário
 try {
-  if ($tipoUsuarioSessao === 'Admin') {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    if ($tipoUsuarioSessao === 'Admin') {
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
 $idEmpresaSessao = $_SESSION['tipo_empresa'] . '_' . $_SESSION['empresa_id'];
 
 if ($idSelecionado === $idEmpresaSessao) {
-  // Acesso permitido, define $id com base no ID da sessão
-  $id = $_SESSION['empresa_id'];
+    // Acesso permitido, define $id com base no ID da sessão
+    $id = $_SESSION['empresa_id'];
 } else {
-  echo "<script>
+    echo "<script>
           alert('Acesso negado! Empresa não corresponde à sessão.');
           window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-  exit;
+    exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
 
 // ✅ Buscar CPF do usuário logado
 $cpfUsuario = '';
 
 try {
-  if ($tipoUsuarioSessao === 'Admin') {
-    $stmt = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id");
-  } else {
-    $stmt = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id");
-  }
+    if ($tipoUsuarioSessao === 'Admin') {
+        $stmt = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id");
+    } else {
+        $stmt = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($resultado && !empty($resultado['cpf'])) {
-    $cpfUsuario = $resultado['cpf'];
-  } else {
-    echo "<script>alert('CPF do usuário não encontrado.');</script>";
-  }
+    if ($resultado && !empty($resultado['cpf'])) {
+        $cpfUsuario = $resultado['cpf'];
+    } else {
+        echo "<script>alert('CPF do usuário não encontrado.');</script>";
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao obter CPF do usuário: " . $e->getMessage() . "');</script>";
+    echo "<script>alert('Erro ao obter CPF do usuário: " . $e->getMessage() . "');</script>";
 }
 
 // ✅ Consultar atestados do usuário logado com base no CPF e empresa
@@ -109,16 +109,15 @@ $idEmpresaAtestado = $idEmpresaSessao;
 $atestados = [];
 
 try {
-  $stmt = $pdo->prepare("SELECT * FROM atestados WHERE cpf_usuario = :cpf_usuario AND id_empresa = :id_empresa");
-  $stmt->bindParam(':cpf_usuario', $cpfUsuario);
-  $stmt->bindParam(':id_empresa', $idEmpresaAtestado);
-  $stmt->execute();
-  $atestados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT * FROM atestados WHERE cpf_usuario = :cpf_usuario AND id_empresa = :id_empresa");
+    $stmt->bindParam(':cpf_usuario', $cpfUsuario);
+    $stmt->bindParam(':id_empresa', $idEmpresaAtestado);
+    $stmt->execute();
+    $atestados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar os atestados: " . $e->getMessage() . "');</script>";
+    echo "<script>alert('Erro ao carregar os atestados: " . $e->getMessage() . "');</script>";
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -177,7 +176,8 @@ try {
                 <div class="app-brand demo">
                     <a href="./dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
@@ -305,7 +305,7 @@ try {
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                     data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -315,7 +315,7 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
@@ -393,22 +393,114 @@ try {
                                             <th>Dias Afastado</th>
                                             <th>Médico</th>
                                             <th>Observações</th>
+                                            <th>Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody class="table-border-bottom-0">
                                         <?php if (!empty($atestados)): ?>
-                                            <?php foreach ($atestados as $atestado): ?>
+                                            <?php foreach ($atestados as $index => $atestado): ?>
                                                 <tr>
                                                     <td><?= date('d/m/Y', strtotime($atestado['data_envio'])); ?></td>
                                                     <td><?= date('d/m/Y', strtotime($atestado['data_atestado'])); ?></td>
                                                     <td><?= htmlspecialchars($atestado['dias_afastado']); ?></td>
                                                     <td><?= htmlspecialchars($atestado['medico']); ?></td>
-                                                    <td><?= htmlspecialchars($atestado['observacoes']); ?></td>
+                                                    <td>
+                                                        <?php
+                                                        $status = $atestado['status_atestado'] ?? 'pendente';
+                                                        $badgeClass = 'bg-secondary';
+                                                        $statusLabel = ucfirst($status);
+
+                                                        if ($status === 'válido') {
+                                                            $badgeClass = 'bg-success';
+                                                        } elseif ($status === 'inválido') {
+                                                            $badgeClass = 'bg-danger';
+                                                        } elseif ($status === 'pendente') {
+                                                            $badgeClass = 'bg-warning text-dark';
+                                                        }
+                                                        ?>
+                                                        <span class="badge <?= $badgeClass; ?>">
+                                                            <?= htmlspecialchars($statusLabel); ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <!-- Botão Visualizar -->
+                                                        <button type="button" class="btn btn-link text-muted p-0"
+                                                            title="Visualizar" data-bs-toggle="modal"
+                                                            data-bs-target="#detalhesAtestadoModal<?= $index ?>"
+                                                            data-observacoes="<?= htmlspecialchars($atestado['observacoes'] ?? '') ?>"
+                                                            data-atestado="<?= htmlspecialchars($atestado['imagem_atestado'] ?? '') ?>">
+                                                            <i class="bx bx-show"></i>
+                                                        </button>
+
+                                                        <!-- Modal de Detalhes do Atestado -->
+                                                        <div class="modal fade" id="detalhesAtestadoModal<?= $index ?>"
+                                                            tabindex="-1"
+                                                            aria-labelledby="detalhesAtestadoModalLabel<?= $index ?>"
+                                                            aria-hidden="true">
+                                                            <div class="modal-dialog modal-lg modal-dialog-centered">
+                                                                <div class="modal-content">
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title"
+                                                                            id="detalhesAtestadoModalLabel<?= $index ?>">
+                                                                            Detalhes do Atestado</h5>
+                                                                        <button type="button" class="btn-close"
+                                                                            data-bs-dismiss="modal"
+                                                                            aria-label="Fechar"></button>
+                                                                    </div>
+                                                                    <div class="modal-body">
+                                                                        <div class="mb-3">
+                                                                            <label class="form-label"><strong>Observações:</strong></label>
+                                                                            <div id="modalObservacoes<?= $index ?>"
+                                                                                class="rounded p-2 bg-light"></div>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label class="form-label"><strong>Imagem do
+                                                                                    Atestado:</strong></label>
+                                                                            <div id="modalImagemAtestado<?= $index ?>"
+                                                                                class="text-center"></div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="modal-footer">
+                                                                        <button type="button" class="btn btn-secondary"
+                                                                            data-bs-dismiss="modal">Fechar</button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <script>
+                                                            document.addEventListener('DOMContentLoaded', function () {
+                                                                var modal = document.getElementById('detalhesAtestadoModal<?= $index ?>');
+                                                                if (modal) {
+                                                                    modal.addEventListener('show.bs.modal', function (event) {
+                                                                        var button = event.relatedTarget;
+                                                                        var observacoes = button.getAttribute('data-observacoes') || '';
+                                                                        var imagemAtestado = button.getAttribute('data-atestado') || '';
+
+                                                                        document.getElementById('modalObservacoes<?= $index ?>').textContent = observacoes;
+
+                                                                        var imagemDiv = document.getElementById('modalImagemAtestado<?= $index ?>');
+                                                                        imagemDiv.innerHTML = '';
+                                                                        if (imagemAtestado) {
+                                                                            var img = document.createElement('img');
+                                                                            img.src = '../../assets/img/atestados/' + imagemAtestado;
+                                                                            img.alt = 'Imagem do Atestado';
+                                                                            img.className = 'img-fluid rounded';
+                                                                            img.style.maxHeight = '400px';
+                                                                            imagemDiv.appendChild(img);
+                                                                        } else {
+                                                                            imagemDiv.innerHTML = '<span class="text-muted">Nenhuma imagem disponível.</span>';
+                                                                        }
+                                                                    });
+                                                                }
+                                                            });
+                                                        </script>
+                                                    </td>
                                                 </tr>
                                             <?php endforeach; ?>
                                         <?php else: ?>
                                             <tr>
-                                                <td colspan="5" class="text-center">Nenhum atestado encontrado.</td>
+                                                <td colspan="6" class="text-center">Nenhum atestado encontrado.</td>
                                             </tr>
                                         <?php endif; ?>
                                     </tbody>

@@ -188,24 +188,6 @@ try {
             </ul>
           </li>
 
-          <li class="menu-item">
-            <a href="./notaFiscal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-envelope"></i>
-              <div data-i18n="Basic">Nota Fiscal Online</div>
-            </a>
-          </li>
-
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div data-i18n="Authentications">B2B</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./contaFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Contas Filiais</div>
-                </a></li>
-            </ul>
-          </li>
 
           <li class="menu-item active open">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
@@ -239,12 +221,6 @@ try {
                 </a></li>
               <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Anual</div>
-                </a></li>
-              <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Fluxo de Caixa</div>
-                </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Projeções Financeiras</div>
                 </a></li>
             </ul>
           </li>

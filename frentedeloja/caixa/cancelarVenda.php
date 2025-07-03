@@ -1,88 +1,141 @@
 <?php
-
-
 session_start();
 require_once '../../assets/php/conexao.php';
 
-// ✅ Recupera o identificador vindo da URL
+// Recupera o identificador vindo da URL (ex: principal_1, filial_3)
 $idSelecionado = $_GET['id'] ?? '';
 
-// ✅ Verifica se a pessoa está logada
+// Verifica se o usuário está logado e possui as variáveis essenciais
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
-  exit;
+    header("Location: ../index.php?id=$idSelecionado");
+    exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
+// Valida o tipo de empresa e o acesso permitido baseado no idSelecionado
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
+    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+        echo "<script>
               alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
+              window.location.href = '../index.php?id=$idSelecionado';
           </script>";
-    exit;
-  }
-  $id = 1;
+        exit;
+    }
+    $id = 1;
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
+    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+        echo "<script>
               alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
+              window.location.href = '../index.php?id=$idSelecionado';
           </script>";
-    exit;
-  }
-  $id = $idFilial;
+        exit;
+    }
+    $id = $idFilial;
 } else {
-  echo "<script>
+    echo "<script>
           alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
+          window.location.href = '../index.php?id=$idSelecionado';
       </script>";
-  exit;
+    exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// ✅ Buscar imagem da empresa (favicon)
+$iconeEmpresa = '../assets/img/favicon/favicon.ico';
+
 try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
 
-// ✅ Se chegou até aqui, o acesso está liberado
-
-// ✅ Buscar nome e nível do usuário logado
-$nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+// Se chegou até aqui, acesso está liberado
 $usuario_id = $_SESSION['usuario_id'];
+$tipoUsuarioSessao = $_SESSION['nivel']; // Ex: "Admin" ou "Funcionario"
+$nomeUsuario = 'Usuário';
+$cpfUsuario = null;
 
+// Buscar dados do usuário (nome, cpf, nível) conforme o tipo
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($tipoUsuarioSessao === 'Admin') {
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+    } else {
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+    }
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $cpfUsuario = preg_replace('/\D/', '', $usuario['cpf'] ?? '');
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+    echo "<script>alert('Erro ao carregar dados do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
 }
 
+// Buscar abertura aberta para este usuário (CPF) e empresa
+try {
+    $stmt = $pdo->prepare("
+        SELECT id 
+        FROM aberturas 
+        WHERE cpf_responsavel = :cpf_responsavel
+          AND empresa_id = :empresa_id
+          AND status = 'aberto'
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([
+        ':cpf_responsavel' => $cpfUsuario,
+        ':empresa_id' => $idSelecionado
+    ]);
+    $abertura = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($abertura) {
+        $idAbertura = $abertura['id'];
+        // Pode usar $idAbertura para lógica adicional se precisar
+    } else {
+        // Nenhuma abertura encontrada — pode tratar aqui ou redirecionar
+        echo "";
+    }
+} catch (PDOException $e) {
+    echo "Erro ao buscar abertura: " . $e->getMessage();
+    exit;
+}
+
+// Buscar vendas rápidas da empresa atual feitas pelo usuário logado
+try {
+    $stmt = $pdo->prepare("
+        SELECT * 
+        FROM venda_rapida 
+        WHERE empresa_id = :empresa_id 
+          AND cpf_responsavel = :cpf_responsavel 
+        ORDER BY data_venda DESC
+    ");
+    $stmt->execute([
+        ':empresa_id' => $idSelecionado,
+        ':cpf_responsavel' => $cpfUsuario
+    ]);
+    $vendasRapidas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    echo "Erro ao buscar vendas rápidas: " . $e->getMessage();
+    exit;
+}
 
 
 ?>
@@ -97,12 +150,13 @@ try {
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-    <title>ERP - Caixa</title>
+    <title>ERP - PDV</title>
 
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+    <link rel="icon" type="image/x-icon"
+        href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -144,10 +198,12 @@ try {
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                       <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);"
+                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -164,7 +220,8 @@ try {
                     </li>
 
                     <!-- CAIXA -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span>
+                    </li>
 
                     <!-- Operações de Caixa -->
                     <li class="menu-item ">
@@ -258,8 +315,7 @@ try {
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -282,9 +338,11 @@ try {
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
+                                    data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -293,7 +351,8 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
@@ -323,7 +382,8 @@ try {
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span
+                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -331,7 +391,8 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item"
+                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -344,134 +405,134 @@ try {
                     </div>
                 </nav>
 
-                <!-- / Navbar -->
-<?php 
-try {
-    // Buscar todos os setores
-  $sql = "SELECT * FROM vendarapida WHERE empresa_id = :empresa_id";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
-  $stmt->execute();
-  $vendarapida = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    
-    
-  } catch (PDOException $e) {
-    echo "Erro ao buscar produtos: " . $e->getMessage();
-    exit;
-  }
-  
-  // Supondo que esses dados venham da sessão ou variável de sessão
-$responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
-$empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
-
-if (!$responsavel || !$empresa_id) {
-    die("Erro: Dados de sessão ausentes.");
-}
-
-try {
-    // Prepare a consulta SQL para buscar o ID baseado no responsável, empresa e status_abertura = 'aberto'
-    $stmt = $pdo->prepare("
-        SELECT id 
-        FROM aberturas 
-        WHERE responsavel = :responsavel 
-          AND empresa_id = :empresa_id 
-          AND status_abertura = 'aberto'
-        ORDER BY id DESC 
-        LIMIT 1
-    ");
-    $stmt->execute([
-        'responsavel' => $responsavel,
-        'empresa_id' => $empresa_id
-    ]);
-
-    // Busca o resultado e verifica se existe algum ID
-    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-
-   
-
-  ?>
-
                 <!-- CONTEÚDO PRINCIPAL -->
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="./pontoRegistrado.php">Frente de Caixa</a>/</span>Cancelar Venda</h4>
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light">
+                            <a href="./pontoRegistrado.php">Frente de Caixa</a> /
+                        </span>
+                        Cancelar Venda
+                    </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Selecione uma venda para cancelar</h5>
 
+                    <!-- card -->
                     <div class="card">
                         <div class="card-body">
-                            <div class="table-responsive">
-                                 <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
-                                 Nenhuma venda encontrada.  Por favor, abra um caixa para continuar com a venda.
-                                 </div>
-                              
+                            <div class="table-responsive text-nowrap">
+                                <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
+                                    Nenhuma venda encontrada. Por favor, abra um caixa para continuar com a venda.
+                                </div>
+
                                 <table class="table table-hover">
                                     <thead>
                                         <tr>
                                             <th>#ID</th>
                                             <th>Produto</th>
                                             <th>Valor Total</th>
-                                            <th>Data</th>
+                                            <th>Data - Hora</th>
                                             <th>Status</th>
                                             <th>Ação</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <!-- Exemplo de venda (mock) -->
-                                        <?php foreach ($vendarapida as $venda): ?>
-                                        <tr>
-                                        
-                                            <td><?= htmlspecialchars($venda['id']) ?></td>
-                                            <td><?= htmlspecialchars($venda['produtos']) ?></td>
-                                            <td>R$ <?= number_format($venda['total'], 2, ',', '.') ?></td>
-                                            <td><?= htmlspecialchars($venda['datas']) ?></td>
-                                            <td><span class="badge bg-success">Finalizada</span></td>
-                                            <td>
-                                                <form method="POST" action="../../assets/php/frentedeloja/cancelarVendaSubmit.php?id=<?= urlencode($venda['id']) ?> " onsubmit="return confirm('Tem certeza que deseja cancelar esta venda?');">
-                                                <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />    
-                                                <input type="hidden" name="id" value="<?= $venda['id'] ?>">    
-                                                    <input type="hidden" name="empresa_id" value="<?= $idEmpresa ?>">
-                                                    <input type="hidden" name="usuario_id" value="<?= $usuario_id ?>">
+                                        <?php foreach ($vendasRapidas as $venda): ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($venda['id']) ?></td>
+                                                <td><?= htmlspecialchars($venda['produtos']) ?></td>
+                                                <td>R$ <?= number_format($venda['total'], 2, ',', '.') ?></td>
+                                                <td><?= date('d/m/Y - H:i', strtotime($venda['data_venda'])) ?></td>
+                                                <td><span class="badge bg-success">Finalizada</span></td>
+                                                <td>
+                                                    <!-- Botão para abrir o modal -->
+                                                    <button type="button" class="btn btn-danger btn-sm"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#modalCancelarVenda<?= $venda['id'] ?>">
+                                                        Cancelar
+                                                    </button>
 
-                                                    <button type="submit" class="btn btn-danger btn-sm">Cancelar</button>
-                                                </form>
-                                            </td>
-                                        </tr>
+                                                    <!-- Modal de confirmação -->
+                                                    <div class="modal fade" id="modalCancelarVenda<?= $venda['id'] ?>"
+                                                        tabindex="-1"
+                                                        aria-labelledby="modalCancelarVendaLabel<?= $venda['id'] ?>"
+                                                        aria-hidden="true">
+                                                        <div class="modal-dialog modal-dialog-scrollable"
+                                                            style="margin-top: 1rem;">
+                                                            <div class="modal-content">
+                                                                <div class="modal-header">
+                                                                    <h5 class="modal-title"
+                                                                        id="modalCancelarVendaLabel<?= $venda['id'] ?>">
+                                                                        Confirmar Cancelamento
+                                                                    </h5>
+                                                                    <button type="button" class="btn-close"
+                                                                        data-bs-dismiss="modal"
+                                                                        aria-label="Fechar"></button>
+                                                                </div>
+                                                                <div class="modal-body">
+                                                                    Tem certeza que deseja cancelar a venda
+                                                                    <strong>#<?= htmlspecialchars($venda['id']) ?></strong>?
+                                                                </div>
+                                                                <div class="modal-footer">
+                                                                    <button type="button" class="btn btn-secondary"
+                                                                        data-bs-dismiss="modal">Não</button>
+                                                                    <form method="POST"
+                                                                        action="../../assets/php/frentedeloja/cancelarVendaSubmit.php?id=<?= urlencode($venda['id']) ?>"
+                                                                        style="display:inline;">
+                                                                        <input type="hidden" name="idSelecionado"
+                                                                            value="<?= htmlspecialchars($idSelecionado); ?>" />
+                                                                        <input type="hidden" name="id"
+                                                                            value="<?= $venda['id'] ?>">
+                                                                        <input type="hidden" name="empresa_id"
+                                                                            value="<?= htmlspecialchars($id) ?>">
+                                                                        <input type="hidden" name="usuario_id"
+                                                                            value="<?= $usuario_id ?>">
+                                                                        <button type="submit" class="btn btn-danger">Sim,
+                                                                            Cancelar</button>
+                                                                    </form>
+                                                                </div>
+                                                            </div>
+                                                            <!-- fim modal-content -->
+                                                        </div>
+                                                        <!-- fim modal-dialog -->
+                                                    </div>
+                                                    <!-- fim modal -->
+
+                                                </td>
+                                            </tr>
                                         <?php endforeach; ?>
-                                             <?php
-                                     if ($resultado) {
-                                         $idAbertura = $resultado['id'];
-                                          echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
-                                            } else {
-                                          echo "";
-                                           }
-                                           } catch (PDOException $e) {
-                                          echo "Erro ao buscar ID: " . $e->getMessage();
-                                           }
-                                    ?>
-                                        <!-- FIM MOCK -->
+
+                                        <?php if (isset($idAbertura)): ?>
+                                            <input type='hidden' id='id_caixa' name='id_caixa'
+                                                value='<?= htmlspecialchars($idAbertura) ?>'>
+                                        <?php endif; ?>
                                     </tbody>
                                 </table>
                             </div>
+                            <!-- fim table-responsive -->
                         </div>
+                        <!-- fim card-body -->
                     </div>
+                    <!-- fim card -->
+
                 </div>
                 <!-- FIM CONTEÚDO PRINCIPAL -->
 
             </div>
+
         </div>
+
     </div>
     <script>
-        
-document.addEventListener('DOMContentLoaded', function () {
-    const idCaixa = document.getElementById('id_caixa');
-    const form = document.querySelector('table');
-    const aviso = document.getElementById('avisoSemCaixa');
 
-    if (!idCaixa || !idCaixa.value.trim()) {
-        form.style.display = 'none';     // Oculta o formulário
-        aviso.style.display = 'block';   // Exibe o alerta
-    }
-});
+        document.addEventListener('DOMContentLoaded', function () {
+            const idCaixa = document.getElementById('id_caixa');
+            const form = document.querySelector('table');
+            const aviso = document.getElementById('avisoSemCaixa');
+
+            if (!idCaixa || !idCaixa.value.trim()) {
+                form.style.display = 'none';     // Oculta o formulário
+                aviso.style.display = 'block';   // Exibe o alerta
+            }
+        });
     </script>
 
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>

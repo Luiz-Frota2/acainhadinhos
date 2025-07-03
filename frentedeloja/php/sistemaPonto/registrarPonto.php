@@ -100,8 +100,11 @@ switch ($acao) {
             'empresa_id' => $empresa_id
         ];
 
-        if (excedeuTolerancia($horarioRef['entrada'], $horaAtual)) {
-            $campos['horas_pendentes'] = gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['entrada']));
+        // Só conta horas_pendentes se exceder 10 minutos de tolerância
+        $ref = strtotime($horarioRef['entrada']);
+        $atual = strtotime($horaAtual);
+        if (($atual - $ref) > 600) { // 600 segundos = 10 minutos
+            $campos['horas_pendentes'] = gmdate("H:i:s", ($atual - $ref - 600));
         }
 
         if (!isset($campos['horas_pendentes'])) {
@@ -124,11 +127,6 @@ switch ($acao) {
     case 'saida_intervalo':
         if (!$registro || $registro['saida_intervalo']) {
             echo "<script>alert('Saída para intervalo já registrada ou entrada não encontrada.'); history.back();</script>";
-            exit;
-        }
-
-        if (strtotime($horaAtual) < strtotime($horarioRef['saida_intervalo'])) {
-            echo "<script>alert('Ainda não é hora de sair para o intervalo.'); history.back();</script>";
             exit;
         }
 
@@ -156,28 +154,10 @@ switch ($acao) {
             exit;
         }
 
-        $horasPendentes = null;
-
-        if (excedeuTolerancia($horarioRef['retorno_intervalo'], $horaAtual)) {
-            $diferencaSegundos = strtotime($horaAtual) - strtotime($horarioRef['retorno_intervalo']);
-            $novaPendencia = $diferencaSegundos;
-
-            if (!empty($registro['horas_pendentes'])) {
-                $partes = explode(':', $registro['horas_pendentes']);
-                $totalSegundosExistente = ($partes[0] * 3600) + ($partes[1] * 60) + $partes[2];
-                $novaPendencia += $totalSegundosExistente;
-            }
-
-            $horasPendentes = gmdate("H:i:s", $novaPendencia);
-        } else {
-            $horasPendentes = $registro['horas_pendentes'];
-        }
-
         $sqlUpdate = "UPDATE pontos 
                       SET retorno_intervalo = :retorno_intervalo, 
                           foto_retorno_intervalo = :foto_retorno_intervalo, 
-                          localizacao_retorno_intervalo = :localizacao_retorno_intervalo, 
-                          horas_pendentes = :horas_pendentes 
+                          localizacao_retorno_intervalo = :localizacao_retorno_intervalo 
                       WHERE id = :id AND empresa_id = :empresa_id";
 
         $stmt = $pdo->prepare($sqlUpdate);
@@ -185,7 +165,6 @@ switch ($acao) {
             'retorno_intervalo' => $horaAtual,
             'foto_retorno_intervalo' => $fotoBinaria,
             'localizacao_retorno_intervalo' => $localizacao,
-            'horas_pendentes' => $horasPendentes,
             'id' => $registro['id'],
             'empresa_id' => $empresa_id
         ]);
@@ -201,8 +180,6 @@ switch ($acao) {
                 ($horaAtualTimestamp !== false && $horaAtualTimestamp < strtotime('06:00:00')) ||
                 ($horaAtualTimestamp !== false && $horaAtualTimestamp >= strtotime('21:00:00'))
             ) {
-                // Se for entre 21:00 e 23:59, considera o dia atual, mas se não encontrou registro, tenta o anterior
-                // Se for entre 00:00 e 05:59, tenta o registro do dia anterior
                 $dataAnterior = date('Y-m-d', strtotime($data . ' -1 day'));
                 $sqlBuscaAnterior = "SELECT * FROM pontos WHERE cpf = ? AND data = ? AND empresa_id = ?";
                 $stmtBuscaAnterior = $pdo->prepare($sqlBuscaAnterior);
@@ -244,26 +221,21 @@ switch ($acao) {
             $msgFolga = "";
         }
 
-        // Registro normal da saída final
+        // Registro normal da saída final (sem verificação de horário)
         if (empty($registro['saida_intervalo']) && empty($registro['retorno_intervalo'])) {
-            if (strtotime($horaAtual) >= strtotime($horarioRef['saida_final'])) {
-                $horaExtra = strtotime($horaAtual) > strtotime($horarioRef['saida_final']) ?
-                    gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['saida_final'])) : null;
+            $horaExtra = strtotime($horaAtual) > strtotime($horarioRef['saida_final']) ?
+                gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['saida_final'])) : null;
 
-                $sqlUpdate = "UPDATE pontos SET saida_final = :saida_final, foto_saida_final = :foto_saida_final, localizacao_saida_final = :localizacao_saida_final, hora_extra = :hora_extra WHERE id = :id AND empresa_id = :empresa_id";
-                $stmt = $pdo->prepare($sqlUpdate);
-                $stmt->execute([
-                    'saida_final' => $horaAtual,
-                    'foto_saida_final' => $fotoBinaria,
-                    'localizacao_saida_final' => $localizacao,
-                    'hora_extra' => $horaExtra,
-                    'id' => $registro['id'],
-                    'empresa_id' => $empresa_id
-                ]);
-            } else {
-                echo "<script>alert('Você só pode registrar a saída após o fim do expediente.'); history.back();</script>";
-                exit;
-            }
+            $sqlUpdate = "UPDATE pontos SET saida_final = :saida_final, foto_saida_final = :foto_saida_final, localizacao_saida_final = :localizacao_saida_final, hora_extra = :hora_extra WHERE id = :id AND empresa_id = :empresa_id";
+            $stmt = $pdo->prepare($sqlUpdate);
+            $stmt->execute([
+                'saida_final' => $horaAtual,
+                'foto_saida_final' => $fotoBinaria,
+                'localizacao_saida_final' => $localizacao,
+                'hora_extra' => $horaExtra,
+                'id' => $registro['id'],
+                'empresa_id' => $empresa_id
+            ]);
         } elseif (!empty($registro['saida_intervalo']) && empty($registro['retorno_intervalo'])) {
             if (excedeuTolerancia($horarioRef['saida_final'], $horaAtual)) {
                 echo "<script>alert('Você excedeu a tolerância de 10 minutos para a saída final.'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
@@ -272,31 +244,25 @@ switch ($acao) {
             echo "<script>alert('Você deve registrar o retorno de intervalo antes da saída final.'); history.back();</script>";
             exit;
         } else {
-            if (strtotime($horaAtual) >= strtotime($horarioRef['saida_final'])) {
-                $horaExtra = strtotime($horaAtual) > strtotime($horarioRef['saida_final']) ?
-                    gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['saida_final'])) : null;
+            $horaExtra = strtotime($horaAtual) > strtotime($horarioRef['saida_final']) ?
+                gmdate("H:i:s", strtotime($horaAtual) - strtotime($horarioRef['saida_final'])) : null;
 
-                $sqlUpdate = "UPDATE pontos SET saida_final = :saida_final, foto_saida_final = :foto_saida_final, localizacao_saida_final = :localizacao_saida_final, hora_extra = :hora_extra WHERE id = :id AND empresa_id = :empresa_id";
-                $stmt = $pdo->prepare($sqlUpdate);
-                $stmt->execute([
-                    'saida_final' => $horaAtual,
-                    'foto_saida_final' => $fotoBinaria,
-                    'localizacao_saida_final' => $localizacao,
-                    'hora_extra' => $horaExtra,
-                    'id' => $registro['id'],
-                    'empresa_id' => $empresa_id
-                ]);
-            } else {
-                echo "<script>alert('Você só pode registrar a saída após o fim do expediente.'); history.back();</script>";
-                exit;
-            }
+            $sqlUpdate = "UPDATE pontos SET saida_final = :saida_final, foto_saida_final = :foto_saida_final, localizacao_saida_final = :localizacao_saida_final, hora_extra = :hora_extra WHERE id = :id AND empresa_id = :empresa_id";
+            $stmt = $pdo->prepare($sqlUpdate);
+            $stmt->execute([
+                'saida_final' => $horaAtual,
+                'foto_saida_final' => $fotoBinaria,
+                'localizacao_saida_final' => $localizacao,
+                'hora_extra' => $horaExtra,
+                'id' => $registro['id'],
+                'empresa_id' => $empresa_id
+            ]);
         }
 
         // Atualiza escala 5x1 após saída final
-        // Próximo dia início é o dia após a folga, próxima folga é 5 dias depois
         if ($isVesperaFolga) {
-            $novoDiaInicio = proximoDia($diaFolga, 1); // Dia após a folga
-            $novoDiaFolga = proximoDia($novoDiaInicio, 5); // 5 dias depois do novo início
+            $novoDiaInicio = proximoDia($diaFolga, 1);
+            $novoDiaFolga = proximoDia($novoDiaInicio, 5);
             $sqlUpdateFunc = "UPDATE funcionarios SET dia_inicio = ?, dia_folga = ? WHERE cpf = ?";
             $stmtFunc = $pdo->prepare($sqlUpdateFunc);
             $stmtFunc->execute([$novoDiaInicio, $novoDiaFolga, $cpf]);

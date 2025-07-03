@@ -45,20 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -104,7 +103,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -191,26 +190,6 @@ try {
                 </a></li>
             </ul>
           </li>
-
-          <li class="menu-item">
-            <a href="./notaFiscal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-envelope"></i>
-              <div data-i18n="Basic">Nota Fiscal Online</div>
-            </a>
-          </li>
-
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div data-i18n="Authentications">B2B</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./contaFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Contas Filiais</div>
-                </a></li>
-            </ul>
-          </li>
-
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-cart"></i>
@@ -241,12 +220,7 @@ try {
               <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Anual</div>
                 </a></li>
-              <li class="menu-item"><a href="./fluxoCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Fluxo de Caixa</div>
-                </a></li>
-              <li class="menu-item"><a href="./projecoesFinaceira.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Projeções Financeiras</div>
-                </a></li>
+              
             </ul>
           </li>
 
@@ -340,7 +314,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -349,7 +323,7 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -373,15 +347,6 @@ try {
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
                       <span class="align-middle">Configurações</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
                     </a>
                   </li>
                   <li>
@@ -412,7 +377,7 @@ try {
           <div class="card">
             <h5 class="card-header">Adicionar Conta da Empresa</h5>
             <div class="card-body">
-              <form id="addContaForm" action="../../assets/php/financas/adicionarConta.php" method="POST">
+              <form id="addContaForm" action="../../assets/php/financas/contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" method="POST">
                 <div class="mb-3">
                   <label for="descricao" class="form-label">Descrição da Conta</label>
                   <input type="text" class="form-control" id="descricao" name="descricao" placeholder="Ex: Pagamento de Fornecedor" required />

@@ -1,25 +1,20 @@
 <?php
-
 require_once '../conexao.php';
 
 try {
-    // ✅ Recupera o identificador da empresa enviado no form
-    $idSelecionado = $_POST['idSelecionado'] ?? '';
-    $idEmpresa = null;
-
-    if (str_starts_with($idSelecionado, 'principal_')) {
-        $idEmpresa = 1;
-    } elseif (str_starts_with($idSelecionado, 'filial_')) {
-        $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-        if (!filter_var($idFilial, FILTER_VALIDATE_INT)) {
-            throw new Exception("ID da filial inválido.");
-        }
-        $idEmpresa = $idFilial;
-    } else {
-        throw new Exception("ID da empresa inválido.");
+    // 1. Validação do ID da empresa
+    $idSelecionado = trim($_POST['idSelecionado'] ?? '');
+    
+    if (empty($idSelecionado)) {
+        throw new Exception("Nenhum ID de empresa foi selecionado.");
     }
 
-    // ✅ Mapeia os campos válidos
+    // Verifica se o ID está no formato correto (principal_X ou filial_X)
+    if (!preg_match('/^(principal|filial)_\d+$/', $idSelecionado)) {
+        throw new Exception("Formato de ID inválido. Deve ser 'principal_X' ou 'filial_X'");
+    }
+
+    // 2. Validação das formas de pagamento
     $camposValidos = [
         'dinheiro' => 'Dinheiro',
         'pix' => 'Pix',
@@ -27,7 +22,7 @@ try {
         'cartaoCredito' => 'Cartão de Crédito'
     ];
 
-    // ✅ Verifica qual campo foi enviado
+    // Identifica qual forma de pagamento foi enviada
     $campo = null;
     $valor = null;
     $nomeCampo = null;
@@ -35,51 +30,68 @@ try {
     foreach ($camposValidos as $key => $nome) {
         if (isset($_POST[$key])) {
             $campo = $key;
-            $valor = $_POST[$key] == '1' ? 1 : 0;
+            $valor = ($_POST[$key] == '1') ? 1 : 0;
             $nomeCampo = $nome;
             break;
         }
     }
 
-    if (!$campo) {
+    if ($campo === null) {
         throw new Exception("Nenhuma forma de pagamento válida foi enviada.");
     }
 
-    // ✅ Verifica se já existe um registro para essa empresa
+    // 3. Verifica/Insere registro da empresa
+    $pdo->beginTransaction();
+
+    // Verifica se existe registro para essa empresa
     $sqlCheck = "SELECT COUNT(*) FROM formas_pagamento WHERE empresa_id = :empresa_id";
     $stmtCheck = $pdo->prepare($sqlCheck);
-    $stmtCheck->execute([':empresa_id' => $idEmpresa]);
-    $registroExiste = $stmtCheck->fetchColumn();
-
-    if ($registroExiste == 0) {
-        // ✅ Insere novo registro zerado
-        $sqlInsert = "INSERT INTO formas_pagamento (empresa_id, dinheiro, pix, cartaoDebito, cartaoCredito)
+    $stmtCheck->execute([':empresa_id' => $idSelecionado]);
+    
+    if ($stmtCheck->fetchColumn() == 0) {
+        // Insere novo registro com todos os valores como 0
+        $sqlInsert = "INSERT INTO formas_pagamento 
+                      (empresa_id, dinheiro, pix, cartaoDebito, cartaoCredito)
                       VALUES (:empresa_id, 0, 0, 0, 0)";
         $stmtInsert = $pdo->prepare($sqlInsert);
-        $stmtInsert->execute([':empresa_id' => $idEmpresa]);
+        $stmtInsert->execute([':empresa_id' => $idSelecionado]);
     }
 
-    // ✅ Atualiza o campo específico
-    if (!array_key_exists($campo, $camposValidos)) {
-        throw new Exception("Campo de pagamento inválido.");
-    }
-
-    $sqlUpdate = "UPDATE formas_pagamento SET {$campo} = :valor WHERE empresa_id = :empresa_id";
+    // 4. Atualiza a forma de pagamento específica
+    $sqlUpdate = "UPDATE formas_pagamento 
+                 SET $campo = :valor 
+                 WHERE empresa_id = :empresa_id";
+    
     $stmtUpdate = $pdo->prepare($sqlUpdate);
     $stmtUpdate->execute([
         ':valor' => $valor,
-        ':empresa_id' => $idEmpresa
+        ':empresa_id' => $idSelecionado
     ]);
 
+    $pdo->commit();
+
+    // 5. Retorna com mensagem de sucesso
     echo "<script>
         alert('Forma de pagamento \"$nomeCampo\" atualizada com sucesso!');
-        window.location.href = '../../../erp/delivery/formaPagamento.php?id=" . htmlspecialchars($idSelecionado) . "';
+        window.location.href = '../../../erp/delivery/formaPagamento.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';
     </script>";
-    exit;
 
 } catch (Exception $e) {
-    echo "<script>alert('Erro: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    echo "<script>
+        alert('Erro: " . addslashes($e->getMessage()) . "');
+        window.location.href = '../../../erp/delivery/formaPagamento.php?id=" . htmlspecialchars($idSelecionado ?? '', ENT_QUOTES) . "';
+    </script>";
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao salvar formas de pagamento!'); history.back();</script>";
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    echo "<script>
+        alert('Erro no banco de dados ao atualizar formas de pagamento.');
+        window.location.href = '../../../erp/delivery/formaPagamento.php?id=" . htmlspecialchars($idSelecionado ?? '', ENT_QUOTES) . "';
+    </script>";
 }
+
 ?>

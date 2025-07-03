@@ -4,12 +4,26 @@ require '../../assets/php/conexao.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario = trim($_POST['usuario'] ?? '');
     $cpf = trim($_POST['cpf'] ?? '');
+    // Remove all non-digit characters from CPF
+    $cpf = preg_replace('/[^0-9]/', '', $cpf);
     $email = trim($_POST['email'] ?? '');
     $senha = $_POST['senha'] ?? '';
     $empresa_identificador = $_POST['empresa_identificador'] ?? '';
 
     if (empty($usuario) || empty($cpf) || empty($email) || empty($senha) || empty($empresa_identificador)) {
         echo "<script>alert('Preencha todos os campos!'); history.back();</script>";
+        exit;
+    }
+
+    // Validate email format
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo "<script>alert('Formato de e-mail inválido.'); history.back();</script>";
+        exit;
+    }
+
+    // Validate password strength (minimum 8 characters)
+    if (strlen($senha) < 8) {
+        echo "<script>alert('A senha deve ter no mínimo 8 caracteres.'); history.back();</script>";
         exit;
     }
 
@@ -35,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-    
+
         // Gera salt e hash da senha
         $salt = bin2hex(random_bytes(16));
         $senhaHash = hash('sha256', $salt . $senha);
