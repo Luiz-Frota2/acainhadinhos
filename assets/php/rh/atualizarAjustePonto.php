@@ -14,7 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $saida_final = !empty($_POST['editSaidaFinal']) ? $_POST['editSaidaFinal'] : null;
 
     // Verificar se todos os campos obrigatórios estão presentes
-    if (empty($cpf) || empty($empresa_id)) {
+    if (empty($cpf) || empty($empresa_id) || empty($data)) {
         die("<script>
                 alert('Dados incompletos para atualização!');
                 history.back();
