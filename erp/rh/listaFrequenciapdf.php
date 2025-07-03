@@ -208,7 +208,7 @@ function calcularHorasExtras($entrada, $saida, $saidaIntervalo = null, $retornoI
         $totalMinutos -= calcularDiferencaMinutos($saidaIntervalo, $retornoIntervalo);
     }
 
-    if ($totalMinutos <= 480) { // 8 horas = 480 minutos
+    if ($totalMinutos <= 480) {
         return 0;
     }
 
@@ -222,57 +222,24 @@ function calcularHorasNoturnas($entrada, $saida, $saidaIntervalo = null, $retorn
     $entradaTs = strtotime($entrada);
     $saidaTs = strtotime($saida);
 
-    // Se a saída for no dia seguinte (após meia-noite)
     if ($saidaTs < $entradaTs) {
         $saidaTs += 86400;
     }
 
     $inicioNoturno = strtotime('22:00:00');
-    $fimNoturno = strtotime('05:00:00') + 86400; // 05:00 do dia seguinte
+    $fimNoturno = strtotime('05:00:00') + 86400;
 
-    // Calcular horas noturnas considerando intervalo
-    $horasNoturnas = 0;
+    $inicioTrabalhado = max($entradaTs, $inicioNoturno);
+    $fimTrabalhado = min($saidaTs, $fimNoturno);
 
-    // Período antes do intervalo (se houver)
-    if ($saidaIntervalo) {
-        $saidaIntervaloTs = strtotime($saidaIntervalo);
-        if ($saidaIntervaloTs < $entradaTs) {
-            $saidaIntervaloTs += 86400;
-        }
-
-        $inicioTrabalhado = max($entradaTs, $inicioNoturno);
-        $fimTrabalhado = min($saidaIntervaloTs, $fimNoturno);
-
-        if ($inicioTrabalhado < $fimTrabalhado) {
-            $horasNoturnas += ($fimTrabalhado - $inicioTrabalhado) / 3600;
-        }
+    if ($inicioTrabalhado >= $fimTrabalhado) {
+        return 0;
     }
 
-    // Período após o intervalo (se houver)
-    if ($retornoIntervalo) {
-        $retornoIntervaloTs = strtotime($retornoIntervalo);
-        if ($retornoIntervaloTs < $entradaTs) {
-            $retornoIntervaloTs += 86400;
-        }
+    $segundosNoturnos = $fimTrabalhado - $inicioTrabalhado;
+    $horasNoturnas = ($segundosNoturnos / 3600) * (60 / 60.0);
 
-        $inicioTrabalhado = max($retornoIntervaloTs, $inicioNoturno);
-        $fimTrabalhado = min($saidaTs, $fimNoturno);
-
-        if ($inicioTrabalhado < $fimTrabalhado) {
-            $horasNoturnas += ($fimTrabalhado - $inicioTrabalhado) / 3600;
-        }
-    } else {
-        // Sem intervalo - calcular todo o período
-        $inicioTrabalhado = max($entradaTs, $inicioNoturno);
-        $fimTrabalhado = min($saidaTs, $fimNoturno);
-
-        if ($inicioTrabalhado < $fimTrabalhado) {
-            $horasNoturnas = ($fimTrabalhado - $inicioTrabalhado) / 3600;
-        }
-    }
-
-    // Aplicar fator de redução (52.5/60) para adicional noturno
-    return $horasNoturnas * (52.5 / 60);
+    return round($horasNoturnas, 2);
 }
 
 function calcularCargaHorariaDia($ponto, $funcionario)
@@ -354,8 +321,17 @@ try {
     $stmt->execute([$cpfLimpo, $mes, $ano]);
     $folgas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Combinar pontos e folgas em um único array
+    // Criar array com todos os dias do mês
+    $numeroDias = cal_days_in_month(CAL_GREGORIAN, $mes, $ano);
     $registros = [];
+
+    for ($dia = 1; $dia <= $numeroDias; $dia++) {
+        $data = sprintf('%04d-%02d-%02d', $ano, $mes, $dia);
+        $registros[$data] = [
+            'tipo' => 'sem_registro',
+            'data' => $data
+        ];
+    }
 
     // Adicionar pontos
     foreach ($pontos as $ponto) {
@@ -437,78 +413,32 @@ try {
                 );
                 $estatisticas['horasTrabalhadas'] += $horasDia;
 
-                // Calcular carga horária esperada para o dia
-                $cargaHorariaDia = calcularCargaHorariaDia($registro, $funcionario) / 60; // em horas
+                // Verificar tolerância de 10 minutos na entrada
+                $temAtraso = false;
+                if ($funcionario['entrada']) {
+                    $entradaEsperada = strtotime($funcionario['entrada']);
+                    $entradaRegistrada = strtotime($registro['entrada']);
+                    $diferencaMinutos = ($entradaRegistrada - $entradaEsperada) / 60;
 
-                // Verificar se horas trabalhadas são iguais à carga horária
-                $diferencaHoras = abs($horasDia - $cargaHorariaDia);
-
-                // Se a diferença for menor que 10 minutos (0.166 horas), considerar como normal
-                if ($diferencaHoras < 0.166) {
-                    $registro['ocorrencia'] = 'Normal';
-                } else {
-                    // Verificar tolerância de 10 minutos na entrada
-                    $temAtraso = false;
-                    if ($funcionario['entrada']) {
-                        $entradaEsperada = strtotime($funcionario['entrada']);
-                        $entradaRegistrada = strtotime($registro['entrada']);
-                        $diferencaMinutos = ($entradaRegistrada - $entradaEsperada) / 60;
-
-                        if ($diferencaMinutos > 10) {
-                            $temAtraso = true;
-                            $estatisticas['atrasos']++;
-                            $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
-                            $registro['ocorrencia'] = 'Atraso';
-                        }
-                    }
-
-                    // Verificar saída antecipada
-                    $temSaidaAntecipada = false;
-                    if ($funcionario['saida_final']) {
-                        $saidaEsperada = strtotime($funcionario['saida_final']);
-                        $saidaRegistrada = strtotime($registro['saida_final']);
-                        $diferencaMinutos = ($saidaEsperada - $saidaRegistrada) / 60;
-
-                        if ($diferencaMinutos > 10) {
-                            $temSaidaAntecipada = true;
-                            $estatisticas['saidasAntecipadas']++;
-                            $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
-                            if (isset($registro['ocorrencia'])) {
-                                $registro['ocorrencia'] .= ', Saída Antecip.';
-                            } else {
-                                $registro['ocorrencia'] = 'Saída Antecip.';
-                            }
-                        }
-                    }
-
-                    // Se não houver atraso nem saída antecipada, mas horas trabalhadas < carga horária
-                    if (!$temAtraso && !$temSaidaAntecipada && $horasDia < $cargaHorariaDia) {
-                        $registro['ocorrencia'] = 'Horas Pendentes';
+                    if ($diferencaMinutos > 10) {
+                        $temAtraso = true;
+                        $estatisticas['atrasos']++;
+                        $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
                     }
                 }
 
-                // Adicionar Adicional Noturno se houver horas noturnas
-                if ($registro['horas_noturnas'] > 0) {
-                    if (isset($registro['ocorrencia'])) {
-                        $registro['ocorrencia'] .= ', Adicional Noturno';
-                    } else {
-                        $registro['ocorrencia'] = 'Adicional Noturno';
-                    }
-                }
+                // Verificar saída antecipada
+                $temSaidaAntecipada = false;
+                if ($funcionario['saida_final']) {
+                    $saidaEsperada = strtotime($funcionario['saida_final']);
+                    $saidaRegistrada = strtotime($registro['saida_final']);
+                    $diferencaMinutos = ($saidaEsperada - $saidaRegistrada) / 60;
 
-                // Adicionar Horas Extras se houver
-                $horasExtrasDia = converterHoraParaDecimal($registro['hora_extra']);
-                if ($horasExtrasDia > 0) {
-                    if (isset($registro['ocorrencia'])) {
-                        $registro['ocorrencia'] .= ', Horas Extras';
-                    } else {
-                        $registro['ocorrencia'] = 'Horas Extras';
+                    if ($diferencaMinutos > 0) {
+                        $temSaidaAntecipada = true;
+                        $estatisticas['saidasAntecipadas']++;
+                        $estatisticas['horasDevidas'] += $diferencaMinutos / 60;
                     }
-                }
-
-                // Se não houver nenhuma ocorrência, marcar como Normal
-                if (!isset($registro['ocorrencia'])) {
-                    $registro['ocorrencia'] = 'Normal';
                 }
             }
 
@@ -537,7 +467,6 @@ try {
     die("Erro ao gerar relatório: " . $e->getMessage());
 }
 
-// HTML do relatório
 ?>
 
 <!DOCTYPE html>
@@ -1332,6 +1261,8 @@ try {
 
                                                     if ($registro['tipo'] === 'folga') {
                                                         $ocorrencias[] = 'Folga';
+                                                    } elseif ($registro['tipo'] === 'sem_registro') {
+                                                        $ocorrencias[] = 'Sem Registro';
                                                     } elseif ($registro['entrada'] && $registro['saida_final']) {
                                                         // Calcular horas trabalhadas e carga horária
                                                         $horasTrabalhadas = calcularHorasTrabalhadas(
@@ -1409,13 +1340,13 @@ try {
                                                 ?>
                                                     <tr>
                                                         <td><?= formatarData($registro['data']) ?></td>
-                                                        <td><?= ($registro['tipo'] === 'folga') ? '--:--' : ($registro['entrada'] ? date('H:i', strtotime($registro['entrada'])) : '--:--') ?></td>
-                                                        <td><?= ($registro['tipo'] === 'folga') ? '--:--' : ($registro['saida_intervalo'] ? date('H:i', strtotime($registro['saida_intervalo'])) : '--:--') ?></td>
-                                                        <td><?= ($registro['tipo'] === 'folga') ? '--:--' : ($registro['retorno_intervalo'] ? date('H:i', strtotime($registro['retorno_intervalo'])) : '--:--') ?></td>
-                                                        <td><?= ($registro['tipo'] === 'folga') ? '--:--' : ($registro['saida_final'] ? date('H:i', strtotime($registro['saida_final'])) : '--:--') ?></td>
+                                                        <td><?= ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') ? '--:--' : ($registro['entrada'] ? date('H:i', strtotime($registro['entrada'])) : '--:--') ?></td>
+                                                        <td><?= ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') ? '--:--' : ($registro['saida_intervalo'] ? date('H:i', strtotime($registro['saida_intervalo'])) : '--:--') ?></td>
+                                                        <td><?= ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') ? '--:--' : ($registro['retorno_intervalo'] ? date('H:i', strtotime($registro['retorno_intervalo'])) : '--:--') ?></td>
+                                                        <td><?= ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') ? '--:--' : ($registro['saida_final'] ? date('H:i', strtotime($registro['saida_final'])) : '--:--') ?></td>
                                                         <td>
                                                             <?php
-                                                            if ($registro['tipo'] === 'folga') {
+                                                            if ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') {
                                                                 echo '0h 00m';
                                                             } elseif ($registro['entrada'] && $registro['saida_final']) {
                                                                 $horasDia = calcularHorasTrabalhadas(
@@ -1430,9 +1361,9 @@ try {
                                                             }
                                                             ?>
                                                         </td>
-                                                        <td><?= ($registro['tipo'] === 'folga') ? '--:--' : minutesToHM(calcularCargaHorariaDia($registro, $funcionario)) ?></td>
-                                                        <td><?= ($registro['tipo'] === 'folga') ? '0h 00m' : ($registro['horas_noturnas'] > 0 ? formatarHoraDecimal($registro['horas_noturnas']) : '0h 00m') ?></td>
-                                                        <td><?= ($registro['tipo'] === 'folga') ? '0h 00m' : ($horasExtrasDia > 0 ? formatarHoraDecimal($horasExtrasDia) : '0h 00m') ?></td>
+                                                        <td><?= ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') ? '--:--' : minutesToHM(calcularCargaHorariaDia($registro, $funcionario)) ?></td>
+                                                        <td><?= ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') ? '0h 00m' : ($registro['horas_noturnas'] > 0 ? formatarHoraDecimal($registro['horas_noturnas']) : '0h 00m') ?></td>
+                                                        <td><?= ($registro['tipo'] === 'folga' || $registro['tipo'] === 'sem_registro') ? '0h 00m' : ($horasExtrasDia > 0 ? formatarHoraDecimal($horasExtrasDia) : '0h 00m') ?></td>
                                                         <td><?= implode(', ', $ocorrencias) ?></td>
                                                     </tr>
                                                 <?php endforeach; ?>
