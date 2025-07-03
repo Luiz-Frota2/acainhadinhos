@@ -1032,7 +1032,7 @@ if (!empty($registro['horas_pendentes'])) {
                                 </a>
                             </li>
                             <li class="menu-item active ">
-                                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
+                                <a href="#"
                                     class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Individual</div>
                                 </a>

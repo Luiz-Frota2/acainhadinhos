@@ -964,7 +964,7 @@ try {
                                 </a>
                             </li>
                             <li class="menu-item active">
-                                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="#" class="menu-link">
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
                                 </a>
                             </li>
