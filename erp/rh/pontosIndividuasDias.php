@@ -116,7 +116,7 @@ $nomeFuncionario = '';
 
 try {
    
-    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
+    $stmt = $pdo->prepare("SELECT nome, cpf FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
     $stmt->bindParam(':empresa_id', $empresa_id);
     $stmt->bindParam(':cpf', $cpf);
     $stmt->execute();
@@ -124,6 +124,7 @@ try {
     if ($stmt->rowCount() > 0) {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $nomeFuncionario = htmlspecialchars($result['nome']);
+        $cpf = htmlspecialchars($result['cpf']);
     }
  
     $dataInicio = "$ano-$mes-01";
