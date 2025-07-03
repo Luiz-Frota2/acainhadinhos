@@ -83,26 +83,13 @@ try {
 }
 
 try {
-  $stmt = $pdo->prepare("
-    SELECT 
-      p.id AS ponto_id,
-      p.cpf,
-      f.nome AS nome_funcionario,
-      p.data,
-      p.entrada,
-      p.saida_intervalo,
-      p.retorno_intervalo,
-      p.saida_final
-    FROM pontos p
-    LEFT JOIN funcionarios f ON f.cpf = p.cpf
-    WHERE p.empresa_id = :empresa_id
-    ORDER BY p.data DESC
-  ");
-  $stmt->bindParam(':empresa_id', $idSelecionado);
+  $stmt = $pdo->prepare("SELECT id, nome, cargo, cpf FROM funcionarios WHERE empresa_id = :empresa_id");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $funcionarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  echo "<tr><td colspan='7'>Erro ao buscar pontos: " . $e->getMessage() . "</td></tr>";
+  echo "Erro ao buscar funcionarios: " . $e->getMessage();
+  exit;
 }
 ?>
 
@@ -135,6 +122,7 @@ try {
   <!-- Vendors CSS -->
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
   <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <!-- Helpers -->
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
@@ -212,7 +200,7 @@ try {
                   <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
-               <li class="menu-item">
+              <li class="menu-item">
                 <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
                 </a>
@@ -410,94 +398,23 @@ try {
           <!-- Tabela de Ajuste de Ponto -->
 
           <div class="card">
-            <h5 class="card-header">Lista de Registros de Ponto</h5>
+            <h5 class="card-header">Lista de funcionários</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover">
                 <thead>
                   <tr>
                     <th>Funcionário</th>
-                    <th>Data</th>
-                    <th>Entrada</th>
-                    <th>Saída para Intervalo</th>
-                    <th>Entrada do Intervalo</th>
-                    <th>Saída</th>
+                    <th>Cargo</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
-                <tbody class="table-border-bottom-0" id="tabelaAjuste">
-                  <?php foreach ($registros as $registro): ?>
+                <tbody>
+                  <?php foreach ($funcionarios as $funcionario): ?>
                     <tr>
-                      <td><strong><?= htmlspecialchars($registro['nome_funcionario'] ?? 'Desconhecido') ?></strong></td>
-                      <td><?= date('d/m/Y', strtotime($registro['data'])) ?></td>
+                      <td><?= htmlspecialchars($funcionario['nome']) ?></td>
+                      <td><?= htmlspecialchars($funcionario['cargo']) ?></td>
                       <td>
-                        <?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '--:--' ?>
-                      </td>
-                      <td>
-                        <?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '--:--' ?>
-                      </td>
-                      <td>
-                        <?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '--:--' ?>
-                      </td>
-                      <td>
-                        <?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '--:--' ?>
-                      </td>
-
-                      <td>
-                        <button class="btn btn-link text-primary p-0" title="Editar" data-bs-toggle="modal"
-                          data-bs-target="#editModal-<?= $registro['ponto_id'] ?>">
-                          <i class="tf-icons bx bx-edit"></i>
-                        </button>
-
-                        <!-- Modal -->
-                        <div class="modal fade" id="editModal-<?= $registro['ponto_id'] ?>" tabindex="-1"
-                          aria-labelledby="editModalLabel-<?= $registro['ponto_id'] ?>" aria-hidden="true">
-                          <div class="modal-dialog">
-                            <div class="modal-content">
-                              <form method="POST" action="../../assets/php/rh/atualizarAjustePonto.php">
-                                <input type="hidden" name="id" value="<?= $registro['ponto_id'] ?>">
-                                <input type="hidden" name="cpf" value="<?= $registro['cpf'] ?>">
-                                <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
-                                <input type="hidden" name="data" value="<?= $registro['data'] ?>">
-
-                                <div class="modal-header">
-                                  <h5 class="modal-title">Editar Ponto</h5>
-                                  <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                    aria-label="Fechar"></button>
-                                </div>
-
-                                <div class="modal-body">
-                                  <div class="mb-3">
-                                    <label for="entrada" class="form-label">Entrada</label>
-                                    <input type="time" class="form-control" name="entrada"
-                                      value="<?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '' ?>">
-                                  </div>
-                                  <div class="mb-3">
-                                    <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
-                                    <input type="time" class="form-control" name="saida_intervalo"
-                                      value="<?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '' ?>">
-                                  </div>
-                                  <div class="mb-3">
-                                    <label for="retorno_intervalo" class="form-label">Entrada do Intervalo</label>
-                                    <input type="time" class="form-control" name="retorno_intervalo"
-                                      value="<?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '' ?>">
-                                  </div>
-                                  <div class="mb-3">
-                                    <label for="saida_final" class="form-label">Saída</label>
-                                    <input type="time" class="form-control" name="saida_final"
-                                      value="<?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '' ?>">
-                                  </div>
-                                </div>
-
-                                <div class="modal-footer">
-                                  <button type="button" class="btn btn-secondary"
-                                    data-bs-dismiss="modal">Cancelar</button>
-                                  <button type="submit" class="btn btn-primary">Salvar</button>
-                                </div>
-                              </form>
-                            </div>
-                          </div>
-                        </div>
-
+                        <a href="./pontosIndividuaisMes.php?id=<?= urlencode($idSelecionado); ?>&cpf=<?= htmlspecialchars($funcionario['cpf']) ?>"><i class="fas fa-eye"></i></a>
                       </td>
                     </tr>
                   <?php endforeach; ?>
