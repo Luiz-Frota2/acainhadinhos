@@ -45,20 +45,19 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -84,45 +83,36 @@ try {
 }
 
 try {
-  $stmt = $pdo->prepare("
-    SELECT 
-      p.id AS ponto_id,
-      p.cpf,
-      f.nome AS nome_funcionario,
-      p.data,
-      p.entrada,
-      p.saida_intervalo,
-      p.retorno_intervalo,
-      p.saida_final
-    FROM pontos p
-    LEFT JOIN funcionarios f ON f.cpf = p.cpf
-    WHERE p.empresa_id = :empresa_id
-    ORDER BY p.data DESC
-  ");
-  $stmt->bindParam(':empresa_id', $idSelecionado);
+  $stmt = $pdo->prepare("SELECT id, nome, cargo, cpf FROM funcionarios WHERE empresa_id = :empresa_id");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $funcionarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  echo "<tr><td colspan='7'>Erro ao buscar pontos: " . $e->getMessage() . "</td></tr>";
+  echo "Erro ao buscar funcionarios: " . $e->getMessage();
+  exit;
 }
 ?>
 
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+  data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
   <title>ERP - Recursos Humanos</title>
   <meta name="description" content="" />
 
-  <!-- Favicon da empresa carregado dinamicamente -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+    rel="stylesheet" />
   <!-- Icons -->
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
   <!-- Core CSS -->
@@ -132,6 +122,7 @@ try {
   <!-- Vendors CSS -->
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
   <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <!-- Helpers -->
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
@@ -147,7 +138,8 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -208,6 +200,11 @@ try {
                   <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
+              <li class="menu-item">
+                <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
+                </a>
+              </li>
               <li class="menu-item active">
                 <a href="#" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
@@ -239,7 +236,17 @@ try {
                   <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
                 </a>
               </li>
-
+              <li class="menu-item">
+                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
+                </a>
+              </li>
             </ul>
           </li>
           <!-- Misc -->
@@ -317,11 +324,8 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input
-                  type="text"
-                  class="form-control border-0 shadow-none"
-                  placeholder="Search..."
-                  aria-label="Search..." />
+                <input type="text" class="form-control border-0 shadow-none" id="searchInput"
+                  placeholder="Buscar pontos..." aria-label="Search..." />
               </div>
             </div>
             <!-- /Search -->
@@ -332,7 +336,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -341,7 +345,7 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -368,15 +372,6 @@ try {
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
@@ -395,95 +390,31 @@ try {
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de Ponto</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos registrados</span></h5>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Ajuste de
+            Ponto</h4>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e ajuste os pontos
+              registrados</span></h5>
 
           <!-- Tabela de Ajuste de Ponto -->
 
           <div class="card">
-            <h5 class="card-header">Lista de Registros de Ponto</h5>
+            <h5 class="card-header">Lista de funcionários</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover">
                 <thead>
                   <tr>
                     <th>Funcionário</th>
-                    <th>Data</th>
-                    <th>Entrada</th>
-                    <th>Saída para Intervalo</th>
-                    <th>Entrada do Intervalo</th>
-                    <th>Saída</th>
+                    <th>Cargo</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
-                <tbody class="table-border-bottom-0">
-                  <?php foreach ($registros as $registro): ?>
+                <tbody>
+                  <?php foreach ($funcionarios as $funcionario): ?>
                     <tr>
-                      <td><strong><?= htmlspecialchars($registro['nome_funcionario'] ?? 'Desconhecido') ?></strong></td>
-                      <td><?= date('d/m/Y', strtotime($registro['data'])) ?></td>
+                      <td><?= htmlspecialchars($funcionario['nome']) ?></td>
+                      <td><?= htmlspecialchars($funcionario['cargo']) ?></td>
                       <td>
-                        <?= !empty($registro['entrada']) ? date('H:i', strtotime($registro['entrada'])) : '--:--' ?>
-                      </td>
-                      <td>
-                        <?= !empty($registro['saida_intervalo']) ? date('H:i', strtotime($registro['saida_intervalo'])) : '--:--' ?>
-                      </td>
-                      <td>
-                        <?= !empty($registro['retorno_intervalo']) ? date('H:i', strtotime($registro['retorno_intervalo'])) : '--:--' ?>
-                      </td>
-                      <td>
-                        <?= !empty($registro['saida_final']) ? date('H:i', strtotime($registro['saida_final'])) : '--:--' ?>
-                      </td>
-
-                      <td>
-                        <button class="btn btn-link text-primary p-0"
-                          title="Editar"
-                          data-bs-toggle="modal"
-                          data-bs-target="#editModal-<?= $registro['ponto_id'] ?>">
-                          <i class="tf-icons bx bx-edit"></i>
-                        </button>
-
-                        <!-- Modal -->
-                        <div class="modal fade" id="editModal-<?= $registro['ponto_id'] ?>" tabindex="-1" aria-labelledby="editModalLabel-<?= $registro['ponto_id'] ?>" aria-hidden="true">
-                          <div class="modal-dialog">
-                            <div class="modal-content">
-                              <form method="POST" action="../../assets/php/rh/atualizarAjustePonto.php">
-                                <input type="hidden" name="id" value="<?= $registro['ponto_id'] ?>">
-                                <input type="hidden" name="cpf" value="<?= $registro['cpf'] ?>">
-                                <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
-                                <input type="hidden" name="data" value="<?= $registro['data'] ?>">
-
-                                <div class="modal-header">
-                                  <h5 class="modal-title">Editar Ponto</h5>
-                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-
-                                <div class="modal-body">
-                                  <div class="mb-3">
-                                    <label for="entrada" class="form-label">Entrada</label>
-                                    <input type="time" class="form-control" name="entrada" value="<?= $registro['entrada'] ?>">
-                                  </div>
-                                  <div class="mb-3">
-                                    <label for="saida_intervalo" class="form-label">Saída para Intervalo</label>
-                                    <input type="time" class="form-control" name="saida_intervalo" value="<?= $registro['saida_intervalo'] ?>">
-                                  </div>
-                                  <div class="mb-3">
-                                    <label for="retorno_intervalo" class="form-label">Entrada do Intervalo</label>
-                                    <input type="time" class="form-control" name="retorno_intervalo" value="<?= $registro['retorno_intervalo'] ?>">
-                                  </div>
-                                  <div class="mb-3">
-                                    <label for="saida_final" class="form-label">Saída</label>
-                                    <input type="time" class="form-control" name="saida_final" value="<?= $registro['saida_final'] ?>">
-                                  </div>
-                                </div>
-
-                                <div class="modal-footer">
-                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                  <button type="submit" class="btn btn-primary">Salvar</button>
-                                </div>
-                              </form>
-                            </div>
-                          </div>
-                        </div>
-
+                        <a href="./pontosIndividuaisMes.php?id=<?= urlencode($idSelecionado); ?>&cpf=<?= htmlspecialchars($funcionario['cpf']) ?>"><i class="fas fa-eye"></i></a>
                       </td>
                     </tr>
                   <?php endforeach; ?>
@@ -491,8 +422,89 @@ try {
 
               </table>
             </div>
+
+            <!-- Paginação -->
+            <div class="d-flex justify-content-start align-items-center gap-2 m-3">
+              <div>
+                <button id="prevPage" class="btn btn-sm btn-outline-primary">Anterior</button>
+                <div id="paginacao" class="btn-group"></div>
+                <button id="nextPage" class="btn btn-sm btn-outline-primary">Próximo</button>
+              </div>
+            </div>
+
           </div>
         </div>
+
+        <script>
+          const searchInput = document.getElementById('searchInput');
+          const linhas = Array.from(document.querySelectorAll('#tabelaAjuste tr'));
+          const rowsPerPage = 20;
+          let currentPage = 1;
+
+          function renderTable() {
+            const filtro = searchInput.value.toLowerCase();
+            const linhasFiltradas = linhas.filter(linha => {
+              return Array.from(linha.querySelectorAll('td')).some(td =>
+                td.textContent.toLowerCase().includes(filtro)
+              );
+            });
+
+            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
+            const inicio = (currentPage - 1) * rowsPerPage;
+            const fim = inicio + rowsPerPage;
+
+            linhas.forEach(linha => linha.style.display = 'none');
+            linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
+
+            const paginacao = document.getElementById('paginacao');
+            paginacao.innerHTML = '';
+            for (let i = 1; i <= totalPages; i++) {
+              const btn = document.createElement('button');
+              btn.textContent = i;
+
+              // Adiciona espaçamento horizontal entre os botões
+              btn.style.marginRight = "6px";
+
+              btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+              btn.addEventListener('click', () => {
+                currentPage = i;
+                renderTable();
+              });
+              paginacao.appendChild(btn);
+            }
+
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+          }
+
+          searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            renderTable();
+          });
+
+          document.getElementById('prevPage').addEventListener('click', () => {
+            if (currentPage > 1) {
+              currentPage--;
+              renderTable();
+            }
+          });
+
+          document.getElementById('nextPage').addEventListener('click', () => {
+            const filtro = searchInput.value.toLowerCase();
+            const linhasFiltradas = linhas.filter(linha => {
+              return Array.from(linha.querySelectorAll('td')).some(td =>
+                td.textContent.toLowerCase().includes(filtro)
+              );
+            });
+            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
+            if (currentPage < totalPages) {
+              currentPage++;
+              renderTable();
+            }
+          });
+
+          renderTable();
+        </script>
 
         <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
         <script src="../../assets/vendor/libs/popper/popper.js"></script>
