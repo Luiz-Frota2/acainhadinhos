@@ -67,21 +67,6 @@ try {
     $nivelUsuario = 'Erro';
 }
 
-// Helpers
-function timeToMinutes($time)
-{
-    if (!$time || $time === '00:00:00')
-        return 0;
-    list($h, $m, $s) = explode(':', $time);
-    return $h * 60 + $m + round($s / 60);
-}
-function minutesToHM($min)
-{
-    $h = floor($min / 60);
-    $m = $min % 60;
-    return sprintf('%02dh %02dm', $h, $m);
-}
-
 
 
 ?>
@@ -408,47 +393,178 @@ function minutesToHM($min)
                 </nav>
 
 
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de
-                                Ponto</a>/</span>Frequência Geral</h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize as Frequências
-                            do funcionário</span></h5>
-                    <div class="card mt-3">
-                        <h5 class="card-header">Frequências Mensais</h5>
-                        <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Ano</th>
-                                        <th>Mês</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabelaBancoHoras">
-                                    <tr>
-                                        <td>2024</td>
-                                        <td>Janeiro</td>
-                                        <td>
-                                            <a href="./pontosIndividuasDias.php?id=<?= urlencode($idSelecionado); ?>" class="btn-view"><i class="fas fa-eye"></i></a>
-                                           
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>2024</td>
-                                        <td>Fevereiro</td>
-                                        <td>
-                                            <a href="./pontosIndividuasDias.php?id=<?= urlencode($idSelecionado); ?>" class="btn-view"><i class="fas fa-eye"></i></a>
-                                        </td>
-                                    </tr>
-                                    <!-- Adicione mais linhas conforme necessário -->
-                                </tbody>
-                            </table>
-                            <div class="d-flex gap-2 m-3">
-                                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
-                                <div id="paginacaoHoras" class="d-flex gap-1"></div>
-                                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
-                            </div>
-                        </div>
+              <?php
+
+
+// Obter parâmetros da URL
+$empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
+$cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
+
+// Validar parâmetros obrigatórios
+if (empty($empresa_id) || empty($cpf)) {
+    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
+}
+
+// Consulta para obter os meses/anos com registros
+$mesesAnos = [];
+$nomeFuncionario = '';
+
+try {
+    // Primeiro, pegar o nome do funcionário
+    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
+    $stmt->execute();
+    
+    if ($stmt->rowCount() > 0) {
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $nomeFuncionario = htmlspecialchars($result['nome']);
+    }
+
+    // Agora pegar todos os meses/anos distintos com registros
+    $stmt = $pdo->prepare("SELECT 
+                            YEAR(data) as ano, 
+                            MONTH(data) as mes_numero,
+                            MONTHNAME(data) as mes_nome
+                          FROM pontos 
+                          WHERE empresa_id = :empresa_id 
+                          AND cpf = :cpf
+                          GROUP BY YEAR(data), MONTH(data)
+                          ORDER BY ano DESC, mes_numero DESC");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
+    $stmt->execute();
+
+    $mesesAnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    die("Erro ao consultar meses/anos: " . $e->getMessage());
+}
+
+// Nomes dos meses em português
+$mesesPortugues = [
+    'January' => 'Janeiro',
+    'February' => 'Fevereiro',
+    'March' => 'Março',
+    'April' => 'Abril',
+    'May' => 'Maio',
+    'June' => 'Junho',
+    'July' => 'Julho',
+    'August' => 'Agosto',
+    'September' => 'Setembro',
+    'October' => 'Outubro',
+    'November' => 'Novembro',
+    'December' => 'Dezembro'
+];
+?>
+
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos por Mês</h4>
+    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do funcionário: <?= $nomeFuncionario ?></span></h5>
+    
+    <div class="card mt-3">
+        <h5 class="card-header">Pontos Mensais</h5>
+        <div class="table-responsive text-nowrap">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Ano</th>
+                        <th>Mês</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaBancoHoras">
+                    <?php if (empty($mesesAnos)): ?>
+                        <tr>
+                            <td colspan="3" class="text-center">Nenhum registro encontrado</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($mesesAnos as $item): ?>
+                            <?php 
+                            $mesPortugues = $mesesPortugues[$item['mes_nome']] ?? $item['mes_nome'];
+                            $mesNumero = str_pad($item['mes_numero'], 2, '0', STR_PAD_LEFT);
+                            ?>
+                            <tr>
+                                <td><?= $item['ano'] ?></td>
+                                <td><?= $mesPortugues ?></td>
+                                <td>
+                                    <a href="./pontosIndividuasDias.php?empresa_id=<?= urlencode($empresa_id) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
+                                        <i class="fas fa-eye"></i> Visualizar
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+            
+            <div class="d-flex gap-2 m-3">
+                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+                <div id="paginacaoHoras" class="d-flex gap-1"></div>
+                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Script para paginação (simplificado)
+document.addEventListener('DOMContentLoaded', function() {
+    const rowsPerPage = 10;
+    const rows = document.querySelectorAll('#tabelaBancoHoras tr');
+    const pageCount = Math.ceil(rows.length / rowsPerPage);
+    const pagination = document.getElementById('paginacaoHoras');
+    
+    let currentPage = 1;
+    
+    function showPage(page) {
+        const start = (page - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        
+        rows.forEach((row, index) => {
+            row.style.display = (index >= start && index < end) ? '' : 'none';
+        });
+        
+        // Atualizar botões de paginação
+        document.querySelectorAll('#paginacaoHoras button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        const activeBtn = document.querySelector(`#paginacaoHoras button[data-page="${page}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+    }
+    
+    // Criar botões de paginação
+    for (let i = 1; i <= pageCount; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-outline-primary btn-sm';
+        btn.textContent = i;
+        btn.dataset.page = i;
+        btn.addEventListener('click', () => {
+            currentPage = i;
+            showPage(i);
+        });
+        pagination.appendChild(btn);
+    }
+    
+    // Configurar botões anterior/próximo
+    document.getElementById('prevPageHoras').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            showPage(currentPage);
+        }
+    });
+    
+    document.getElementById('nextPageHoras').addEventListener('click', () => {
+        if (currentPage < pageCount) {
+            currentPage++;
+            showPage(currentPage);
+        }
+    });
+    
+    // Mostrar primeira página
+    if (rows.length > 0) showPage(1);
+});
+</script>
 
                       
 

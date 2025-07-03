@@ -68,8 +68,82 @@ try {
     $nivelUsuario = 'Erro';
 }
 
-// Funções auxiliares para cálculo de horas
 
+function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal) {
+    if (empty($entrada) || empty($saidaFinal)) {
+        return '00h 00m';
+    }
+    $entradaDt = DateTime::createFromFormat('H:i:s', $entrada);
+    $saidaIntervaloDt = $saidaIntervalo ? DateTime::createFromFormat('H:i:s', $saidaIntervalo) : null;
+    $retornoIntervaloDt = $retornoIntervalo ? DateTime::createFromFormat('H:i:s', $retornoIntervalo) : null;
+    $saidaFinalDt = DateTime::createFromFormat('H:i:s', $saidaFinal);
+  
+    if ($saidaIntervaloDt && $retornoIntervaloDt) {
+        
+        $manha = $entradaDt->diff($saidaIntervaloDt);
+        
+        $tarde = $retornoIntervaloDt->diff($saidaFinalDt);    
+       
+        $totalMinutos = ($manha->h * 60 + $manha->i) + ($tarde->h * 60 + $tarde->i);
+    } else {
+       
+        $total = $entradaDt->diff($saidaFinalDt);
+        $totalMinutos = $total->h * 60 + $total->i;
+    }
+    
+    $horas = floor($totalMinutos / 60);
+    $minutos = $totalMinutos % 60;
+
+    return sprintf('%02dh %02dm', $horas, $minutos);
+}
+
+
+$empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
+$cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
+$mes = isset($_GET['mes']) ? intval($_GET['mes']) : date('m');
+$ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
+
+
+if (empty($empresa_id) || empty($cpf)) {
+    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
+}
+
+if ($mes < 1 || $mes > 12) $mes = date('m');
+if ($ano < 2000 || $ano > 2100) $ano = date('Y');
+
+$pontos = [];
+$nomeFuncionario = '';
+
+try {
+   
+    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
+    $stmt->execute();
+    
+    if ($stmt->rowCount() > 0) {
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $nomeFuncionario = htmlspecialchars($result['nome']);
+    }
+ 
+    $dataInicio = "$ano-$mes-01";
+    $dataFim = date("Y-m-t", strtotime($dataInicio));
+
+    $stmt = $pdo->prepare("SELECT * FROM pontos 
+                          WHERE empresa_id = :empresa_id 
+                          AND cpf = :cpf 
+                          AND data BETWEEN :data_inicio AND :data_fim
+                          ORDER BY data ASC");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
+    $stmt->bindParam(':data_inicio', $dataInicio);
+    $stmt->bindParam(':data_fim', $dataFim);
+    $stmt->execute();
+
+    $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    die("Erro ao consultar pontos: " . $e->getMessage());
+}
 
 ?>
 
@@ -396,101 +470,14 @@ try {
                 </nav>
                 <!-- / Navbar -->
 
-               <?php
-// Configurações de conexão com o banco de dados
-// Função para calcular a carga horária
-function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal) {
-    if (empty($entrada) || empty($saidaFinal)) {
-        return '00h 00m';
-    }
-
-    // Converter os horários para objetos DateTime
-    $entradaDt = DateTime::createFromFormat('H:i:s', $entrada);
-    $saidaIntervaloDt = $saidaIntervalo ? DateTime::createFromFormat('H:i:s', $saidaIntervalo) : null;
-    $retornoIntervaloDt = $retornoIntervalo ? DateTime::createFromFormat('H:i:s', $retornoIntervalo) : null;
-    $saidaFinalDt = DateTime::createFromFormat('H:i:s', $saidaFinal);
-
-    // Calcular o tempo total de trabalho
-    if ($saidaIntervaloDt && $retornoIntervaloDt) {
-        // Tempo antes do intervalo
-        $manha = $entradaDt->diff($saidaIntervaloDt);
-        // Tempo depois do intervalo
-        $tarde = $retornoIntervaloDt->diff($saidaFinalDt);
-        
-        // Somar os dois períodos
-        $totalMinutos = ($manha->h * 60 + $manha->i) + ($tarde->h * 60 + $tarde->i);
-    } else {
-        // Sem intervalo registrado
-        $total = $entradaDt->diff($saidaFinalDt);
-        $totalMinutos = $total->h * 60 + $total->i;
-    }
-
-    // Converter para horas e minutos
-    $horas = floor($totalMinutos / 60);
-    $minutos = $totalMinutos % 60;
-
-    return sprintf('%02dh %02dm', $horas, $minutos);
-}
-
-// Obter parâmetros da URL (obrigatórios)
-$empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
-$cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
-$mes = isset($_GET['mes']) ? intval($_GET['mes']) : date('m');
-$ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
-
-// Validar parâmetros obrigatórios
-if (empty($empresa_id) || empty($cpf)) {
-    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
-}
-
-// Validar mês e ano
-if ($mes < 1 || $mes > 12) $mes = date('m');
-if ($ano < 2000 || $ano > 2100) $ano = date('Y');
-
-// Consulta para obter os pontos do funcionário
-$pontos = [];
-$nomeFuncionario = '';
-
-try {
-    // Primeiro, pegar o nome do funcionário
-    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
-    $stmt->bindParam(':empresa_id', $empresa_id);
-    $stmt->bindParam(':cpf', $cpf);
-    $stmt->execute();
-    
-    if ($stmt->rowCount() > 0) {
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $nomeFuncionario = htmlspecialchars($result['nome']);
-    }
-
-    // Agora pegar todos os pontos do mês/ano
-    $dataInicio = "$ano-$mes-01";
-    $dataFim = date("Y-m-t", strtotime($dataInicio));
-
-    $stmt = $pdo->prepare("SELECT * FROM pontos 
-                          WHERE empresa_id = :empresa_id 
-                          AND cpf = :cpf 
-                          AND data BETWEEN :data_inicio AND :data_fim
-                          ORDER BY data ASC");
-    $stmt->bindParam(':empresa_id', $empresa_id);
-    $stmt->bindParam(':cpf', $cpf);
-    $stmt->bindParam(':data_inicio', $dataInicio);
-    $stmt->bindParam(':data_fim', $dataFim);
-    $stmt->execute();
-
-    $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    die("Erro ao consultar pontos: " . $e->getMessage());
-}
-?>
-
+ 
 <div class="container-xxl flex-grow-1 container-p-y">
-    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos Individual</h4>
+    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos por Dia</h4>
     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do Funcionário</span></h5>
 
     <div class="container mt-4">
         <div class="card mt-3">
-            <h5 class="card-header">Frequência do Funcionário: <?= $nomeFuncionario ?>
+            <h5 class="card-header">Pontos do Funcionário: <?= $nomeFuncionario ?>
                 <span class="float-end">Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
             </h5>
 
