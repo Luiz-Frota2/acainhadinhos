@@ -69,151 +69,7 @@ try {
 }
 
 // Funções auxiliares para cálculo de horas
-function timeToSeconds($time)
-{
-    if (!$time || $time === '00:00:00')
-        return 0;
-    list($h, $m, $s) = explode(':', $time);
-    return $h * 3600 + $m * 60 + $s;
-}
 
-function secondsToHM($seconds)
-{
-    $h = floor($seconds / 3600);
-    $m = floor(($seconds % 3600) / 60);
-    return sprintf('%02dh %02dm', $h, $m);
-}
-
-function calcularHorasTrabalhadas($entrada, $saida_intervalo, $retorno_intervalo, $saida_final)
-{
-    $total = 0;
-
-    // Período da manhã (entrada até saída para intervalo)
-    if ($entrada && $saida_intervalo) {
-        $total += timeToSeconds($saida_intervalo) - timeToSeconds($entrada);
-    }
-
-    // Período da tarde (retorno do intervalo até saída final)
-    if ($retorno_intervalo && $saida_final) {
-        $total += timeToSeconds($saida_final) - timeToSeconds($retorno_intervalo);
-    }
-
-    // Se não houve intervalo registrado, calcula direto da entrada até saída final
-    if ($entrada && $saida_final && (!$saida_intervalo || !$retorno_intervalo)) {
-        $total = timeToSeconds($saida_final) - timeToSeconds($entrada);
-    }
-
-    return $total;
-}
-
-// Processar requisição para visualizar frequência individual
-if (isset($_GET['cpf']) && !empty($_GET['cpf'])) {
-    $cpfBusca = preg_replace('/[^0-9]/', '', $_GET['cpf']);
-
-    try {
-        // Buscar nome do funcionário
-        $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf AND empresa_id = :empresa_id LIMIT 1");
-        $stmt->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
-        $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-        $stmt->execute();
-        $funcionario = $stmt->fetch();
-
-        if (!$funcionario) {
-            throw new Exception("Funcionário não encontrado");
-        }
-
-        $nomeFuncionario = $funcionario['nome'];
-
-        // Consulta para agrupar por mês/ano
-        $sql = "SELECT 
-                YEAR(data) as ano,
-                MONTH(data) as mes_numero,
-                cpf as cpf
-            FROM pontos 
-            WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf
-            AND empresa_id = :empresa_id
-            GROUP BY YEAR(data), MONTH(data)
-            ORDER BY ano DESC, mes_numero DESC";
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
-        $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-        $stmt->execute();
-        $mesesAnos = $stmt->fetchAll();
-
-        // Para cada mês/ano, calcular totais
-        $registros = [];
-        foreach ($mesesAnos as $ma) {
-            // Buscar todos os registros do mês
-            $sqlDias = "SELECT 
-                    entrada, saida_intervalo, retorno_intervalo, saida_final,
-                    horas_pendentes, hora_extra
-                FROM pontos 
-                WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = :cpf
-                AND empresa_id = :empresa_id
-                AND YEAR(data) = :ano
-                AND MONTH(data) = :mes
-                ORDER BY data";
-
-            $stmtDias = $pdo->prepare($sqlDias);
-            $stmtDias->bindParam(':cpf', $cpfBusca, PDO::PARAM_STR);
-            $stmtDias->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-            $stmtDias->bindParam(':ano', $ma['ano'], PDO::PARAM_INT);
-            $stmtDias->bindParam(':mes', $ma['mes_numero'], PDO::PARAM_INT);
-            $stmtDias->execute();
-            $dias = $stmtDias->fetchAll();
-
-            // Calcular totais
-            $totalSegundos = 0;
-            $pendentesSegundos = 0;
-            $extrasSegundos = 0;
-
-            foreach ($dias as $dia) {
-                $totalSegundos += calcularHorasTrabalhadas(
-                    $dia['entrada'],
-                    $dia['saida_intervalo'],
-                    $dia['retorno_intervalo'],
-                    $dia['saida_final']
-                );
-
-                $pendentesSegundos += timeToSeconds($dia['horas_pendentes']);
-                $extrasSegundos += timeToSeconds($dia['hora_extra']);
-            }
-
-            $registros[] = [
-                'ano' => $ma['ano'],
-                'mes_numero' => $ma['mes_numero'],
-                'total_segundos' => $totalSegundos,
-                'pendentes_segundos' => $pendentesSegundos,
-                'extras_segundos' => $extrasSegundos,
-                'cpf' => $ma['cpf']
-            ];
-        }
-    } catch (PDOException $e) {
-        die("Erro no banco de dados: " . $e->getMessage());
-    } catch (Exception $e) {
-        die("Erro: " . $e->getMessage());
-    }
-}
-
-function mesPortugues($mesNumero)
-{
-    $meses = [
-        1 => 'Janeiro',
-        2 => 'Fevereiro',
-        3 => 'Março',
-        4 => 'Abril',
-        5 => 'Maio',
-        6 => 'Junho',
-        7 => 'Julho',
-        8 => 'Agosto',
-        9 => 'Setembro',
-        10 => 'Outubro',
-        11 => 'Novembro',
-        12 => 'Dezembro'
-    ];
-    return $meses[$mesNumero] ?? '';
-}
 
 ?>
 
@@ -540,119 +396,293 @@ function mesPortugues($mesNumero)
                 </nav>
                 <!-- / Navbar -->
 
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de
-                                Ponto</a>/</span>Frequência Individual</h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize a Frequência
-                            do Funcionário</span></h5>
+               <?php
 
-           
-                        <div class="container mt-4">
-                            <div class="card mt-3">
-                                <h5 class="card-header">Frequência do Funcionário: <?= htmlspecialchars($nomeFuncionario) ?>
-                                 
-                                </h5>
-                                <div class="table-responsive text-nowrap">
-                                    <table class="table table-hover" id="tabelaBancoHoras">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Data</th>
-                                                <th>Entrada</th>
-                                                <th>Saída Int.</th>
-                                                <th>Entrada Int.</th>
-                                                <th>Saída</th>
-                                                <th>Carga Horária</th>
-                                                <th>Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>01/01/2024</td>
-                                                <td>08:00</td>
-                                                <td>12:00</td>
-                                                <td>13:00</td>
-                                                <td>17:00</td>
-                                                <td>08h 00m</td>
-                                                <td>
-                                                      <a href="#"  data-bs-toggle="modal" data-bs-target="#editarPontoModal">
-                                                        <i class="fas fa-edit"></i>                                       
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td>02/01/2024</td>
-                                                <td>08:10</td>
-                                                <td>12:05</td>
-                                                <td>13:10</td>
-                                                <td>17:05</td>
-                                                <td>07h 55m</td>
-                                                <td>
-                                                    <a href="#"  data-bs-toggle="modal" data-bs-target="#editarPontoModal">
-                                                        <i class="fas fa-edit"></i>                                       
-                                                    </a>
-                                                </td>
-                                            </tr>
-                                            <!-- Adicione mais linhas conforme necessário -->
-                                        </tbody>
-                                    </table>
-                                </div>
+// Função para calcular a carga horária
+function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal) {
+    if (empty($entrada) || empty($saidaFinal)) {
+        return '00h 00m';
+    }
 
-                                <!-- Modal de Edição -->
-                                <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
-                                  <div class="modal-dialog">
-                                    <div class="modal-content">
-                                      <form>
-                                        <div class="modal-header">
-                                          <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
-                                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                          <div class="mb-3">
-                                            <label for="editEntrada" class="form-label">Entrada</label>
-                                            <input type="time" class="form-control" id="editEntrada" name="entrada">
-                                          </div>
-                                          <div class="mb-3">
-                                            <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>
-                                            <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo">
-                                          </div>
-                                          <div class="mb-3">
-                                            <label for="editRetornoIntervalo" class="form-label">Entrada Intervalo</label>
-                                            <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo">
-                                          </div>
-                                          <div class="mb-3">
-                                            <label for="editSaidaFinal" class="form-label">Saída</label>
-                                            <input type="time" class="form-control" id="editSaidaFinal" name="saida_final">
-                                          </div>
-                                          <div class="mb-3">
-                                            <label for="editCarga" class="form-label">Carga Horária</label>
-                                            <input type="text" class="form-control" id="editCarga" name="carga" disabled value="08h 00m">
-                                          </div>
-                                        </div>
-                                        <div class="modal-footer">
-                                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                          <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-                                        </div>
-                                      </form>
-                                    </div>
-                                  </div>
-                                </div>
+    // Converter os horários para objetos DateTime
+    $entradaDt = DateTime::createFromFormat('H:i:s', $entrada);
+    $saidaIntervaloDt = $saidaIntervalo ? DateTime::createFromFormat('H:i:s', $saidaIntervalo) : null;
+    $retornoIntervaloDt = $retornoIntervalo ? DateTime::createFromFormat('H:i:s', $retornoIntervalo) : null;
+    $saidaFinalDt = DateTime::createFromFormat('H:i:s', $saidaFinal);
 
-                               
+    // Calcular o tempo total de trabalho
+    if ($saidaIntervaloDt && $retornoIntervaloDt) {
+        // Tempo antes do intervalo
+        $manha = $entradaDt->diff($saidaIntervaloDt);
+        // Tempo depois do intervalo
+        $tarde = $retornoIntervaloDt->diff($saidaFinalDt);
+        
+        // Somar os dois períodos
+        $totalMinutos = ($manha->h * 60 + $manha->i) + ($tarde->h * 60 + $tarde->i);
+    } else {
+        // Sem intervalo registrado
+        $total = $entradaDt->diff($saidaFinalDt);
+        $totalMinutos = $total->h * 60 + $total->i;
+    }
 
-                                <div class="d-flex gap-2 m-3">
-                                    <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo;
-                                        Anterior</button>
-                                    <div id="paginacaoHoras" class="d-flex gap-1"></div>
-                                    <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima
-                                        &raquo;</button>
-                                </div>
+    // Converter para horas e minutos
+    $horas = floor($totalMinutos / 60);
+    $minutos = $totalMinutos % 60;
 
+    return sprintf('%02dh %02dm', $horas, $minutos);
+}
+
+// Obter parâmetros da URL
+$empresa_id = isset($_GET['empresa_id']) ? $_GET['empresa_id'] : '';
+$cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
+$mes = isset($_GET['mes']) ? intval($_GET['mes']) : date('m');
+$ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
+
+// Validar mês e ano
+if ($mes < 1 || $mes > 12) $mes = date('m');
+if ($ano < 2000 || $ano > 2100) $ano = date('Y');
+
+// Consulta para obter os pontos do funcionário
+$pontos = [];
+$nomeFuncionario = '';
+
+if (!empty($empresa_id) && !empty($cpf)) {
+    try {
+        // Primeiro, pegar o nome do funcionário
+        $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
+        $stmt->bindParam(':empresa_id', $empresa_id);
+        $stmt->bindParam(':cpf', $cpf);
+        $stmt->execute();
+        
+        if ($stmt->rowCount() > 0) {
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $nomeFuncionario = htmlspecialchars($result['nome']);
+        }
+
+        // Agora pegar todos os pontos do mês/ano
+        $dataInicio = "$ano-$mes-01";
+        $dataFim = date("Y-m-t", strtotime($dataInicio));
+
+        $stmt = $pdo->prepare("SELECT * FROM pontos 
+                              WHERE empresa_id = :empresa_id 
+                              AND cpf = :cpf 
+                              AND data BETWEEN :data_inicio AND :data_fim
+                              ORDER BY data ASC");
+        $stmt->bindParam(':empresa_id', $empresa_id);
+        $stmt->bindParam(':cpf', $cpf);
+        $stmt->bindParam(':data_inicio', $dataInicio);
+        $stmt->bindParam(':data_fim', $dataFim);
+        $stmt->execute();
+
+        $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        die("Erro ao consultar pontos: " . $e->getMessage());
+    }
+}
+?>
+
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos Individual</h4>
+    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do Funcionário</span></h5>
+
+    <div class="container mt-4">
+        <div class="card mt-3">
+            <h5 class="card-header">Frequência do Funcionário: <?= $nomeFuncionario ?></h5>
+            
+            <!-- Filtros -->
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_id) ?>">
+                    <div class="col-md-3">
+                        <label for="cpf" class="form-label">CPF</label>
+                        <input type="text" class="form-control" id="cpf" name="cpf" value="<?= htmlspecialchars($cpf) ?>" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="mes" class="form-label">Mês</label>
+                        <select class="form-select" id="mes" name="mes">
+                            <?php for ($i = 1; $i <= 12; $i++): ?>
+                                <option value="<?= $i ?>" <?= $i == $mes ? 'selected' : '' ?>>
+                                    <?= str_pad($i, 2, '0', STR_PAD_LEFT) ?>
+                                </option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="ano" class="form-label">Ano</label>
+                        <input type="number" class="form-control" id="ano" name="ano" min="2000" max="2100" value="<?= $ano ?>">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="table-responsive text-nowrap">
+                <table class="table table-hover" id="tabelaBancoHoras">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Data</th>
+                            <th>Entrada</th>
+                            <th>Saída Int.</th>
+                            <th>Entrada Int.</th>
+                            <th>Saída</th>
+                            <th>Carga Horária</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($pontos)): ?>
+                            <tr>
+                                <td colspan="7" class="text-center">Nenhum ponto registrado para este período</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($pontos as $ponto): ?>
+                                <?php
+                                $cargaHoraria = calcularCargaHoraria(
+                                    $ponto['entrada'],
+                                    $ponto['saida_intervalo'],
+                                    $ponto['retorno_intervalo'],
+                                    $ponto['saida_final']
+                                );
+                                ?>
+                                <tr>
+                                    <td><?= date('d/m/Y', strtotime($ponto['data'])) ?></td>
+                                    <td><?= $ponto['entrada'] ? substr($ponto['entrada'], 0, 5) : '--:--' ?></td>
+                                    <td><?= $ponto['saida_intervalo'] ? substr($ponto['saida_intervalo'], 0, 5) : '--:--' ?></td>
+                                    <td><?= $ponto['retorno_intervalo'] ? substr($ponto['retorno_intervalo'], 0, 5) : '--:--' ?></td>
+                                    <td><?= $ponto['saida_final'] ? substr($ponto['saida_final'], 0, 5) : '--:--' ?></td>
+                                    <td><?= $cargaHoraria ?></td>
+                                    <td>
+                                        <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal" 
+                                           onclick="carregarDadosModal(
+                                               '<?= $ponto['id'] ?>',
+                                               '<?= $ponto['entrada'] ?>',
+                                               '<?= $ponto['saida_intervalo'] ?>',
+                                               '<?= $ponto['retorno_intervalo'] ?>',
+                                               '<?= $ponto['saida_final'] ?>',
+                                               '<?= $cargaHoraria ?>'
+                                           )">
+                                            <i class="fas fa-edit"></i>                                       
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Modal de Edição -->
+            <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form id="formEditarPonto" method="post" action="atualizar_ponto.php">
+                            <input type="hidden" name="ponto_id" id="pontoId">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                             </div>
-                        </div>
-
-                    
-                   
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="editEntrada" class="form-label">Entrada</label>
+                                    <input type="time" class="form-control" id="editEntrada" name="entrada">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>
+                                    <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="editRetornoIntervalo" class="form-label">Entrada Intervalo</label>
+                                    <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="editSaidaFinal" class="form-label">Saída</label>
+                                    <input type="time" class="form-control" id="editSaidaFinal" name="saida_final">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="editCarga" class="form-label">Carga Horária</label>
+                                    <input type="text" class="form-control" id="editCarga" name="carga" disabled>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
+            </div>
+
+            <div class="d-flex gap-2 m-3">
+                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+                <div id="paginacaoHoras" class="d-flex gap-1"></div>
+                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Função para carregar dados no modal de edição
+function carregarDadosModal(id, entrada, saidaIntervalo, retornoIntervalo, saidaFinal, carga) {
+    document.getElementById('pontoId').value = id;
+    document.getElementById('editEntrada').value = entrada ? entrada.substring(0, 5) : '';
+    document.getElementById('editSaidaIntervalo').value = saidaIntervalo ? saidaIntervalo.substring(0, 5) : '';
+    document.getElementById('editRetornoIntervalo').value = retornoIntervalo ? retornoIntervalo.substring(0, 5) : '';
+    document.getElementById('editSaidaFinal').value = saidaFinal ? saidaFinal.substring(0, 5) : '';
+    document.getElementById('editCarga').value = carga;
+}
+
+// Função para calcular carga horária em tempo real no modal
+function calcularCargaModal() {
+    const entrada = document.getElementById('editEntrada').value;
+    const saidaIntervalo = document.getElementById('editSaidaIntervalo').value;
+    const retornoIntervalo = document.getElementById('editRetornoIntervalo').value;
+    const saidaFinal = document.getElementById('editSaidaFinal').value;
+
+    if (!entrada || !saidaFinal) {
+        document.getElementById('editCarga').value = '00h 00m';
+        return;
+    }
+
+    // Converter para minutos
+    function timeToMinutes(time) {
+        const [hours, minutes] = time.split(':').map(Number);
+        return hours * 60 + minutes;
+    }
+
+    const entradaMin = timeToMinutes(entrada);
+    const saidaFinalMin = timeToMinutes(saidaFinal);
+
+    let totalMinutos;
+    
+    if (saidaIntervalo && retornoIntervalo) {
+        const saidaIntervaloMin = timeToMinutes(saidaIntervalo);
+        const retornoIntervaloMin = timeToMinutes(retornoIntervalo);
+        
+        // Tempo antes do intervalo
+        const manha = saidaIntervaloMin - entradaMin;
+        // Tempo depois do intervalo
+        const tarde = saidaFinalMin - retornoIntervaloMin;
+        
+        totalMinutos = manha + tarde;
+    } else {
+        totalMinutos = saidaFinalMin - entradaMin;
+    }
+
+    // Converter para horas e minutos
+    const horas = Math.floor(totalMinutos / 60);
+    const minutos = totalMinutos % 60;
+
+    document.getElementById('editCarga').value = `${horas.toString().padStart(2, '0')}h ${minutos.toString().padStart(2, '0')}m`;
+}
+
+// Adicionar eventos para calcular a carga horária quando os campos são alterados
+document.getElementById('editEntrada').addEventListener('change', calcularCargaModal);
+document.getElementById('editSaidaIntervalo').addEventListener('change', calcularCargaModal);
+document.getElementById('editRetornoIntervalo').addEventListener('change', calcularCargaModal);
+document.getElementById('editSaidaFinal').addEventListener('change', calcularCargaModal);
+</script>
 
                 <script>
                     const searchInput = document.getElementById('searchInput');
