@@ -382,12 +382,6 @@ function mesPortugues($mesNumero)
                                     <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
                                 </a>
                             </li>
-                            <li class="menu-item  ">
-                                <a href="./frequenciaIndividual.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Individual</div>
-                                </a>
-                            </li>
 
                             <li class="menu-item">
                                 <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
