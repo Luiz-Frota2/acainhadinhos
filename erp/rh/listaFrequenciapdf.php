@@ -1285,44 +1285,35 @@ try {
                                                         // Verificar se bateu a carga horária (com 5 minutos de tolerância)
                                                         $diferencaCargaHoraria = abs($horasTrabalhadasMinutos - $cargaHorariaMinutos);
 
-                                                        // Verificar atraso (com tolerância de 10 minutos)
-                                                        $temAtraso = false;
-                                                        if ($funcionario['entrada']) {
-                                                            $entradaEsperada = strtotime($funcionario['entrada']);
-                                                            $entradaRegistrada = strtotime($registro['entrada']);
-                                                            $diferencaMinutos = ($entradaRegistrada - $entradaEsperada) / 60;
-
-                                                            if ($diferencaMinutos > 10) {
-                                                                $temAtraso = true;
-                                                            }
-                                                        }
-
-                                                        // Verificar saída antecipada
-                                                        $temSaidaAntecipada = false;
-                                                        if ($funcionario['saida_final']) {
-                                                            $saidaEsperada = strtotime($funcionario['saida_final']);
-                                                            $saidaRegistrada = strtotime($registro['saida_final']);
-                                                            $diferencaMinutos = ($saidaEsperada - $saidaRegistrada) / 60;
-
-                                                            if ($diferencaMinutos > 0) {
-                                                                $temSaidaAntecipada = true;
-                                                            }
-                                                        }
-
                                                         // Se bateu exatamente a carga horária ou com pequena diferença
                                                         if ($diferencaCargaHoraria <= 5) {
                                                             $ocorrencias[] = 'Normal';
-                                                        }
+                                                        } else {
+                                                            // Verificar atraso (com tolerância de 10 minutos)
+                                                            $temAtraso = false;
+                                                            if ($funcionario['entrada']) {
+                                                                $entradaEsperada = strtotime($funcionario['entrada']);
+                                                                $entradaRegistrada = strtotime($registro['entrada']);
+                                                                $diferencaMinutos = ($entradaRegistrada - $entradaEsperada) / 60;
 
-                                                        // Adicionar ocorrências apenas se não for "Normal" ou se tiver algo adicional
-                                                        if ($temAtraso && $diferencaCargaHoraria > 5) {
-                                                            $ocorrencias = array_diff($ocorrencias, ['Normal']);
-                                                            $ocorrencias[] = 'Atraso';
-                                                        }
+                                                                if ($diferencaMinutos > 10) {
+                                                                    $temAtraso = true;
+                                                                    $ocorrencias[] = 'Atraso';
+                                                                }
+                                                            }
 
-                                                        if ($temSaidaAntecipada && $diferencaCargaHoraria > 5) {
-                                                            $ocorrencias = array_diff($ocorrencias, ['Normal']);
-                                                            $ocorrencias[] = 'Saída Antecip.';
+                                                            // Verificar saída antecipada
+                                                            $temSaidaAntecipada = false;
+                                                            if ($funcionario['saida_final']) {
+                                                                $saidaEsperada = strtotime($funcionario['saida_final']);
+                                                                $saidaRegistrada = strtotime($registro['saida_final']);
+                                                                $diferencaMinutos = ($saidaEsperada - $saidaRegistrada) / 60;
+
+                                                                if ($diferencaMinutos > 0) {
+                                                                    $temSaidaAntecipada = true;
+                                                                    $ocorrencias[] = 'Saída Antecip.';
+                                                                }
+                                                            }
                                                         }
 
                                                         // Adicionar adicional noturno se houver
