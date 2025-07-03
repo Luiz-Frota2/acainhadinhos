@@ -5,9 +5,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $cpf = $_POST['cpf'];
   $empresa_id = $_POST['empresa_id'];
   $data = $_POST['data'];
-  $entrada = $_POST['entrada'] ?: null;
-  $saida_intervalo = $_POST['saida_intervalo'] ?: null;
-  $retorno_intervalo = $_POST['retorno_intervalo'] ?: null;
+  $entrada = $_POST['editEntrada'] ?: null;
+  $saida_intervalo = $_POST['editSaidaIntervalo'] ?: null;
+  $retorno_intervalo = $_POST['editRetornoIntervalo'] ?: null;
 
   // Verifica tolerância de 10 minutos apenas para entrada
   if ($entrada) {
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
     }
   }
-  $saida_final = $_POST['saida_final'] ?: null;
+  $saida_final = $_POST['editSaidaFinal'] ?: null;
 
   try {
     $sql = "UPDATE pontos SET
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     echo "<script>
             alert('Registro de ponto atualizado com sucesso!');
-            window.location.href = '../../../erp/rh/ajustePonto.php?id=" . urlencode($empresa_id) . "';
+            window.location.href = '../../../erp/rh/pontosIndividuaisDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "';
           </script>";
   } catch (PDOException $e) {
     echo "<script>
