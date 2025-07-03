@@ -1377,48 +1377,45 @@ try {
                                     </div>
                                 <?php endforeach; ?>
                             </div>
-</body>
 
-</html>
+                        </div>
+                    </div>
+                </div>
 
-</div>
-</div>
-</div>
+            </div>
+        </div>
+    </div>
 
-</div>
-</div>
-</div>
+    <script src="../../js/saudacao.js"></script>
+    <script src="../../assets/vendor/libs/popper/popper.js"></script>
+    <script src="../../assets/vendor/js/bootstrap.js"></script>
+    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 
-<script src="../../js/saudacao.js"></script>
-<script src="../../assets/vendor/libs/popper/popper.js"></script>
-<script src="../../assets/vendor/js/bootstrap.js"></script>
-<script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+    <script src="../../assets/vendor/js/menu.js"></script>
+    <!-- endbuild -->
 
-<script src="../../assets/vendor/js/menu.js"></script>
-<!-- endbuild -->
+    <!-- Vendors JS -->
+    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
-<!-- Vendors JS -->
-<script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-<!-- Main JS -->
-<script src="../../assets/js/main.js"></script>
+    <!-- Main JS -->
+    <script src="../../assets/js/main.js"></script>
 
 
-<!-- Place this tag in your head or just before your close body tag. -->
-<script async defer src="https://buttons.github.io/buttons.js"></script>
+    <!-- Place this tag in your head or just before your close body tag. -->
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
 
-<script>
-    // Adiciona a data atual no rodapé
-    document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR');
+    <script>
+        // Adiciona a data atual no rodapé
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('pt-BR');
 
-    // Configuração para impressão em PDF
-    document.title = "Relatório Espelho Ponto - Naara Kaliane";
+        // Configuração para impressão em PDF
+        document.title = "Relatório Espelho Ponto - Naara Kaliane";
 
-    function enviarPorEmail() {
-        alert('Funcionalidade de envio por e-mail em desenvolvimento.');
-        // Aqui você pode abrir um modal ou redirecionar para um endpoint PHP para envio real
-    }
-</script>
+        function enviarPorEmail() {
+            alert('Funcionalidade de envio por e-mail em desenvolvimento.');
+            // Aqui você pode abrir um modal ou redirecionar para um endpoint PHP para envio real
+        }
+    </script>
 </body>
 
 </html>
