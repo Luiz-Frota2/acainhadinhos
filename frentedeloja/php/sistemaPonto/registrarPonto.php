@@ -52,7 +52,6 @@ function proximoDia($diaAtual, $diasDepois = 1)
     return $dias[$novoIdx];
 }
 
-
 // Buscar registro de ponto do dia
 $sqlBusca = "SELECT * FROM pontos WHERE cpf = ? AND data = ? AND empresa_id = ?";
 $stmtBusca = $pdo->prepare($sqlBusca);
