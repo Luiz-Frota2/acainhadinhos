@@ -489,6 +489,7 @@ try {
                                             <th>CPF</th>
                                             <th>Data da Folga</th>
                                             <th>Status</th>
+                                            <th>Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody id="tabelaBancoHorasBody" class="table-border-bottom-0">
