@@ -132,12 +132,14 @@ try {
     <div class="layout-container">
       <!-- Menu -->
 
-      <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+    <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
+
             <span class="app-brand-text demo menu-text fw-bolder ms-2"
               style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
+
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
             <i class="bx bx-chevron-left bx-sm align-middle"></i>
           </a>
@@ -157,11 +159,31 @@ try {
           <!-- Recursos Humanos (RH) -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Recursos Humanos</span></li>
 
-          <li class="menu-item">
-            <a href="./funcionarioAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-user-plus"></i>
-              <div data-i18n="Basic">Funcionários</div>
+          <li class="menu-item  ">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-buildings"></i>
+              <div data-i18n="Authentications">Setores</div>
             </a>
+            <ul class="menu-sub">
+              <li class="menu-item ">
+                <a href="./setoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Adicionados</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-user-plus"></i>
+              <div data-i18n="Authentications">Funcionários</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./funcionarioAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Adicionados </div>
+                </a>
+              </li>
+            </ul>
           </li>
 
           <!-- Menu Sistema de Ponto -->
@@ -173,7 +195,7 @@ try {
             <ul class="menu-sub">
               <li class="menu-item">
                 <a href="./escalaAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Escalas e Configuração">Escalas Adicionadas</div>
+                  <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
               <li class="menu-item">
@@ -181,9 +203,14 @@ try {
                   <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
                 </a>
               </li>
-              <li class="menu-item active">
+              <li class="menu-item">
                 <a href="#" class="menu-link">
-                  <div data-i18n="Ajuste de Folgas">Ajuste de Folgas</div>
+                  <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
+                </a>
+              </li>
+              <li class="menu-item  active">
+                <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                 </a>
               </li>
               <li class="menu-item">
@@ -194,8 +221,89 @@ try {
             </ul>
           </li>
 
-          <!-- Outros menus... -->
+          <!-- Menu Relatórios -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-trending-up"></i>
+              <div data-i18n="Relatórios">Relatórios</div>
+            </a>
 
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./relatorio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Visualização Geral">Visualização Geral</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./bancoHoras.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Banco de Horas</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div data-i18n="Ajuste de Horários e Banco de Horas">Frequência Geral</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <!-- Misc -->
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+          <li class="menu-item">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-dollar"></i>
+              <div data-i18n="Authentications">Finanças</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-desktop"></i>
+              <div data-i18n="Authentications">PDV</div>
+            </a>
+          </li>
+
+          <li class="menu-item">
+            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-cart"></i>
+              <div data-i18n="Authentications">Delivery</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-box"></i>
+              <div data-i18n="Authentications">Estoque</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-user"></i>
+              <div data-i18n="Authentications">Clientes</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../filial/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-cog"></i>
+              <div data-i18n="Authentications">Filial</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-group"></i>
+              <div data-i18n="Authentications">Usuários </div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-support"></i>
+              <div data-i18n="Basic">Suporte</div>
+            </a>
+          </li>
+          <!--/MISC-->
         </ul>
 
       </aside>
