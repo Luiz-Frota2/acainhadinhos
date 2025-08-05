@@ -204,6 +204,11 @@ try {
                                     <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
                                 </a>
                             </li>
+                            <li class="menu-item ">
+                                <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
+                                </a>
+                            </li>
                             <li class="menu-item">
                                 <a href="./atestadosFuncionarios.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
@@ -393,36 +398,36 @@ try {
                 </nav>
 
 
-              <?php
+                <?php
 
 
-// Obter parâmetros da URL
-$empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
-$cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
+                // Obter parâmetros da URL
+                $empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
+                $cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
 
-// Validar parâmetros obrigatórios
-if (empty($empresa_id) || empty($cpf)) {
-    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
-}
+                // Validar parâmetros obrigatórios
+                if (empty($empresa_id) || empty($cpf)) {
+                    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
+                }
 
-// Consulta para obter os meses/anos com registros
-$mesesAnos = [];
-$nomeFuncionario = '';
+                // Consulta para obter os meses/anos com registros
+                $mesesAnos = [];
+                $nomeFuncionario = '';
 
-try {
-    // Primeiro, pegar o nome do funcionário
-    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
-    $stmt->bindParam(':empresa_id', $empresa_id);
-    $stmt->bindParam(':cpf', $cpf);
-    $stmt->execute();
-    
-    if ($stmt->rowCount() > 0) {
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        $nomeFuncionario = htmlspecialchars($result['nome']);
-    }
+                try {
+                    // Primeiro, pegar o nome do funcionário
+                    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
+                    $stmt->bindParam(':empresa_id', $empresa_id);
+                    $stmt->bindParam(':cpf', $cpf);
+                    $stmt->execute();
 
-    // Agora pegar todos os meses/anos distintos com registros
-    $stmt = $pdo->prepare("SELECT 
+                    if ($stmt->rowCount() > 0) {
+                        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                        $nomeFuncionario = htmlspecialchars($result['nome']);
+                    }
+
+                    // Agora pegar todos os meses/anos distintos com registros
+                    $stmt = $pdo->prepare("SELECT 
                             YEAR(data) as ano, 
                             MONTH(data) as mes_numero,
                             MONTHNAME(data) as mes_nome
@@ -431,280 +436,280 @@ try {
                           AND cpf = :cpf
                           GROUP BY YEAR(data), MONTH(data)
                           ORDER BY ano DESC, mes_numero DESC");
-    $stmt->bindParam(':empresa_id', $empresa_id);
-    $stmt->bindParam(':cpf', $cpf);
-    $stmt->execute();
+                    $stmt->bindParam(':empresa_id', $empresa_id);
+                    $stmt->bindParam(':cpf', $cpf);
+                    $stmt->execute();
 
-    $mesesAnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    die("Erro ao consultar meses/anos: " . $e->getMessage());
-}
+                    $mesesAnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) {
+                    die("Erro ao consultar meses/anos: " . $e->getMessage());
+                }
 
-// Nomes dos meses em português
-$mesesPortugues = [
-    'January' => 'Janeiro',
-    'February' => 'Fevereiro',
-    'March' => 'Março',
-    'April' => 'Abril',
-    'May' => 'Maio',
-    'June' => 'Junho',
-    'July' => 'Julho',
-    'August' => 'Agosto',
-    'September' => 'Setembro',
-    'October' => 'Outubro',
-    'November' => 'Novembro',
-    'December' => 'Dezembro'
-];
-?>
+                // Nomes dos meses em português
+                $mesesPortugues = [
+                    'January' => 'Janeiro',
+                    'February' => 'Fevereiro',
+                    'March' => 'Março',
+                    'April' => 'Abril',
+                    'May' => 'Maio',
+                    'June' => 'Junho',
+                    'July' => 'Julho',
+                    'August' => 'Agosto',
+                    'September' => 'Setembro',
+                    'October' => 'Outubro',
+                    'November' => 'Novembro',
+                    'December' => 'Dezembro'
+                ];
+                ?>
 
-<div class="container-xxl flex-grow-1 container-p-y">
-    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos por Mês</h4>
-    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do funcionário: <?= $nomeFuncionario ?></span></h5>
-    
-    <div class="card mt-3">
-        <h5 class="card-header">Pontos Mensais</h5>
-        <div class="table-responsive text-nowrap">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Ano</th>
-                        <th>Mês</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody id="tabelaBancoHoras">
-                    <?php if (empty($mesesAnos)): ?>
-                        <tr>
-                            <td colspan="3" class="text-center">Nenhum registro encontrado</td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($mesesAnos as $item): ?>
-                            <?php 
-                            $mesPortugues = $mesesPortugues[$item['mes_nome']] ?? $item['mes_nome'];
-                            $mesNumero = str_pad($item['mes_numero'], 2, '0', STR_PAD_LEFT);
-                            ?>
-                            <tr>
-                                <td><?= $item['ano'] ?></td>
-                                <td><?= $mesPortugues ?></td>
-                                <td>
-                                    <a href="./pontosIndividuasDias.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
-                                        <i class="fas fa-eye"></i> Visualizar
-                                    </a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            
-            <div class="d-flex gap-2 m-3">
-                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
-                <div id="paginacaoHoras" class="d-flex gap-1"></div>
-                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
-            </div>
-        </div>
-    </div>
-</div>
+                <div class="container-xxl flex-grow-1 container-p-y">
+                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos por Mês</h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do funcionário: <?= $nomeFuncionario ?></span></h5>
 
-<script>
-// Script para paginação (simplificado)
-document.addEventListener('DOMContentLoaded', function() {
-    const rowsPerPage = 10;
-    const rows = document.querySelectorAll('#tabelaBancoHoras tr');
-    const pageCount = Math.ceil(rows.length / rowsPerPage);
-    const pagination = document.getElementById('paginacaoHoras');
-    
-    let currentPage = 1;
-    
-    function showPage(page) {
-        const start = (page - 1) * rowsPerPage;
-        const end = start + rowsPerPage;
-        
-        rows.forEach((row, index) => {
-            row.style.display = (index >= start && index < end) ? '' : 'none';
-        });
-        
-        // Atualizar botões de paginação
-        document.querySelectorAll('#paginacaoHoras button').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        const activeBtn = document.querySelector(`#paginacaoHoras button[data-page="${page}"]`);
-        if (activeBtn) activeBtn.classList.add('active');
-    }
-    
-    // Criar botões de paginação
-    for (let i = 1; i <= pageCount; i++) {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-outline-primary btn-sm';
-        btn.textContent = i;
-        btn.dataset.page = i;
-        btn.addEventListener('click', () => {
-            currentPage = i;
-            showPage(i);
-        });
-        pagination.appendChild(btn);
-    }
-    
-    // Configurar botões anterior/próximo
-    document.getElementById('prevPageHoras').addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            showPage(currentPage);
-        }
-    });
-    
-    document.getElementById('nextPageHoras').addEventListener('click', () => {
-        if (currentPage < pageCount) {
-            currentPage++;
-            showPage(currentPage);
-        }
-    });
-    
-    // Mostrar primeira página
-    if (rows.length > 0) showPage(1);
-});
-</script>
+                    <div class="card mt-3">
+                        <h5 class="card-header">Pontos Mensais</h5>
+                        <div class="table-responsive text-nowrap">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Ano</th>
+                                        <th>Mês</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelaBancoHoras">
+                                    <?php if (empty($mesesAnos)): ?>
+                                        <tr>
+                                            <td colspan="3" class="text-center">Nenhum registro encontrado</td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($mesesAnos as $item): ?>
+                                            <?php
+                                            $mesPortugues = $mesesPortugues[$item['mes_nome']] ?? $item['mes_nome'];
+                                            $mesNumero = str_pad($item['mes_numero'], 2, '0', STR_PAD_LEFT);
+                                            ?>
+                                            <tr>
+                                                <td><?= $item['ano'] ?></td>
+                                                <td><?= $mesPortugues ?></td>
+                                                <td>
+                                                    <a href="./pontosIndividuasDias.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
+                                                        <i class="fas fa-eye"></i> Visualizar
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
 
-                      
+                            <div class="d-flex gap-2 m-3">
+                                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+                                <div id="paginacaoHoras" class="d-flex gap-1"></div>
+                                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                        <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                <script>
+                    // Script para paginação (simplificado)
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const rowsPerPage = 10;
+                        const rows = document.querySelectorAll('#tabelaBancoHoras tr');
+                        const pageCount = Math.ceil(rows.length / rowsPerPage);
+                        const pagination = document.getElementById('paginacaoHoras');
 
-                                const tableBody = document.getElementById('tabelaBancoHoras');
-                                if (tableBody) {
+                        let currentPage = 1;
 
-                                    let currentPage = 1;
-                                    const rowsPerPage = 10;
-                                    const rows = tableBody.querySelectorAll('tr');
-                                    const pageCount = Math.ceil(rows.length / rowsPerPage);
+                        function showPage(page) {
+                            const start = (page - 1) * rowsPerPage;
+                            const end = start + rowsPerPage;
 
-                                    function updatePagination() {
-                                        const pagination = document.getElementById('paginacaoHoras');
-                                        pagination.innerHTML = '';
+                            rows.forEach((row, index) => {
+                                row.style.display = (index >= start && index < end) ? '' : 'none';
+                            });
 
-                                        for (let i = 1; i <= pageCount; i++) {
-                                            const btn = document.createElement('button');
-                                            btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
-                                            btn.textContent = i;
-                                            btn.onclick = () => {
-                                                currentPage = i;
-                                                updateTable();
-                                                updatePagination();
-                                            };
-                                            pagination.appendChild(btn);
-                                        }
-                                    }
+                            // Atualizar botões de paginação
+                            document.querySelectorAll('#paginacaoHoras button').forEach(btn => {
+                                btn.classList.remove('active');
+                            });
 
-                                    function updateTable() {
-                                        const start = (currentPage - 1) * rowsPerPage;
-                                        const end = start + rowsPerPage;
+                            const activeBtn = document.querySelector(`#paginacaoHoras button[data-page="${page}"]`);
+                            if (activeBtn) activeBtn.classList.add('active');
+                        }
 
-                                        rows.forEach((row, index) => {
-                                            row.style.display = (index >= start && index < end) ? '' : 'none';
-                                        });
-                                    }
+                        // Criar botões de paginação
+                        for (let i = 1; i <= pageCount; i++) {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-outline-primary btn-sm';
+                            btn.textContent = i;
+                            btn.dataset.page = i;
+                            btn.addEventListener('click', () => {
+                                currentPage = i;
+                                showPage(i);
+                            });
+                            pagination.appendChild(btn);
+                        }
 
-                                    document.getElementById('prevPageHoras').onclick = () => {
-                                        if (currentPage > 1) {
-                                            currentPage--;
-                                            updateTable();
-                                            updatePagination();
-                                        }
+                        // Configurar botões anterior/próximo
+                        document.getElementById('prevPageHoras').addEventListener('click', () => {
+                            if (currentPage > 1) {
+                                currentPage--;
+                                showPage(currentPage);
+                            }
+                        });
+
+                        document.getElementById('nextPageHoras').addEventListener('click', () => {
+                            if (currentPage < pageCount) {
+                                currentPage++;
+                                showPage(currentPage);
+                            }
+                        });
+
+                        // Mostrar primeira página
+                        if (rows.length > 0) showPage(1);
+                    });
+                </script>
+
+
+
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+
+                        const tableBody = document.getElementById('tabelaBancoHoras');
+                        if (tableBody) {
+
+                            let currentPage = 1;
+                            const rowsPerPage = 10;
+                            const rows = tableBody.querySelectorAll('tr');
+                            const pageCount = Math.ceil(rows.length / rowsPerPage);
+
+                            function updatePagination() {
+                                const pagination = document.getElementById('paginacaoHoras');
+                                pagination.innerHTML = '';
+
+                                for (let i = 1; i <= pageCount; i++) {
+                                    const btn = document.createElement('button');
+                                    btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
+                                    btn.textContent = i;
+                                    btn.onclick = () => {
+                                        currentPage = i;
+                                        updateTable();
+                                        updatePagination();
                                     };
+                                    pagination.appendChild(btn);
+                                }
+                            }
 
-                                    document.getElementById('nextPageHoras').onclick = () => {
-                                        if (currentPage < pageCount) {
-                                            currentPage++;
-                                            updateTable();
-                                            updatePagination();
-                                        }
-                                    };
+                            function updateTable() {
+                                const start = (currentPage - 1) * rowsPerPage;
+                                const end = start + rowsPerPage;
 
+                                rows.forEach((row, index) => {
+                                    row.style.display = (index >= start && index < end) ? '' : 'none';
+                                });
+                            }
 
+                            document.getElementById('prevPageHoras').onclick = () => {
+                                if (currentPage > 1) {
+                                    currentPage--;
                                     updateTable();
                                     updatePagination();
                                 }
+                            };
 
-
-                                document.querySelectorAll('.btn-enviar-email').forEach(btn => {
-                                    btn.addEventListener('click', function () {
-                                        const ano = this.getAttribute('data-ano');
-                                        const mes = this.getAttribute('data-mes');
-
-                                        document.getElementById('modalAno').value = ano;
-                                        document.getElementById('modalMes').value = mes;
-                                    });
-                                });
-                            });
-                        </script>
-
-                        <script>
-                            const searchInput = document.getElementById('searchInput');
-                            const allRows = Array.from(document.querySelectorAll('#tabelaBancoHoras tbody tr'));
-                            const prevBtn = document.getElementById('prevPageHoras');
-                            const nextBtn = document.getElementById('nextPageHoras');
-                            const pageContainer = document.getElementById('paginacaoHoras');
-                            const perPage = 10;
-                            let currentPage = 1;
-
-                            function renderTable() {
-                                const filter = searchInput.value.trim().toLowerCase();
-                                const filteredRows = allRows.filter(row => {
-                                    if (!filter) return true;
-                                    return Array.from(row.cells).some(td =>
-                                        td.textContent.toLowerCase().includes(filter)
-                                    );
-                                });
-
-                                const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
-                                currentPage = Math.min(Math.max(1, currentPage), totalPages);
-
-                                // Hide all, then show slice
-                                allRows.forEach(r => r.style.display = 'none');
-                                filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
-                                    .forEach(r => r.style.display = '');
-
-                                // Render page buttons
-                                pageContainer.innerHTML = '';
-                                for (let i = 1; i <= totalPages; i++) {
-                                    const btn = document.createElement('button');
-                                    btn.textContent = i;
-                                    btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-                                    btn.style.marginRight = '4px';
-                                    btn.onclick = () => {
-                                        currentPage = i;
-                                        renderTable();
-                                    };
-                                    pageContainer.appendChild(btn);
+                            document.getElementById('nextPageHoras').onclick = () => {
+                                if (currentPage < pageCount) {
+                                    currentPage++;
+                                    updateTable();
+                                    updatePagination();
                                 }
+                            };
 
-                                prevBtn.disabled = currentPage === 1;
-                                nextBtn.disabled = currentPage === totalPages;
-                            }
 
-                            prevBtn.addEventListener('click', () => {
-                                if (currentPage > 1) {
-                                    currentPage--;
-                                    renderTable();
-                                }
+                            updateTable();
+                            updatePagination();
+                        }
+
+
+                        document.querySelectorAll('.btn-enviar-email').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const ano = this.getAttribute('data-ano');
+                                const mes = this.getAttribute('data-mes');
+
+                                document.getElementById('modalAno').value = ano;
+                                document.getElementById('modalMes').value = mes;
                             });
-                            nextBtn.addEventListener('click', () => {
-                                currentPage++;
+                        });
+                    });
+                </script>
+
+                <script>
+                    const searchInput = document.getElementById('searchInput');
+                    const allRows = Array.from(document.querySelectorAll('#tabelaBancoHoras tbody tr'));
+                    const prevBtn = document.getElementById('prevPageHoras');
+                    const nextBtn = document.getElementById('nextPageHoras');
+                    const pageContainer = document.getElementById('paginacaoHoras');
+                    const perPage = 10;
+                    let currentPage = 1;
+
+                    function renderTable() {
+                        const filter = searchInput.value.trim().toLowerCase();
+                        const filteredRows = allRows.filter(row => {
+                            if (!filter) return true;
+                            return Array.from(row.cells).some(td =>
+                                td.textContent.toLowerCase().includes(filter)
+                            );
+                        });
+
+                        const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
+                        currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+                        // Hide all, then show slice
+                        allRows.forEach(r => r.style.display = 'none');
+                        filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
+                            .forEach(r => r.style.display = '');
+
+                        // Render page buttons
+                        pageContainer.innerHTML = '';
+                        for (let i = 1; i <= totalPages; i++) {
+                            const btn = document.createElement('button');
+                            btn.textContent = i;
+                            btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                            btn.style.marginRight = '4px';
+                            btn.onclick = () => {
+                                currentPage = i;
                                 renderTable();
-                            });
-                            searchInput.addEventListener('input', () => {
-                                currentPage = 1;
-                                renderTable();
-                            });
+                            };
+                            pageContainer.appendChild(btn);
+                        }
 
-                            document.addEventListener('DOMContentLoaded', renderTable);
-                        </script>
+                        prevBtn.disabled = currentPage === 1;
+                        nextBtn.disabled = currentPage === totalPages;
+                    }
 
-                    </div>
-                </div>
+                    prevBtn.addEventListener('click', () => {
+                        if (currentPage > 1) {
+                            currentPage--;
+                            renderTable();
+                        }
+                    });
+                    nextBtn.addEventListener('click', () => {
+                        currentPage++;
+                        renderTable();
+                    });
+                    searchInput.addEventListener('input', () => {
+                        currentPage = 1;
+                        renderTable();
+                    });
+
+                    document.addEventListener('DOMContentLoaded', renderTable);
+                </script>
+
             </div>
         </div>
+    </div>
+    </div>
     </div>
 
 

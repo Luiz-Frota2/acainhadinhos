@@ -119,7 +119,7 @@ foreach ($registros as $r) {
         $i0 = array_search($r['dia_inicio'], $sem);
         $i1 = array_search($r['dia_folga'], $sem);
         $perm = [];
-        for ($i = $i0; ; $i = ($i + 1) % 7) {
+        for ($i = $i0;; $i = ($i + 1) % 7) {
             $perm[] = $sem[$i];
             if ($i === $i1)
                 break;
@@ -328,6 +328,11 @@ unset($d);
                             <li class="menu-item">
                                 <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
+                                </a>
+                            </li>
+                            <li class="menu-item ">
+                                <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                                 </a>
                             </li>
                             <li class="menu-item">
@@ -581,9 +586,9 @@ unset($d);
                                                 <td>" . htmlspecialchars($mes_nome) . "</td>
                                                 <td>
                                                     <a href='listaFrequenciaGeralpdf.php?id=" . urlencode($idSelecionado) .
-                                                                        "&ano=" . urlencode($row['ano']) .
-                                                                        "&mes=" . urlencode($row['mes_numero']) .
-                                                                        "' class='btn-view'><i class='fas fa-eye'></i></a>&nbsp; |
+                                            "&ano=" . urlencode($row['ano']) .
+                                            "&mes=" . urlencode($row['mes_numero']) .
+                                            "' class='btn-view'><i class='fas fa-eye'></i></a>&nbsp; |
                                                     &nbsp;<a href='#' class='btn-enviar-email' 
                                                     data-bs-toggle='modal' 
                                                     data-bs-target='#enviarEmailModal'
@@ -602,12 +607,11 @@ unset($d);
                                                 <div id="paginacaoHoras" class="d-flex gap-1"></div>
                                                 <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
                                             </div>';
-                                                                } else {
-                                                                    echo '<div class="alert alert-danger m-3" role="alert">
+                                } else {
+                                    echo '<div class="alert alert-danger m-3" role="alert">
                                                 Nenhum registro de pontos encontrado para esta empresa.
                                             </div>';
                                 }
-
                             } catch (Exception $e) {
                                 echo '<div class="alert alert-danger m-3" role="alert">
                                         Erro: ' . htmlspecialchars($e->getMessage()) . '
@@ -657,7 +661,7 @@ unset($d);
                         </div>
 
                         <script>
-                            document.addEventListener('DOMContentLoaded', function () {
+                            document.addEventListener('DOMContentLoaded', function() {
 
                                 const tableBody = document.getElementById('tabelaBancoHoras');
                                 if (tableBody) {
@@ -716,7 +720,7 @@ unset($d);
 
 
                                 document.querySelectorAll('.btn-enviar-email').forEach(btn => {
-                                    btn.addEventListener('click', function () {
+                                    btn.addEventListener('click', function() {
                                         const ano = this.getAttribute('data-ano');
                                         const mes = this.getAttribute('data-mes');
 

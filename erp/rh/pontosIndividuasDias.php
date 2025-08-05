@@ -69,7 +69,8 @@ try {
 }
 
 
-function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal) {
+function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal)
+{
     if (empty($entrada) || empty($saidaFinal)) {
         return '00h 00m';
     }
@@ -77,20 +78,20 @@ function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $sai
     $saidaIntervaloDt = $saidaIntervalo ? DateTime::createFromFormat('H:i:s', $saidaIntervalo) : null;
     $retornoIntervaloDt = $retornoIntervalo ? DateTime::createFromFormat('H:i:s', $retornoIntervalo) : null;
     $saidaFinalDt = DateTime::createFromFormat('H:i:s', $saidaFinal);
-  
+
     if ($saidaIntervaloDt && $retornoIntervaloDt) {
-        
+
         $manha = $entradaDt->diff($saidaIntervaloDt);
-        
-        $tarde = $retornoIntervaloDt->diff($saidaFinalDt);    
-       
+
+        $tarde = $retornoIntervaloDt->diff($saidaFinalDt);
+
         $totalMinutos = ($manha->h * 60 + $manha->i) + ($tarde->h * 60 + $tarde->i);
     } else {
-       
+
         $total = $entradaDt->diff($saidaFinalDt);
         $totalMinutos = $total->h * 60 + $total->i;
     }
-    
+
     $horas = floor($totalMinutos / 60);
     $minutos = $totalMinutos % 60;
 
@@ -115,18 +116,18 @@ $pontos = [];
 $nomeFuncionario = '';
 
 try {
-   
+
     $stmt = $pdo->prepare("SELECT nome, cpf FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
     $stmt->bindParam(':empresa_id', $empresa_id);
     $stmt->bindParam(':cpf', $cpf);
     $stmt->execute();
-    
+
     if ($stmt->rowCount() > 0) {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $nomeFuncionario = htmlspecialchars($result['nome']);
         $cpf = htmlspecialchars($result['cpf']);
     }
- 
+
     $dataInicio = "$ano-$mes-01";
     $dataFim = date("Y-m-t", strtotime($dataInicio));
 
@@ -279,6 +280,11 @@ try {
                             <li class="menu-item active">
                                 <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
+                                </a>
+                            </li>
+                            <li class="menu-item ">
+                                <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                                 </a>
                             </li>
                             <li class="menu-item">
@@ -471,55 +477,55 @@ try {
                 </nav>
                 <!-- / Navbar -->
 
- 
-<div class="container-xxl flex-grow-1 container-p-y">
-    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos por Dia</h4>
-    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do Funcionário</span></h5>
 
-    <div class="container mt-4">
-        <div class="card mt-3">
-            <h5 class="card-header">Pontos do Funcionário: <?= $nomeFuncionario ?>
-                <span class="float-end">Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
-            </h5>
+                <div class="container-xxl flex-grow-1 container-p-y">
+                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos por Dia</h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do Funcionário</span></h5>
 
-            <div class="table-responsive text-nowrap">
-                <table class="table table-hover" id="tabelaBancoHoras">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Data</th>
-                            <th>Entrada</th>
-                            <th>Saída Int.</th>
-                            <th>Entrada Int.</th>
-                            <th>Saída</th>
-                            <th>Carga Horária</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($pontos)): ?>
-                            <tr>
-                                <td colspan="7" class="text-center">Nenhum ponto registrado para este período</td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($pontos as $ponto): ?>
-                                <?php
-                                $cargaHoraria = calcularCargaHoraria(
-                                    $ponto['entrada'],
-                                    $ponto['saida_intervalo'],
-                                    $ponto['retorno_intervalo'],
-                                    $ponto['saida_final']
-                                );
-                                ?>
-                                <tr>
-                                    <td><?= date('d/m/Y', strtotime($ponto['data'])) ?></td>
-                                    <td><?= $ponto['entrada'] ? substr($ponto['entrada'], 0, 5) : '--:--' ?></td>
-                                    <td><?= $ponto['saida_intervalo'] ? substr($ponto['saida_intervalo'], 0, 5) : '--:--' ?></td>
-                                    <td><?= $ponto['retorno_intervalo'] ? substr($ponto['retorno_intervalo'], 0, 5) : '--:--' ?></td>
-                                    <td><?= $ponto['saida_final'] ? substr($ponto['saida_final'], 0, 5) : '--:--' ?></td>
-                                    <td><?= $cargaHoraria ?></td>
-                                    <td>
-                                        <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal" 
-                                           onclick="carregarDadosModal(
+                    <div class="container mt-4">
+                        <div class="card mt-3">
+                            <h5 class="card-header">Pontos do Funcionário: <?= $nomeFuncionario ?>
+                                <span class="float-end">Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
+                            </h5>
+
+                            <div class="table-responsive text-nowrap">
+                                <table class="table table-hover" id="tabelaBancoHoras">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Data</th>
+                                            <th>Entrada</th>
+                                            <th>Saída Int.</th>
+                                            <th>Entrada Int.</th>
+                                            <th>Saída</th>
+                                            <th>Carga Horária</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($pontos)): ?>
+                                            <tr>
+                                                <td colspan="7" class="text-center">Nenhum ponto registrado para este período</td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($pontos as $ponto): ?>
+                                                <?php
+                                                $cargaHoraria = calcularCargaHoraria(
+                                                    $ponto['entrada'],
+                                                    $ponto['saida_intervalo'],
+                                                    $ponto['retorno_intervalo'],
+                                                    $ponto['saida_final']
+                                                );
+                                                ?>
+                                                <tr>
+                                                    <td><?= date('d/m/Y', strtotime($ponto['data'])) ?></td>
+                                                    <td><?= $ponto['entrada'] ? substr($ponto['entrada'], 0, 5) : '--:--' ?></td>
+                                                    <td><?= $ponto['saida_intervalo'] ? substr($ponto['saida_intervalo'], 0, 5) : '--:--' ?></td>
+                                                    <td><?= $ponto['retorno_intervalo'] ? substr($ponto['retorno_intervalo'], 0, 5) : '--:--' ?></td>
+                                                    <td><?= $ponto['saida_final'] ? substr($ponto['saida_final'], 0, 5) : '--:--' ?></td>
+                                                    <td><?= $cargaHoraria ?></td>
+                                                    <td>
+                                                        <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal"
+                                                            onclick="carregarDadosModal(
                                                '<?= $ponto['id'] ?>',
                                                '<?= $ponto['entrada'] ?>',
                                                '<?= $ponto['saida_intervalo'] ?>',
@@ -527,130 +533,130 @@ try {
                                                '<?= $ponto['saida_final'] ?>',
                                                '<?= $cargaHoraria ?>'
                                            )">
-                                            <i class="fas fa-edit"></i>                                       
-                                        </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
 
-            <!-- Modal de Edição -->
-            <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
-                            <input type="hidden" name="ponto_id" id="pontoId">
-                            <input type="hidden" name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
-                            <input type="hidden" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
-                            <input type="hidden" name="data" id="data" value="<?= date('d/m/Y', strtotime($ponto['data'])) ?>">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            <!-- Modal de Edição -->
+                            <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
+                                            <input type="hidden" name="ponto_id" id="pontoId">
+                                            <input type="hidden" name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
+                                            <input type="hidden" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
+                                            <input type="hidden" name="data" id="data" value="<?= date('d/m/Y', strtotime($ponto['data'])) ?>">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="editEntrada" class="form-label">Entrada</label>
+                                                    <input type="time" class="form-control" id="editEntrada" name="entrada">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>
+                                                    <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="editRetornoIntervalo" class="form-label">Entrada Intervalo</label>
+                                                    <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="editSaidaFinal" class="form-label">Saída</label>
+                                                    <input type="time" class="form-control" id="editSaidaFinal" name="saida_final">
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="editCarga" class="form-label">Carga Horária</label>
+                                                    <input type="text" class="form-control" id="editCarga" name="carga" disabled>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label for="editEntrada" class="form-label">Entrada</label>
-                                    <input type="time" class="form-control" id="editEntrada" name="entrada">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>
-                                    <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editRetornoIntervalo" class="form-label">Entrada Intervalo</label>
-                                    <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editSaidaFinal" class="form-label">Saída</label>
-                                    <input type="time" class="form-control" id="editSaidaFinal" name="saida_final">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="editCarga" class="form-label">Carga Horária</label>
-                                    <input type="text" class="form-control" id="editCarga" name="carga" disabled>
-                                </div>
+
+                            <div class="d-flex gap-2 m-3">
+                                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+                                <div id="paginacaoHoras" class="d-flex gap-1"></div>
+                                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-                            </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="d-flex gap-2 m-3">
-                <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
-                <div id="paginacaoHoras" class="d-flex gap-1"></div>
-                <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
-            </div>
-        </div>
-    </div>
-</div>
+                <script>
+                    // Função para carregar dados no modal de edição
+                    function carregarDadosModal(id, entrada, saidaIntervalo, retornoIntervalo, saidaFinal, carga) {
+                        document.getElementById('pontoId').value = id;
+                        document.getElementById('editEntrada').value = entrada ? entrada.substring(0, 5) : '';
+                        document.getElementById('editSaidaIntervalo').value = saidaIntervalo ? saidaIntervalo.substring(0, 5) : '';
+                        document.getElementById('editRetornoIntervalo').value = retornoIntervalo ? retornoIntervalo.substring(0, 5) : '';
+                        document.getElementById('editSaidaFinal').value = saidaFinal ? saidaFinal.substring(0, 5) : '';
+                        document.getElementById('editCarga').value = carga;
+                    }
 
-<script>
-// Função para carregar dados no modal de edição
-function carregarDadosModal(id, entrada, saidaIntervalo, retornoIntervalo, saidaFinal, carga) {
-    document.getElementById('pontoId').value = id;
-    document.getElementById('editEntrada').value = entrada ? entrada.substring(0, 5) : '';
-    document.getElementById('editSaidaIntervalo').value = saidaIntervalo ? saidaIntervalo.substring(0, 5) : '';
-    document.getElementById('editRetornoIntervalo').value = retornoIntervalo ? retornoIntervalo.substring(0, 5) : '';
-    document.getElementById('editSaidaFinal').value = saidaFinal ? saidaFinal.substring(0, 5) : '';
-    document.getElementById('editCarga').value = carga;
-}
+                    // Função para calcular carga horária em tempo real no modal
+                    function calcularCargaModal() {
+                        const entrada = document.getElementById('editEntrada').value;
+                        const saidaIntervalo = document.getElementById('editSaidaIntervalo').value;
+                        const retornoIntervalo = document.getElementById('editRetornoIntervalo').value;
+                        const saidaFinal = document.getElementById('editSaidaFinal').value;
 
-// Função para calcular carga horária em tempo real no modal
-function calcularCargaModal() {
-    const entrada = document.getElementById('editEntrada').value;
-    const saidaIntervalo = document.getElementById('editSaidaIntervalo').value;
-    const retornoIntervalo = document.getElementById('editRetornoIntervalo').value;
-    const saidaFinal = document.getElementById('editSaidaFinal').value;
+                        if (!entrada || !saidaFinal) {
+                            document.getElementById('editCarga').value = '00h 00m';
+                            return;
+                        }
 
-    if (!entrada || !saidaFinal) {
-        document.getElementById('editCarga').value = '00h 00m';
-        return;
-    }
+                        // Converter para minutos
+                        function timeToMinutes(time) {
+                            const [hours, minutes] = time.split(':').map(Number);
+                            return hours * 60 + minutes;
+                        }
 
-    // Converter para minutos
-    function timeToMinutes(time) {
-        const [hours, minutes] = time.split(':').map(Number);
-        return hours * 60 + minutes;
-    }
+                        const entradaMin = timeToMinutes(entrada);
+                        const saidaFinalMin = timeToMinutes(saidaFinal);
 
-    const entradaMin = timeToMinutes(entrada);
-    const saidaFinalMin = timeToMinutes(saidaFinal);
+                        let totalMinutos;
 
-    let totalMinutos;
-    
-    if (saidaIntervalo && retornoIntervalo) {
-        const saidaIntervaloMin = timeToMinutes(saidaIntervalo);
-        const retornoIntervaloMin = timeToMinutes(retornoIntervalo);
-        
-        // Tempo antes do intervalo
-        const manha = saidaIntervaloMin - entradaMin;
-        // Tempo depois do intervalo
-        const tarde = saidaFinalMin - retornoIntervaloMin;
-        
-        totalMinutos = manha + tarde;
-    } else {
-        totalMinutos = saidaFinalMin - entradaMin;
-    }
+                        if (saidaIntervalo && retornoIntervalo) {
+                            const saidaIntervaloMin = timeToMinutes(saidaIntervalo);
+                            const retornoIntervaloMin = timeToMinutes(retornoIntervalo);
 
-    // Converter para horas e minutos
-    const horas = Math.floor(totalMinutos / 60);
-    const minutos = totalMinutos % 60;
+                            // Tempo antes do intervalo
+                            const manha = saidaIntervaloMin - entradaMin;
+                            // Tempo depois do intervalo
+                            const tarde = saidaFinalMin - retornoIntervaloMin;
 
-    document.getElementById('editCarga').value = `${horas.toString().padStart(2, '0')}h ${minutos.toString().padStart(2, '0')}m`;
-}
+                            totalMinutos = manha + tarde;
+                        } else {
+                            totalMinutos = saidaFinalMin - entradaMin;
+                        }
 
-// Adicionar eventos para calcular a carga horária quando os campos são alterados
-document.getElementById('editEntrada').addEventListener('change', calcularCargaModal);
-document.getElementById('editSaidaIntervalo').addEventListener('change', calcularCargaModal);
-document.getElementById('editRetornoIntervalo').addEventListener('change', calcularCargaModal);
-document.getElementById('editSaidaFinal').addEventListener('change', calcularCargaModal);
-</script>
+                        // Converter para horas e minutos
+                        const horas = Math.floor(totalMinutos / 60);
+                        const minutos = totalMinutos % 60;
+
+                        document.getElementById('editCarga').value = `${horas.toString().padStart(2, '0')}h ${minutos.toString().padStart(2, '0')}m`;
+                    }
+
+                    // Adicionar eventos para calcular a carga horária quando os campos são alterados
+                    document.getElementById('editEntrada').addEventListener('change', calcularCargaModal);
+                    document.getElementById('editSaidaIntervalo').addEventListener('change', calcularCargaModal);
+                    document.getElementById('editRetornoIntervalo').addEventListener('change', calcularCargaModal);
+                    document.getElementById('editSaidaFinal').addEventListener('change', calcularCargaModal);
+                </script>
 
                 <script>
                     const searchInput = document.getElementById('searchInput');
