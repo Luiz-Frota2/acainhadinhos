@@ -1,34 +1,70 @@
 <?php
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
 
 session_start();
+require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
-
-if (!$idSelecionado) {
-  header("Location: .././login.php");
-  exit;
-}
 
 // ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
 ) {
-  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  header("Location: .././login.php?id=$idSelecionado");
   exit;
 }
 
-// ✅ Conexão com o banco de dados
-require '../../assets/php/conexao.php';
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
+  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+    echo "<script>
+              alert('Acesso negado!');
+              window.location.href = '.././login.php?id=$idSelecionado';
+          </script>";
+    exit;
+  }
+  $id = $idFilial;
+} else {
+  echo "<script>
+          alert('Empresa não identificada!');
+          window.location.href = '.././login.php?id=$idSelecionado';
+      </script>";
+  exit;
+}
 
-// ✅ Buscar nome e tipo do usuário logado
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+try {
+  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+  $stmt = $pdo->prepare($sql);
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+}
+
+// ✅ Se chegou até aqui, o acesso está liberado
+
+// ✅ Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
-$tipoUsuario = 'Comum';
+$nivelUsuario = 'Comum'; // Valor padrão
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -39,54 +75,13 @@ try {
 
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-    exit;
+    $nivelUsuario = $usuario['nivel'];
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+  $nomeUsuario = 'Erro ao carregar nome';
+  $nivelUsuario = 'Erro ao carregar nível';
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$idEmpresaSession = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
-
-if (str_starts_with($idSelecionado, 'principal_')) {
-  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
-} elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
-} elseif (str_starts_with($idSelecionado, 'franquia_')) {
-  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
-}
-
-if (!$acessoPermitido) {
-  echo "<script>
-          alert('Acesso negado!');
-          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
-        </script>";
-  exit;
-}
-
-// ✅ Buscar logo da empresa
-try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
-} catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
-}
-
-// ✅ Buscar funcionários da empresa
 try {
   $stmt = $pdo->prepare("SELECT id, nome, cargo, cpf FROM funcionarios WHERE empresa_id = :empresa_id");
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
@@ -97,7 +92,6 @@ try {
   exit;
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
