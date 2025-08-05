@@ -293,7 +293,7 @@ try {
                       <td><?= htmlspecialchars($funcionario['nome']) ?></td>
                       <td><?= htmlspecialchars($funcionario['cargo']) ?></td>
                       <td>
-                        <a href="./folgasIndividuais.php?id=<?= urlencode($idSelecionado); ?>&cpf=<?= htmlspecialchars($funcionario['cpf']) ?>" title="Ajustar Folgas">
+                        <a href="./folgasIndividuaisMes.php?id=<?= urlencode($idSelecionado); ?>&cpf=<?= htmlspecialchars($funcionario['cpf']) ?>" title="Ajustar Folgas">
                           <i class="fas fa-calendar-check"></i>
                         </a>
                       </td>
