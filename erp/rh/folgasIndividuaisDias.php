@@ -68,7 +68,7 @@ try {
     $nivelUsuario = 'Erro';
 }
 
-
+// Função de cálculo (mantida caso precise)
 function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal)
 {
     if (empty($entrada) || empty($saidaFinal)) {
@@ -80,14 +80,10 @@ function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $sai
     $saidaFinalDt = DateTime::createFromFormat('H:i:s', $saidaFinal);
 
     if ($saidaIntervaloDt && $retornoIntervaloDt) {
-
         $manha = $entradaDt->diff($saidaIntervaloDt);
-
         $tarde = $retornoIntervaloDt->diff($saidaFinalDt);
-
         $totalMinutos = ($manha->h * 60 + $manha->i) + ($tarde->h * 60 + $tarde->i);
     } else {
-
         $total = $entradaDt->diff($saidaFinalDt);
         $totalMinutos = $total->h * 60 + $total->i;
     }
@@ -98,12 +94,11 @@ function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $sai
     return sprintf('%02dh %02dm', $horas, $minutos);
 }
 
-
+// Parâmetros
 $empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
 $cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
 $mes = isset($_GET['mes']) ? intval($_GET['mes']) : date('m');
 $ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
-
 
 if (empty($empresa_id) || empty($cpf)) {
     die("Parâmetros empresa_id e CPF são obrigatórios na URL");
@@ -112,39 +107,37 @@ if (empty($empresa_id) || empty($cpf)) {
 if ($mes < 1 || $mes > 12) $mes = date('m');
 if ($ano < 2000 || $ano > 2100) $ano = date('Y');
 
-$pontos = [];
+$folgas = [];
 $nomeFuncionario = '';
 
 try {
-
-    $stmt = $pdo->prepare("SELECT nome, cpf FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
-    $stmt->bindParam(':empresa_id', $empresa_id);
+    // Obter nome do funcionário a partir da tabela de folgas
+    $stmt = $pdo->prepare("SELECT nome FROM folgas WHERE cpf = :cpf LIMIT 1");
     $stmt->bindParam(':cpf', $cpf);
     $stmt->execute();
 
     if ($stmt->rowCount() > 0) {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         $nomeFuncionario = htmlspecialchars($result['nome']);
-        $cpf = htmlspecialchars($result['cpf']);
     }
 
+    // Definir intervalo de datas
     $dataInicio = "$ano-$mes-01";
     $dataFim = date("Y-m-t", strtotime($dataInicio));
 
-    $stmt = $pdo->prepare("SELECT * FROM pontos 
-                          WHERE empresa_id = :empresa_id 
-                          AND cpf = :cpf 
-                          AND data BETWEEN :data_inicio AND :data_fim
-                          ORDER BY data ASC");
-    $stmt->bindParam(':empresa_id', $empresa_id);
+    // Buscar folgas no período
+    $stmt = $pdo->prepare("SELECT * FROM folgas 
+                          WHERE cpf = :cpf 
+                          AND data_folga BETWEEN :data_inicio AND :data_fim
+                          ORDER BY data_folga ASC");
     $stmt->bindParam(':cpf', $cpf);
     $stmt->bindParam(':data_inicio', $dataInicio);
     $stmt->bindParam(':data_fim', $dataFim);
     $stmt->execute();
 
-    $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $folgas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Erro ao consultar pontos: " . $e->getMessage());
+    die("Erro ao consultar folgas: " . $e->getMessage());
 }
 
 ?>
@@ -490,57 +483,32 @@ try {
 
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover" id="tabelaBancoHoras">
-                                    <thead class="table-light">
+                                    <thead>
                                         <tr>
-                                            <th>Data</th>
-                                            <th>Entrada</th>
-                                            <th>Saída Int.</th>
-                                            <th>Entrada Int.</th>
-                                            <th>Saída</th>
-                                            <th>Carga Horária</th>
-                                            <th>Ações</th>
+                                            <th>Nome</th>
+                                            <th>CPF</th>
+                                            <th>Data da Folga</th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        <?php if (empty($pontos)): ?>
-                                            <tr>
-                                                <td colspan="7" class="text-center">Nenhum ponto registrado para este período</td>
-                                            </tr>
-                                        <?php else: ?>
-                                            <?php foreach ($pontos as $ponto): ?>
-                                                <?php
-                                                $cargaHoraria = calcularCargaHoraria(
-                                                    $ponto['entrada'],
-                                                    $ponto['saida_intervalo'],
-                                                    $ponto['retorno_intervalo'],
-                                                    $ponto['saida_final']
-                                                );
-                                                ?>
+                                    <tbody id="tabelaBancoHorasBody" class="table-border-bottom-0">
+                                        <?php if (!empty($folgas)): ?>
+                                            <?php foreach ($folgas as $folga): ?>
                                                 <tr>
-                                                    <td><?= date('d/m/Y', strtotime($ponto['data'])) ?></td>
-                                                    <td><?= $ponto['entrada'] ? substr($ponto['entrada'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $ponto['saida_intervalo'] ? substr($ponto['saida_intervalo'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $ponto['retorno_intervalo'] ? substr($ponto['retorno_intervalo'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $ponto['saida_final'] ? substr($ponto['saida_final'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $cargaHoraria ?></td>
-                                                    <td>
-                                                        <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal"
-                                                            onclick="carregarDadosModal(
-                                               '<?= $ponto['id'] ?>',
-                                               '<?= $ponto['entrada'] ?>',
-                                               '<?= $ponto['saida_intervalo'] ?>',
-                                               '<?= $ponto['retorno_intervalo'] ?>',
-                                               '<?= $ponto['saida_final'] ?>',
-                                               '<?= $cargaHoraria ?>'
-                                           )">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                    </td>
+                                                    <td><?= $nomeFuncionario ?></td>
+                                                    <td><?= $cpf ?></td>
+                                                    <td><?= date('d/m/Y', strtotime($folga['data_folga'])) ?></td>
+                                                    <td><strong>Folga</strong></td>
                                                 </tr>
                                             <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <tr>
+                                                <td colspan="4">Nenhuma folga encontrada neste período.</td>
+                                            </tr>
                                         <?php endif; ?>
                                     </tbody>
                                 </table>
+
                             </div>
 
                             <!-- Modal de Edição -->
