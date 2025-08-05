@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once '../../assets/php/conexao.php';
 
@@ -10,7 +11,7 @@ if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
 ) {
   header("Location: .././login.php?id=$idSelecionado");
   exit;
@@ -44,7 +45,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa
+// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
   $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
   $stmt = $pdo->prepare($sql);
@@ -54,14 +55,16 @@ try {
 
   $logoEmpresa = !empty($empresaSobre['imagem'])
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
+    : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
+
+// ✅ Se chegou até aqui, o acesso está liberado
 
 // ✅ Buscar nome e nível do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
+$nivelUsuario = 'Comum'; // Valor padrão
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -77,6 +80,16 @@ try {
 } catch (PDOException $e) {
   $nomeUsuario = 'Erro ao carregar nome';
   $nivelUsuario = 'Erro ao carregar nível';
+}
+
+try {
+  $stmt = $pdo->prepare("SELECT id, nome, cargo, cpf FROM funcionarios WHERE empresa_id = :empresa_id");
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $funcionarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  echo "Erro ao buscar funcionarios: " . $e->getMessage();
+  exit;
 }
 ?>
 
