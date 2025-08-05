@@ -199,12 +199,12 @@ try {
                                     <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
                                 </a>
                             </li>
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
                                 </a>
                             </li>
-                            <li class="menu-item ">
+                            <li class="menu-item active">
                                 <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                                 </a>
