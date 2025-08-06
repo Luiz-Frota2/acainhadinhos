@@ -534,6 +534,11 @@ try {
                                             <input type="hidden" name="id" id="editarFolgaId">
                                             <input type="hidden" name="cpf" id="editarFolgaCpf">
                                             <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                            <input type="hidden" name="cpf" value="<?= $cpf ?>">
+                                            <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
+                                            <input type="hidden" name="mes" value="<?= $mes ?>">
+                                            <input type="hidden" name="ano" value="<?= $ano ?>">
+
                                             <div class="modal-header">
                                                 <h5 class="modal-title" id="editarFolgaModalLabel">Editar Folga</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
