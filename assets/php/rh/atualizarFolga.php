@@ -33,7 +33,7 @@ try {
 
     if ($stmt->execute()) {
         // Redireciona de volta para a página de ajuste com sucesso
-        header("Location: ../../../erp/rh/ajusteFolga.php?id=" . urlencode($idSelecionado) . "&cpf=" . urlencode($cpf));
+        header("Location: ../../../erp/rh/folgasIndividuaisDias.php?id=" . urlencode($idSelecionado) . "&cpf=" . urlencode($cpf));
         exit;
     } else {
         echo "Erro ao atualizar a folga.";
