@@ -2,7 +2,7 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
-require_once '../../conexao.php';
+require_once '../conexao.php';
 
 if (!isset($_SESSION['usuario_logado']) || !isset($_SESSION['empresa_id'])) {
     die("Acesso não autorizado");
