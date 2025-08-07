@@ -242,37 +242,25 @@ function calcularHorasNoturnas($entrada, $saida, $saidaIntervalo = null, $retorn
     return round($horasNoturnas, 2);
 }
 
-function calcularCargaHorariaDia($registro, $funcionario)
+function calcularCargaHorariaDia($ponto, $funcionario)
 {
-    if (!$registro['entrada'] || !$registro['saida_final']) {
+    if (!$funcionario['entrada'] || !$funcionario['saida_final'])
         return 0;
+
+    $entrada = $funcionario['entrada'] ?: '00:00';
+    $saida = $funcionario['saida_final'] ?: '00:00';
+
+    $minutosEsperados = calcularDiferencaMinutos($entrada, $saida);
+
+    if ($funcionario['saida_intervalo'] && $funcionario['retorno_intervalo']) {
+        $minutosEsperados -= calcularDiferencaMinutos(
+            $funcionario['saida_intervalo'],
+            $funcionario['retorno_intervalo']
+        );
     }
 
-    $entrada = strtotime($registro['entrada']);
-    $saida_final = strtotime($registro['saida_final']);
-
-    if ($saida_final < $entrada) {
-        $saida_final += 86400; // Adiciona 24h se a saída for no dia seguinte
-    }
-
-    $totalMinutos = ($saida_final - $entrada) / 60;
-
-    // Se tiver intervalo completo, subtrai o intervalo
-    if (!empty($registro['saida_intervalo']) && !empty($registro['retorno_intervalo'])) {
-        $saida_intervalo = strtotime($registro['saida_intervalo']);
-        $retorno_intervalo = strtotime($registro['retorno_intervalo']);
-
-        if ($retorno_intervalo < $saida_intervalo) {
-            $retorno_intervalo += 86400;
-        }
-
-        $intervaloMinutos = ($retorno_intervalo - $saida_intervalo) / 60;
-        $totalMinutos -= $intervaloMinutos;
-    }
-
-    return round($totalMinutos); // Retorna minutos
+    return $minutosEsperados;
 }
-
 
 // Buscar CNPJ da empresa
 try {
