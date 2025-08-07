@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } else {
     echo "<script>
             alert('Requisição inválida!');
-            window.location.href = '../../../erp/rh/pontosIndividuaisMes.php';
+                history.back();
           </script>";
 }
 ?>
