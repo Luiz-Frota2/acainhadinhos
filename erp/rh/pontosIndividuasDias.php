@@ -68,29 +68,33 @@ try {
     $nivelUsuario = 'Erro';
 }
 
-
+// ✅ Função corrigida de cálculo da carga horária
 function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $saidaFinal)
 {
     if (empty($entrada) || empty($saidaFinal)) {
         return '00h 00m';
     }
-    $entradaDt = DateTime::createFromFormat('H:i:s', $entrada);
-    $saidaIntervaloDt = $saidaIntervalo ? DateTime::createFromFormat('H:i:s', $saidaIntervalo) : null;
-    $retornoIntervaloDt = $retornoIntervalo ? DateTime::createFromFormat('H:i:s', $retornoIntervalo) : null;
-    $saidaFinalDt = DateTime::createFromFormat('H:i:s', $saidaFinal);
 
-    if ($saidaIntervaloDt && $retornoIntervaloDt) {
+    $entradaTs = strtotime($entrada);
+    $saidaFinalTs = strtotime($saidaFinal);
+    $totalMinutos = 0;
 
-        $manha = $entradaDt->diff($saidaIntervaloDt);
+    // Caso tenha intervalo (manhã e tarde)
+    if (!empty($saidaIntervalo) && !empty($retornoIntervalo)) {
+        $saidaIntervaloTs = strtotime($saidaIntervalo);
+        $retornoIntervaloTs = strtotime($retornoIntervalo);
 
-        $tarde = $retornoIntervaloDt->diff($saidaFinalDt);
+        // Calcula tempo antes e depois do intervalo
+        $manhaMinutos = round(($saidaIntervaloTs - $entradaTs) / 60);
+        $tardeMinutos = round(($saidaFinalTs - $retornoIntervaloTs) / 60);
 
-        $totalMinutos = ($manha->h * 60 + $manha->i) + ($tarde->h * 60 + $tarde->i);
+        $totalMinutos = $manhaMinutos + $tardeMinutos;
     } else {
-
-        $total = $entradaDt->diff($saidaFinalDt);
-        $totalMinutos = $total->h * 60 + $total->i;
+        // Se não tem intervalo, calcula direto
+        $totalMinutos = round(($saidaFinalTs - $entradaTs) / 60);
     }
+
+    if ($totalMinutos < 0) $totalMinutos = 0;
 
     $horas = floor($totalMinutos / 60);
     $minutos = $totalMinutos % 60;
@@ -98,12 +102,11 @@ function calcularCargaHoraria($entrada, $saidaIntervalo, $retornoIntervalo, $sai
     return sprintf('%02dh %02dm', $horas, $minutos);
 }
 
-
+// Parâmetros da URL
 $empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
 $cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
 $mes = isset($_GET['mes']) ? intval($_GET['mes']) : date('m');
 $ano = isset($_GET['ano']) ? intval($_GET['ano']) : date('Y');
-
 
 if (empty($empresa_id) || empty($cpf)) {
     die("Parâmetros empresa_id e CPF são obrigatórios na URL");
@@ -116,7 +119,6 @@ $pontos = [];
 $nomeFuncionario = '';
 
 try {
-
     $stmt = $pdo->prepare("SELECT nome, cpf FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
     $stmt->bindParam(':empresa_id', $empresa_id);
     $stmt->bindParam(':cpf', $cpf);
@@ -146,7 +148,6 @@ try {
 } catch (PDOException $e) {
     die("Erro ao consultar pontos: " . $e->getMessage());
 }
-
 ?>
 
 
@@ -489,6 +490,7 @@ try {
                             </h5>
 
                             <div class="table-responsive text-nowrap">
+                                <!-- Tabela de pontos -->
                                 <table class="table table-hover" id="tabelaBancoHoras">
                                     <thead class="table-light">
                                         <tr>
@@ -526,14 +528,14 @@ try {
                                                     <td>
                                                         <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal"
                                                             onclick="carregarDadosModal(
-                                                                                        '<?= $ponto['id'] ?>',
-                                                                                        '<?= $ponto['entrada'] ?>',
-                                                                                        '<?= $ponto['saida_intervalo'] ?>',
-                                                                                        '<?= $ponto['retorno_intervalo'] ?>',
-                                                                                        '<?= $ponto['saida_final'] ?>',
-                                                                                        '<?= $cargaHoraria ?>',
-                                                                                        '<?= $ponto['data'] ?>'
-                                                                                    )">
+                                                                                            '<?= $ponto['id'] ?>',
+                                                                                            '<?= $ponto['entrada'] ?>',
+                                                                                            '<?= $ponto['saida_intervalo'] ?>',
+                                                                                            '<?= $ponto['retorno_intervalo'] ?>',
+                                                                                            '<?= $ponto['saida_final'] ?>',
+                                                                                            '<?= $cargaHoraria ?>',
+                                                                                            '<?= $ponto['data'] ?>'
+                                                                                        )">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
                                                     </td>
