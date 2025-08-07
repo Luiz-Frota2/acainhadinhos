@@ -98,14 +98,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Redirecionar após sucesso
         if ($stmt->rowCount() > 0) {
             echo "<script>
-        alert('Registro atualizado com sucesso!');
-        window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "&mes=" . urlencode($mes) . "&ano=" . urlencode($ano) . "';
-    </script>";
+    alert('Registro atualizado com sucesso!');
+    window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "&mes=" . urlencode($mes) . "&ano=" . urlencode($ano) . "';
+</script>";
         } else {
             echo "<script>
         alert('Nenhum dado alterado!');
-        window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "&mes=" . urlencode($mes) . "&ano=" . urlencode($ano) . "';
-    </script>";
+      window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "&mes=" . urlencode($mes) . "&ano=" . urlencode($ano) . "';
+ </script>";
         }
     } catch (PDOException $e) {
         echo "<script>
@@ -116,6 +116,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 } else {
     echo "<script>
             alert('Requisição inválida!');
-            window.location.href = '../../../erp/rh/pontosIndividuaisMes.php';
-        </script>";
+            window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "&mes=" . urlencode($mes) . "&ano=" . urlencode($ano) . "';
+   </script>";
 }
