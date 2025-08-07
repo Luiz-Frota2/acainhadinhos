@@ -530,34 +530,52 @@ try {
                             <div class="modal fade" id="editarFolgaModal" tabindex="-1" aria-labelledby="editarFolgaModalLabel" aria-hidden="true">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
-                                        <form action="../../assets/php/rh/atualizarFolga.php" method="POST">
-                                            <input type="hidden" name="id" id="editarFolgaId">
-                                            <input type="hidden" name="cpf" id="editarFolgaCpf">
-                                            <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                            <input type="hidden" name="cpf" value="<?= $cpf ?>">
-                                            <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
-                                            <input type="hidden" name="mes" value="<?= $mes ?>">
-                                            <input type="hidden" name="ano" value="<?= $ano ?>">
+                                        <!-- Modal de Edição -->
+                                        <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
+                                                        <input type="text" name="ponto_id" id="pontoId">
+                                                        <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                                        <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf) ?>">
+                                                        <input type="hidden" name="data" id="dataPonto">
+                                                        <input type="hidden" name="mes" value="<?= $mes ?>">
+                                                        <input type="hidden" name="ano" value="<?= $ano ?>">
 
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="editarFolgaModalLabel">Editar Folga</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Nome</label>
-                                                    <input type="text" class="form-control" id="editarFolgaNome" disabled>
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title">Editar Ponto</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div class="mb-3">
+                                                                <label for="editEntrada" class="form-label">Entrada</label>
+                                                                <input type="time" class="form-control" id="editEntrada" name="entrada">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>
+                                                                <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="editRetornoIntervalo" class="form-label">Entrada Intervalo</label>
+                                                                <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="editSaidaFinal" class="form-label">Saída</label>
+                                                                <input type="time" class="form-control" id="editSaidaFinal" name="saida_final">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label for="editCarga" class="form-label">Carga Horária</label>
+                                                                <input type="text" class="form-control" id="editCarga" name="carga" disabled>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                                                        </div>
+                                                    </form>
                                                 </div>
-                                                <div class="mb-3">
-                                                    <label for="editarDataFolga" class="form-label">Data da Folga</label>
-                                                    <input type="date" class="form-control" name="data_folga" id="editarDataFolga" required>
-                                                </div>
                                             </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-                                            </div>
-                                        </form>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
