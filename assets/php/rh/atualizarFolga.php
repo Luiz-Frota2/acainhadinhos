@@ -42,3 +42,5 @@ try {
 } catch (PDOException $e) {
     echo "Erro ao atualizar: " . $e->getMessage();
 }
+
+?>
