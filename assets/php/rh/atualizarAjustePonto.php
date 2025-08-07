@@ -6,7 +6,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cpf = $_POST['cpf'] ?? '';
     $empresa_id = $_POST['empresa_id'] ?? '';
     $data_br = $_POST['data'] ?? '';
-    
+
     // Converter data para formato do banco (Y-m-d)
     $data_obj = DateTime::createFromFormat('d/m/Y', $data_br);
     if (!$data_obj) {
@@ -18,7 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data_formatada = $data_obj->format('Y-m-d');
 
     // Função para formatar horários
-    function formatarHora($hora) {
+    function formatarHora($hora)
+    {
         if (empty($hora)) return null;
         if (preg_match('/^\d{2}:\d{2}$/', $hora)) {
             return $hora . ':00';
@@ -81,33 +82,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Construir e executar a query
         $sql = "UPDATE pontos SET ";
         $params = [];
-        
+
         foreach ($alteracoes as $campo => $valor) {
             $sql .= "$campo = :$campo, ";
             $params[":$campo"] = $valor;
         }
-        
-        $sql = rtrim($sql, ', ') . " WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id";
-        $params[':cpf'] = $cpf;
-        $params[':data'] = $data_formatada;
-        $params[':empresa_id'] = $empresa_id;
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        $sql = rtrim($sql, ', ') . " WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id";
+        // Certifique-se de que as variáveis estão disponíveis
+        $empresa_id = $_GET['id'] ?? '';
+        $cpf = $_GET['cpf'] ?? '';
+        $mes = $_GET['mes'] ?? date('m');
+        $ano = $_GET['ano'] ?? date('Y');
 
         // Redirecionar após sucesso
         if ($stmt->rowCount() > 0) {
             echo "<script>
-                    alert('Registro atualizado com sucesso!');
-                history.back();';
-                </script>";
+        alert('Registro atualizado com sucesso!');
+        window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "&mes=" . urlencode($mes) . "&ano=" . urlencode($ano) . "';
+    </script>";
         } else {
             echo "<script>
-                    alert('Nenhum dado alterado!');
-                    window.location.href = '../../../erp/rh/pontosIndividuaisMes.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "';
-                </script>";
+        alert('Nenhum dado alterado!');
+        window.location.href = '../../../erp/rh/pontosIndividuasDias.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "&mes=" . urlencode($mes) . "&ano=" . urlencode($ano) . "';
+    </script>";
         }
-
     } catch (PDOException $e) {
         echo "<script>
                 alert('Erro ao atualizar: " . addslashes($e->getMessage()) . "');
@@ -120,4 +119,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             window.location.href = '../../../erp/rh/pontosIndividuaisMes.php';
         </script>";
 }
-?>
