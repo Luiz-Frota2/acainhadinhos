@@ -501,16 +501,19 @@ try {
                                                     <td><?= date('d/m/Y', strtotime($folga['data_folga'])) ?></td>
                                                     <td><strong>Folga</strong></td>
                                                     <td>
-                                                        <button
-                                                            class="btn btn-sm btn-warning btn-editar-folga"
-                                                            data-id="<?= $folga['id'] ?>"
-                                                            data-data="<?= $folga['data_folga'] ?>"
-                                                            data-nome="<?= $nomeFuncionario ?>"
-                                                            data-cpf="<?= $cpf ?>"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#editarFolgaModal">
-                                                            Editar
-                                                        </button>
+                                                        <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal"
+                                                            onclick="carregarDadosModal(
+        '<?= $ponto['id'] ?>',
+        '<?= $ponto['entrada'] ?>',
+        '<?= $ponto['saida_intervalo'] ?>',
+        '<?= $ponto['retorno_intervalo'] ?>',
+        '<?= $ponto['saida_final'] ?>',
+        '<?= $cargaHoraria ?>',
+        '<?= date('d/m/Y', strtotime($ponto['data'])) ?>'
+    )">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+
                                                     </td>
 
                                                 </tr>
@@ -535,7 +538,7 @@ try {
                                             <div class="modal-dialog">
                                                 <div class="modal-content">
                                                     <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
-                                                        <input type="text" name="ponto_id" id="pontoId">
+                                                        <input type="hidden" name="ponto_id" id="pontoId">
                                                         <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
                                                         <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf) ?>">
                                                         <input type="hidden" name="data" id="dataPonto">
