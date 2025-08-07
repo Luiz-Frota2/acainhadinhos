@@ -526,13 +526,14 @@ try {
                                                     <td>
                                                         <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal"
                                                             onclick="carregarDadosModal(
-                                               '<?= $ponto['id'] ?>',
-                                               '<?= $ponto['entrada'] ?>',
-                                               '<?= $ponto['saida_intervalo'] ?>',
-                                               '<?= $ponto['retorno_intervalo'] ?>',
-                                               '<?= $ponto['saida_final'] ?>',
-                                               '<?= $cargaHoraria ?>'
-                                           )">
+                                                                                        '<?= $ponto['id'] ?>',
+                                                                                        '<?= $ponto['entrada'] ?>',
+                                                                                        '<?= $ponto['saida_intervalo'] ?>',
+                                                                                        '<?= $ponto['retorno_intervalo'] ?>',
+                                                                                        '<?= $ponto['saida_final'] ?>',
+                                                                                        '<?= $cargaHoraria ?>',
+                                                                                        '<?= $ponto['data'] ?>'
+                                                                                    )">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
                                                     </td>
@@ -552,9 +553,6 @@ try {
                                             <input type="hidden" name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
                                             <input type="hidden" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
                                             <input type="hidden" name="data" id="data" value="<?= date('d/m/Y', strtotime($ponto['data'])) ?>">
-                                            <input type="hidden" name="mes" value="<?= $mes ?>">
-                                            <input type="hidden" name="ano" value="<?= $ano ?>">
-
                                             <div class="modal-header">
                                                 <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
@@ -601,14 +599,16 @@ try {
 
                 <script>
                     // Função para carregar dados no modal de edição
-                    function carregarDadosModal(id, entrada, saidaIntervalo, retornoIntervalo, saidaFinal, carga) {
+                    function carregarDadosModal(id, entrada, saidaIntervalo, retornoIntervalo, saidaFinal, carga, data) {
                         document.getElementById('pontoId').value = id;
                         document.getElementById('editEntrada').value = entrada ? entrada.substring(0, 5) : '';
                         document.getElementById('editSaidaIntervalo').value = saidaIntervalo ? saidaIntervalo.substring(0, 5) : '';
                         document.getElementById('editRetornoIntervalo').value = retornoIntervalo ? retornoIntervalo.substring(0, 5) : '';
                         document.getElementById('editSaidaFinal').value = saidaFinal ? saidaFinal.substring(0, 5) : '';
                         document.getElementById('editCarga').value = carga;
+                        document.getElementById('data').value = data;
                     }
+
 
                     // Função para calcular carga horária em tempo real no modal
                     function calcularCargaModal() {
