@@ -28,7 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data_formatada = $data_obj->format('Y-m-d');
 
     // Função para formatar hora como HH:MM:SS
-    function formatarHora($hora) {
+    function formatarHora($hora)
+    {
         if (empty($hora)) return null;
         if (preg_match('/^\d{2}:\d{2}$/', $hora)) return $hora . ':00';
         return $hora;
@@ -76,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($alteracoes)) {
             echo "<script>
                     alert('Nenhuma alteração detectada!');
-                    window.location.href = '../../../erp/rh/pontosIndividuaisMes.php?id=" . urlencode($empresa_id) . "&cpf=" . urlencode($cpf) . "';
+                            history.back();
                   </script>";
             exit;
         }
@@ -112,4 +113,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 history.back();
           </script>";
 }
-?>
