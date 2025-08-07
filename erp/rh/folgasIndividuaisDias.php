@@ -503,14 +503,14 @@ try {
                                                     <td>
                                                         <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal"
                                                             onclick="carregarDadosModal(
-        '<?= $ponto['id'] ?>',
-        '<?= $ponto['entrada'] ?>',
-        '<?= $ponto['saida_intervalo'] ?>',
-        '<?= $ponto['retorno_intervalo'] ?>',
-        '<?= $ponto['saida_final'] ?>',
-        '<?= $cargaHoraria ?>',
-        '<?= date('d/m/Y', strtotime($ponto['data'])) ?>'
-    )">
+                                                                                            '<?= $ponto['id'] ?>',
+                                                                                            '<?= $ponto['entrada'] ?>',
+                                                                                            '<?= $ponto['saida_intervalo'] ?>',
+                                                                                            '<?= $ponto['retorno_intervalo'] ?>',
+                                                                                            '<?= $ponto['saida_final'] ?>',
+                                                                                            '<?= $cargaHoraria ?>',
+                                                                                            '<?= date('d/m/Y', strtotime($ponto['data'])) ?>'
+                                                                                        )">
                                                             <i class="fas fa-edit"></i>
                                                         </a>
 
@@ -594,19 +594,15 @@ try {
                 </div>
 
                 <script>
-                    document.querySelectorAll('.btn-editar-folga').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            const id = this.getAttribute('data-id');
-                            const nome = this.getAttribute('data-nome');
-                            const cpf = this.getAttribute('data-cpf');
-                            const data = this.getAttribute('data-data');
-
-                            document.getElementById('editarFolgaId').value = id;
-                            document.getElementById('editarFolgaNome').value = nome;
-                            document.getElementById('editarFolgaCpf').value = cpf;
-                            document.getElementById('editarDataFolga').value = data;
-                        });
-                    });
+                    function carregarDadosModal(id, entrada, saidaInt, retornoInt, saidaFinal, carga, data) {
+                        document.getElementById('pontoId').value = id;
+                        document.getElementById('editEntrada').value = entrada ? entrada.substring(0, 5) : '';
+                        document.getElementById('editSaidaIntervalo').value = saidaInt ? saidaInt.substring(0, 5) : '';
+                        document.getElementById('editRetornoIntervalo').value = retornoInt ? retornoInt.substring(0, 5) : '';
+                        document.getElementById('editSaidaFinal').value = saidaFinal ? saidaFinal.substring(0, 5) : '';
+                        document.getElementById('editCarga').value = carga;
+                        document.getElementById('dataPonto').value = data;
+                    }
                 </script>
 
 
