@@ -242,6 +242,7 @@ function calcularHorasNoturnas($entrada, $saida, $saidaIntervalo = null, $retorn
     return round($horasNoturnas, 2);
 }
 
+// Função corrigida para calcular a carga horária real
 function calcularCargaHorariaDia($registro, $funcionario)
 {
     if (!$registro['entrada'] || !$registro['saida_final']) {
@@ -252,12 +253,11 @@ function calcularCargaHorariaDia($registro, $funcionario)
     $saida_final = strtotime($registro['saida_final']);
 
     if ($saida_final < $entrada) {
-        $saida_final += 86400; // Adiciona 24h se a saída for no dia seguinte
+        $saida_final += 86400; // Saída no dia seguinte
     }
 
     $totalMinutos = ($saida_final - $entrada) / 60;
 
-    // Se tiver intervalo completo, subtrai o intervalo
     if (!empty($registro['saida_intervalo']) && !empty($registro['retorno_intervalo'])) {
         $saida_intervalo = strtotime($registro['saida_intervalo']);
         $retorno_intervalo = strtotime($registro['retorno_intervalo']);
@@ -270,8 +270,9 @@ function calcularCargaHorariaDia($registro, $funcionario)
         $totalMinutos -= $intervaloMinutos;
     }
 
-    return round($totalMinutos); // Retorna minutos
+    return round($totalMinutos);
 }
+
 
 
 // Buscar CNPJ da empresa
