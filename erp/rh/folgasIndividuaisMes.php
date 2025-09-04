@@ -463,7 +463,7 @@ try {
                 ?>
 
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Adicionar Folga no Mês</h4>
+                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Folga por Mês</h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize ad Folgas do funcionário: <?= $nomeFuncionario ?></span></h5>
 
                     <div class="card mt-3">
