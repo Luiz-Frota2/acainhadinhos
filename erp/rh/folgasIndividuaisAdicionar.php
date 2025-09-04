@@ -477,15 +477,18 @@ try {
 
                     <div class="container mt-4">
                         <div class="card mt-3">
-                            <h5 class="card-header">Pontos do Funcionário: <?= $nomeFuncionario ?>
-                                <span class="float-end">Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
+                            <h5 class="card-header d-flex justify-content-between align-items-center">
+                                Pontos do Funcionário: <?= $nomeFuncionario ?>
+                                <span>Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
                             </h5>
-                            <button class="btn btn-primary">
+                            <div class="card-body d-flex justify-content-end">
                                 <a href="./adicionarFolgar.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>"
-                                    class="btn btn-primary btn-sm m-3">
-                                    <i class="fas fa-arrow-left"></i>Adicionar Folga
+                                    class="btn btn-primary btn-sm">
+                                    <i class="fas fa-arrow-left"></i> Adicionar Folga
                                 </a>
-                            </button>
+                            </div>
+
+
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover" id="tabelaBancoHoras">
                                     <thead>
@@ -494,7 +497,7 @@ try {
                                             <th>CPF</th>
                                             <th>Data da Folga</th>
                                             <th>Status</th>
-                                          
+
                                         </tr>
                                     </thead>
                                     <tbody id="tabelaBancoHorasBody" class="table-border-bottom-0">
@@ -505,7 +508,7 @@ try {
                                                     <td><?= $cpf ?></td>
                                                     <td><?= date('d/m/Y', strtotime($folga['data_folga'])) ?></td>
                                                     <td><strong>Folga</strong></td>
-                                                   
+
 
                                                 </tr>
                                             <?php endforeach; ?>
@@ -519,7 +522,7 @@ try {
 
                             </div>
 
-                        
+
                             <div class="d-flex gap-2 m-3">
                                 <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
                                 <div id="paginacaoHoras" class="d-flex gap-1"></div>
