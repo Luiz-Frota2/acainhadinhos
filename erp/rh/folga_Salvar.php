@@ -24,7 +24,7 @@ $dataStr   = trim((string)($_POST['data_folga'] ?? ''));
 $paginaRetorno = './folgasIndividuaisAdicionar.php';
 
 // Validações básicas
-if ($empresaId === '' || $cpf === '' || $dataStr === '') {
+if ($cpf === '' || $dataStr === '') {
     back_with($paginaRetorno, [
         'id'  => $empresaId,
         'cpf' => $cpf,
