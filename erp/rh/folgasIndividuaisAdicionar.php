@@ -484,7 +484,7 @@ try {
                             <div class="card-body d-flex justify-content-end">
                                 <a href="./adicionarFolgar.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>"
                                     class="btn btn-primary btn-sm">
-                                    <i class="fas fa-arrow-left"></i> Adicionar Folga
+                                    <i class="fas fa-plus"></i> Adicionar Folga
                                 </a>
                             </div>
 
