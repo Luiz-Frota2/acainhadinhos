@@ -19,7 +19,6 @@ function back_with(string $url, array $params): void {
 $empresaId = trim((string)($_POST['id'] ?? ''));      // vem como hidden na sua modal (idSelecionado)
 $cpf       = only_digits((string)($_POST['cpf'] ?? ''));
 $dataStr   = trim((string)($_POST['data_folga'] ?? ''));
-$obs       = trim((string)($_POST['observacoes'] ?? ''));
 
 // Página de retorno (onde está sua modal)
 $paginaRetorno = './folgasIndividuaisAdicionar.php';
