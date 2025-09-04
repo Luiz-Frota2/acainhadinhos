@@ -1,102 +1,166 @@
 <?php
+// folga_Salvar.php
 declare(strict_types=1);
 ini_set('display_errors', '1');
 error_reporting(E_ALL);
 session_start();
 
-/**
- * Conexão PDO — mesmo include usado nas suas páginas
- * Este arquivo deve definir $pdo (PDO). Se definir $conn (PDO), também suportamos.
- */
-require_once __DIR__ . '/../../assets/php/conexao.php';
+require_once '../../assets/php/conexao.php'; // deve definir $pdo (PDO)
 
-$pdo = $pdo ?? null;
-if (!$pdo && isset($conn) && $conn instanceof PDO) {
-  $pdo = $conn;
-}
-if (!$pdo || !($pdo instanceof PDO)) {
-  resposta(false, 'Conexão indisponível.');
-}
-
-/** Requer empresa logada (mesmo padrão da sua listagem) */
-if (!isset($_SESSION['empresa_id'])) {
-  resposta(false, 'Empresa não logada.');
-}
-
-$empresaId = (string)$_SESSION['empresa_id'];
-
-/** Detecta se é ajax (para decidir JSON vs redirect) */
-$isAjax = (
-  (isset($_GET['ajax']) && $_GET['ajax'] === '1') ||
-  (isset($_POST['ajax']) && $_POST['ajax'] === '1') ||
-  (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && stripos((string)$_SERVER['HTTP_X_REQUESTED_WITH'], 'xmlhttprequest') !== false)
-);
-
-/** Helper de resposta */
-function resposta(bool $ok, string $msg, array $extra = []): never {
-  global $isAjax;
-  if ($isAjax) {
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['ok' => $ok, 'message' => $msg] + $extra, JSON_UNESCAPED_UNICODE);
+// === Helpers ===
+function only_digits(string $v): string { return preg_replace('/\D+/', '', $v) ?? ''; }
+function back_with(string $url, array $params): void {
+    $qs = http_build_query($params);
+    header("Location: {$url}" . (str_contains($url, '?') ? "&{$qs}" : "?{$qs}"));
     exit;
-  } else {
-    // fallback: redireciona de volta (ajuste o destino, se quiser)
-    $dest = $_POST['_redirect'] ?? $_GET['_redirect'] ?? ($_SERVER['HTTP_REFERER'] ?? '../pages/ajusteFolga.php');
-    $glue = (strpos($dest, '?') !== false) ? '&' : '?';
-    header('Location: ' . $dest . $glue . 'ok=' . (int)$ok . '&msg=' . urlencode($msg));
-    exit;
-  }
 }
 
-/** Sanitização/validação básica */
-$cpfRaw = trim((string)($_POST['cpf'] ?? ''));
-$nome   = trim((string)($_POST['nome'] ?? ''));
-$data   = trim((string)($_POST['data_folga'] ?? ''));
+// === Entrada (POST da modal) ===
+$empresaId = trim((string)($_POST['id'] ?? ''));      // vem como hidden na sua modal (idSelecionado)
+$cpf       = only_digits((string)($_POST['cpf'] ?? ''));
+$dataStr   = trim((string)($_POST['data_folga'] ?? ''));
+$obs       = trim((string)($_POST['observacoes'] ?? ''));
 
-/** Normaliza CPF (remove pontuação) */
-$cpf = preg_replace('/\D+/', '', $cpfRaw) ?? '';
+// Página de retorno (onde está sua modal)
+$paginaRetorno = './folgasIndividuaisAdicionar.php';
 
-if ($cpf === '' || strlen($cpf) !== 11) {
-  resposta(false, 'Informe um CPF válido (11 dígitos).');
-}
-if ($nome === '') {
-  resposta(false, 'Informe o nome.');
-}
-if ($data === '') {
-  resposta(false, 'Informe a data da folga.');
+// Validações básicas
+if ($empresaId === '' || $cpf === '' || $dataStr === '') {
+    back_with($paginaRetorno, [
+        'id'  => $empresaId,
+        'cpf' => $cpf,
+        'err' => 1,
+        'msg' => 'Dados insuficientes: empresa, CPF e data são obrigatórios.'
+    ]);
 }
 
-/** Valida formato de data (YYYY-MM-DD) e se é uma data válida */
-$valida = false;
-if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) {
-  $partes = explode('-', $data);
-  $valida = checkdate((int)$partes[1], (int)$partes[2], (int)$partes[0]);
+// Normaliza data (YYYY-MM-DD)
+try {
+    $d = new DateTime($dataStr);
+    $dataFolga = $d->format('Y-m-d');
+} catch (Throwable $e) {
+    back_with($paginaRetorno, [
+        'id'  => $empresaId,
+        'cpf' => $cpf,
+        'err' => 1,
+        'msg' => 'Data da folga inválida.'
+    ]);
 }
-if (!$valida) {
-  resposta(false, 'Data inválida. Use o formato AAAA-MM-DD.');
-}
+
+// === Buscar nome do funcionário ===
+// 1) Tenta na tabela funcionarios (recomendado)
+// 2) Se não achar, tenta última referência de nome na própria folgas (fallback)
+// 3) Se ainda não achar, tenta contas_acesso por CPF (último recurso)
+$nomeFuncionario = null;
 
 try {
-  $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // 1) funcionarios
+    $sql = "SELECT nome FROM funcionarios WHERE cpf = :cpf AND (empresa_id = :empresa_id OR :empresa_id = :empresa_id) LIMIT 1";
+    $st  = $pdo->prepare($sql);
+    $st->execute([':cpf' => $cpf, ':empresa_id' => $empresaId]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    if ($row && !empty($row['nome'])) {
+        $nomeFuncionario = $row['nome'];
+    }
 
-  // Evita duplicidade (mesmo cpf + data)
-  $sqlDup = "SELECT 1 FROM folgas WHERE cpf = :cpf AND data_folga = :data LIMIT 1";
-  $stDup = $pdo->prepare($sqlDup);
-  $stDup->execute([':cpf' => $cpf, ':data' => $data]);
-  if ($stDup->fetchColumn()) {
-    resposta(false, 'Já existe folga cadastrada para este CPF nesta data.');
-  }
+    // 2) folgas (fallback)
+    if (!$nomeFuncionario) {
+        $sql = "SELECT nome FROM folgas WHERE cpf = :cpf AND empresa_id = :empresa_id ORDER BY id DESC LIMIT 1";
+        $st  = $pdo->prepare($sql);
+        $st->execute([':cpf' => $cpf, ':empresa_id' => $empresaId]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row && !empty($row['nome'])) {
+            $nomeFuncionario = $row['nome'];
+        }
+    }
 
-  // Insere — conforme estrutura da sua tabela (id AUTO_INCREMENT; cpf, nome, data_folga)
-  $sqlIns = "INSERT INTO folgas (cpf, nome, data_folga) VALUES (:cpf, :nome, :data)";
-  $stIns = $pdo->prepare($sqlIns);
-  $stIns->execute([
-    ':cpf'  => $cpf,
-    ':nome' => $nome,
-    ':data' => $data,
-  ]);
-
-  resposta(true, 'Folga cadastrada com sucesso.', ['id' => (int)$pdo->lastInsertId()]);
+    // 3) contas_acesso (fallback final, se houver esse vínculo por CPF)
+    if (!$nomeFuncionario) {
+        $sql = "SELECT usuario AS nome FROM contas_acesso WHERE REPLACE(cpf, '.', '') = :cpf OR cpf = :cpf LIMIT 1";
+        $st  = $pdo->prepare($sql);
+        $st->execute([':cpf' => $cpf]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if ($row && !empty($row['nome'])) {
+            $nomeFuncionario = $row['nome'];
+        }
+    }
 } catch (Throwable $e) {
-  resposta(false, 'Erro ao salvar: ' . $e->getMessage());
+    // não quebra, só segue para tratar abaixo
+}
+
+if (!$nomeFuncionario) {
+    back_with($paginaRetorno, [
+        'id'  => $empresaId,
+        'cpf' => $cpf,
+        'err' => 1,
+        'msg' => 'Não foi possível localizar o nome do funcionário para o CPF informado.'
+    ]);
+}
+
+// === Evita duplicidade: mesma data + cpf + empresa ===
+try {
+    $check = $pdo->prepare("SELECT COUNT(*) FROM folgas WHERE cpf = :cpf AND data_folga = :data AND empresa_id = :empresa_id");
+    $check->execute([
+        ':cpf'        => $cpf,
+        ':data'       => $dataFolga,
+        ':empresa_id' => $empresaId,
+    ]);
+    $jaExiste = (int)$check->fetchColumn() > 0;
+
+    if ($jaExiste) {
+        back_with($paginaRetorno, [
+            'id'  => $empresaId,
+            'cpf' => $cpf,
+            'err' => 1,
+            'msg' => 'Já existe uma folga cadastrada para este CPF nesta data.'
+        ]);
+    }
+} catch (Throwable $e) {
+    back_with($paginaRetorno, [
+        'id'  => $empresaId,
+        'cpf' => $cpf,
+        'err' => 1,
+        'msg' => 'Falha ao verificar duplicidade de folga.'
+    ]);
+}
+
+// === Inserção ===
+// Observação importante: mantive apenas colunas estáveis (id é AUTO_INCREMENT).
+// Se sua tabela tiver colunas extras obrigatórias, ajuste os INSERTs abaixo.
+try {
+    $sql = "INSERT INTO folgas (cpf, nome, data_folga, observacoes, empresa_id) 
+            VALUES (:cpf, :nome, :data_folga, :obs, :empresa_id)";
+    $ins = $pdo->prepare($sql);
+    $ok  = $ins->execute([
+        ':cpf'        => $cpf,
+        ':nome'       => $nomeFuncionario,
+        ':data_folga' => $dataFolga,
+        ':obs'        => $obs,
+        ':empresa_id' => $empresaId,
+    ]);
+
+    if (!$ok) {
+        back_with($paginaRetorno, [
+            'id'  => $empresaId,
+            'cpf' => $cpf,
+            'err' => 1,
+            'msg' => 'Não foi possível cadastrar a folga.'
+        ]);
+    }
+
+    // Sucesso
+    back_with($paginaRetorno, [
+        'id'  => $empresaId,
+        'cpf' => $cpf,
+        'ok'  => 1,
+        'msg' => 'Folga cadastrada com sucesso.'
+    ]);
+
+} catch (Throwable $e) {
+    back_with($paginaRetorno, [
+        'id'  => $empresaId,
+        'cpf' => $cpf,
+        'err' => 1,
+        'msg' => 'Erro ao cadastrar a folga no banco.'
+    ]);
 }
