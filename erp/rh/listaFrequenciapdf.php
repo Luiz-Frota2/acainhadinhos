@@ -163,7 +163,7 @@ function converterHoraParaDecimal($horaString)
     $hours = (int)$parts[0];
     $minutes = isset($parts[1]) ? (int)$parts[1] : 0;
 return $hours + ($minutes / 60);
-
+}
 function formatarHoraDecimal($decimal)
 {
     $horas = floor($decimal);
