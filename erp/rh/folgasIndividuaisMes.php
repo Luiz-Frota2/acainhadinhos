@@ -495,6 +495,10 @@ try {
                                                     <a href="./folgasIndividuaisDias.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
                                                         <i class="fas fa-eye"></i> Visualizar
                                                     </a>
+                                                    |
+                                                    <a href="./folgasIndividuaisAdcionar.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
+                                                        <i class="fas fa-plus"></i> Adiconar
+                                                    </a>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
