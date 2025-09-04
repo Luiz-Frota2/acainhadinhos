@@ -497,7 +497,7 @@ try {
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                         </div>
                                         <div class="modal-body">
-                                            <form action="./adicionarFolgar.php" method="POST">
+                                            <form action="./folga_Salvar.php" method="POST">
                                                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
                                                 <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf) ?>">
 
