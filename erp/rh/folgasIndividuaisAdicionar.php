@@ -487,39 +487,46 @@ try {
                                     <i class="fas fa-plus"></i> Adicionar Folga
                                 </button>
                             </div>
+<?php
+// Monte a URL de ação com empresa_id e cpf vindos da URL atual
+$empresaId = $_GET['id']  ?? '';
+$cpfUrl    = $_GET['cpf'] ?? '';
+$action = 'folga_Salvar.php?id=' . urlencode($empresaId) . '&cpf=' . urlencode($cpfUrl);
+?>
 
-                            <!-- Modal -->
-                            <div class="modal fade" id="modalFolga" tabindex="-1" aria-labelledby="modalFolgaLabel" aria-hidden="true">
-                                <div class="modal-dialog modal-lg">
-                                    <div class="modal-content">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title" id="modalFolgaLabel">Adicionar Folga</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <form action="./folga_Salvar.php" method="POST">
-                                                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                                <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpf) ?>">
+<!-- Modal -->
+<div class="modal fade" id="modalFolga" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="formFolga" method="post" action="<?= $action ?>">
+        <div class="modal-header">
+          <h5 class="modal-title">Cadastrar folga</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
 
-                                                <div class="mb-3">
-                                                    <label for="dataFolga" class="form-label">Data da Folga</label>
-                                                    <input type="date" class="form-control" id="dataFolga" name="data_folga" required>
-                                                </div>
+        <div class="modal-body">
+          <!-- A DATA DEVE TER ESSE name: data_folga -->
+          <div class="mb-3">
+            <label for="data_folga" class="form-label">Data da folga</label>
+            <input type="date" class="form-control" id="data_folga" name="data_folga" required>
+          </div>
 
-                                                <div class="mb-3">
-                                                    <label for="obsFolga" class="form-label">Observações</label>
-                                                    <textarea class="form-control" id="obsFolga" name="observacoes" rows="3"></textarea>
-                                                </div>
+          <!-- (Opcional) redundância: mantém id/cpf também no POST 
+               (não muda layout, ficam ocultos) -->
+          <input type="hidden" name="id"  value="<?= htmlspecialchars($empresaId) ?>">
+          <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpfUrl) ?>">
+        </div>
 
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                    <button type="submit" class="btn btn-primary">Salvar</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <!-- IMPORTANTE: NÃO use data-bs-dismiss aqui -->
+          <button type="submit" class="btn btn-primary" id="btnSalvarFolga">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 
 
 
