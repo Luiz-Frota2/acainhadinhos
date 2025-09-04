@@ -489,7 +489,7 @@ try {
                                             <th>CPF</th>
                                             <th>Data da Folga</th>
                                             <th>Status</th>
-                                            <th>Ações</th>
+                                          
                                         </tr>
                                     </thead>
                                     <tbody id="tabelaBancoHorasBody" class="table-border-bottom-0">
@@ -500,18 +500,7 @@ try {
                                                     <td><?= $cpf ?></td>
                                                     <td><?= date('d/m/Y', strtotime($folga['data_folga'])) ?></td>
                                                     <td><strong>Folga</strong></td>
-                                                    <td>
-                                                        <button
-                                                            class="btn btn-sm btn-warning btn-editar-folga"
-                                                            data-id="<?= $folga['id'] ?>"
-                                                            data-data="<?= $folga['data_folga'] ?>"
-                                                            data-nome="<?= $nomeFuncionario ?>"
-                                                            data-cpf="<?= $cpf ?>"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#editarFolgaModal">
-                                                            Editar
-                                                        </button>
-                                                    </td>
+                                                   
 
                                                 </tr>
                                             <?php endforeach; ?>
@@ -525,44 +514,7 @@ try {
 
                             </div>
 
-                            <!-- Modal de Edição -->
-                            <!-- Modal Editar Folga -->
-                            <div class="modal fade" id="editarFolgaModal" tabindex="-1" aria-labelledby="editarFolgaModalLabel" aria-hidden="true">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <form action="../../assets/php/rh/atualizarFolga.php" method="POST">
-                                            <input type="hidden" name="id" id="editarFolgaId">
-                                            <input type="hidden" name="cpf" id="editarFolgaCpf">
-                                            <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                            <input type="hidden" name="cpf" value="<?= $cpf ?>">
-                                            <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
-                                            <input type="hidden" name="mes" value="<?= $mes ?>">
-                                            <input type="hidden" name="ano" value="<?= $ano ?>">
-
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="editarFolgaModalLabel">Editar Folga</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Nome</label>
-                                                    <input type="text" class="form-control" id="editarFolgaNome" disabled>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label for="editarDataFolga" class="form-label">Data da Folga</label>
-                                                    <input type="date" class="form-control" name="data_folga" id="editarDataFolga" required>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-
+                        
                             <div class="d-flex gap-2 m-3">
                                 <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
                                 <div id="paginacaoHoras" class="d-flex gap-1"></div>
