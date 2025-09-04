@@ -126,14 +126,43 @@ function capitalize($str)
 
 function converterHoraParaDecimal($horaString)
 {
-    if (empty($horaString)) {
-        return 0;
+    // Converte várias representações de "tempo" para horas decimais (float).
+    // Aceita: "HH:MM:SS", "HH:MM", "H", "2h 30m", "2h30", "1.5", "1,5", "0" e variações.
+    if ($horaString === null) return 0;
+    $t = trim((string)$horaString);
+    if ($t === '' || $t === '0' || $t === '00:00' || $t === '00:00:00') return 0;
+
+    // Normaliza: remove espaços; troca h/m/s por ':' para facilitar parsing de "2h30m" -> "2:30"
+    $tn = strtolower(str_replace([' ', 'h', 'm', 's'], ['', ':', ':', ''], $t));
+
+    // Formatos com dois-pontos (HH:MM[:SS])
+    if (strpos($tn, ':') !== false) {
+        $parts = array_map('intval', explode(':', $tn));
+        $h = $parts[0] ?? 0;
+        $m = $parts[1] ?? 0;
+        $s = $parts[2] ?? 0;
+        $totalMin = ($h * 60) + $m + (int) floor($s / 60);
+        return $totalMin / 60; // retorna em horas decimais
     }
+
+    // Horas decimais como "1.5" ou "1,5"
+    $tn = str_replace(',', '.', $tn);
+    if (is_numeric($tn)) {
+        return (float)$tn;
+    }
+
+    // Apenas horas inteiras "2"
+    if (preg_match('/^\d+$/', $tn)) {
+        return (float) intval($tn);
+    }
+
+    return 0;
+}
+
     $parts = explode(':', $horaString);
     $hours = (int)$parts[0];
     $minutes = isset($parts[1]) ? (int)$parts[1] : 0;
-    return $hours + ($minutes / 60);
-}
+return $hours + ($minutes / 60);
 
 function formatarHoraDecimal($decimal)
 {
