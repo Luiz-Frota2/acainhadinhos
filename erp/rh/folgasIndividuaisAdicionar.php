@@ -480,7 +480,12 @@ try {
                             <h5 class="card-header">Pontos do Funcionário: <?= $nomeFuncionario ?>
                                 <span class="float-end">Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
                             </h5>
-
+                            <button class="btn btn-primary">
+                                <a href="./adicionarFolgar.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>"
+                                    class="btn btn-primary btn-sm m-3">
+                                    <i class="fas fa-arrow-left"></i>Adicionar Folga
+                                </a>
+                            </button>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover" id="tabelaBancoHoras">
                                     <thead>
