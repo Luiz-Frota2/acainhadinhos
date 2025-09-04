@@ -128,15 +128,14 @@ try {
 // Observação importante: mantive apenas colunas estáveis (id é AUTO_INCREMENT).
 // Se sua tabela tiver colunas extras obrigatórias, ajuste os INSERTs abaixo.
 try {
-    $sql = "INSERT INTO folgas (cpf, nome, data_folga, observacoes, empresa_id) 
-            VALUES (:cpf, :nome, :data_folga, :obs, :empresa_id)";
+    $sql = "INSERT INTO folgas (cpf, nome, data_folga) 
+            VALUES (:cpf, :nome, :data_folga)";
     $ins = $pdo->prepare($sql);
     $ok  = $ins->execute([
         ':cpf'        => $cpf,
         ':nome'       => $nomeFuncionario,
         ':data_folga' => $dataFolga,
-        ':obs'        => $obs,
-        ':empresa_id' => $empresaId,
+
     ]);
 
     if (!$ok) {
