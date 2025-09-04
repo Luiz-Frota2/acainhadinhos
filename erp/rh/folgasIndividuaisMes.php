@@ -492,11 +492,12 @@ try {
                                                 <td><?= $item['ano'] ?></td>
                                                 <td><?= $mesPortugues ?></td>
                                                 <td>
-                                                    <a href="./folgasIndividuaisDias.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view mr-2">
+                                                    <a href="./folgasIndividuaisDias.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view " style="margin-right: 15px !important
+                                                    ;">
                                                         <i class="fas fa-eye"></i> Visualizar
                                                     </a>
                                                     |
-                                                    <a href="./folgasIndividuaisAdicionar.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view">
+                                                    <a href="./folgasIndividuaisAdicionar.php?id=<?= urlencode($idSelecionado) ?>&cpf=<?= urlencode($cpf) ?>&mes=<?= $item['mes_numero'] ?>&ano=<?= $item['ano'] ?>" class="btn-view" style="margin-left: 15px !important">
                                                         <i class="fas fa-plus"></i> Adiconar
                                                     </a>
                                                 </td>
