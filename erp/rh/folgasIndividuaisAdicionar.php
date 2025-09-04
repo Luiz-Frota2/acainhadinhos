@@ -3,110 +3,86 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
 
-require '../../assets/php/conexao.php'; // deve definir $pdo OU $conn (PDO)
-
-// Normaliza a variável de conexão para $pdo (fallback se vier como $conn)
+// === Conexão (mantendo seu include) ===
+require '../../assets/php/conexao.php'; // pode definir $pdo OU $conn (PDO)
 $pdo = $pdo ?? (isset($conn) && $conn instanceof PDO ? $conn : null);
 if (!$pdo || !($pdo instanceof PDO)) {
     die('Conexão indisponível.');
 }
 
+// === Sessão da empresa (mantido) ===
 if (!isset($_SESSION['empresa_id'])) {
     die('Empresa não logada.');
 }
-
 $empresaId = (string)$_SESSION['empresa_id'];
 
-/* =========================
-   PROCESSO: CADASTRAR FOLGA
+/* ===========================================================
+   PROCESSO: CADASTRAR FOLGA + REDIRECIONAR (sem mexer no layout)
    - Espera POST com: cpf, nome, data_folga (YYYY-MM-DD)
-   - Valida campos
-   - Evita duplicidade (cpf + data_folga)
-   - Insere em folgas (cpf, nome, data_folga)
-   ========================= */
+   - Em qualquer resultado (ok/erro), faz redirect e encerra
+   - Se quiser escolher o destino, envie um campo hidden _redirect
+  =========================================================== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Aceita tanto requisições normais quanto AJAX; não altera layout da página
+    // Lê dados sem alterar layout
     $cpfRaw = trim((string)($_POST['cpf'] ?? ''));
     $nome   = trim((string)($_POST['nome'] ?? ''));
     $data   = trim((string)($_POST['data_folga'] ?? ''));
 
-    // Normaliza CPF (somente dígitos)
+    // Normaliza CPF (apenas dígitos)
     $cpf = preg_replace('/\D+/', '', $cpfRaw) ?? '';
 
+    // Validação simples
     $erros = [];
-
-    if ($cpf === '' || strlen($cpf) !== 11) {
-        $erros[] = 'Informe um CPF válido (11 dígitos).';
-    }
-    if ($nome === '') {
-        $erros[] = 'Informe o nome.';
-    }
-    if ($data === '') {
-        $erros[] = 'Informe a data da folga.';
+    if ($cpf === '' || strlen($cpf) !== 11) $erros[] = 'CPF inválido.';
+    if ($nome === '') $erros[] = 'Nome é obrigatório.';
+    if ($data === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) {
+        $erros[] = 'Data inválida. Use AAAA-MM-DD.';
     } else {
-        $validaData = false;
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $data)) {
-            [$yy, $mm, $dd] = explode('-', $data);
-            $validaData = checkdate((int)$mm, (int)$dd, (int)$yy);
-        }
-        if (!$validaData) {
-            $erros[] = 'Data inválida. Use o formato AAAA-MM-DD.';
+        [$yy, $mm, $dd] = explode('-', $data);
+        if (!checkdate((int)$mm, (int)$dd, (int)$yy)) {
+            $erros[] = 'Data inexistente.';
         }
     }
 
-    if (empty($erros)) {
-        try {
+    try {
+        if (empty($erros)) {
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            // Evita duplicidade
+            // Evita duplicidade: mesmo CPF + data
             $sqlDup = "SELECT 1 FROM folgas WHERE cpf = :cpf AND data_folga = :data LIMIT 1";
-            $stDup = $pdo->prepare($sqlDup);
+            $stDup  = $pdo->prepare($sqlDup);
             $stDup->execute([':cpf' => $cpf, ':data' => $data]);
 
-            if ($stDup->fetchColumn()) {
-                // Mantém layout; nenhuma alteração visual imposta — apenas define uma flag para uso opcional
-                $ok = false;
-                $msg = 'Já existe folga cadastrada para este CPF nesta data.';
-            } else {
-                // Insere
+            if (!$stDup->fetchColumn()) {
+                // Insere (tabela: folgas -> cpf, nome, data_folga)
                 $sqlIns = "INSERT INTO folgas (cpf, nome, data_folga) VALUES (:cpf, :nome, :data)";
-                $stIns = $pdo->prepare($sqlIns);
-                $stIns->execute([
-                    ':cpf'  => $cpf,
-                    ':nome' => $nome,
-                    ':data' => $data,
-                ]);
-
-                $ok = true;
-                $msg = 'Folga cadastrada com sucesso.';
+                $stIns  = $pdo->prepare($sqlIns);
+                $stIns->execute([':cpf' => $cpf, ':nome' => $nome, ':data' => $data]);
+                // opcional: $id = (int)$pdo->lastInsertId();
             }
-        } catch (Throwable $e) {
-            $ok = false;
-            $msg = 'Erro ao salvar: ' . $e->getMessage();
+            // Se já existia, apenas segue para redirecionar (sem mexer na tela)
         }
-    } else {
-        $ok = false;
-        $msg = implode(' ', $erros);
+    } catch (Throwable $e) {
+        // Em erro, apenas segue para redirecionar também (sem imprimir nada)
+        // Você pode logar $e->getMessage() se quiser
     }
 
-    // Se quiser usar via AJAX, ative o cabeçalho a seguir.
-    // Detecta AJAX pelo header padrão.
-    $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH']) && stripos((string)$_SERVER['HTTP_X_REQUESTED_WITH'], 'xmlhttprequest') !== false;
-    if ($isAjax) {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['ok' => (bool)$ok, 'message' => (string)$msg], JSON_UNESCAPED_UNICODE);
-        exit;
+    // Redireciona SEM alterar layout
+    $dest = (string)($_POST['_redirect'] ?? '');
+    if ($dest === '') {
+        // volta para a própria página
+        $dest = $_SERVER['PHP_SELF'];
+        // opcional: incluir querystring de status sem exibir no layout
+        // $dest .= (strpos($dest, '?') !== false ? '&' : '?') . 'saved=1';
     }
-    // Para submissão normal (não AJAX), segue renderizando a mesma página sem alterar o layout.
-    // Se preferir redirecionar, descomente:
-    // header('Location: '.$_SERVER['PHP_SELF'].'?ok='.(int)$ok.'&msg='.urlencode((string)$msg));
-    // exit;
+    header('Location: ' . $dest);
+    exit;
 }
 
-/* =========================
-   LISTAGEM: FOLGAS DO MÊS
-   (mantido SEM alterar layout)
-   ========================= */
+// =========================
+// LISTAGEM: FOLGAS DO MÊS
+// (mantido SEM alterar layout)
+// =========================
 $mesAtual = date('m');
 $anoAtual = date('Y');
 
@@ -118,12 +94,9 @@ $sql = "
     FROM 
         folgas f
     INNER JOIN 
-        pontos p ON f.cpf = p.cpf 
-                 AND f.data_folga = p.data 
-                 AND p.empresa_id = :empresa_id
+        pontos p ON f.cpf = p.cpf AND f.data_folga = p.data AND p.empresa_id = :empresa_id
     WHERE 
-        MONTH(f.data_folga) = :mes 
-        AND YEAR(f.data_folga) = :ano
+        MONTH(f.data_folga) = :mes AND YEAR(f.data_folga) = :ano
     GROUP BY 
         f.cpf, f.nome
     ORDER BY 
@@ -138,9 +111,6 @@ $stmt->execute([
 ]);
 
 $folgas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Helper de saída segura
-function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 ?>
 
 <!DOCTYPE html>
@@ -155,15 +125,7 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
     </style>
 </head>
 <body>
-    <!-- Mantido o mesmo título e estrutura -->
     <h2 style="text-align: center;">Folgas Individuais - <?= date('F Y') ?></h2>
-
-    <!-- Opcional: mostrar mensagem sem interferir no layout principal (não altera tabela/estilos) -->
-    <?php if (isset($msg) && $msg !== ''): ?>
-      <div style="width:80%;margin:0 auto 10px auto;font:14px/1.4 Arial;">
-        <span style="color:<?= !empty($ok) ? '#067d06' : '#b00020' ?>"><?= h($msg) ?></span>
-      </div>
-    <?php endif; ?>
 
     <table>
         <thead>
@@ -174,11 +136,11 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             </tr>
         </thead>
         <tbody>
-            <?php if (!empty($folgas)): ?>
+            <?php if (count($folgas) > 0): ?>
                 <?php foreach ($folgas as $linha): ?>
                     <tr>
-                        <td><?= h($linha['cpf']) ?></td>
-                        <td><?= h($linha['nome']) ?></td>
+                        <td><?= htmlspecialchars($linha['cpf']) ?></td>
+                        <td><?= htmlspecialchars($linha['nome']) ?></td>
                         <td><?= (int)$linha['total_folgas'] ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -189,18 +151,5 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             <?php endif; ?>
         </tbody>
     </table>
-
-    <!-- 
-      IMPORTANTE:
-      - Este arquivo NÃO adiciona novos elementos de layout (formulário/modal).
-      - Para cadastrar via esta página sem alterar layout, envie um POST (por exemplo via AJAX/fetch)
-        com os campos: cpf, nome, data_folga (YYYY-MM-DD) para esta MESMA URL.
-      - Exemplo JS (opcional, não inserido para não mexer no layout):
-        fetch(location.href, {
-          method: 'POST',
-          headers: {'X-Requested-With':'XMLHttpRequest','Content-Type':'application/x-www-form-urlencoded'},
-          body: new URLSearchParams({cpf:'12345678901', nome:'Fulano', data_folga:'2025-09-05'})
-        }).then(r=>r.json()).then(console.log);
-    -->
 </body>
 </html>
