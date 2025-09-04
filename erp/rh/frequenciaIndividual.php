@@ -71,10 +71,37 @@ try {
 // Funções auxiliares para cálculo de horas
 function timeToSeconds($time)
 {
-    if (!$time || $time === '00:00:00')
-        return 0;
-    list($h, $m, $s) = explode(':', $time);
-    return $h * 3600 + $m * 60 + $s;
+    // Converte representações variadas de tempo em segundos.
+    // Aceita: "HH:MM:SS", "HH:MM", "H", "H.M" ou "H,M" (horas decimais), e "0"/vazio.
+    if ($time === null) return 0;
+    $t = trim((string)$time);
+    if ($t === '' || $t === '00:00' || $t === '00:00:00' || $t === '0' || $t === '00') return 0;
+
+    // Normaliza separadores e remove espaços
+    $tn = strtolower(str_replace([' ', 'h', 'm', 's'], ['', ':', ':', ''], $t));
+
+    // Formatos com dois-pontos (HH:MM[:SS])
+    if (strpos($tn, ':') !== false) {
+        $parts = array_map('intval', explode(':', $tn));
+        $h = $parts[0] ?? 0;
+        $m = $parts[1] ?? 0;
+        $s = $parts[2] ?? 0;
+        return $h * 3600 + $m * 60 + $s;
+    }
+
+    // Horas decimais, ex.: "1.5" (1h30) ou "1,5"
+    $tn = str_replace(',', '.', $tn);
+    if (is_numeric($tn)) {
+        $hours = (float)$tn;
+        return (int) round($hours * 3600);
+    }
+
+    // Fallback: tenta extrair números soltos
+    if (preg_match('/^(\d+)$/', $tn, $m)) {
+        return ((int)$m[1]) * 3600;
+    }
+
+    return 0;
 }
 
 function secondsToHM($seconds)
