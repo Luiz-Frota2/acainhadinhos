@@ -5,22 +5,34 @@ session_start();
 header('Content-Type: text/html; charset=utf-8');
 
 /* ========= Helpers ========= */
-function getBodyJson(): array {
+function getBodyJson(): array
+{
     $ct  = $_SERVER['CONTENT_TYPE'] ?? '';
     $raw = file_get_contents('php://input');
     if ($raw && stripos($ct, 'application/json') !== false) {
-        try { $j = json_decode($raw, true, 512, JSON_THROW_ON_ERROR); if (is_array($j)) return $j; } catch (Throwable $e) {}
+        try {
+            $j = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+            if (is_array($j)) return $j;
+        } catch (Throwable $e) {
+        }
     }
     return [];
 }
-function val($arr, $key, $default=''){ return isset($arr[$key]) ? trim((string)$arr[$key]) : $default; }
-function onlyDigits($s){ return preg_replace('/\D+/', '', (string)$s); }
-function redirVendaRapida($empresaId, $ok, $modelo, $msg=''){
+function val($arr, $key, $default = '')
+{
+    return isset($arr[$key]) ? trim((string)$arr[$key]) : $default;
+}
+function onlyDigits($s)
+{
+    return preg_replace('/\D+/', '', (string)$s);
+}
+function redirVendaRapida($empresaId, $ok, $modelo, $msg = '')
+{
     $empresaId = urlencode((string)$empresaId);
     $modelo    = urlencode((string)$modelo);
     $status    = $ok ? 'ok' : 'erro';
     $qs = "id={$empresaId}&cancel={$status}&modelo={$modelo}";
-    if ($msg !== '') $qs .= '&msg='.urlencode($msg);
+    if ($msg !== '') $qs .= '&msg=' . urlencode($msg);
     header("Location: ../frentedeloja/caixa/vendaRapida.php?{$qs}");
     exit;
 }
@@ -30,11 +42,15 @@ $in = array_merge($_POST, getBodyJson());
 
 $modelo           = val($in, 'modelo');            // 'por_chave' | 'por_motivo' | 'por_substituicao'
 $empresa_id       = val($in, 'empresa_id', $_GET['id'] ?? $_GET['empresa_id'] ?? '');
-$venda_id         = val($in, 'venda_id', $_GET['venda_id'] ?? '');
+$venda_id         = (int)val($in, 'venda_id', $_GET['venda_id'] ?? '');
 $chave            = onlyDigits(val($in, 'chave'));
 $last4            = onlyDigits(val($in, 'last4'));
 $motivo           = val($in, 'motivo');
 $chaveSubstituta  = onlyDigits(val($in, 'chave_substituta'));
+/* numero_caixa NÃO é de vendas; entra opcionalmente pela requisição
+   só para ajudar a localizar a abertura aberta correta */
+$numero_caixa_in  = val($in, 'numero_caixa', $_GET['numero_caixa'] ?? '');
+$numero_caixa_in  = ($numero_caixa_in !== '' && is_numeric($numero_caixa_in)) ? (int)$numero_caixa_in : null;
 
 /* ========= Conexão ========= */
 $pdo = null;
@@ -59,68 +75,100 @@ if (!($pdo instanceof PDO)) {
     redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'Sem conexão com o banco.');
 }
 
-/* ========= Utilitários de BD ========= */
-function carregarVendaPorId(PDO $pdo, string $empresa_id, int $venda_id): ?array {
-    $sql = "SELECT id, empresa_id, valor_total, numero_caixa, abertura_id, chave_nfce
+/* ========= Utilitários ========= */
+function hasColumn(PDO $pdo, string $table, string $column): bool
+{
+    $sql = "SELECT 1
+              FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME   = :t
+               AND COLUMN_NAME  = :c
+             LIMIT 1";
+    $st = $pdo->prepare($sql);
+    $st->execute([':t' => $table, ':c' => $column]);
+    return (bool)$st->fetchColumn();
+}
+function vendaSelectCols(PDO $pdo): string
+{
+    // Nunca incluir numero_caixa aqui (não existe em vendas)
+    $cols = ['id', 'empresa_id', 'valor_total', 'chave_nfce']; // básicas
+    if (hasColumn($pdo, 'vendas', 'abertura_id')) $cols[] = 'abertura_id';
+    return implode(',', $cols);
+}
+function carregarVendaPorId(PDO $pdo, string $empresa_id, int $venda_id): ?array
+{
+    $cols = vendaSelectCols($pdo);
+    $sql = "SELECT {$cols}
               FROM vendas
              WHERE id = :id AND empresa_id = :emp
              LIMIT 1";
     $st = $pdo->prepare($sql);
-    $st->execute([':emp'=>$empresa_id, ':id'=>$venda_id]);
+    $st->execute([':emp' => $empresa_id, ':id' => $venda_id]);
     $v = $st->fetch(PDO::FETCH_ASSOC);
     return $v ?: null;
 }
-function carregarVendaPorChave(PDO $pdo, string $empresa_id, string $chave): ?array {
-    $sql = "SELECT id, empresa_id, valor_total, numero_caixa, abertura_id, chave_nfce
+function carregarVendaPorChave(PDO $pdo, string $empresa_id, string $chave): ?array
+{
+    $cols = vendaSelectCols($pdo);
+    $sql = "SELECT {$cols}
               FROM vendas
              WHERE empresa_id = :emp AND chave_nfce = :ch
              ORDER BY id DESC
              LIMIT 1";
     $st = $pdo->prepare($sql);
-    $st->execute([':emp'=>$empresa_id, ':ch'=>$chave]);
+    $st->execute([':emp' => $empresa_id, ':ch' => $chave]);
     $v = $st->fetch(PDO::FETCH_ASSOC);
     return $v ?: null;
 }
-function atualizarAberturaPorVenda(PDO $pdo, array $venda): void {
+function latestAberturaId(PDO $pdo, string $empresa_id, ?int $numeroCaixa = null): ?int
+{
+    if ($numeroCaixa !== null) {
+        $sql = "SELECT id FROM aberturas
+                 WHERE empresa_id = :emp AND status = 'aberto' AND numero_caixa = :cx
+                 ORDER BY id DESC LIMIT 1";
+        $st  = $pdo->prepare($sql);
+        $st->execute([':emp' => $empresa_id, ':cx' => $numeroCaixa]);
+        $id = $st->fetchColumn();
+        if ($id) return (int)$id;
+    }
+    // fallback: abertura aberta mais recente da empresa (qualquer caixa)
+    $sql = "SELECT id FROM aberturas
+             WHERE empresa_id = :emp AND status = 'aberto'
+             ORDER BY id DESC LIMIT 1";
+    $st  = $pdo->prepare($sql);
+    $st->execute([':emp' => $empresa_id]);
+    $id = $st->fetchColumn();
+    return $id ? (int)$id : null;
+}
+function atualizarAberturaPorVenda(PDO $pdo, array $venda, ?int $numeroCaixaInput = null): void
+{
     $valorVenda   = (float)($venda['valor_total'] ?? 0);
     $empresa_id   = (string)$venda['empresa_id'];
-    $aberturaId   = $venda['abertura_id'] ?? null;
-    $numeroCaixa  = $venda['numero_caixa'] ?? null;
+    $aberturaId   = array_key_exists('abertura_id', $venda) ? ($venda['abertura_id'] ?? null) : null;
 
-    if ($valorVenda <= 0) return;
+    if ($valorVenda <= 0 || !$empresa_id) return;
 
+    // 1) Se temos abertura_id, atualiza diretamente
     if ($aberturaId) {
         $sql = "UPDATE aberturas
                    SET valor_total = GREATEST(0, valor_total - :v),
                        quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
                  WHERE id = :id AND empresa_id = :emp";
         $st  = $pdo->prepare($sql);
-        $st->execute([':v'=>$valorVenda, ':id'=>$aberturaId, ':emp'=>$empresa_id]);
+        $st->execute([':v' => $valorVenda, ':id' => $aberturaId, ':emp' => $empresa_id]);
         return;
     }
 
-    if ($numeroCaixa !== null) {
+    // 2) Senão, tenta a abertura aberta mais recente (por número de caixa se informado na requisição)
+    $aid = latestAberturaId($pdo, $empresa_id, $numeroCaixaInput);
+    if ($aid) {
         $sql = "UPDATE aberturas
                    SET valor_total = GREATEST(0, valor_total - :v),
                        quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
-                 WHERE empresa_id = :emp
-                   AND numero_caixa = :cx
-                   AND status = 'aberto'
-                 ORDER BY id DESC
-                 LIMIT 1";
+                 WHERE id = :id AND empresa_id = :emp";
         $st  = $pdo->prepare($sql);
-        $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id, ':cx'=>$numeroCaixa]);
-        return;
+        $st->execute([':v' => $valorVenda, ':id' => $aid, ':emp' => $empresa_id]);
     }
-
-    $sql = "UPDATE aberturas
-               SET valor_total = GREATEST(0, valor_total - :v),
-                   quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
-             WHERE empresa_id = :emp
-             ORDER BY id DESC
-             LIMIT 1";
-    $st  = $pdo->prepare($sql);
-    $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id]);
 }
 
 /* ========= Descobrir venda / empresa / chave ========= */
@@ -131,7 +179,6 @@ if ($empresa_id && $venda_id) {
 if (!$venda && $empresa_id && $chave) {
     $venda = carregarVendaPorChave($pdo, $empresa_id, $chave);
 }
-// Se empresa não veio mas chave veio, tenta puxar empresa também
 if (!$empresa_id && $chave) {
     $st = $pdo->prepare("SELECT empresa_id FROM vendas WHERE chave_nfce = :ch LIMIT 1");
     $st->execute([':ch' => $chave]);
@@ -145,8 +192,6 @@ if (!$empresa_id) {
 if (!$venda) {
     redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'Venda não encontrada.');
 }
-
-// completa a chave se faltou
 if (!$chave && !empty($venda['chave_nfce'])) $chave = onlyDigits($venda['chave_nfce']);
 
 /* ========= Deduz modelo se não veio ========= */
@@ -183,8 +228,9 @@ if ($modelo === 'por_chave') {
 }
 
 /* ========= Integração SEFAZ (placeholder) ========= */
-function runCancel($modelo, $empresa_id, $chave, $motivo, $chaveSubstituta){
-    // implemente os eventos 110111 / 110112 conforme seu emissor
+function runCancel($modelo, $empresa_id, $chave, $motivo, $chaveSubstituta)
+{
+    // implemente aqui os eventos 110111 / 110112 conforme seu emissor
     return true;
 }
 $ok = runCancel($modelo, $empresa_id, $chave, $motivo, $chaveSubstituta);
@@ -206,6 +252,7 @@ try {
     $itens = $selItens->fetchAll(PDO::FETCH_ASSOC);
 
     if ($itens) {
+        // trava e repõe
         $lockEst = $pdo->prepare("
             SELECT id, empresa_id
               FROM estoque
@@ -234,7 +281,7 @@ try {
     }
 
     // 2) Ajustar abertura (valor_total e quantidade_vendas)
-    atualizarAberturaPorVenda($pdo, $venda);
+    atualizarAberturaPorVenda($pdo, $venda, $numero_caixa_in);
 
     // 3) Apagar itens e a venda
     $di = $pdo->prepare("DELETE FROM itens_venda WHERE venda_id = :id");
@@ -244,12 +291,12 @@ try {
     $dv->execute([':id' => $venda['id'], ':emp' => $empresa_id]);
 
     $pdo->commit();
-
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    redirVendaRapida($empresa_id, false, $modelo, 'Erro ao cancelar: '.$e->getMessage());
+    redirVendaRapida($empresa_id, false, $modelo, 'Erro ao cancelar: ' . $e->getMessage());
 }
 
 /* ========= Redireciona ========= */
 redirVendaRapida($empresa_id, true, $modelo, 'Cancelado com sucesso.');
+
 ?>
