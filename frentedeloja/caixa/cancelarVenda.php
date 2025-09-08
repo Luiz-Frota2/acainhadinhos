@@ -174,7 +174,7 @@ try {
 try {
     $stmt = $pdo->prepare("
         SELECT * 
-        FROM venda_rapida 
+        FROM vendas 
         WHERE empresa_id = :empresa_id 
           AND cpf_responsavel = :cpf_responsavel 
         ORDER BY data_venda DESC
@@ -191,7 +191,6 @@ try {
 
 
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
