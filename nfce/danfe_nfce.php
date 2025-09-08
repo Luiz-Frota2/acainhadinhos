@@ -1,6 +1,6 @@
 <?php
 // danfe_nfce.php — visualização/print do DANFE NFC-e (80mm)
-// Uso: danfe_nfce.php?chave=NNNN... ou danfe_nfce.php?arq=procNFCe_...xml
+// Uso: danfe_nfce.php?chave=NNNN...&venda_id=123&id=principal_1  OU  danfe_nfce.php?arq=procNFCe_...xml
 
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
@@ -11,9 +11,11 @@ header('Content-Type: text/html; charset=utf-8');
 try {
   require_once __DIR__ . '/../assets/php/conexao.php';
 
+  // Empresa/venda vindos da URL ou sessão
   $empresaId = isset($_GET['id']) ? trim((string)$_GET['id']) : (string)($_SESSION['empresa_id'] ?? '');
   $vendaId   = isset($_GET['venda_id']) ? (int)$_GET['venda_id'] : (int)($_SESSION['venda_id'] ?? 0);
 
+  // Descobre a chave informada
   $chaveReq = null;
   if (!empty($_GET['chave'])) {
     $chaveReq = preg_replace('/\D+/', '', (string)$_GET['chave']);
@@ -28,10 +30,11 @@ try {
     }
   }
 
+  // Atualiza a venda quando já sabemos tudo
   if ($vendaId > 0 && $empresaId !== '' && $chaveReq && strlen($chaveReq) === 44) {
     $sql = "UPDATE vendas
-                   SET chave_nfce = :ch, status_nfce = 'autorizada'
-                 WHERE id = :id AND empresa_id = :emp";
+               SET chave_nfce = :ch, status_nfce = 'autorizada'
+             WHERE id = :id AND empresa_id = :emp";
     $st = $pdo->prepare($sql);
     $st->execute([':ch' => $chaveReq, ':id' => $vendaId, ':emp' => $empresaId]);
   }
@@ -174,7 +177,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       --danger: #e11d48;
       --ink: #111;
       --paper: #fff;
-      --bg: #f5f7fb;
+      --bg: #f5f7fb
     }
 
     * {
@@ -203,7 +206,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       background: var(--paper);
       border-radius: 12px;
       box-shadow: 0 10px 28px rgba(0, 0, 0, .08);
-      padding: var(--pad);
+      padding: var(--pad)
     }
 
     header h2 {
@@ -288,7 +291,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       border-top: 1px solid #e5e7eb;
       display: flex;
       gap: 10px;
-      justify-content: center;
+      justify-content: center
     }
 
     .btn {
@@ -385,7 +388,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       }
     }
 
-    /* ====== CSS do fallback da modal (apenas se usado) ====== */
+    /* Fallback modal (se a UI não existir) */
     #cv-overlay.fallback {
       position: fixed;
       inset: 0;
@@ -402,16 +405,16 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       padding: 16px;
       width: min(520px, 92vw);
       box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial
     }
 
     #cv-overlay.fallback .cv-modal h3 {
-      margin: 0 0 8px 0;
+      margin: 0 0 8px;
       font-size: 18px
     }
 
     #cv-overlay.fallback .cv-modal p {
-      margin: 0 0 12px 0;
+      margin: 0 0 12px;
       color: #374151;
       font-size: 14px
     }
@@ -618,6 +621,10 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
   </script>
 
   <?php
+  // Garante que a UI receba empresa_id e venda_id mesmo se vieram de sessão
+  if (!isset($_REQUEST['id']) && !empty($empresaId))   $_REQUEST['id'] = $_GET['id'] = $empresaId;
+  if (!isset($_REQUEST['venda_id']) && !empty($vendaId)) $_REQUEST['venda_id'] = $_GET['venda_id'] = (string)$vendaId;
+
   /* ========= inclui a UI de cancelamento (vários caminhos) ========= */
   $__cv_paths = [
     __DIR__ . '/cancelar_venda_ui.php',
@@ -640,15 +647,13 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     <div id="cv-overlay" class="fallback" style="display:none" aria-hidden="true">
       <div class="cv-modal" role="dialog" aria-modal="true" style="display:none">
         <h3>Cancelar venda</h3>
-        <p>Interface de cancelamento padrão não encontrada. Você ainda pode fechar esta janela e tentar novamente
-          quando a UI específica estiver disponível.</p>
+        <p>Interface de cancelamento padrão não encontrada.</p>
         <div class="cv-actions">
           <button type="button" class="btn" onclick="cvClose()">Fechar</button>
         </div>
       </div>
     </div>
     <script>
-      // define cvOpen/cvClose se não houver definições do arquivo original
       if (typeof window.cvOpen !== 'function') {
         window.cvOpen = function() {
           var ov = document.getElementById('cv-overlay');

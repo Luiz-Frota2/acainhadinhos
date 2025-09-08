@@ -30,6 +30,7 @@ $in = array_merge($_POST, getBodyJson());
 
 $modelo           = val($in, 'modelo');            // 'por_chave' | 'por_motivo' | 'por_substituicao'
 $empresa_id       = val($in, 'empresa_id', $_GET['id'] ?? $_GET['empresa_id'] ?? '');
+$venda_id         = val($in, 'venda_id', $_GET['venda_id'] ?? '');
 $chave            = onlyDigits(val($in, 'chave'));
 $last4            = onlyDigits(val($in, 'last4'));
 $motivo           = val($in, 'motivo');
@@ -54,25 +55,99 @@ foreach ($candidates as $p) {
         if (isset($pdo) && $pdo instanceof PDO) break;
     }
 }
-if (!isset($pdo) || !($pdo instanceof PDO)) {
-    $host = getenv('DB_HOST'); $db = getenv('DB_NAME'); $user = getenv('DB_USER'); $pass = getenv('DB_PASS');
-    if ($host && $db && $user !== false) {
-        $dsn = "mysql:host={$host};dbname={$db};charset=utf8mb4";
-        try { $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); } catch (Throwable $e) {}
-    }
-}
 if (!($pdo instanceof PDO)) {
     redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'Sem conexão com o banco.');
 }
 
-/* ========= Descobrir empresa via chave (se faltar) ========= */
-if (!$empresa_id && $chave) {
-    try {
-        $st = $pdo->prepare("SELECT empresa_id FROM vendas WHERE chave_nfce = :ch LIMIT 1");
-        $st->execute([':ch' => $chave]);
-        $empresa_id = (string)($st->fetchColumn() ?: '');
-    } catch (Throwable $e) {}
+/* ========= Utilitários de BD ========= */
+function carregarVendaPorId(PDO $pdo, string $empresa_id, int $venda_id): ?array {
+    $sql = "SELECT id, empresa_id, valor_total, numero_caixa, abertura_id, chave_nfce
+              FROM vendas
+             WHERE id = :id AND empresa_id = :emp
+             LIMIT 1";
+    $st = $pdo->prepare($sql);
+    $st->execute([':emp'=>$empresa_id, ':id'=>$venda_id]);
+    $v = $st->fetch(PDO::FETCH_ASSOC);
+    return $v ?: null;
 }
+function carregarVendaPorChave(PDO $pdo, string $empresa_id, string $chave): ?array {
+    $sql = "SELECT id, empresa_id, valor_total, numero_caixa, abertura_id, chave_nfce
+              FROM vendas
+             WHERE empresa_id = :emp AND chave_nfce = :ch
+             ORDER BY id DESC
+             LIMIT 1";
+    $st = $pdo->prepare($sql);
+    $st->execute([':emp'=>$empresa_id, ':ch'=>$chave]);
+    $v = $st->fetch(PDO::FETCH_ASSOC);
+    return $v ?: null;
+}
+function atualizarAberturaPorVenda(PDO $pdo, array $venda): void {
+    $valorVenda   = (float)($venda['valor_total'] ?? 0);
+    $empresa_id   = (string)$venda['empresa_id'];
+    $aberturaId   = $venda['abertura_id'] ?? null;
+    $numeroCaixa  = $venda['numero_caixa'] ?? null;
+
+    if ($valorVenda <= 0) return;
+
+    if ($aberturaId) {
+        $sql = "UPDATE aberturas
+                   SET valor_total = GREATEST(0, valor_total - :v),
+                       quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
+                 WHERE id = :id AND empresa_id = :emp";
+        $st  = $pdo->prepare($sql);
+        $st->execute([':v'=>$valorVenda, ':id'=>$aberturaId, ':emp'=>$empresa_id]);
+        return;
+    }
+
+    if ($numeroCaixa !== null) {
+        $sql = "UPDATE aberturas
+                   SET valor_total = GREATEST(0, valor_total - :v),
+                       quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
+                 WHERE empresa_id = :emp
+                   AND numero_caixa = :cx
+                   AND status = 'aberto'
+                 ORDER BY id DESC
+                 LIMIT 1";
+        $st  = $pdo->prepare($sql);
+        $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id, ':cx'=>$numeroCaixa]);
+        return;
+    }
+
+    $sql = "UPDATE aberturas
+               SET valor_total = GREATEST(0, valor_total - :v),
+                   quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
+             WHERE empresa_id = :emp
+             ORDER BY id DESC
+             LIMIT 1";
+    $st  = $pdo->prepare($sql);
+    $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id]);
+}
+
+/* ========= Descobrir venda / empresa / chave ========= */
+$venda = null;
+if ($empresa_id && $venda_id) {
+    $venda = carregarVendaPorId($pdo, $empresa_id, (int)$venda_id);
+}
+if (!$venda && $empresa_id && $chave) {
+    $venda = carregarVendaPorChave($pdo, $empresa_id, $chave);
+}
+// Se empresa não veio mas chave veio, tenta puxar empresa também
+if (!$empresa_id && $chave) {
+    $st = $pdo->prepare("SELECT empresa_id FROM vendas WHERE chave_nfce = :ch LIMIT 1");
+    $st->execute([':ch' => $chave]);
+    $empresa_id = (string)($st->fetchColumn() ?: '');
+    if ($empresa_id && $venda_id) $venda = carregarVendaPorId($pdo, $empresa_id, (int)$venda_id);
+    elseif ($empresa_id && !$venda && $chave) $venda = carregarVendaPorChave($pdo, $empresa_id, $chave);
+}
+if (!$empresa_id) {
+    redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'empresa_id ausente.');
+}
+if (!$venda) {
+    redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'Venda não encontrada.');
+}
+
+// completa a chave se faltou
+if (!$chave && !empty($venda['chave_nfce'])) $chave = onlyDigits($venda['chave_nfce']);
 
 /* ========= Deduz modelo se não veio ========= */
 if (!$modelo) {
@@ -106,11 +181,8 @@ if ($modelo === 'por_chave') {
 } else {
     redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'Modelo de cancelamento inválido.');
 }
-if (!$empresa_id) {
-    redirVendaRapida($empresa_id, false, $modelo, 'empresa_id ausente.');
-}
 
-/* ========= SUA integração SEFAZ ========= */
+/* ========= Integração SEFAZ (placeholder) ========= */
 function runCancel($modelo, $empresa_id, $chave, $motivo, $chaveSubstituta){
     // implemente os eventos 110111 / 110112 conforme seu emissor
     return true;
@@ -120,72 +192,11 @@ if (!$ok) {
     redirVendaRapida($empresa_id, false, $modelo, 'Falha ao cancelar na SEFAZ.');
 }
 
-/* ========= Utilitários de BD ========= */
-function carregarVenda(PDO $pdo, string $empresa_id, string $chave): ?array {
-    $sql = "SELECT id, empresa_id, valor_total, numero_caixa, abertura_id
-              FROM vendas
-             WHERE empresa_id = :emp AND chave_nfce = :ch
-             ORDER BY id DESC
-             LIMIT 1";
-    $st = $pdo->prepare($sql);
-    $st->execute([':emp'=>$empresa_id, ':ch'=>$chave]);
-    $v = $st->fetch(PDO::FETCH_ASSOC);
-    return $v ?: null;
-}
-function atualizarAberturaPorVenda(PDO $pdo, array $venda): void {
-    $valorVenda   = (float)($venda['valor_total'] ?? 0);
-    $empresa_id   = (string)$venda['empresa_id'];
-    $aberturaId   = $venda['abertura_id'] ?? null;
-    $numeroCaixa  = $venda['numero_caixa'] ?? null;
-
-    if ($valorVenda <= 0) return; // nada a ajustar
-
-    if ($aberturaId) {
-        $sql = "UPDATE aberturas
-                   SET valor_total = GREATEST(0, valor_total - :v),
-                       quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
-                 WHERE id = :id AND empresa_id = :emp";
-        $st  = $pdo->prepare($sql);
-        $st->execute([':v'=>$valorVenda, ':id'=>$aberturaId, ':emp'=>$empresa_id]);
-        return;
-    }
-
-    // fallback por caixa aberto
-    if ($numeroCaixa !== null) {
-        $sql = "UPDATE aberturas
-                   SET valor_total = GREATEST(0, valor_total - :v),
-                       quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
-                 WHERE empresa_id = :emp
-                   AND numero_caixa = :cx
-                   AND status = 'aberto'
-                 ORDER BY id DESC
-                 LIMIT 1";
-        $st  = $pdo->prepare($sql);
-        $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id, ':cx'=>$numeroCaixa]);
-        return;
-    }
-
-    // último recurso: abertura mais recente da empresa
-    $sql = "UPDATE aberturas
-               SET valor_total = GREATEST(0, valor_total - :v),
-                   quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
-             WHERE empresa_id = :emp
-             ORDER BY id DESC
-             LIMIT 1";
-    $st  = $pdo->prepare($sql);
-    $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id]);
-}
-
 /* ========= Cancelar: repor estoque + ajustar abertura + remover venda ========= */
 try {
-    $venda = carregarVenda($pdo, $empresa_id, $chave);
-    if (!$venda) {
-        redirVendaRapida($empresa_id, false, $modelo, 'Venda não encontrada para a chave informada.');
-    }
-
     $pdo->beginTransaction();
 
-    // 1) Itens → repor estoque (somar de volta)
+    // 1) Itens da venda → repor estoque
     $selItens = $pdo->prepare("
         SELECT produto_id, quantidade
           FROM itens_venda
@@ -195,7 +206,6 @@ try {
     $itens = $selItens->fetchAll(PDO::FETCH_ASSOC);
 
     if ($itens) {
-        // trava linha de estoque e repõe
         $lockEst = $pdo->prepare("
             SELECT id, empresa_id
               FROM estoque
@@ -223,15 +233,15 @@ try {
         }
     }
 
-    // 2) Ajustar abertura (tirar valor da venda e 1 venda)
+    // 2) Ajustar abertura (valor_total e quantidade_vendas)
     atualizarAberturaPorVenda($pdo, $venda);
 
-    // 3) Apagar itens e venda
+    // 3) Apagar itens e a venda
     $di = $pdo->prepare("DELETE FROM itens_venda WHERE venda_id = :id");
     $di->execute([':id' => $venda['id']]);
 
-    $dv = $pdo->prepare("DELETE FROM vendas WHERE id = :id");
-    $dv->execute([':id' => $venda['id']]);
+    $dv = $pdo->prepare("DELETE FROM vendas WHERE id = :id AND empresa_id = :emp");
+    $dv->execute([':id' => $venda['id'], ':emp' => $empresa_id]);
 
     $pdo->commit();
 
@@ -242,5 +252,4 @@ try {
 
 /* ========= Redireciona ========= */
 redirVendaRapida($empresa_id, true, $modelo, 'Cancelado com sucesso.');
-
 ?>
