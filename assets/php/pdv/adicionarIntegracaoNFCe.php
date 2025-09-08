@@ -126,7 +126,7 @@ try {
     }
 
     // Conexão com o banco de dados
-    $pdo = new PDO('mysql:host=localhost;dbname=u920914488_ERP', 'u920914488_ERP', 'N8r=$&Wrs$');
+    $pdo = new PDO('mysql:host=localhost;dbname=u922223647_erp', 'u922223647_erp', '*V5z7GqLfa~E');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Verifica se já existe integração para esta empresa
