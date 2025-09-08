@@ -22,16 +22,10 @@ if (
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-// === Helpers ===
+// Helpers
 function soDigitos(string $v): string
 {
     return preg_replace('/\D+/', '', $v) ?? '';
-}
-function formataCPF14(string $cpf): string
-{
-    $d = soDigitos($cpf);
-    if (strlen($d) !== 11) return $cpf; // retorna como veio se não tiver 11 dígitos
-    return substr($d, 0, 3) . '.' . substr($d, 3, 3) . '.' . substr($d, 6, 3) . '-' . substr($d, 9, 2);
 }
 
 $nomeUsuario        = 'Usuário';
@@ -39,13 +33,11 @@ $tipoUsuario        = 'Comum';
 $usuario_id         = (int)$_SESSION['usuario_id'];
 $tipoUsuarioSessao  = $_SESSION['nivel']; // "Admin" ou "Comum"
 
-// ✅ Carrega nome, nível E CPF do usuário (fonte depende do nível)
+// ✅ Carrega nome, nível e CPF do usuário (da tabela certa)
 try {
     if ($tipoUsuarioSessao === 'Admin') {
-        // usuários "donos" do sistema
         $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
     } else {
-        // funcionários
         $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
     }
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
@@ -55,15 +47,13 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
-        // Normaliza o CPF para o padrão 000.000.000-00 (VARCHAR(14) em aberturas)
-        $cpfUsuario  = formataCPF14($usuario['cpf'] ?? '');
-        if (strlen($cpfUsuario) !== 14) {
-            // fallback: se a sessão tiver cpf, tenta normalizar também
-            if (!empty($_SESSION['cpf'])) {
-                $cpfUsuario = formataCPF14($_SESSION['cpf']);
-            }
+        $cpfUsuario  = soDigitos($usuario['cpf'] ?? '');
+
+        // fallback: tenta da sessão se vier vazio
+        if (!$cpfUsuario && !empty($_SESSION['cpf'])) {
+            $cpfUsuario = soDigitos($_SESSION['cpf']);
         }
-        if (strlen($cpfUsuario) !== 14) {
+        if (strlen($cpfUsuario) !== 11) {
             echo "<script>alert('CPF do usuário não encontrado/ inválido.'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
             exit;
         }
@@ -78,7 +68,6 @@ try {
 
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
-    // Para principal, verifica se é admin ou se pertence à mesma empresa
     if (
         $_SESSION['tipo_empresa'] !== 'principal' &&
         !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
@@ -93,7 +82,6 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
     $idUnidade = str_replace('unidade_', '', $idSelecionado);
 
-    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
     $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
         ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
 
@@ -114,14 +102,12 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+$iconeEmpresa = '../assets/img/favicon/favicon.ico';
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
     $stmt->execute();
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if ($empresa && !empty($empresa['imagem'])) {
         $iconeEmpresa = $empresa['imagem'];
     }
@@ -129,68 +115,53 @@ try {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
 }
 
-// ✅ Consulta o saldo do caixa (com base no CPF formatado)
-$empresaId   = $idSelecionado;                // use bruto nas queries; escape só na saída HTML
-$responsavel = $nomeUsuario;                  // apenas para exibição
-$valorLiquido = 0.00;
-$mensagem     = '';
+// ✅ Consulta a abertura do caixa do usuário (status = aberto)
+$empresaIdDb  = $idSelecionado;          // para queries
+$empresaIdOut = htmlspecialchars($idSelecionado, ENT_QUOTES); // para HTML
+
+$valorLiquidoExibicao = 0.00; // saldo que vamos mostrar (abertura + movimentos)
+$mensagem  = '';
+$idAbertura = null;
+$temCaixaAberto = false;
 
 try {
-    $sql = "SELECT valor_liquido 
-              FROM aberturas 
-             WHERE empresa_id = :empresa_id 
-               AND cpf_responsavel = :cpf_responsavel 
-               AND status = 'aberto' 
-             ORDER BY id DESC 
+    $sql = "SELECT id, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido
+              FROM aberturas
+             WHERE empresa_id = :empresa_id
+               AND cpf_responsavel = :cpf_responsavel
+               AND status = 'aberto'
+             ORDER BY id DESC
              LIMIT 1";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        ':empresa_id'      => $empresaId,
-        ':cpf_responsavel' => $cpfUsuario,   // <-- agora definido
+        ':empresa_id'      => $empresaIdDb,
+        ':cpf_responsavel' => $cpfUsuario  // sem máscara, como no seu exemplo
     ]);
     $abertura = $stmt->fetch(PDO::FETCH_ASSOC);
-    $valorLiquido = $abertura ? (float)$abertura['valor_liquido'] : 0.00;
 
-    $mensagem = $valorLiquido <= 0
-        ? "<span class='text-danger fw-bold'>Saldo insuficiente para sangria.</span>"
-        : "<span class='text-success'>Saldo disponível para sangria.</span>";
+    if ($abertura) {
+        $temCaixaAberto = true;
+        $idAbertura = (int)$abertura['id'];
+
+        // Saldo real do caixa = abertura + total de vendas + suprimentos - sangrias
+        $valorLiquidoExibicao =
+            (float)$abertura['valor_abertura'] +
+            (float)$abertura['valor_total'] +
+            (float)$abertura['valor_suprimentos'] -
+            (float)$abertura['valor_sangrias'];
+
+        $mensagem = ($valorLiquidoExibicao <= 0.0)
+            ? "<span class='text-danger fw-bold'>Saldo insuficiente para sangria.</span>"
+            : "<span class='text-success'>Saldo disponível para sangria.</span>";
+    } else {
+        $mensagem = "<span class='text-danger fw-bold'>Nenhum caixa aberto para este CPF.</span>";
+    }
 } catch (PDOException $e) {
     $mensagem = "<span class='text-danger'>Erro ao buscar saldo do caixa.</span>";
     error_log("Erro saldo caixa: " . $e->getMessage());
 }
 
-// ✅ Buscar ID da abertura do caixa com base no CPF (aberto mais recente)
-try {
-    $stmt = $pdo->prepare("
-        SELECT id 
-          FROM aberturas 
-         WHERE cpf_responsavel = :cpf_responsavel 
-           AND empresa_id = :empresa_id 
-           AND status = 'aberto'
-         ORDER BY id DESC 
-         LIMIT 1
-    ");
-    $stmt->execute([
-        ':cpf_responsavel' => $cpfUsuario,
-        ':empresa_id'      => $empresaId
-    ]);
-    $resultado  = $stmt->fetch(PDO::FETCH_ASSOC);
-    $idAbertura = $resultado ? (int)$resultado['id'] : null;
-} catch (PDOException $e) {
-    $idAbertura = null;
-    $mensagem = "<span class='text-danger'>Erro ao buscar ID do caixa.</span>";
-    error_log("Erro id abertura: " . $e->getMessage());
-}
-
-/*
-    A partir daqui, sua view/HTML pode usar:
-    - $nomeUsuario, $tipoUsuario, $cpfUsuario
-    - $empresaId, $iconeEmpresa
-    - $valorLiquido, $mensagem
-    - $idAbertura
-*/
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -469,47 +440,47 @@ try {
 
                     <div class="card">
                         <div class="card-body">
-                            <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
+                            <!-- Mostra o aviso SÓ se não houver caixa aberto -->
+                            <div id="avisoSemCaixa" class="alert alert-danger text-center" style="<?= $temCaixaAberto ? 'display:none;' : '' ?>">
                                 Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
                             </div>
 
                             <form
-                                action="../../assets/php/frentedeloja/processarSangria.php?id=<?= urlencode($idSelecionado); ?>"
+                                action="../../assets/php/frentedeloja/processarSangria.php?id=<?= $empresaIdOut; ?>"
                                 method="POST" onsubmit="return confirmarSangria();">
 
                                 <div class="mb-3">
                                     <label for="valor" class="form-label">Valor da Sangria (R$)</label>
-                                    <input type="number" step="0.01" class="form-control" name="valor" id="valor"
-                                        required>
+                                    <input type="number" step="0.01" class="form-control" name="valor" id="valor" required>
                                 </div>
 
                                 <div class="mb-3">
                                     <label for="saldo_caixa" class="form-label">Saldo do Caixa</label>
-                                    <input type="number" step="0.01" class="form-control" name="saldo_caixa"
-                                        id="saldo_caixa" value="<?= number_format($valorLiquido, 2, '.', '') ?>"
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        class="form-control"
+                                        name="saldo_caixa"
+                                        id="saldo_caixa"
+                                        value="<?= number_format($valorLiquidoExibicao, 2, '.', '') ?>"
                                         readonly>
                                     <div class="form-text mt-1"><?= $mensagem ?></div>
                                 </div>
-                                <input type="hidden" name="idSelecionado"
-                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
 
-                                <input type="hidden" id="responsavel" name="responsavel"
-                                    value="<?= ucwords($nomeUsuario); ?>">
-
+                                <input type="hidden" name="idSelecionado" value="<?= $empresaIdOut; ?>" />
+                                <input type="hidden" id="responsavel" name="responsavel" value="<?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?>">
                                 <input type="hidden" name="data_registro" id="data_registro">
+                                <!-- Envia o CPF sem máscara, igual salvo em aberturas.cpf_responsavel -->
+                                <input type="hidden" id="cpf" name="cpf" value="<?= htmlspecialchars($cpfUsuario, ENT_QUOTES); ?>">
 
-                                <input type="hidden" id="cpf" name="cpf" value="<?= ucwords($cpfUsuario); ?>">
+                                <?php if ($temCaixaAberto && $idAbertura): ?>
+                                    <input type="hidden" id="id_caixa" name="id_caixa" value="<?= (int)$idAbertura; ?>">
+                                <?php endif; ?>
 
-                                <?php
-                                // Exibe o campo id_caixa se houver resultado
-                                if ($resultado && isset($resultado['id'])) {
-                                    $idAbertura = $resultado['id'];
-                                    echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
-                                }
-                                ?>
                                 <div class="mb-3">
-                                    <button class="btn btn-primary d-grid w-100" type="submit">Registrar
-                                        Sangria</button>
+                                    <button class="btn btn-primary d-grid w-100" type="submit" <?= $temCaixaAberto ? '' : 'disabled' ?>>
+                                        Registrar Sangria
+                                    </button>
                                 </div>
                             </form>
 
