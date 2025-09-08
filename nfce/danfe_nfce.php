@@ -168,13 +168,11 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
   <style>
     :root {
       --ticket-max: 384px;
-      /* largura visual no mobile (~80mm) */
       --pad: 12px;
       --qr: 210px;
       --accent: #1a73e8;
       --danger: #e11d48;
       --ink: #111;
-      --muted: #6b7280;
       --paper: #fff;
       --bg: #f5f7fb;
     }
@@ -202,7 +200,6 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       width: 100%;
       max-width: var(--ticket-max);
       margin: 10px auto 92px;
-      /* espaço pros botões fixos */
       background: var(--paper);
       border-radius: 12px;
       box-shadow: 0 10px 28px rgba(0, 0, 0, .08);
@@ -268,7 +265,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       margin: 8px auto;
       width: min(var(--qr), calc(100% - 2*var(--pad)));
       height: auto;
-      aspect-ratio: 1/1;
+      aspect-ratio: 1/1
     }
 
     .badge {
@@ -329,7 +326,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       filter: brightness(.95)
     }
 
-    @media (max-width: 420px) {
+    @media (max-width:420px) {
       body {
         font-size: 12px
       }
@@ -340,7 +337,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       }
 
       :root {
-        --qr: 180px;
+        --qr: 180px
       }
 
       .tbl thead th,
@@ -349,8 +346,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       }
     }
 
-    /* torna o card full-bleed em telas muito estreitas (ex.: 320px) */
-    @media (max-width: 340px) {
+    @media (max-width:340px) {
       .wrapper {
         border-radius: 0;
         box-shadow: none;
@@ -358,7 +354,6 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       }
     }
 
-    /* impressão no rolo 80mm */
     @page {
       size: 80mm auto;
       margin: 3mm;
@@ -388,6 +383,49 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
         width: 210px;
         height: 210px
       }
+    }
+
+    /* ====== CSS do fallback da modal (apenas se usado) ====== */
+    #cv-overlay.fallback {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(0, 0, 0, .45);
+      z-index: 60
+    }
+
+    #cv-overlay.fallback .cv-modal {
+      display: none;
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      width: min(520px, 92vw);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .25);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif
+    }
+
+    #cv-overlay.fallback .cv-modal h3 {
+      margin: 0 0 8px 0;
+      font-size: 18px
+    }
+
+    #cv-overlay.fallback .cv-modal p {
+      margin: 0 0 12px 0;
+      color: #374151;
+      font-size: 14px
+    }
+
+    #cv-overlay.fallback .cv-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 12px
+    }
+
+    #cv-overlay.fallback .btn {
+      font-size: 14px;
+      padding: 10px 14px
     }
   </style>
 </head>
@@ -454,12 +492,10 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
           <td class="left"><b>VALOR TOTAL R$</b></td>
           <td class="right"><?= $vNF ?></td>
         </tr>
-        <?php if ($vDesc !== '0,00'): ?>
-          <tr>
+        <?php if ($vDesc !== '0,00'): ?><tr>
             <td class="left"><b>DESCONTO</b></td>
             <td class="right">- <?= $vDesc ?></td>
-          </tr>
-        <?php endif; ?>
+          </tr><?php endif; ?>
         <tr>
           <td class="left"><b>FORMA DE PAGAMENTO</b></td>
           <td class="right"><?= htmlspecialchars(mapTPag($tPag)) ?></td>
@@ -468,25 +504,18 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
           <td class="left"><b>VALOR PAGO</b></td>
           <td class="right"><?= $vPag ?></td>
         </tr>
-        <?php if ($vTroco !== '0,00'): ?>
-          <tr>
+        <?php if ($vTroco !== '0,00'): ?><tr>
             <td class="left"><b>TROCO</b></td>
             <td class="right"><?= $vTroco ?></td>
-          </tr>
-        <?php endif; ?>
+          </tr><?php endif; ?>
       </tbody>
     </table>
 
-    <?php if ($vTrib !== '0,00'): ?>
-      <div class="small">Inf. dos Tributos Totais Incidentes (Lei 12.741/2012): R$ <?= $vTrib ?></div>
-    <?php endif; ?>
+    <?php if ($vTrib !== '0,00'): ?><div class="small">Inf. dos Tributos Totais Incidentes (Lei 12.741/2012): R$ <?= $vTrib ?></div><?php endif; ?>
 
     <div class="hr"></div>
 
-    <div class="small">
-      Nº: <?= htmlspecialchars($nNF) ?> &nbsp;&nbsp; Série: <?= htmlspecialchars($serie) ?>
-      &nbsp;&nbsp; Emissão: <?= htmlspecialchars($dhEmi) ?>
-    </div>
+    <div class="small">Nº: <?= htmlspecialchars($nNF) ?> &nbsp;&nbsp; Série: <?= htmlspecialchars($serie) ?> &nbsp;&nbsp; Emissão: <?= htmlspecialchars($dhEmi) ?></div>
 
     <div class="center" style="margin-top:6px">
       <div class="small"><b>CHAVE DE ACESSO</b></div>
@@ -505,9 +534,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
 
     <div class="hr"></div>
 
-    <?php if ($protInfo): ?>
-      <div class="small"><?= htmlspecialchars($protInfo) ?></div>
-    <?php endif; ?>
+    <?php if ($protInfo): ?><div class="small"><?= htmlspecialchars($protInfo) ?></div><?php endif; ?>
   </div>
 
   <!-- Barra fixa de ações -->
@@ -524,7 +551,6 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       var el = document.getElementById('qrcode');
 
       function size() {
-        // usa a largura real do container para escalar o QR
         var w = Math.min(210, Math.max(140, el.clientWidth || 180));
         return {
           w: w,
@@ -537,17 +563,16 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
           el.innerHTML = '';
           return;
         }
-        el.innerHTML = ''; // limpa caso recalcule
+        el.innerHTML = '';
         try {
           var s = size();
-          if (window.QRCode) {
-            new QRCode(el, {
-              text: qrTxt,
-              width: s.w,
-              height: s.h,
-              correctLevel: QRCode.CorrectLevel.M
-            });
-          } else {
+          if (window.QRCode) new QRCode(el, {
+            text: qrTxt,
+            width: s.w,
+            height: s.h,
+            correctLevel: QRCode.CorrectLevel.M
+          });
+          else {
             var img = new Image();
             img.className = 'qr';
             img.alt = 'QR Code';
@@ -558,7 +583,6 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
           console.warn('QR falhou:', e);
         }
       }
-
       window.addEventListener('load', buildQR);
       window.addEventListener('resize', function() {
         clearTimeout(window.__qr);
@@ -569,22 +593,90 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
         window.print();
       });
 
-      // abre o modal de cancelamento se exposto pelo seu cancelar_venda_ui.php
+      function openCancelUiFallback() {
+        var overlay = document.getElementById('cv-overlay');
+        var modal = document.querySelector('#cv-escolha, #cv-escolha-modal, .cv-modal');
+        if (overlay) {
+          overlay.style.display = 'grid';
+          overlay.removeAttribute('aria-hidden');
+        }
+        if (modal) {
+          modal.style.display = 'grid';
+          modal.removeAttribute('aria-hidden');
+        }
+      }
       document.getElementById('nfce-cancelar').addEventListener('click', function() {
         if (typeof window.cvOpen === 'function') {
-          window.cvOpen();
-        } else {
-          alert('Interface de cancelamento não carregada.');
+          try {
+            window.cvOpen();
+            return;
+          } catch (_) {}
         }
+        openCancelUiFallback();
       });
     })();
   </script>
 
   <?php
-  // Modal/UI de cancelamento
-  $modalUi = __DIR__ . '/cancelar_venda_ui.php';
-  if (is_file($modalUi)) include $modalUi;
-  ?>
+  /* ========= inclui a UI de cancelamento (vários caminhos) ========= */
+  $__cv_paths = [
+    __DIR__ . '/cancelar_venda_ui.php',
+    __DIR__ . '/../nfce/cancelar_venda_ui.php',
+    __DIR__ . '/../frentedeloja/caixa/cancelar_venda_ui.php',
+    __DIR__ . '/../modals/cancelar_venda_ui.php',
+    __DIR__ . '/modals/cancelar_venda_ui.php',
+  ];
+  $__cv_included = false;
+  foreach ($__cv_paths as $__p) {
+    if (is_file($__p)) {
+      include $__p;
+      $__cv_included = true;
+      break;
+    }
+  }
+
+  /* ========= fallback minimal se o arquivo não existir ========= */
+  if (!$__cv_included): ?>
+    <div id="cv-overlay" class="fallback" style="display:none" aria-hidden="true">
+      <div class="cv-modal" role="dialog" aria-modal="true" style="display:none">
+        <h3>Cancelar venda</h3>
+        <p>Interface de cancelamento padrão não encontrada. Você ainda pode fechar esta janela e tentar novamente
+          quando a UI específica estiver disponível.</p>
+        <div class="cv-actions">
+          <button type="button" class="btn" onclick="cvClose()">Fechar</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      // define cvOpen/cvClose se não houver definições do arquivo original
+      if (typeof window.cvOpen !== 'function') {
+        window.cvOpen = function() {
+          var ov = document.getElementById('cv-overlay');
+          var md = ov ? ov.querySelector('.cv-modal') : null;
+          if (ov) {
+            ov.style.display = 'grid';
+            ov.removeAttribute('aria-hidden');
+          }
+          if (md) {
+            md.style.display = 'block';
+            md.focus && md.focus();
+          }
+        };
+      }
+      if (typeof window.cvClose !== 'function') {
+        window.cvClose = function() {
+          var ov = document.getElementById('cv-overlay');
+          var md = ov ? ov.querySelector('.cv-modal') : null;
+          if (md) md.style.display = 'none';
+          if (ov) {
+            ov.style.display = 'none';
+            ov.setAttribute('aria-hidden', 'true');
+          }
+        };
+      }
+    </script>
+  <?php endif; ?>
+
 </body>
 
 </html>
