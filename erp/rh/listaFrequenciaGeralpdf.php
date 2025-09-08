@@ -236,15 +236,6 @@ function calcularAdicionalNoturno($entrada, $saida_intervalo, $retorno_intervalo
     return $totalMinutosNoturnos;
 }
 
-function calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiaria)
-{
-    $cargaHorariaMinutos = $cargaHorariaDiaria;
-    if ($cargaHorariaMinutos <= 0) return 0;
-
-    $diferenca = $horasTrabalhadas - $cargaHorariaMinutos;
-    return $diferenca > 0 ? $diferenca : 0;
-}
-
 function calcularCargaHorariaDiaria($funcionario)
 {
     if (!$funcionario['entrada'] || !$funcionario['saida_final'] || $funcionario['entrada'] === '--:--' || $funcionario['saida_final'] === '--:--') {
@@ -348,7 +339,6 @@ try {
             'horasExtras' => 0,
             'horasPendentes' => 0,
             'atrasos' => 0,
-            'saidasAntecipadas' => 0,
             'horasDevidas' => 0,
             'horasExcedentes' => 0,
             'adicionalNoturno' => 0,
@@ -356,7 +346,7 @@ try {
             'diasFolga' => count($folgas)
         ];
 
-        // === Estatísticas por dia (sem "Dia Incompleto"; Hora Extra vem do banco) ===
+        // === Estatísticas por dia (sem "Dia Incompleto"; Hora Extra vem do banco; sem saída antecipada) ===
         foreach ($todosOsDias as $data => $ponto) {
             if ($ponto === null) {
                 continue; // Dia sem registro
@@ -412,7 +402,7 @@ try {
                 $estatisticas['horasDevidas']   += converterHoraParaDecimal($ponto['horas_pendentes']);
             }
 
-            // atrasos e saídas antecipadas só quando NÃO há hora extra nem adicional noturno
+            // Atraso (sem saída antecipada)
             if ($horaExtraMin <= 0 && $minutosNoturnos <= 0) {
                 // atraso > 10min
                 if (
@@ -421,15 +411,6 @@ try {
                 ) {
                     $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
                     if ($diffEntrada > 10) $estatisticas['atrasos']++;
-                }
-
-                // saída antecipada
-                if (
-                    !empty($funcionario['saida_final']) && $funcionario['saida_final'] !== '--:--'
-                    && !empty($ponto['saida_final']) && $ponto['saida_final'] !== '--:--'
-                ) {
-                    $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
-                    if ($diffSaida > 0) $estatisticas['saidasAntecipadas']++;
                 }
             }
         }
@@ -1320,11 +1301,11 @@ try {
                                                                 $normal = true;
                                                             }
 
-                                                            // Ocorrências (sem "Dia Incompleto")
+                                                            // Ocorrências (sem "Dia Incompleto" e sem "Saída Antecip.")
                                                             if ($minutosNoturnos > 0) $ocorrencias[] = 'Ad. Noturno';
                                                             if ($horasExtrasMin > 0)  $ocorrencias[] = 'Hora Extra';
 
-                                                            // Atraso e saída antecipada só se não houver HE nem Noturno
+                                                            // Atraso só se não houver HE nem Noturno
                                                             if ($horasExtrasMin <= 0 && $minutosNoturnos <= 0) {
                                                                 if (
                                                                     !empty($funcionario['entrada']) && $funcionario['entrada'] !== '--:--'
@@ -1332,14 +1313,6 @@ try {
                                                                 ) {
                                                                     $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
                                                                     if ($diffEntrada > 10) $ocorrencias[] = 'Atraso';
-                                                                }
-
-                                                                if (
-                                                                    !empty($funcionario['saida_final']) && $funcionario['saida_final'] !== '--:--'
-                                                                    && !empty($ponto['saida_final']) && $ponto['saida_final'] !== '--:--'
-                                                                ) {
-                                                                    $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
-                                                                    if ($diffSaida > 0) $ocorrencias[] = 'Saída Antecip.';
                                                                 }
                                                             }
                                                         ?>
