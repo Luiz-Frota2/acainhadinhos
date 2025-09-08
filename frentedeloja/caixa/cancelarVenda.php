@@ -1,52 +1,127 @@
 <?php
-session_start();
-require_once '../../assets/php/conexao.php';
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-// Recupera o identificador vindo da URL (ex: principal_1, filial_3)
+session_start();
+
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
-// Verifica se o usuário está logado e possui as variáveis essenciais
+// ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id'])
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
-    header("Location: ../index.php?id=$idSelecionado");
+    header("Location: ./index.php?id=$idSelecionado");
     exit;
 }
 
-// Valida o tipo de empresa e o acesso permitido baseado no idSelecionado
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+/** Helpers **/
+function soDigitos(string $v): string
+{
+    return preg_replace('/\D+/', '', $v) ?? '';
+}
+
+$nomeUsuario       = 'Usuário';
+$tipoUsuario       = 'Comum';
+$usuario_id        = (int)$_SESSION['usuario_id'];
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
+
+// ⛏️ Tentar obter CPF do usuário logado (evita "Undefined variable $cpfUsuario")
+$cpfUsuario = '';
+if (!empty($_SESSION['cpf'])) {
+    $cpfUsuario = soDigitos((string)$_SESSION['cpf']);
+} else {
+    // Tenta buscar na base dependendo do tipo
+    try {
+        if ($tipoUsuarioSessao === 'Admin') {
+            // Se a tabela tiver coluna cpf
+            $stmtCpf = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id LIMIT 1");
+        } else {
+            $stmtCpf = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id LIMIT 1");
+        }
+        $stmtCpf->execute([':id' => $usuario_id]);
+        $rowCpf = $stmtCpf->fetch(PDO::FETCH_ASSOC);
+        if ($rowCpf && !empty($rowCpf['cpf'])) {
+            $cpfUsuario = soDigitos((string)$rowCpf['cpf']);
+        }
+    } catch (Throwable $e) {
+        // Silencia caso a coluna/consulta não exista. Mantém $cpfUsuario = ''.
+    }
+}
+
+try {
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+    if ($tipoUsuarioSessao === 'Admin') {
+        // Buscar na tabela de contas_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        // Buscar na tabela de funcionarios_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
+
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+    // Para principal, verifica se é admin ou se pertence à mesma empresa
+    if (
+        $_SESSION['tipo_empresa'] !== 'principal' &&
+        !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+    ) {
         echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
+            alert('Acesso negado!');
+            window.location.href = './index.php?id=$idSelecionado';
+        </script>";
         exit;
     }
     $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $idUnidade = str_replace('unidade_', '', $idSelecionado);
+
+    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+    $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+        ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
+    if (!$acessoPermitido) {
         echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
+            alert('Acesso negado!');
+            window.location.href = './index.php?id=$idSelecionado';
+        </script>";
         exit;
     }
-    $id = $idFilial;
+    $id = $idUnidade;
 } else {
     echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '../index.php?id=$idSelecionado';
-      </script>";
+        alert('Empresa não identificada!');
+        window.location.href = './index.php?id=$idSelecionado';
+    </script>";
     exit;
 }
 
-// ✅ Buscar imagem da empresa (favicon)
-$iconeEmpresa = '../assets/img/favicon/favicon.ico';
-
+// ✅ Buscar imagem da empresa para usar como favicon
+// Observação: vamos montar um caminho seguro. Se no banco já vier um caminho com "/", usamos direto; se for só o nome do arquivo, usamos a pasta padrão.
+$faviconHref = "../../assets/img/empresa/favicon.ico"; // padrão
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
@@ -54,39 +129,16 @@ try {
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($empresa && !empty($empresa['imagem'])) {
-        $iconeEmpresa = $empresa['imagem'];
+        $img = (string)$empresa['imagem'];
+        if (strpos($img, '/') !== false) {
+            $faviconHref = $img; // já é um caminho/URL
+        } else {
+            $faviconHref = "../../assets/img/empresa/" . $img;
+        }
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
-}
-
-// Se chegou até aqui, acesso está liberado
-$usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // Ex: "Admin" ou "Funcionario"
-$nomeUsuario = 'Usuário';
-$cpfUsuario = null;
-
-// Buscar dados do usuário (nome, cpf, nível) conforme o tipo
-try {
-    if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
-    } else {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
-    }
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $cpfUsuario = preg_replace('/\D/', '', $usuario['cpf'] ?? '');
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar dados do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
-    exit;
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    // Não mostra erro para o usuário para não quebrar a página
 }
 
 // Buscar abertura aberta para este usuário (CPF) e empresa
@@ -522,15 +574,14 @@ try {
 
     </div>
     <script>
-
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             const idCaixa = document.getElementById('id_caixa');
             const form = document.querySelector('table');
             const aviso = document.getElementById('avisoSemCaixa');
 
             if (!idCaixa || !idCaixa.value.trim()) {
-                form.style.display = 'none';     // Oculta o formulário
-                aviso.style.display = 'block';   // Exibe o alerta
+                form.style.display = 'none'; // Oculta o formulário
+                aviso.style.display = 'block'; // Exibe o alerta
             }
         });
     </script>
