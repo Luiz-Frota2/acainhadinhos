@@ -22,7 +22,7 @@ try {
     if (preg_match('/^[\w.\-\/]+$/', $arq) && is_file($arq)) {
       $xmlTmp = @file_get_contents($arq);
       if ($xmlTmp) {
-        if (preg_match('/Id="NFe(\d{44})"/', $xmlTmp, $m))       $chaveReq = $m[1];
+        if (preg_match('/Id="NFe(\d{44})"/', $xmlTmp, $m))             $chaveReq = $m[1];
         elseif (preg_match('/<chNFe>(\d{44})<\/chNFe>/', $xmlTmp, $m)) $chaveReq = $m[1];
       }
     }
@@ -167,11 +167,10 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
   <title>DANFE NFC-e</title>
   <style>
     :root {
-      /* largura visual (tela) e de impressão */
-      --ticket-screen-max: 380px;
-      /* ~80mm visual */
-      --ticket-padding: 12px;
-      --qr-size: 210px;
+      --ticket-max: 384px;
+      /* largura visual no mobile (~80mm) */
+      --pad: 12px;
+      --qr: 210px;
       --accent: #1a73e8;
       --danger: #e11d48;
       --ink: #111;
@@ -183,7 +182,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     * {
       box-sizing: border-box;
       -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      -moz-osx-font-smoothing: grayscale
     }
 
     html,
@@ -192,38 +191,38 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       padding: 0;
       background: var(--bg);
       color: var(--ink);
-      -webkit-text-size-adjust: 100%;
+      -webkit-text-size-adjust: 100%
     }
 
     body {
-      font: 13px/1.4 monospace;
+      font: 13px/1.45 monospace
     }
 
     .wrapper {
       width: 100%;
-      max-width: var(--ticket-screen-max);
-      margin: 12px auto 84px;
-      /* espaço para barra fixa */
+      max-width: var(--ticket-max);
+      margin: 10px auto 92px;
+      /* espaço pros botões fixos */
       background: var(--paper);
-      border-radius: 10px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, .06);
-      padding: var(--ticket-padding);
+      border-radius: 12px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, .08);
+      padding: var(--pad);
     }
 
     header h2 {
       font-size: 14px;
       margin: 4px 0 2px;
-      text-transform: uppercase;
+      text-transform: uppercase
     }
 
     .small {
       font-size: 11px;
-      color: var(--ink);
+      color: #111
     }
 
     .hr {
       border-top: 1px dashed #000;
-      margin: 8px 0;
+      margin: 8px 0
     }
 
     .tbl {
@@ -267,15 +266,16 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     .qr {
       display: block;
       margin: 8px auto;
-      width: var(--qr-size);
-      height: var(--qr-size)
+      width: min(var(--qr), calc(100% - 2*var(--pad)));
+      height: auto;
+      aspect-ratio: 1/1;
     }
 
     .badge {
       display: inline-block;
-      background: #e5e7eb;
-      color: #111;
-      padding: 2px 6px;
+      background: #eef2ff;
+      color: #1f2937;
+      padding: 3px 6px;
       border-radius: 6px;
       font-size: 10px
     }
@@ -285,8 +285,8 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       left: 0;
       right: 0;
       bottom: 0;
-      z-index: 20;
-      padding: 10px env(safe-area-inset-right) 10px env(safe-area-inset-left);
+      z-index: 50;
+      padding: 10px env(safe-area-inset-right) calc(10px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
       background: #fff;
       border-top: 1px solid #e5e7eb;
       display: flex;
@@ -298,7 +298,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       appearance: none;
       border: 0;
       border-radius: 10px;
-      padding: 10px 14px;
+      padding: 11px 16px;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       font-weight: 600;
       cursor: pointer;
@@ -329,23 +329,32 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       filter: brightness(.95)
     }
 
-    @media (max-width: 400px) {
+    @media (max-width: 420px) {
       body {
         font-size: 12px
       }
 
       .wrapper {
-        margin: 8px auto 80px;
-        border-radius: 8px
+        margin: 6px auto 88px;
+        border-radius: 10px
       }
 
       :root {
-        --qr-size: 180px;
+        --qr: 180px;
       }
 
       .tbl thead th,
       .tbl td {
         padding: 2px 0
+      }
+    }
+
+    /* torna o card full-bleed em telas muito estreitas (ex.: 320px) */
+    @media (max-width: 340px) {
+      .wrapper {
+        border-radius: 0;
+        box-shadow: none;
+        margin: 0 auto 88px
       }
     }
 
@@ -403,11 +412,11 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     <table class="tbl small" aria-label="Itens">
       <colgroup>
         <col style="width:16%">
-        <col style="width:40%">
+        <col style="width:42%">
         <col style="width:10%">
         <col style="width:8%">
-        <col style="width:13%">
-        <col style="width:13%">
+        <col style="width:12%">
+        <col style="width:12%">
       </colgroup>
       <thead>
         <tr>
@@ -501,37 +510,48 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     <?php endif; ?>
   </div>
 
-  <!-- Barra fixa de ações (não aparece na impressão) -->
-  <div class="actions noprint" aria-label="Ações">
+  <!-- Barra fixa de ações -->
+  <div class="actions" aria-label="Ações">
     <button id="btn-print" class="btn btn-primary" type="button">Imprimir</button>
     <button id="nfce-cancelar" class="btn btn-danger" type="button" title="Cancelar NFC-e (110111/110112)">Cancelar NFC-e</button>
   </div>
 
-  <!-- QRCode JS (CDN). Se preferir, baixe qrcode.min.js local e troque o src. -->
+  <!-- QRCode JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
     (function() {
       var qrTxt = <?= json_encode($qrTxt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
       var el = document.getElementById('qrcode');
 
+      function size() {
+        // usa a largura real do container para escalar o QR
+        var w = Math.min(210, Math.max(140, el.clientWidth || 180));
+        return {
+          w: w,
+          h: w
+        };
+      }
+
       function buildQR() {
         if (!qrTxt) {
           el.innerHTML = '';
           return;
         }
+        el.innerHTML = ''; // limpa caso recalcule
         try {
+          var s = size();
           if (window.QRCode) {
             new QRCode(el, {
               text: qrTxt,
-              width: el.clientWidth || 210,
-              height: el.clientHeight || 210,
+              width: s.w,
+              height: s.h,
               correctLevel: QRCode.CorrectLevel.M
             });
           } else {
             var img = new Image();
             img.className = 'qr';
             img.alt = 'QR Code';
-            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=210x210&data=' + encodeURIComponent(qrTxt);
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=' + s.w + 'x' + s.h + '&data=' + encodeURIComponent(qrTxt);
             el.appendChild(img);
           }
         } catch (e) {
@@ -539,20 +559,29 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
         }
       }
 
-      // a largura pode não estar pronta antes do layout
       window.addEventListener('load', buildQR);
+      window.addEventListener('resize', function() {
+        clearTimeout(window.__qr);
+        window.__qr = setTimeout(buildQR, 120);
+      });
 
-      // ações
       document.getElementById('btn-print').addEventListener('click', function() {
         window.print();
       });
 
-      // o botão #nfce-cancelar é tratado em cancelar_venda_ui.php (modal)
+      // abre o modal de cancelamento se exposto pelo seu cancelar_venda_ui.php
+      document.getElementById('nfce-cancelar').addEventListener('click', function() {
+        if (typeof window.cvOpen === 'function') {
+          window.cvOpen();
+        } else {
+          alert('Interface de cancelamento não carregada.');
+        }
+      });
     })();
   </script>
 
   <?php
-  // Modal/UI de cancelamento (mantém seu arquivo de UI)
+  // Modal/UI de cancelamento
   $modalUi = __DIR__ . '/cancelar_venda_ui.php';
   if (is_file($modalUi)) include $modalUi;
   ?>
