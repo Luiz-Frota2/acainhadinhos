@@ -1,19 +1,15 @@
 <?php
-
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
 header('Content-Type: text/html; charset=utf-8');
 
-// ==== Helpers ================================================================
+/* ========= Helpers ========= */
 function getBodyJson(): array {
     $ct  = $_SERVER['CONTENT_TYPE'] ?? '';
     $raw = file_get_contents('php://input');
     if ($raw && stripos($ct, 'application/json') !== false) {
-        try {
-            $j = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-            if (is_array($j)) return $j;
-        } catch (Throwable $e) { /* ignora */ }
+        try { $j = json_decode($raw, true, 512, JSON_THROW_ON_ERROR); if (is_array($j)) return $j; } catch (Throwable $e) {}
     }
     return [];
 }
@@ -23,12 +19,13 @@ function redirVendaRapida($empresaId, $ok, $modelo, $msg=''){
     $empresaId = urlencode((string)$empresaId);
     $modelo    = urlencode((string)$modelo);
     $status    = $ok ? 'ok' : 'erro';
-    $msg       = $msg ? ('&msg='.urlencode($msg)) : '';
-    header("Location: ../frentedeloja/caixa/vendaRapida.php?id={$empresaId}&cancel={$status}&modelo={$modelo}{$msg}");
+    $qs = "id={$empresaId}&cancel={$status}&modelo={$modelo}";
+    if ($msg !== '') $qs .= '&msg='.urlencode($msg);
+    header("Location: ../frentedeloja/caixa/vendaRapida.php?{$qs}");
     exit;
 }
 
-// ==== Normaliza entrada (POST + JSON) =======================================
+/* ========= Entrada ========= */
 $in = array_merge($_POST, getBodyJson());
 
 $modelo           = val($in, 'modelo');            // 'por_chave' | 'por_motivo' | 'por_substituicao'
@@ -38,7 +35,7 @@ $last4            = onlyDigits(val($in, 'last4'));
 $motivo           = val($in, 'motivo');
 $chaveSubstituta  = onlyDigits(val($in, 'chave_substituta'));
 
-// ==== Conexão PDO (procura em caminhos comuns do seu projeto) ===============
+/* ========= Conexão ========= */
 $pdo = null;
 $candidates = [
     __DIR__ . '/assets/conexao.php',
@@ -61,27 +58,30 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
     $host = getenv('DB_HOST'); $db = getenv('DB_NAME'); $user = getenv('DB_USER'); $pass = getenv('DB_PASS');
     if ($host && $db && $user !== false) {
         $dsn = "mysql:host={$host};dbname={$db};charset=utf8mb4";
-        try { $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); } catch (Throwable $e) { /* passa */ }
+        try { $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]); } catch (Throwable $e) {}
     }
 }
+if (!($pdo instanceof PDO)) {
+    redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'Sem conexão com o banco.');
+}
 
-// ==== Se empresa_id faltou, tenta descobrir via chave_nfce ===================
-if (!$empresa_id && $pdo && $chave) {
+/* ========= Descobrir empresa via chave (se faltar) ========= */
+if (!$empresa_id && $chave) {
     try {
         $st = $pdo->prepare("SELECT empresa_id FROM vendas WHERE chave_nfce = :ch LIMIT 1");
         $st->execute([':ch' => $chave]);
         $empresa_id = (string)($st->fetchColumn() ?: '');
-    } catch (Throwable $e) { /* ignora */ }
+    } catch (Throwable $e) {}
 }
 
-// ==== Fallback: deduz modelo se não informado ================================
+/* ========= Deduz modelo se não veio ========= */
 if (!$modelo) {
     if ($chave && $last4 && !$chaveSubstituta) $modelo = 'por_chave';
     elseif ($chave && $chaveSubstituta)        $modelo = 'por_substituicao';
     elseif ($motivo)                            $modelo = 'por_motivo';
 }
 
-// ==== Validações por modelo ==================================================
+/* ========= Validações ========= */
 if ($modelo === 'por_chave') {
     if (strlen($chave) !== 44) {
         redirVendaRapida($empresa_id, false, $modelo, 'Chave inválida (44 dígitos).');
@@ -104,110 +104,143 @@ if ($modelo === 'por_chave') {
         redirVendaRapida($empresa_id, false, $modelo, 'A chave substituta deve ser diferente da chave a cancelar.');
     }
 } else {
-    redirVendaRapida($empresa_id, false, $modelo, 'Modelo de cancelamento inválido.');
+    redirVendaRapida($empresa_id, false, $modelo ?: 'desconhecido', 'Modelo de cancelamento inválido.');
 }
-
-// Se ainda não temos empresa_id, aborta com erro explícito
 if (!$empresa_id) {
-    redirVendaRapida($empresa_id, false, $modelo, 'empresa_id ausente');
+    redirVendaRapida($empresa_id, false, $modelo, 'empresa_id ausente.');
 }
 
-// ==== Ponto de integração: chame sua rotina SEFAZ ============================
+/* ========= SUA integração SEFAZ ========= */
 function runCancel($modelo, $empresa_id, $chave, $motivo, $chaveSubstituta){
-    // Integre aqui:
-    // if ($modelo === 'por_chave')        { /* evento 110111 */ }
-    // if ($modelo === 'por_substituicao') { /* evento 110112 (usa $chaveSubstituta) */ }
-    // if ($modelo === 'por_motivo')       { /* cancelamento interno */ }
+    // implemente os eventos 110111 / 110112 conforme seu emissor
     return true;
 }
-
 $ok = runCancel($modelo, $empresa_id, $chave, $motivo, $chaveSubstituta);
-
-// ==== Exclusão da venda (apenas se $ok === true) =============================
-if ($ok && $pdo) {
-    try {
-        $pdo->beginTransaction();
-
-        $vendaId = null;
-        if ($chave) {
-            $st = $pdo->prepare("SELECT id FROM vendas WHERE empresa_id = :emp AND chave_nfce = :ch ORDER BY id DESC LIMIT 1");
-            $st->execute([':emp'=>$empresa_id, ':ch'=>$chave]);
-            $vendaId = $st->fetchColumn();
-        }
-        if (!$vendaId) {
-            // 1) Buscar itens da venda e repor estoque
-$selItens = $pdo->prepare("
-    SELECT produto_id, quantidade
-      FROM itens_venda
-     WHERE venda_id = :id
-");
-$selItens->execute([':id' => $vendaId]);
-$itens = $selItens->fetchAll(PDO::FETCH_ASSOC);
-
-// Trava e repõe por item
-$lockEst = $pdo->prepare("
-    SELECT id, empresa_id
-      FROM estoque
-     WHERE id = :id
-     FOR UPDATE
-");
-$updEst = $pdo->prepare("
-    UPDATE estoque
-       SET quantidade_produto = quantidade_produto + :qtd
-     WHERE id = :id AND empresa_id = :emp
-");
-
-foreach ($itens as $it) {
-    $pid = (int)$it['produto_id'];
-    $qtd = (float)$it['quantidade'];
-
-    // trava a linha do estoque
-    $lockEst->execute([':id' => $pid]);
-    $row = $lockEst->fetch(PDO::FETCH_ASSOC);
-
-    if (!$row) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        redirVendaRapida($empresa_id, false, $modelo, "Produto $pid não encontrado no estoque para devolução.");
-    }
-    if ((string)$row['empresa_id'] !== (string)$empresa_id) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        redirVendaRapida($empresa_id, false, $modelo, "Produto $pid pertence a outra empresa.");
-    }
-
-    // repõe a quantidade
-    $updEst->execute([':qtd' => $qtd, ':id' => $pid, ':emp' => $empresa_id]);
+if (!$ok) {
+    redirVendaRapida($empresa_id, false, $modelo, 'Falha ao cancelar na SEFAZ.');
 }
 
-// 2) Agora sim, apague os itens e a venda
-$di = $pdo->prepare("DELETE FROM itens_venda WHERE venda_id = :id");
-$di->execute([':id' => $vendaId]);
+/* ========= Utilitários de BD ========= */
+function carregarVenda(PDO $pdo, string $empresa_id, string $chave): ?array {
+    $sql = "SELECT id, empresa_id, valor_total, numero_caixa, abertura_id
+              FROM vendas
+             WHERE empresa_id = :emp AND chave_nfce = :ch
+             ORDER BY id DESC
+             LIMIT 1";
+    $st = $pdo->prepare($sql);
+    $st->execute([':emp'=>$empresa_id, ':ch'=>$chave]);
+    $v = $st->fetch(PDO::FETCH_ASSOC);
+    return $v ?: null;
+}
+function atualizarAberturaPorVenda(PDO $pdo, array $venda): void {
+    $valorVenda   = (float)($venda['valor_total'] ?? 0);
+    $empresa_id   = (string)$venda['empresa_id'];
+    $aberturaId   = $venda['abertura_id'] ?? null;
+    $numeroCaixa  = $venda['numero_caixa'] ?? null;
 
-$dv = $pdo->prepare("DELETE FROM vendas WHERE id = :id");
-$dv->execute([':id' => $vendaId]);
+    if ($valorVenda <= 0) return; // nada a ajustar
 
-            $st = $pdo->prepare("SELECT id FROM vendas WHERE empresa_id = :emp ORDER BY id DESC LIMIT 1");
-            $st->execute([':emp'=>$empresa_id]);
-            $vendaId = $st->fetchColumn();
-        }
-
-        if ($vendaId) {
-            $di = $pdo->prepare("DELETE FROM itens_venda WHERE venda_id = :id");
-            $di->execute([':id'=>$vendaId]);
-
-            $dv = $pdo->prepare("DELETE FROM vendas WHERE id = :id");
-            $dv->execute([':id'=>$vendaId]);
-        }
-
-        $pdo->commit();
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        redirVendaRapida($empresa_id, false, $modelo, 'Erro ao remover venda: '.$e->getMessage());
+    if ($aberturaId) {
+        $sql = "UPDATE aberturas
+                   SET valor_total = GREATEST(0, valor_total - :v),
+                       quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
+                 WHERE id = :id AND empresa_id = :emp";
+        $st  = $pdo->prepare($sql);
+        $st->execute([':v'=>$valorVenda, ':id'=>$aberturaId, ':emp'=>$empresa_id]);
+        return;
     }
+
+    // fallback por caixa aberto
+    if ($numeroCaixa !== null) {
+        $sql = "UPDATE aberturas
+                   SET valor_total = GREATEST(0, valor_total - :v),
+                       quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
+                 WHERE empresa_id = :emp
+                   AND numero_caixa = :cx
+                   AND status = 'aberto'
+                 ORDER BY id DESC
+                 LIMIT 1";
+        $st  = $pdo->prepare($sql);
+        $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id, ':cx'=>$numeroCaixa]);
+        return;
+    }
+
+    // último recurso: abertura mais recente da empresa
+    $sql = "UPDATE aberturas
+               SET valor_total = GREATEST(0, valor_total - :v),
+                   quantidade_vendas = GREATEST(0, quantidade_vendas - 1)
+             WHERE empresa_id = :emp
+             ORDER BY id DESC
+             LIMIT 1";
+    $st  = $pdo->prepare($sql);
+    $st->execute([':v'=>$valorVenda, ':emp'=>$empresa_id]);
 }
 
-// ==== Redireciona para a Venda Rápida =======================================
-if ($ok) {
-    redirVendaRapida($empresa_id, true, $modelo, '');
-} else {
-    redirVendaRapida($empresa_id, false, $modelo, 'Falha ao cancelar.');
+/* ========= Cancelar: repor estoque + ajustar abertura + remover venda ========= */
+try {
+    $venda = carregarVenda($pdo, $empresa_id, $chave);
+    if (!$venda) {
+        redirVendaRapida($empresa_id, false, $modelo, 'Venda não encontrada para a chave informada.');
+    }
+
+    $pdo->beginTransaction();
+
+    // 1) Itens → repor estoque (somar de volta)
+    $selItens = $pdo->prepare("
+        SELECT produto_id, quantidade
+          FROM itens_venda
+         WHERE venda_id = :id
+    ");
+    $selItens->execute([':id' => $venda['id']]);
+    $itens = $selItens->fetchAll(PDO::FETCH_ASSOC);
+
+    if ($itens) {
+        // trava linha de estoque e repõe
+        $lockEst = $pdo->prepare("
+            SELECT id, empresa_id
+              FROM estoque
+             WHERE id = :id
+             FOR UPDATE
+        ");
+        $updEst = $pdo->prepare("
+            UPDATE estoque
+               SET quantidade_produto = quantidade_produto + :qtd
+             WHERE id = :id AND empresa_id = :emp
+        ");
+        foreach ($itens as $it) {
+            $pid = (int)$it['produto_id'];
+            $qtd = (float)$it['quantidade'];
+
+            $lockEst->execute([':id' => $pid]);
+            $row = $lockEst->fetch(PDO::FETCH_ASSOC);
+            if (!$row) {
+                throw new RuntimeException("Produto {$pid} não encontrado no estoque para devolução.");
+            }
+            if ((string)$row['empresa_id'] !== (string)$empresa_id) {
+                throw new RuntimeException("Produto {$pid} pertence a outra empresa.");
+            }
+            $updEst->execute([':qtd' => $qtd, ':id' => $pid, ':emp' => $empresa_id]);
+        }
+    }
+
+    // 2) Ajustar abertura (tirar valor da venda e 1 venda)
+    atualizarAberturaPorVenda($pdo, $venda);
+
+    // 3) Apagar itens e venda
+    $di = $pdo->prepare("DELETE FROM itens_venda WHERE venda_id = :id");
+    $di->execute([':id' => $venda['id']]);
+
+    $dv = $pdo->prepare("DELETE FROM vendas WHERE id = :id");
+    $dv->execute([':id' => $venda['id']]);
+
+    $pdo->commit();
+
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    redirVendaRapida($empresa_id, false, $modelo, 'Erro ao cancelar: '.$e->getMessage());
 }
+
+/* ========= Redireciona ========= */
+redirVendaRapida($empresa_id, true, $modelo, 'Cancelado com sucesso.');
+
+?>
