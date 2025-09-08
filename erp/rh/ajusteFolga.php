@@ -1,4 +1,5 @@
 <?php
+
 session_start();
 require_once '../../assets/php/conexao.php';
 
@@ -57,27 +58,6 @@ try {
     : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
   $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
-}
-
-// ✅ Buscar escalas e setores com base no idSelecionado
-$escalas = [];
-$setores = [];
-
-try {
-  // Buscar escalas filtradas pelo idSelecionado (empresa_id)
-  $stmt = $pdo->prepare("SELECT nome_escala, data_escala FROM escalas WHERE empresa_id = :empresa_id");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $escalas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-  // Buscar setores filtrados pelo idSelecionado (id_selecionado)
-  $stmt = $pdo->prepare("SELECT nome, gerente FROM setores WHERE id_selecionado = :id_selecionado");
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $setores = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-  echo "Erro ao buscar escalas ou setores: " . $e->getMessage();
-  exit;
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -152,7 +132,7 @@ try {
     <div class="layout-container">
       <!-- Menu -->
 
-      <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+    <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
@@ -377,14 +357,10 @@ try {
                       </div>
                     </a>
                   </li>
-                  <li>
-                    <div class="dropdown-divider"></div>
-                  </li>
+                  <li><div class="dropdown-divider"></div></li>
                   <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i> Minha Conta</a></li>
                   <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i> Configurações</a></li>
-                  <li>
-                    <div class="dropdown-divider"></div>
-                  </li>
+                  <li><div class="dropdown-divider"></div></li>
                   <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i> Sair</a></li>
                 </ul>
               </li>
