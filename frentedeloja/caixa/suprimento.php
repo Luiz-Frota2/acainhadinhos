@@ -13,7 +13,7 @@ if (
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id']) ||
-    !isset($_SESSION['nivel'])
+    !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
     header("Location: ./index.php?id=$idSelecionado");
     exit;
@@ -22,25 +22,21 @@ if (
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-// ===== Helpers =====
-function soDigitos(string $v): string
-{
-    return preg_replace('/\D+/', '', $v) ?? '';
-}
-
-// ===== Carrega usuário (nome, nível, CPF) =====
-$nomeUsuario        = 'Usuário';
-$tipoUsuario        = 'Comum';
-$usuario_id         = (int)$_SESSION['usuario_id'];
-$tipoUsuarioSessao  = $_SESSION['nivel']; // "Admin" ou "Comum"
-$cpfUsuario         = '';
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
     if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+        // Buscar na tabela de contas_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     } else {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+        // Buscar na tabela de funcionarios_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
     }
+
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
     $stmt->execute();
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -48,117 +44,168 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
-        $cpfUsuario  = soDigitos($usuario['cpf'] ?? '');
-
-        // fallback: sessão
-        if (!$cpfUsuario && !empty($_SESSION['cpf'])) {
-            $cpfUsuario = soDigitos($_SESSION['cpf']);
-        }
-        if (strlen($cpfUsuario) !== 11) {
-            echo "<script>alert('CPF do usuário não encontrado/ inválido.'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
-            exit;
-        }
     } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-// ===== Valida o tipo de empresa e acesso =====
+// ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
+    // Para principal, verifica se é admin ou se pertence à mesma empresa
     if (
         $_SESSION['tipo_empresa'] !== 'principal' &&
         !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
     ) {
-        echo "<script>alert('Acesso negado!'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
+        echo "<script>
+            alert('Acesso negado!');
+            window.location.href = './index.php?id=$idSelecionado';
+        </script>";
         exit;
     }
     $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
     $idUnidade = str_replace('unidade_', '', $idSelecionado);
+
+    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
     $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
         ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
 
     if (!$acessoPermitido) {
-        echo "<script>alert('Acesso negado!'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
+        echo "<script>
+            alert('Acesso negado!');
+            window.location.href = './index.php?id=$idSelecionado';
+        </script>";
         exit;
     }
     $id = $idUnidade;
 } else {
-    echo "<script>alert('Empresa não identificada!'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
+    echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = './index.php?id=$idSelecionado';
+    </script>";
     exit;
 }
 
-// ===== Ícone empresa (opcional) =====
-$iconeEmpresa = '../assets/img/favicon/favicon.ico';
+// ✅ Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
+
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
     $stmt->execute();
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
     if ($empresa && !empty($empresa['imagem'])) {
         $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    // Não mostra erro para o usuário para não quebrar a página
 }
 
-/* ========= Regras de Suprimento ========= */
-$limiteSuprimento = 30.00; // quando saldo abaixo disso, sugerir suprimento
+// Defina seu limite de saldo para sangria (ex: R$ 500,00)
+$limiteSuprimento = 30.00;
 
-$empresaIdDb   = $idSelecionado;                           // p/ query
-$empresaIdHTML = htmlspecialchars($idSelecionado, ENT_QUOTES);
-$responsavel   = htmlspecialchars($nomeUsuario, ENT_QUOTES);
-
-$temCaixaAberto = false;
-$idAbertura     = null;
-$saldoAtual     = 0.00;   // abertura + vendas + suprimentos - sangrias
-$valorLiquido   = 0.00;   // coluna gerada (vendas + suprimentos - sangrias)
-$mensagem       = '';
+// Variáveis esperadas já definidas:
+$empresaId = htmlspecialchars($idSelecionado); // ou a variável correspondente
+$responsavel = htmlspecialchars($nomeUsuario); // ou a variável correspondente ao usuário logado
 
 try {
-    // Busca a abertura aberta do responsável (por CPF sem máscara)
-    $sql = "SELECT id, valor_abertura, valor_total, valor_suprimentos, valor_sangrias, valor_liquido
-              FROM aberturas
-             WHERE empresa_id = :empresa_id
-               AND cpf_responsavel = :cpf
-               AND status = 'aberto'
-             ORDER BY id DESC
-             LIMIT 1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':empresa_id' => $empresaIdDb,
-        ':cpf'        => $cpfUsuario
-    ]);
-    $ab = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($ab) {
-        $temCaixaAberto = true;
-        $idAbertura     = (int)$ab['id'];
-        $valorLiquido   = (float)$ab['valor_liquido']; // total + suprimentos - sangrias
-        $saldoAtual     = (float)$ab['valor_abertura'] + (float)$ab['valor_total']
-            + (float)$ab['valor_suprimentos'] - (float)$ab['valor_sangrias'];
-
-        // mensagens pelo limite (usa saldoAtual para refletir dinheiro em caixa)
-        if ($saldoAtual < $limiteSuprimento) {
-            $mensagem = "<span class='text-danger fw-bold'>Necessário realizar a solicitação de suprimento!</span>";
-        } else {
-            $mensagem = "<span class='text-success'>Saldo dentro do limite.</span>";
-        }
+    // Se o CPF do usuário logado estiver disponível, buscar pelo cpf_responsavel
+    if ($cpfUsuario) {
+        $sql = "SELECT valor_liquido 
+                FROM aberturas 
+                WHERE empresa_id = :empresa_id 
+                AND cpf_responsavel = :cpf_responsavel 
+                AND status = 'aberto' 
+                ORDER BY id DESC 
+                LIMIT 1";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':empresa_id' => $empresaId,
+            ':cpf_responsavel' => $cpfUsuario
+        ]);
     } else {
-        $mensagem = "<span class='text-danger fw-bold'>Nenhum caixa aberto para este CPF.</span>";
+        // Fallback para buscar pelo nome do responsável
+        $sql = "SELECT valor_liquido 
+                FROM aberturas 
+                WHERE empresa_id = :empresa_id 
+                AND responsavel = :responsavel 
+                AND status = 'aberto' 
+                ORDER BY id DESC 
+                LIMIT 1";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            ':empresa_id' => $empresaId,
+            ':responsavel' => $responsavel
+        ]);
+    }
+
+    $aberturas = $stmt->fetch(PDO::FETCH_ASSOC);
+    $valorLiquido = $aberturas ? (float) $aberturas['valor_liquido'] : 0.00;
+
+    // Mensagem com base no limite
+    if ($valorLiquido < $limiteSuprimento) {
+        $mensagem = "<span class='text-danger fw-bold'>Necessário realizar a solicitação de suprimento!</span>";
+    } else {
+        $mensagem = "<span class='text-success'>Saldo dentro do limite.</span>";
     }
 } catch (PDOException $e) {
+    $valorLiquido = 0.00;
     $mensagem = "<span class='text-danger'>Erro ao buscar saldo do caixa.</span>";
-    error_log("Erro suprimento caixa: " . $e->getMessage());
 }
 
-// Para exibir no campo "Saldo do Caixa", faz mais sentido mostrar o saldoAtual (dinheiro na gaveta)
-$saldoParaExibir = $saldoAtual;
+// Supondo que esses dados venham da sessão ou variável de sessão
+$responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
+$empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
 
+if (!$responsavel || !$empresa_id) {
+    die("Erro: Dados de sessão ausentes.");
+}
+
+try {
+    // Se o CPF do usuário logado estiver disponível, buscar abertura pelo cpf_responsavel
+    if ($cpfUsuario) {
+        $stmt = $pdo->prepare("
+            SELECT id 
+            FROM aberturas 
+            WHERE cpf_responsavel = :cpf_responsavel 
+              AND empresa_id = :empresa_id 
+              AND status = 'aberto'
+            ORDER BY id DESC 
+            LIMIT 1
+        ");
+        $stmt->execute([
+            'cpf_responsavel' => $cpfUsuario,
+            'empresa_id' => $empresa_id
+        ]);
+    } else {
+        // Fallback para buscar pelo nome do responsável
+        $stmt = $pdo->prepare("
+            SELECT id 
+            FROM aberturas 
+            WHERE responsavel = :responsavel 
+              AND empresa_id = :empresa_id 
+              AND status = 'aberto'
+            ORDER BY id DESC 
+            LIMIT 1
+        ");
+        $stmt->execute([
+            'responsavel' => $responsavel,
+            'empresa_id' => $empresa_id
+        ]);
+    }
+
+    // Busca o resultado e verifica se existe algum ID
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $resultado = false;
+    // Você pode tratar o erro conforme necessário
+}
 ?>
 
 <!DOCTYPE html>
@@ -435,44 +482,54 @@ $saldoParaExibir = $saldoAtual;
                     </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Registrar entrada de valores do caixa</h5>
 
+
                     <div class="card">
                         <div class="card-body">
-                            <!-- Mostra o aviso SÓ se não houver caixa aberto -->
-                            <div id="avisoSemCaixa" class="alert alert-danger text-center" style="<?= $temCaixaAberto ? 'display:none;' : '' ?>">
-                                Nenhum caixa está aberto. Por favor, abra um caixa para continuar.
+                            <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
+                                Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
                             </div>
 
                             <form
-                                action="../../assets/php/frentedeloja/processarSuprimento.php?id=<?= $empresaIdHTML; ?>"
-                                method="POST" onsubmit="return confirmarSuprimento();">
+                                action="../../assets/php/frentedeloja/processarSuprimento.php?id=<?= urlencode($idSelecionado); ?>"
+                                method="POST" onsubmit="return confirmarSangria();">
 
                                 <div class="mb-3">
                                     <label for="valor_suprimento" class="form-label">Valor do Suprimento (R$)</label>
-                                    <input type="number" step="0.01" min="0.01" class="form-control" name="valor_suprimento"
-                                        id="valor_suprimento" required <?= $temCaixaAberto ? '' : 'disabled' ?>>
+                                    <input type="number" step="0.01" class="form-control" name="valor_suprimento"
+                                        id="valor_suprimento" required>
                                 </div>
 
                                 <div class="mb-3">
                                     <label for="saldo_caixa" class="form-label">Saldo do Caixa</label>
                                     <input type="number" step="0.01" class="form-control" name="saldo_caixa"
-                                        id="saldo_caixa" value="<?= number_format($saldoParaExibir, 2, '.', '') ?>" readonly>
+                                        id="saldo_caixa" value="<?= number_format($valorLiquido, 2, '.', '') ?>"
+                                        readonly>
                                     <div class="form-text mt-1"><?= $mensagem ?></div>
                                 </div>
 
-                                <input type="hidden" name="idSelecionado" value="<?= $empresaIdHTML; ?>">
-                                <input type="hidden" id="responsavel" name="responsavel" value="<?= $responsavel; ?>">
-                                <input type="hidden" name="data_registro" id="data_registro_dispositivo">
-                                <!-- CPF sem máscara, igual salvo em aberturas.cpf_responsavel -->
-                                <input type="hidden" id="cpf" name="cpf" value="<?= htmlspecialchars($cpfUsuario, ENT_QUOTES); ?>">
+                                <input type="hidden" name="idSelecionado"
+                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
 
-                                <?php if ($temCaixaAberto && $idAbertura): ?>
-                                    <input type="hidden" id="id_caixa" name="id_caixa" value="<?= (int)$idAbertura; ?>">
-                                <?php endif; ?>
+                                <input type="hidden" id="responsavel" name="responsavel"
+                                    value="<?= ucwords($nomeUsuario); ?>">
+
+                                <input type="hidden" name="data_registro" id="data_registro_dispositivo">
+
+
+                                <input type="hidden" id="cpf" name="cpf" value="<?= ucwords($cpfUsuario); ?>">
 
                                 <div class="mb-3">
-                                    <button class="btn btn-primary d-grid w-100" type="submit" <?= $temCaixaAberto ? '' : 'disabled' ?>>
-                                        Registrar Suprimento
-                                    </button>
+                                    <?php
+                                    if ($resultado) {
+                                        $idAbertura = $resultado['id'];
+                                        echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
+                                    } else {
+                                        echo "";
+                                    }
+                                    ?>
+
+                                    <button class="btn btn-primary d-grid w-100" type="submit">Registrar
+                                        Suprimento</button>
                                 </div>
                             </form>
 
