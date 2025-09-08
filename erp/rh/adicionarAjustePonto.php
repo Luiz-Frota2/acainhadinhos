@@ -140,7 +140,7 @@ try {
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-          <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -206,7 +206,7 @@ try {
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
                 </a>
               </li>
-              <li class="menu-item ">
+              <li class="menu-item">
                 <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                 </a>
@@ -273,12 +273,7 @@ try {
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
-          </li>
+
           <?php
           $isFilial = str_starts_with($idSelecionado, 'filial_');
           $link = $isFilial

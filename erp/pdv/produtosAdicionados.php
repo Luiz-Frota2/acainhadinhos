@@ -1,70 +1,34 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = $idFilial;
-} else {
-  echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-  exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
-try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
-} catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
-}
-
-// ✅ Se chegou até aqui, o acesso está liberado
-
-// ✅ Buscar nome e nível do usuário logado
+// ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -75,18 +39,58 @@ try {
 
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
   }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 try {
   // Consulta para filtrar os produtos pela empresa selecionada
   $sql = "SELECT * FROM estoque WHERE empresa_id = :empresa_id";
   $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR); // Usa o idSelecionado
+  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $estoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -176,7 +180,7 @@ try {
 
           <!-- SEÇÃO ADMINISTRATIVO -->
           <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">Administrativo</span>
+            <span class="menu-header-text">PDV</span>
           </li>
 
           <!-- SUBMENU: SEFAZ -->
@@ -192,8 +196,8 @@ try {
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./sefazSAT.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">SAT</div>
+                <a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Status</div>
                 </a>
               </li>
               <li class="menu-item">
@@ -295,7 +299,12 @@ try {
             <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
-
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
             </a>
           </li>
           <li class="menu-item">
@@ -304,26 +313,38 @@ try {
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
-          </li>
           <?php
-          $isFilial = str_starts_with($idSelecionado, 'filial_');
-          $link = $isFilial
-            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-            : '../filial/index.php?id=principal_1';
-          $titulo = $isFilial ? 'Matriz' : 'Filial';
-          ?>
+          $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+          $idLogado = $_SESSION['empresa_id'] ?? '';
 
-          <li class="menu-item">
-            <a href="<?= $link ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications"><?= $titulo ?></div>
-            </a>
-          </li>
+          // Se for matriz (principal), mostrar links para filial, franquia e unidade
+          if ($tipoLogado === 'principal') {
+          ?>
+            <li class="menu-item">
+              <a href="../filial/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Authentications">Filial</div>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="Authentications">Franquias</div>
+              </a>
+            </li>
+          <?php
+          } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+            // Se for filial, franquia ou unidade, mostra link para matriz
+          ?>
+            <li class="menu-item">
+              <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-cog"></i>
+                <div data-i18n="Authentications">Matriz</div>
+              </a>
+            </li>
+          <?php
+          }
+          ?>
           <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
@@ -366,28 +387,25 @@ try {
             <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
-              <!-- Place this tag where you want the button to render. -->
               <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
-                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                   <li>
                     <a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                              class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <!-- Exibindo o nome e nível do usuário -->
-                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                         </div>
                       </div>
                     </a>
@@ -396,7 +414,7 @@ try {
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
+                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-user me-2"></i>
                       <span class="align-middle">Minha Conta</span>
                     </a>
@@ -408,15 +426,6 @@ try {
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
@@ -425,81 +434,88 @@ try {
                       <span class="align-middle">Sair</span>
                     </a>
                   </li>
-
                 </ul>
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
         <!-- / Navbar -->
 
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Produtos
-            Adicionados</h4>
+          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Produtos Adicionados</h4>
+
           <div class="card">
             <h5 class="card-header">Lista de Produtos Adicionados</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover">
                 <thead>
                   <tr>
+                    <th>Código</th>
                     <th>Produto</th>
                     <th>Categoria</th>
                     <th>Quantidade</th>
                     <th>Preço Unitário</th>
                     <th>Status</th>
+                    <th>Ações</th>
                   </tr>
                 </thead>
-                <?php foreach ($estoque as $estoques): ?>
-                  <tbody class="table-border-bottom-0">
+                <tbody class="table-border-bottom-0">
+                  <?php foreach ($estoque as $estoques): ?>
                     <tr>
-                      <input type="hidden" value="<?= htmlspecialchars($estoques['id']) ?>">
+                      <td><?= htmlspecialchars($estoques['codigo_produto']) ?></td>
                       <td><?= htmlspecialchars($estoques['nome_produto']) ?></td>
                       <td><?= htmlspecialchars($estoques['categoria_produto']) ?></td>
                       <td><?= htmlspecialchars($estoques['quantidade_produto']) ?></td>
-                      <td><?= htmlspecialchars($estoques['preco_produto']) ?></td>
+                      <td>R$ <?= number_format($estoques['preco_produto'], 2, ',', '.') ?></td>
                       <td>
                         <?php if ($estoques['status_produto'] == 'estoque_alto'): ?>
                           <span class="badge bg-success me-1">Estoque Alto</span>
                         <?php elseif ($estoques['status_produto'] == 'estoque_baixo'): ?>
                           <span class="badge bg-danger">Estoque Baixo</span>
+                        <?php elseif ($estoques['status_produto'] == 'ativo'): ?>
+                          <span class="badge bg-primary">Ativo</span>
+                        <?php elseif ($estoques['status_produto'] == 'inativo'): ?>
+                          <span class="badge bg-secondary">Inativo</span>
                         <?php else: ?>
                           <span class="badge bg-warning">Não definido</span>
                         <?php endif; ?>
                       </td>
                       <td>
+                        <div class="d-flex">
+                          <!-- Botão Editar -->
+                          <a href="#" class="text-primary me-2" data-bs-toggle="modal"
+                            data-bs-target="#editProdutoModal_<?= $estoques['id'] ?>"
+                            title="Editar">
+                            <i class="tf-icons bx bx-edit"></i>
+                          </a>
 
-                        <a href="#" data-bs-toggle="modal" data-bs-target="#editProdutoModal_<?= $estoques['id'] ?>"
-                          data-empresa-id="<?= $idSelecionado ?>" data-produto-id="<?= $estoques['id'] ?>">
-                          <i class="tf-icons bx bx-edit"></i>
-                        </a>
-
-                        <span class="mx-2">|</span>
-
-                        <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
-                          data-bs-target="#deleteEstoqueModal_<?php echo $estoques['id']; ?>">
-                          <i class="tf-icons bx bx-trash"></i>
-                        </button>
+                          <!-- Botão Excluir -->
+                          <a href="#" class="text-danger" data-bs-toggle="modal"
+                            data-bs-target="#deleteEstoqueModal_<?= $estoques['id'] ?>"
+                            title="Excluir">
+                            <i class="tf-icons bx bx-trash"></i>
+                          </a>
+                        </div>
 
                         <!-- Modal de Excluir Estoque -->
-                        <div class="modal fade" id="deleteEstoqueModal_<?php echo $estoques['id']; ?>" tabindex="-1"
-                          aria-labelledby="deleteEstoqueModalLabel_<?php echo $estoques['id']; ?>" aria-hidden="true">
+                        <div class="modal fade" id="deleteEstoqueModal_<?= $estoques['id'] ?>" tabindex="-1"
+                          aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="deleteEstoqueModalLabel_<?php echo $estoques['id']; ?>">
-                                  Excluir Produto</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                  aria-label="Fechar"></button>
+                                <h5 class="modal-title">Excluir Produto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                               </div>
                               <div class="modal-body">
-                                <p>Tem certeza de que deseja excluir o produto
-                                  "<?php echo htmlspecialchars($estoques['nome_produto']); ?>"?</p>
-                                <a href="../../assets/php/pdv/excluirEstoque.php?id=<?php echo $estoques['id']; ?>&empresa_id=<?php echo urlencode($idSelecionado); ?>"
-                                  class="btn btn-danger">Sim, excluir</a>
-                                <button type="button" class="btn btn-secondary mx-2"
-                                  data-bs-dismiss="modal">Cancelar</button>
+                                <p>Tem certeza de que deseja excluir o produto "<?= htmlspecialchars($estoques['nome_produto']) ?>"?</p>
+                              </div>
+                              <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <a href="../../assets/php/pdv/excluirEstoque.php?id=<?= $estoques['id'] ?>&empresa_id=<?= urlencode($idSelecionado) ?>"
+                                  class="btn btn-danger">Excluir</a>
                               </div>
                             </div>
                           </div>
@@ -507,77 +523,103 @@ try {
 
                         <!-- Modal de Editar Produto -->
                         <div class="modal fade" id="editProdutoModal_<?= $estoques['id'] ?>" tabindex="-1"
-                          aria-labelledby="editProdutoModalLabel_<?= $estoques['id'] ?>" aria-hidden="true">
-                          <div class="modal-dialog">
+                          aria-hidden="true">
+                          <div class="modal-dialog modal-lg">
                             <div class="modal-content">
-
                               <div class="modal-header">
-                                <h5 class="modal-title" id="editProdutoModalLabel_<?= $estoques['id'] ?>">Editar Produto
-                                </h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                  aria-label="Fechar"></button>
+                                <h5 class="modal-title">Editar Produto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                               </div>
-
                               <div class="modal-body">
                                 <form action="../../assets/php/pdv/editarEstoque.php" method="POST">
-                                  <!-- ID do produto -->
                                   <input type="hidden" name="id" value="<?= htmlspecialchars($estoques['id']) ?>">
+                                  <input type="text" name="empresa_id" value="<?= $idSelecionado ?>">
 
-                                  <!-- ID da empresa (idSelecionado) -->
-                                  <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
+                                  <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">Código do Produto (GTIN/EAN)</label>
+                                      <input type="text" class="form-control" name="codigo_produto"
+                                        value="<?= htmlspecialchars($estoques['codigo_produto']) ?>" required>
+                                    </div>
 
-                                  <div class="mb-3">
-                                    <label for="nome_produto" class="form-label">Nome Produto</label>
-                                    <input type="text" class="form-control" id="nome_produto" name="nome_produto"
-                                      value="<?= htmlspecialchars($estoques['nome_produto']) ?>" required>
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">Nome do Produto*</label>
+                                      <input type="text" class="form-control" name="nome_produto"
+                                        value="<?= htmlspecialchars($estoques['nome_produto']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">NCM*</label>
+                                      <input type="text" class="form-control" name="ncm"
+                                        value="<?= htmlspecialchars($estoques['ncm']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">CFOP*</label>
+                                      <input type="text" class="form-control" name="cfop"
+                                        value="<?= htmlspecialchars($estoques['cfop']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Categoria*</label>
+                                      <input type="text" class="form-control" name="categoria_produto"
+                                        value="<?= htmlspecialchars($estoques['categoria_produto']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Quantidade*</label>
+                                      <input type="number" step="0.01" class="form-control" name="quantidade_produto"
+                                        value="<?= htmlspecialchars($estoques['quantidade_produto']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Unidade*</label>
+                                      <select class="form-select" name="unidade" required>
+                                        <option value="UN" <?= $estoques['unidade'] === 'UN' ? 'selected' : '' ?>>UN - Unidade</option>
+                                        <option value="KG" <?= $estoques['unidade'] === 'KG' ? 'selected' : '' ?>>KG - Quilograma</option>
+                                        <option value="LT" <?= $estoques['unidade'] === 'LT' ? 'selected' : '' ?>>LT - Litro</option>
+                                        <option value="CX" <?= $estoques['unidade'] === 'CX' ? 'selected' : '' ?>>CX - Caixa</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Preço Unitário (R$)*</label>
+                                      <input type="text" class="form-control money" name="preco_produto"
+                                        value="<?= number_format($estoques['preco_produto'], 2, ',', '.') ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Preço de Custo (R$)</label>
+                                      <input type="text" class="form-control money" name="preco_custo"
+                                        value="<?= isset($estoques['preco_custo']) ? number_format($estoques['preco_custo'], 2, ',', '.') : '' ?>">
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Status*</label>
+                                      <select class="form-select" name="status_produto" required>
+                                        <option value="ativo" <?= $estoques['status_produto'] === 'ativo' ? 'selected' : '' ?>>Ativo</option>
+                                        <option value="inativo" <?= $estoques['status_produto'] === 'inativo' ? 'selected' : '' ?>>Inativo</option>
+                                        <option value="estoque_alto" <?= $estoques['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
+                                        <option value="estoque_baixo" <?= $estoques['status_produto'] === 'estoque_baixo' ? 'selected' : '' ?>>Estoque Baixo</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-12 mb-3">
+                                      <label class="form-label">Informações Adicionais (NFC-e)</label>
+                                      <textarea class="form-control" name="informacoes_adicionais" rows="2"><?=
+                                                                                                            htmlspecialchars($estoques['informacoes_adicionais'] ?? '') ?></textarea>
+                                    </div>
                                   </div>
 
-                                  <div class="mb-3">
-                                    <label for="codigo_produto" class="form-label">Código Produto</label>
-                                    <input type="text" class="form-control" id="codigo_produto" name="codigo_produto"
-                                      value="<?= htmlspecialchars($estoques['codigo_produto']) ?>" required>
-                                  </div>
-
-                                  <div class="mb-3">
-                                    <label for="categoria_produto" class="form-label">Categoria</label>
-                                    <input type="text" class="form-control" id="categoria_produto"
-                                      name="categoria_produto"
-                                      value="<?= htmlspecialchars($estoques['categoria_produto']) ?>" required>
-                                  </div>
-
-                                  <div class="mb-3">
-                                    <label for="quantidade_produto" class="form-label">Quantidade</label>
-                                    <input type="text" class="form-control" id="quantidade_produto"
-                                      name="quantidade_produto"
-                                      value="<?= htmlspecialchars($estoques['quantidade_produto']) ?>" required>
-                                  </div>
-
-                                  <div class="mb-3">
-                                    <label for="preco_produto" class="form-label">Preço Unitário</label>
-                                    <input type="text" class="form-control" id="preco_produto" name="preco_produto"
-                                      value="<?= htmlspecialchars($estoques['preco_produto']) ?>" required>
-                                  </div>
-
-                                  <div class="mb-3">
-                                    <label for="status_produto" class="form-label">Status Produto</label>
-                                    <select class="form-select" id="status_produto" name="status_produto" required>
-                                      <option value="estoque_alto" <?= $estoques['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
-                                      <option value="estoque_baixo" <?= $estoques['status_produto'] === 'estoque_baixo' ? 'selected' : '' ?>>Estoque Baixo</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="d-flex justify-content-between">
-                                    <button type="button" class="btn btn-secondary"
-                                      data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-primary">Salvar</button>
+                                  <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
                                   </div>
                                 </form>
                               </div>
-
                             </div>
                           </div>
                         </div>
-
                       </td>
                     </tr>
                   <?php endforeach; ?>
@@ -586,8 +628,8 @@ try {
             </div>
           </div>
 
-          <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-            onclick="window.location.href='adicionarEstoque.php?id=<?= urlencode($idSelecionado); ?>';"
+          <div class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
+            onclick="window.location.href='adicionarEstoque.php?id=<?= urlencode($idSelecionado) ?>';"
             style="cursor: pointer;">
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar novo Produto</span>

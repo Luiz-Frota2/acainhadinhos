@@ -2,6 +2,7 @@
 require_once '../conexao.php'; // Caminho pode variar conforme estrutura do seu projeto
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $idSelecionado = $_POST['idSelecionado']; // Captura o ID do formulário
     $nome = $_POST['nomeFilial'];
     $cnpj = $_POST['cnpjFilial'];
     $telefone = $_POST['telefoneFilial'];
@@ -12,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['statusFilial'];
 
     try {
-        $sql = "INSERT INTO filiais (nome, cnpj, telefone, email, responsavel, endereco, data_abertura, status)
+        $sql = "INSERT INTO unidades (nome, cnpj, telefone, email, responsavel, endereco, data_abertura, status)
                 VALUES (:nome, :cnpj, :telefone, :email, :responsavel, :endereco, :data_abertura, :status)";
         
         $stmt = $pdo->prepare($sql);
@@ -27,7 +28,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':status' => $status
         ]);
 
-        echo "<script>alert('Filial cadastrada com sucesso!'); window.location.href='../../../erp/filial/filialAdicionada.php';</script>";
+        // Mantendo seu script original com a mensagem, apenas adicionando o ID na URL
+        echo "<script>
+                alert('Filial cadastrada com sucesso!'); 
+                window.location.href='../../../erp/filial/filialAdicionada.php?id=" . urlencode($idSelecionado) . "';
+              </script>";
     } catch (PDOException $e) {
         echo "<script>alert('Erro ao cadastrar filial: " . $e->getMessage() . "'); window.history.back();</script>";
     }

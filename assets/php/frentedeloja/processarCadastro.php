@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         echo "<script>
             alert('Conta cadastrada com sucesso! Aguarde a autorização do administrador.');
-            window.location.href = '../../../../frentedeloja/index.php?id={$empresa_identificador}';
+            window.location.href = '../../../frentedeloja/index.php?id={$empresa_identificador}';
         </script>";
         exit;
 

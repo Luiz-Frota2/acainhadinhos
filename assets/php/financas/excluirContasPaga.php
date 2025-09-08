@@ -3,6 +3,7 @@
 require '../conexao.php';
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$empresa_id = filter_input(INPUT_GET, 'empresa_id', FILTER_SANITIZE_STRING);
 
 if (!$id) {
     echo "<script>
@@ -19,9 +20,9 @@ try {
     $stmt->bindParam(":id", $id, PDO::PARAM_INT);
 
     if ($stmt->execute()) {
-        echo "<script>
-                window.location.href = '../../../erp/financas/contasPagas.php';
-              </script>";
+        echo '<script>
+                window.location.href = "../../../erp/financas/contasPagas.php?id=' . urlencode($empresa_id) . '";
+              </script>';
         exit;
     } else {
         echo "<script>

@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $datatransacao = trim($_POST["datatransacao"]);
     $responsavel = trim($_POST["responsavel"]);
     $statuss = trim($_POST["statuss"]);
-
+    $empresa_id = trim($_POST['empresa_id']);
     try {
         // Preparar a query SQL
         $sql = "INSERT INTO contas (descricao, valorpago, datatransacao, responsavel, statuss) VALUES (:descricao, :valorpago, :datatransacao, :responsavel, :statuss)";
@@ -21,9 +21,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         // Executar e exibir mensagem de sucesso
         if ($stmt->execute()) {
-            echo "<script>alert('Dados adicionados com sucesso!');
-                    window.location.href = '../../../erp/financas/contasAdicionadas.php';
-                  </script>";
+            echo '<script>
+                alert("Conta adicionado com sucesso!");
+                window.location.href = "../../../erp/financas/contasAdicionadas.php?id=' . urlencode($empresa_id) . '";
+            </script>';
+                  ;
             exit();
         } else {
             echo "<script>

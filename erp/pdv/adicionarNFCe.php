@@ -1,70 +1,34 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+    header("Location: .././login.php");
+    exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+    !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-    exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
-try {
-    $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $logoEmpresa = !empty($empresaSobre['imagem'])
-        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png"; // fallback padrão
-} catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
-}
-
-// ✅ Se chegou até aqui, o acesso está liberado
-
-// ✅ Buscar nome e nível do usuário logado
+// ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -75,11 +39,51 @@ try {
 
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
-        $nivelUsuario = $usuario['nivel'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
     }
 } catch (PDOException $e) {
-    $nomeUsuario = 'Erro ao carregar nome';
-    $nivelUsuario = 'Erro ao carregar nível';
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+    echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+    exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $logoEmpresa = !empty($empresaSobre['imagem'])
+        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+        : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 ?>
@@ -164,7 +168,7 @@ try {
 
                     <!-- SEÇÃO ADMINISTRATIVO -->
                     <li class="menu-header small text-uppercase">
-                        <span class="menu-header-text">Administrativo</span>
+                        <span class="menu-header-text">PDV</span>
                     </li>
 
                     <!-- SUBMENU: SEFAZ -->
@@ -180,8 +184,8 @@ try {
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./sefazSAT.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Basic">SAT</div>
+                                <a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Basic">Status</div>
                                 </a>
                             </li>
                             <li class="menu-item">
@@ -225,11 +229,6 @@ try {
                                 <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Basic">Adicionar Produto </div>
                                 </a>
                             </li>
                             <!-- Estoque Baixo -->
@@ -292,31 +291,49 @@ try {
                         </a>
                     </li>
                     <li class="menu-item">
+                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div data-i18n="Authentications">Empresa</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
                         <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Authentications">Estoque</div>
                         </a>
                     </li>
-                    <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
-                        </a>
-                    </li>
                     <?php
-                    $isFilial = str_starts_with($idSelecionado, 'filial_');
-                    $link = $isFilial
-                        ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-                        : '../filial/index.php?id=principal_1';
-                    $titulo = $isFilial ? 'Matriz' : 'Filial';
-                    ?>
+                    $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+                    $idLogado = $_SESSION['empresa_id'] ?? '';
 
-                    <li class="menu-item">
-                        <a href="<?= $link ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications"><?= $titulo ?></div>
-                        </a>
-                    </li>
+                    // Se for matriz (principal), mostrar links para filial, franquia e unidade
+                    if ($tipoLogado === 'principal') {
+                    ?>
+                        <li class="menu-item">
+                            <a href="../filial/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-building"></i>
+                                <div data-i18n="Authentications">Filial</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-store"></i>
+                                <div data-i18n="Authentications">Franquias</div>
+                            </a>
+                        </li>
+                    <?php
+                    } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+                        // Se for filial, franquia ou unidade, mostra link para matriz
+                    ?>
+                        <li class="menu-item">
+                            <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-cog"></i>
+                                <div data-i18n="Authentications">Matriz</div>
+                            </a>
+                        </li>
+                    <?php
+                    }
+                    ?>
                     <li class="menu-item">
                         <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
@@ -358,30 +375,25 @@ try {
                         <!-- /Search -->
 
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
-                                    data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
-                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                                            class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                                                            class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <!-- Exibindo o nome e nível do usuário -->
-                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                                                    <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                                                    <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -390,7 +402,7 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="#">
+                                        <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-user me-2"></i>
                                             <span class="align-middle">Minha Conta</span>
                                         </a>
@@ -402,30 +414,19 @@ try {
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="#">
-                                            <span class="d-flex align-items-center align-middle">
-                                                <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                                                <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span
-                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                                            </span>
-                                        </a>
-                                    </li>
-                                    <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item"
-                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
                                     </li>
-
                                 </ul>
                             </li>
                             <!--/ User -->
                         </ul>
+
                     </div>
                 </nav>
 
@@ -434,7 +435,7 @@ try {
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;"><a
-                                href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>">PDV</a></span>/Adicionar
+                                href="#">PDV</a></span>/Adicionar
                         Integração</h4>
 
                     <!-- / Content -->
@@ -442,71 +443,81 @@ try {
                         <h5 class="card-header">Configuração da Integração NFC-e</h5>
                         <div class="card-body">
 
-                            <form action="../../assets/php/pdv/adicionarIntegracaoNFCe.php" method="POST" id="formIntegracaoNfce">
-
+                            <form action="../../assets/php/pdv/adicionarIntegracaoNFCe.php" method="POST" id="formIntegracaoNfce" enctype="multipart/form-data">
                                 <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                <input type="hidden" name="modelo" value="65">
+                                <input type="hidden" name="versao" value="4.00">
 
                                 <div class="row">
                                     <!-- Dados da Empresa -->
                                     <div class="mb-3 col-md-6">
                                         <label for="cnpj">CNPJ da Empresa</label>
                                         <input type="text" class="form-control" name="cnpj" id="cnpj" required
-                                            placeholder="00.000.000/0001-00" oninput="formatarCNPJ(this)">
+                                            placeholder="00.000.000/0001-00" oninput="formatarCNPJ(this)" onblur="buscarDadosCNPJ(this.value)">
                                         <div class="invalid-feedback">Por favor, insira um CNPJ válido.</div>
                                     </div>
 
                                     <div class="mb-3 col-md-6">
                                         <label for="razao_social">Razão Social</label>
                                         <input type="text" class="form-control" name="razao_social" id="razao_social"
-                                            required maxlength="60">
+                                            required maxlength="100">
                                     </div>
 
                                     <div class="mb-3 col-md-6">
                                         <label for="nome_fantasia">Nome Fantasia</label>
                                         <input type="text" class="form-control" name="nome_fantasia" id="nome_fantasia"
-                                            required maxlength="60">
+                                            required maxlength="100">
                                     </div>
 
                                     <div class="mb-3 col-md-6">
                                         <label for="inscricao_estadual">Inscrição Estadual</label>
                                         <input type="text" class="form-control" name="inscricao_estadual" id="inscricao_estadual"
-                                            required>
+                                            required maxlength="20">
                                         <div class="invalid-feedback">Inscrição Estadual é obrigatória.</div>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="inscricao_municipal">Inscrição Municipal</label>
+                                        <input type="text" class="form-control" name="inscricao_municipal" id="inscricao_municipal"
+                                            maxlength="20">
                                     </div>
 
                                     <!-- Endereço -->
                                     <div class="mb-3 col-md-6">
                                         <label for="cep">CEP</label>
                                         <input type="text" class="form-control" name="cep" id="cep" required
-                                            placeholder="00000-000" oninput="formatarCEP(this)">
+                                            placeholder="00000-000" oninput="formatarCEP(this)" maxlength="9">
                                         <div class="invalid-feedback">CEP inválido.</div>
                                     </div>
 
-                                    <div class="mb-3 col-md-6">
+                                    <div class="mb-3 col-md-8">
                                         <label for="logradouro">Logradouro</label>
                                         <input type="text" class="form-control" name="logradouro" id="logradouro"
-                                            required>
+                                            required maxlength="100">
                                     </div>
 
                                     <div class="mb-3 col-md-4">
                                         <label for="numero_endereco">Número</label>
                                         <input type="text" class="form-control" name="numero_endereco" id="numero_endereco"
-                                            required>
+                                            required maxlength="10">
                                     </div>
 
-                                    <div class="mb-3 col-md-4">
+                                    <div class="mb-3 col-md-6">
                                         <label for="complemento">Complemento</label>
-                                        <input type="text" class="form-control" name="complemento" id="complemento">
+                                        <input type="text" class="form-control" name="complemento" id="complemento"
+                                            maxlength="50">
                                     </div>
 
-                                    <div class="mb-3 col-md-4">
+                                    <div class="mb-3 col-md-6">
                                         <label for="bairro">Bairro</label>
-                                        <input type="text" class="form-control" name="bairro" id="bairro" required>
+                                        <input type="text" class="form-control" name="bairro" id="bairro" required
+                                            maxlength="50">
                                     </div>
 
                                     <div class="mb-3 col-md-6">
                                         <label for="cidade">Cidade</label>
-                                        <input type="text" class="form-control" name="cidade" id="cidade" required>
+                                        <input type="text" class="form-control" name="cidade" id="cidade" required
+                                            maxlength="50">
                                     </div>
 
                                     <div class="mb-3 col-md-6">
@@ -543,24 +554,31 @@ try {
                                         </select>
                                     </div>
 
-                                    <!-- Configurações NFC-e -->
                                     <div class="mb-3 col-md-6">
-                                        <label for="token_api">Token da API (Focus, TecnoSpeed, etc.)</label>
-                                        <input type="password" class="form-control" name="token_api" id="token_api"
-                                            required>
-                                        <small class="text-muted">Mantenha este token em segredo.</small>
+                                        <label for="codigo_municipio">Código do Município (IBGE)</label>
+                                        <input type="text" class="form-control" name="codigo_municipio" id="codigo_municipio"
+                                            required maxlength="7" pattern="[0-9]{7}">
+                                        <small class="text-muted">Código de 7 dígitos do IBGE para o município.</small>
                                     </div>
 
                                     <div class="mb-3 col-md-6">
+                                        <label for="telefone">Telefone</label>
+                                        <input type="text" class="form-control" name="telefone" id="telefone"
+                                            placeholder="(00) 0000-0000" oninput="formatarTelefone(this)" maxlength="15">
+                                    </div>
+
+                                    <!-- Configurações NFC-e -->
+                                    <div class="mb-3 col-md-6">
                                         <label for="certificado_digital">Certificado Digital (arquivo .pfx)</label>
                                         <input type="file" class="form-control" name="certificado_digital" id="certificado_digital"
-                                            accept=".pfx">
+                                            accept=".pfx,.p12">
                                         <small class="text-muted">Necessário para emissão direta com a SEFAZ.</small>
                                     </div>
 
                                     <div class="mb-3 col-md-6">
                                         <label for="senha_certificado">Senha do Certificado Digital</label>
-                                        <input type="password" class="form-control" name="senha_certificado" id="senha_certificado">
+                                        <input type="password" class="form-control" name="senha_certificado" id="senha_certificado"
+                                            maxlength="255">
                                     </div>
 
                                     <div class="mb-3 col-md-6">
@@ -573,21 +591,20 @@ try {
                                     </div>
 
                                     <div class="mb-3 col-md-6">
-                                        <label for="serie">Série da Nota</label>
-                                        <input type="number" class="form-control" name="serie" id="serie" value="1"
-                                            required min="1" max="999">
-                                    </div>
-
-                                    <div class="mb-3 col-md-6">
-                                        <label for="numero">Número Inicial da Nota</label>
-                                        <input type="number" class="form-control" name="numero" id="numero" value="1"
-                                            required min="1">
+                                        <label for="tipo_emissao">Tipo de Emissão</label>
+                                        <select name="tipo_emissao" id="tipo_emissao" class="form-select" required>
+                                            <option value="">Selecione</option>
+                                            <option value="1">Normal</option>
+                                            <option value="2">Contingência FS</option>
+                                            <option value="3">Contingência SCAN</option>
+                                            <option value="4">Contingência DPEC</option>
+                                            <option value="5">Contingência FS-DA</option>
+                                        </select>
                                     </div>
 
                                     <div class="mb-3 col-md-6">
                                         <label for="regime_tributario">Regime Tributário</label>
-                                        <select name="regime_tributario" id="regime_tributario" class="form-select"
-                                            required>
+                                        <select name="regime_tributario" id="regime_tributario" class="form-select" required>
                                             <option value="">Selecione</option>
                                             <option value="1">Simples Nacional</option>
                                             <option value="2">Simples Nacional - excesso sublimite</option>
@@ -596,49 +613,55 @@ try {
                                     </div>
 
                                     <div class="mb-3 col-md-6">
+                                        <label for="finalidade">Finalidade da Emissão</label>
+                                        <select name="finalidade" id="finalidade" class="form-select" required>
+                                            <option value="1">Normal</option>
+                                            <option value="2">Complementar</option>
+                                            <option value="3">Ajuste</option>
+                                            <option value="4">Devolução</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="ind_pres">Indicador de Presença</label>
+                                        <select name="ind_pres" id="ind_pres" class="form-select" required>
+                                            <option value="0">Não se aplica</option>
+                                            <option value="1">Operação presencial</option>
+                                            <option value="2">Operação não presencial, internet</option>
+                                            <option value="3">Operação não presencial, teleatendimento</option>
+                                            <option value="4">NFC-e em operação com entrega em domicílio</option>
+                                            <option value="5">Operação presencial, fora do estabelecimento</option>
+                                            <option value="9">Operação não presencial, outros</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="tipo_impressao">Tipo de Impressão DANFE</label>
+                                        <select name="tipo_impressao" id="tipo_impressao" class="form-select" required>
+                                            <option value="4">NFC-e</option>
+                                            <option value="5">NFC-e em mensagem eletrônica</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
+                                        <label for="serie_nfce">Série da NFC-e</label>
+                                        <input type="text" class="form-control" name="serie_nfce" id="serie_nfce"
+                                            value="1" required maxlength="3">
+                                        <small class="text-muted">Normalmente começa com 1.</small>
+                                    </div>
+
+                                    <div class="mb-3 col-md-6">
                                         <label for="csc">Código de Segurança do Contribuinte (CSC)</label>
-                                        <input type="text" class="form-control" name="csc" id="csc">
+                                        <input type="text" class="form-control" name="csc" id="csc"
+                                            maxlength="100">
                                         <small class="text-muted">Obrigatório para geração do QR Code.</small>
                                     </div>
 
                                     <div class="mb-3 col-md-6">
-                                        <label for="id_token">ID do Token</label>
-                                        <input type="text" class="form-control" name="id_token" id="id_token">
+                                        <label for="csc_id">ID do CSC</label>
+                                        <input type="text" class="form-control" name="csc_id" id="csc_id"
+                                            maxlength="20">
                                         <small class="text-muted">Identificador do CSC (normalmente 000001).</small>
-                                    </div>
-
-                                    <div class="mb-3 col-md-6">
-                                        <label for="timeout">Timeout da Conexão (segundos)</label>
-                                        <input type="number" class="form-control" name="timeout" id="timeout" value="30"
-                                            min="10" max="120">
-                                    </div>
-
-                                    <!-- Configurações Avançadas -->
-                                    <div class="mb-3 col-12">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="contingencia" id="contingencia">
-                                            <label class="form-check-label" for="contingencia">
-                                                Ativar modo contingência automático
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3 col-12">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="salvar_xml" id="salvar_xml" checked>
-                                            <label class="form-check-label" for="salvar_xml">
-                                                Salvar XMLs localmente
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3 col-12">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="envio_email" id="envio_email">
-                                            <label class="form-check-label" for="envio_email">
-                                                Enviar NFC-e por e-mail automaticamente
-                                            </label>
-                                        </div>
                                     </div>
 
                                     <div class="mb-3 col-12">
@@ -646,103 +669,6 @@ try {
                                     </div>
                                 </div>
                             </form>
-
-                            <script>
-                                // Funções de formatação e validação
-                                function formatarCNPJ(input) {
-                                    let value = input.value.replace(/\D/g, '');
-
-                                    if (value.length > 14) {
-                                        value = value.substring(0, 14);
-                                    }
-
-                                    if (value.length > 12) {
-                                        value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
-                                    } else if (value.length > 8) {
-                                        value = value.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})/, '$1.$2.$3/$4');
-                                    } else if (value.length > 5) {
-                                        value = value.replace(/^(\d{2})(\d{3})(\d{3})/, '$1.$2.$3');
-                                    } else if (value.length > 2) {
-                                        value = value.replace(/^(\d{2})(\d{3})/, '$1.$2');
-                                    }
-
-                                    input.value = value;
-                                }
-
-                                function formatarCEP(input) {
-                                    let value = input.value.replace(/\D/g, '');
-
-                                    if (value.length > 8) {
-                                        value = value.substring(0, 8);
-                                    }
-
-                                    if (value.length > 5) {
-                                        value = value.replace(/^(\d{5})(\d{3})/, '$1-$2');
-                                    }
-
-                                    input.value = value;
-
-                                    // Buscar endereço se CEP estiver completo
-                                    if (value.length === 9) {
-                                        buscarEnderecoPorCEP(value);
-                                    }
-                                }
-
-                                function buscarEnderecoPorCEP(cep) {
-                                    // Remover máscara
-                                    cep = cep.replace(/\D/g, '');
-
-                                    if (cep.length !== 8) return;
-
-                                    fetch(`https://viacep.com.br/ws/${cep}/json/`)
-                                        .then(response => response.json())
-                                        .then(data => {
-                                            if (!data.erro) {
-                                                document.getElementById('logradouro').value = data.logradouro || '';
-                                                document.getElementById('bairro').value = data.bairro || '';
-                                                document.getElementById('cidade').value = data.localidade || '';
-                                                document.getElementById('uf').value = data.uf || '';
-                                                document.getElementById('complemento').value = data.complemento || '';
-                                            } else {
-                                                alert('CEP não encontrado!');
-                                            }
-                                        })
-                                        .catch(error => {
-                                            console.error('Erro ao buscar CEP:', error);
-                                        });
-                                }
-
-                                // Validação do formulário
-                                document.getElementById('formIntegracaoNfce').addEventListener('submit', function(event) {
-                                    let isValid = true;
-
-                                    // Validar CNPJ
-                                    const cnpj = document.getElementById('cnpj').value.replace(/\D/g, '');
-                                    if (cnpj.length !== 14) {
-                                        document.getElementById('cnpj').classList.add('is-invalid');
-                                        isValid = false;
-                                    } else {
-                                        document.getElementById('cnpj').classList.remove('is-invalid');
-                                    }
-
-                                    // Validar CEP
-                                    const cep = document.getElementById('cep').value.replace(/\D/g, '');
-                                    if (cep.length !== 8) {
-                                        document.getElementById('cep').classList.add('is-invalid');
-                                        isValid = false;
-                                    } else {
-                                        document.getElementById('cep').classList.remove('is-invalid');
-                                    }
-
-                                    if (!isValid) {
-                                        event.preventDefault();
-                                        alert('Por favor, corrija os campos destacados antes de enviar.');
-                                    } else {
-                                        document.getElementById('btnSalvarConfig').disabled = true;
-                                        document.getElementById('btnSalvarConfig').innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Salvando...';
-                                    }
-                                });
-                            </script>
 
                         </div>
                     </div>

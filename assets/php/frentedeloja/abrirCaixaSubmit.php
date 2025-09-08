@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($stmt->execute()) {
         echo "<script>
             alert('Caixa aberto com sucesso!');
-            window.location.href = '../../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
+            window.location.href = '../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
         </script>";
         exit;
     } else {

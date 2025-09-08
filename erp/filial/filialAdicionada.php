@@ -1,49 +1,77 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = $idFilial;
-} else {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
   echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
   exit;
 }
+
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
@@ -184,21 +212,62 @@ try {
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div data-i18n="Authentications">B2B</div>
+              <div data-i18n="B2B">B2B - Matriz</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Contas Filiais</div>
+              <!-- Contas das Filiais -->
+              <li class="menu-item">
+                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Pagamentos Solic.</div>
                 </a>
               </li>
-              <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
-                  <div> Produtos Solicitados</div>
+
+              <!-- Produtos solicitados pelas filiais -->
+              <li class="menu-item">
+                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Solicitados</div>
                 </a>
               </li>
-              <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
-                  <div> Produtos Enviados</div>
+
+              <!-- Produtos enviados pela matriz -->
+              <li class="menu-item">
+                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Enviados</div>
+                </a>
+              </li>
+
+              <!-- Transferências em andamento -->
+              <li class="menu-item">
+                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Transf. Pendentes</div>
+                </a>
+              </li>
+
+              <!-- Histórico de transferências -->
+              <li class="menu-item">
+                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Histórico Transf.</div>
+                </a>
+              </li>
+
+              <!-- Gestão de Estoque Central -->
+              <li class="menu-item">
+                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Estoque Matriz</div>
+                </a>
+              </li>
+
+              <!-- Configurações de Política de Envio -->
+              <li class="menu-item">
+                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Política de Envio</div>
+                </a>
+              </li>
+
+              <!-- Relatórios e indicadores B2B -->
+              <li class="menu-item">
+                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Relatórios B2B</div>
                 </a>
               </li>
             </ul>
@@ -273,12 +342,6 @@ try {
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">Usuários </div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-group"></i>
-              <div data-i18n="Authentications">usuarios </div>
             </a>
           </li>
           <li class="menu-item">
@@ -405,9 +468,9 @@ try {
                   require '../../assets/php/conexao.php';
 
                   try {
-                    $stmt = $pdo->query("SELECT * FROM filiais ORDER BY nome");
+                    $stmt = $pdo->query("SELECT * FROM unidades ORDER BY nome");
                     while ($filial = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                      ?>
+                  ?>
                       <tr>
                         <td><strong><?= htmlspecialchars($filial['nome']) ?></strong></td>
                         <td><?= htmlspecialchars($filial['cnpj']) ?></td>
@@ -418,38 +481,39 @@ try {
 
                           <!-- Botão para visualizar Filial -->
                           <a href="#" data-bs-toggle="modal"
-                            data-bs-target="#visualizarFilialModal_<?php echo $filial['id_filial']; ?>"
-                            data-id="<?php echo $filial['id_filial']; ?>" class="text-secondary">
+                            data-bs-target="#visualizarFilialModal_<?php echo $filial['id']; ?>"
+                            data-id="<?php echo $filial['id']; ?>" class="text-secondary">
                             <i class="tf-icons bx bx-show"></i>
                           </a>
 
                           <span class="mx-2">|</span>
 
-                          <!-- Editar -->
-                          <button class="btn btn-link text-primary p-0" title="Editar"
-                            onclick="window.location.href='editarFilial.php?id=<?= $filial['id_filial'] ?>';">
-                            <i class="tf-icons bx bx-edit"></i>
-                          </button>
+                          <!-- Editar (abre modal) -->
+<button class="btn btn-link text-primary p-0" title="Editar"
+        data-bs-toggle="modal"
+        data-bs-target="#editarFilialModal_<?php echo $filial['id']; ?>">
+  <i class="tf-icons bx bx-edit"></i>
+</button>
 
                           <span class="mx-2">|</span>
 
                           <!-- Botão para Excluir Filial -->
                           <a href="#" data-bs-toggle="modal"
-                            data-bs-target="#filialModal_<?php echo $filial['id_filial']; ?>"
-                            class="delete-filial text-danger" data-id="<?php echo $filial['id_filial']; ?>">
+                            data-bs-target="#filialModal_<?php echo $filial['id']; ?>"
+                            class="delete-filial text-danger" data-id="<?php echo $filial['id']; ?>">
                             <i class="tf-icons bx bx-trash" id="deleteIcon"></i>
                           </a>
 
                         </td>
 
                         <!-- Modal Visualizar Filial -->
-                        <div class="modal fade" id="visualizarFilialModal_<?= $filial['id_filial'] ?>" tabindex="-1"
-                          aria-labelledby="visualizarFilialModalLabel_<?= $filial['id_filial'] ?>" aria-hidden="true">
+                        <div class="modal fade" id="visualizarFilialModal_<?= $filial['id'] ?>" tabindex="-1"
+                          aria-labelledby="visualizarFilialModalLabel_<?= $filial['id'] ?>" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
 
                               <div class="modal-header">
-                                <h5 class="modal-title" id="visualizarFilialModalLabel_<?= $filial['id_filial'] ?>">Dados da
+                                <h5 class="modal-title" id="visualizarFilialModalLabel_<?= $filial['id'] ?>">Dados da
                                   Filial</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"
                                   aria-label="Fechar"></button>
@@ -475,9 +539,86 @@ try {
                           </div>
                         </div>
                         <!-- /Modal Visualizar Filial -->
+                        <!-- Modal Editar Filial -->
+                        <div class="modal fade" id="editarFilialModal_<?php echo $filial['id']; ?>" tabindex="-1"
+                          aria-labelledby="editarFilialLabel_<?php echo $filial['id']; ?>" aria-hidden="true">
+                          <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                              <form action="../../assets/php/filial/editarFilial.php" method="POST" autocomplete="off">
+                                <div class="modal-header">
+                                  <h5 class="modal-title" id="editarFilialLabel_<?php echo $filial['id']; ?>">
+                                    Editar Filial — <?php echo htmlspecialchars($filial['nome']); ?>
+                                  </h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                  <input type="hidden" name="id" value="<?php echo (int)$filial['id']; ?>">
+                                  <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado); ?>">
+                                  <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']); ?>">
+                                  <div class="row g-3">
+                                    <div class="col-md-6">
+                                      <label class="form-label">Nome</label>
+                                      <input type="text" name="nome" class="form-control"
+                                        value="<?= htmlspecialchars($filial['nome']) ?>" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                      <label class="form-label">Tipo</label>
+                                      <select name="tipo" class="form-select" required>
+                                        <option value="Franquia" <?= $filial['tipo']==='Franquia'?'selected':''; ?>>Franquia</option>
+                                        <option value="Filial"   <?= $filial['tipo']==='Filial'  ?'selected':''; ?>>Filial</option>
+                                      </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                      <label class="form-label">Status</label>
+                                      <select name="status" class="form-select" required>
+                                        <option value="Ativa"   <?= $filial['status']==='Ativa'  ?'selected':''; ?>>Ativa</option>
+                                        <option value="Inativa" <?= $filial['status']==='Inativa'?'selected':''; ?>>Inativa</option>
+                                      </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">CNPJ</label>
+                                      <input type="text" name="cnpj" class="form-control"
+                                        value="<?= htmlspecialchars($filial['cnpj']) ?>" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">Telefone</label>
+                                      <input type="text" name="telefone" class="form-control"
+                                        value="<?= htmlspecialchars($filial['telefone']) ?>" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">Email</label>
+                                      <input type="email" name="email" class="form-control"
+                                        value="<?= htmlspecialchars($filial['email']) ?>" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                      <label class="form-label">Responsável</label>
+                                      <input type="text" name="responsavel" class="form-control"
+                                        value="<?= htmlspecialchars($filial['responsavel']) ?>" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                      <label class="form-label">Data de Abertura</label>
+                                      <input type="date" name="data_abertura" class="form-control"
+                                        value="<?= htmlspecialchars($filial['data_abertura']) ?>" required>
+                                    </div>
+                                    <div class="col-12">
+                                      <label class="form-label">Endereço</label>
+                                      <textarea name="endereco" class="form-control" rows="2" required><?= htmlspecialchars($filial['endereco']) ?></textarea>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="submit" class="btn btn-primary">Salvar</button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- /Modal Editar Filial -->
+
 
                         <!-- Modal de Exclusão de Filial -->
-                        <div class="modal fade" id="filialModal_<?php echo $filial['id_filial']; ?>" tabindex="-1"
+                        <div class="modal fade" id="filialModal_<?php echo $filial['id']; ?>" tabindex="-1"
                           aria-labelledby="filialModalLabel" aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
@@ -491,7 +632,7 @@ try {
                               <div class="modal-body">
                                 <p>Tem certeza de que deseja excluir a filial
                                   "<?php echo htmlspecialchars($filial['nome']); ?>"?</p>
-                                <a href="../../assets/php/filial/excluirFilial.php?id=<?php echo $filial['id_filial']; ?>"
+                                <a href="../../assets/php/filial/excluirFilial.php?id=<?php echo $filial['id']; ?>&idSelecionado=<?= urlencode($idSelecionado); ?>&return=<?= urlencode($_SERVER['REQUEST_URI']); ?>"
                                   class="btn btn-danger">
                                   Sim, excluir
                                 </a>
@@ -505,7 +646,7 @@ try {
                         <!-- /Modal de Exclusão de Filial -->
 
                       </tr>
-                      <?php
+                  <?php
                     }
                   } catch (PDOException $e) {
                     echo "<tr><td colspan='6'>Erro ao buscar filiais: " . $e->getMessage() . "</td></tr>";

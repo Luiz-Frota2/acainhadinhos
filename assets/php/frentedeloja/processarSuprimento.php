@@ -74,7 +74,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         echo "<script>
             alert('Suprimento registrado e todas aberturas atualizadas com sucesso!');
-            window.location.href = '../../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
+            window.location.href = '../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
         </script>";
         exit();
 

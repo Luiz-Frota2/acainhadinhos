@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     try {
         // Query de atualização
-        $sql = "UPDATE produtos SET nome_produto = :nome_produto, fornecedor_produto = :fornecedor_produto, quantidade_produto = :quantidade_produto, status_produto = :status_produto WHERE id = :id";
+        $sql = "UPDATE produtos_estoque SET nome_produto = :nome_produto, fornecedor_produto = :fornecedor_produto, quantidade_produto = :quantidade_produto, status_produto = :status_produto WHERE id = :id";
         $stmt = $pdo->prepare($sql);
         $stmt->bindParam(":nome_produto", $nome_produto, PDO::PARAM_STR);
         $stmt->bindParam(":fornecedor_produto", $fornecedor_produto, PDO::PARAM_STR);

@@ -1,50 +1,77 @@
 <?php
-session_start();
-require_once '../../assets/php/conexao.php';
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-// Recupera o identificador vindo da URL
+session_start();
+
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
-// Verifica se a pessoa está logada
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
+
+// ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
-// Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
   }
-  $id = 1;
-  $empresa_id = 'principal_1';
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = $idFilial;
-  $empresa_id = $idSelecionado;
-} else {
-  echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
   exit;
 }
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
 
 // Buscar imagem da tabela sobre_empresa
 try {
@@ -89,28 +116,28 @@ $data_fim = $_GET['data_fim'] ?? '';
 // Definir condições de data com base no filtro
 $condicao_data = '';
 $condicao_itens = '';
-$parametros = [':empresa_id' => $empresa_id];
-$parametros_itens = [':empresa_id_itens' => $empresa_id];
+$parametros = [':empresa_id' => $idSelecionado];
+$parametros_itens = [':empresa_id_itens' => $idSelecionado];
 
 if ($filtro_periodo === 'personalizar' && !empty($data_inicio) && !empty($data_fim)) {
   $condicao_data = " AND data_venda BETWEEN :data_inicio AND :data_fim";
-  $condicao_itens = " AND data_registro BETWEEN :data_inicio_itens AND :data_fim_itens";
+  $condicao_itens = " AND v.data_venda BETWEEN :data_inicio_itens AND :data_fim_itens";
   $parametros[':data_inicio'] = $data_inicio;
   $parametros[':data_fim'] = $data_fim;
   $parametros_itens[':data_inicio_itens'] = $data_inicio;
   $parametros_itens[':data_fim_itens'] = $data_fim;
 } elseif ($filtro_periodo === 'dia') {
   $condicao_data = " AND DATE(data_venda) = CURDATE()";
-  $condicao_itens = " AND DATE(data_registro) = CURDATE()";
+  $condicao_itens = " AND DATE(v.data_venda) = CURDATE()";
 } elseif ($filtro_periodo === 'semana') {
   $condicao_data = " AND YEARWEEK(data_venda, 1) = YEARWEEK(CURDATE(), 1)";
-  $condicao_itens = " AND YEARWEEK(data_registro, 1) = YEARWEEK(CURDATE(), 1)";
+  $condicao_itens = " AND YEARWEEK(v.data_venda, 1) = YEARWEEK(CURDATE(), 1)";
 } elseif ($filtro_periodo === 'mes') {
   $condicao_data = " AND MONTH(data_venda) = MONTH(CURDATE()) AND YEAR(data_venda) = YEAR(CURDATE())";
-  $condicao_itens = " AND MONTH(data_registro) = MONTH(CURDATE()) AND YEAR(data_registro) = YEAR(CURDATE())";
+  $condicao_itens = " AND MONTH(v.data_venda) = MONTH(CURDATE()) AND YEAR(v.data_venda) = YEAR(CURDATE())";
 } elseif ($filtro_periodo === 'ano') {
   $condicao_data = " AND YEAR(data_venda) = YEAR(CURDATE())";
-  $condicao_itens = " AND YEAR(data_registro) = YEAR(CURDATE())";
+  $condicao_itens = " AND YEAR(v.data_venda) = YEAR(CURDATE())";
 }
 
 // Buscar dados para o resumo operacional
@@ -122,7 +149,7 @@ $tituloGrafico = 'Vendas nos Últimos 7 Dias';
 
 try {
   // Total de vendas
-  $sqlVendas = "SELECT SUM(total) as total FROM venda_rapida WHERE empresa_id = :empresa_id $condicao_data";
+  $sqlVendas = "SELECT SUM(valor_total) as total FROM vendas WHERE empresa_id = :empresa_id $condicao_data";
   $stmt = $pdo->prepare($sqlVendas);
   foreach ($parametros as $key => $value) {
     $stmt->bindValue($key, $value);
@@ -132,7 +159,7 @@ try {
   $totalVendas = $result['total'] ?? 0;
 
   // Vendas realizadas (total de registros na tabela venda_rapida)
-  $sqlVendasRealizadas = "SELECT COUNT(*) as total FROM venda_rapida WHERE empresa_id = :empresa_id $condicao_data";
+  $sqlVendasRealizadas = "SELECT COUNT(*) as total FROM vendas WHERE empresa_id = :empresa_id $condicao_data";
   $stmt = $pdo->prepare($sqlVendasRealizadas);
   foreach ($parametros as $key => $value) {
     $stmt->bindValue($key, $value);
@@ -142,11 +169,12 @@ try {
   $vendasRealizadas = $result['total'] ?? 0;
 
   // Produtos mais vendidos
-  $sqlProdutos = "SELECT nome_produto, SUM(quantidade) as total_quantidade 
-                 FROM itens_venda 
-                 WHERE empresa_id = :empresa_id_itens $condicao_itens
-                 GROUP BY nome_produto 
-                 ORDER BY total_quantidade DESC 
+  $sqlProdutos = "SELECT iv.produto_nome, SUM(iv.quantidade) AS total_quantidade
+                 FROM itens_venda iv
+                 INNER JOIN vendas v ON v.id = iv.venda_id
+                 WHERE v.empresa_id = :empresa_id_itens $condicao_itens
+                 GROUP BY iv.produto_nome
+                 ORDER BY total_quantidade DESC
                  LIMIT 5";
   $stmt = $pdo->prepare($sqlProdutos);
   foreach ($parametros_itens as $key => $value) {
@@ -158,8 +186,8 @@ try {
   // Dados para o gráfico
   if ($filtro_periodo === 'dia') {
     $tituloGrafico = 'Vendas por Hora - Hoje';
-    $sqlGrafico = "SELECT HOUR(data_venda) as hora, SUM(total) as total 
-                  FROM venda_rapida 
+    $sqlGrafico = "SELECT HOUR(data_venda) as hora, SUM(valor_total) as total 
+                  FROM vendas 
                   WHERE empresa_id = :empresa_id 
                   AND DATE(data_venda) = CURDATE()
                   GROUP BY HOUR(data_venda) 
@@ -167,7 +195,7 @@ try {
 
     $horasDia = array_fill(0, 24, 0);
     $stmt = $pdo->prepare($sqlGrafico);
-    $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $dados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -182,8 +210,8 @@ try {
 
   } elseif ($filtro_periodo === 'semana') {
     $tituloGrafico = 'Vendas por Dia - Esta Semana';
-    $sqlGrafico = "SELECT DATE(data_venda) as data, DAYNAME(data_venda) as dia_semana, SUM(total) as total 
-                  FROM venda_rapida 
+    $sqlGrafico = "SELECT DATE(data_venda) as data, DAYNAME(data_venda) as dia_semana, SUM(valor_total) as total 
+                  FROM vendas
                   WHERE empresa_id = :empresa_id 
                   AND YEARWEEK(data_venda, 1) = YEARWEEK(CURDATE(), 1)
                   GROUP BY DATE(data_venda), dia_semana
@@ -200,7 +228,7 @@ try {
     ];
 
     $stmt = $pdo->prepare($sqlGrafico);
-    $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $dados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -214,8 +242,8 @@ try {
 
   } elseif ($filtro_periodo === 'mes') {
     $tituloGrafico = 'Vendas por Dia - Este Mês';
-    $sqlGrafico = "SELECT DATE(data_venda) as data, DAY(data_venda) as dia, SUM(total) as total 
-                  FROM venda_rapida 
+    $sqlGrafico = "SELECT DATE(data_venda) as data, DAY(data_venda) as dia, SUM(valor_total) as total 
+                  FROM vendas
                   WHERE empresa_id = :empresa_id 
                   AND MONTH(data_venda) = MONTH(CURDATE()) 
                   AND YEAR(data_venda) = YEAR(CURDATE())
@@ -226,7 +254,7 @@ try {
     $diasMes = array_fill(1, $diasNoMes, 0);
 
     $stmt = $pdo->prepare($sqlGrafico);
-    $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $dados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -239,8 +267,8 @@ try {
 
   } elseif ($filtro_periodo === 'ano') {
     $tituloGrafico = 'Vendas por Mês - Este Ano';
-    $sqlGrafico = "SELECT MONTH(data_venda) as mes, SUM(total) as total 
-                  FROM venda_rapida 
+    $sqlGrafico = "SELECT MONTH(data_venda) as mes, SUM(valor_total) as total 
+                  FROM vendas
                   WHERE empresa_id = :empresa_id 
                   AND YEAR(data_venda) = YEAR(CURDATE())
                   GROUP BY MONTH(data_venda)
@@ -264,7 +292,7 @@ try {
     $mesesAno = array_fill(1, 12, 0);
 
     $stmt = $pdo->prepare($sqlGrafico);
-    $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $dados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -284,8 +312,8 @@ try {
     $diasDiferenca = $interval->days;
 
     if ($diasDiferenca <= 7) {
-      $sqlGrafico = "SELECT DATE(data_venda) as data, SUM(total) as total 
-                    FROM venda_rapida 
+      $sqlGrafico = "SELECT DATE(data_venda) as data, SUM(valor_total) as total 
+                    FROM vendas
                     WHERE empresa_id = :empresa_id 
                     AND data_venda BETWEEN :data_inicio AND :data_fim
                     GROUP BY DATE(data_venda)
@@ -304,7 +332,7 @@ try {
       }
 
       $stmt = $pdo->prepare($sqlGrafico);
-      $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+      $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
       $stmt->bindParam(':data_inicio', $data_inicio);
       $stmt->bindParam(':data_fim', $data_fim);
       $stmt->execute();
@@ -324,15 +352,15 @@ try {
       }
 
     } elseif ($diasDiferenca <= 31) {
-      $sqlGrafico = "SELECT DATE(data_venda) as data, SUM(total) as total 
-                    FROM venda_rapida 
+      $sqlGrafico = "SELECT DATE(data_venda) as data, SUM(valor_total) as total 
+                    FROM vendas
                     WHERE empresa_id = :empresa_id 
                     AND data_venda BETWEEN :data_inicio AND :data_fim
                     GROUP BY DATE(data_venda)
                     ORDER BY data_venda";
 
       $stmt = $pdo->prepare($sqlGrafico);
-      $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+      $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
       $stmt->bindParam(':data_inicio', $data_inicio);
       $stmt->bindParam(':data_fim', $data_fim);
       $stmt->execute();
@@ -348,8 +376,8 @@ try {
       }
 
     } elseif ($diasDiferenca <= 365) {
-      $sqlGrafico = "SELECT MONTH(data_venda) as mes, SUM(total) as total 
-                    FROM venda_rapida 
+      $sqlGrafico = "SELECT MONTH(data_venda) as mes, SUM(valor_total) as total 
+                    FROM vendas
                     WHERE empresa_id = :empresa_id 
                     AND data_venda BETWEEN :data_inicio AND :data_fim
                     GROUP BY MONTH(data_venda)
@@ -371,7 +399,7 @@ try {
       ];
 
       $stmt = $pdo->prepare($sqlGrafico);
-      $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+      $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
       $stmt->bindParam(':data_inicio', $data_inicio);
       $stmt->bindParam(':data_fim', $data_fim);
       $stmt->execute();
@@ -390,15 +418,15 @@ try {
       $sqlGrafico = "SELECT 
                       QUARTER(data_venda) as trimestre, 
                       YEAR(data_venda) as ano,
-                      SUM(total) as total 
-                    FROM venda_rapida 
+                      SUM(valor_total) as total 
+                    FROM vendas 
                     WHERE empresa_id = :empresa_id 
                     AND data_venda BETWEEN :data_inicio AND :data_fim
                     GROUP BY YEAR(data_venda), QUARTER(data_venda)
                     ORDER BY ano, trimestre";
 
       $stmt = $pdo->prepare($sqlGrafico);
-      $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+      $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
       $stmt->bindParam(':data_inicio', $data_inicio);
       $stmt->bindParam(':data_fim', $data_fim);
       $stmt->execute();
@@ -416,8 +444,8 @@ try {
   } else {
     // Padrão: últimos 7 dias
     $tituloGrafico = 'Vendas nos Últimos 7 Dias';
-    $sqlGrafico = "SELECT DATE(data_venda) as data, DAYNAME(data_venda) as dia_semana, SUM(total) as total 
-                  FROM venda_rapida 
+    $sqlGrafico = "SELECT DATE(data_venda) as data, DAYNAME(data_venda) as dia_semana, SUM(valor_total) as total 
+                  FROM vendas
                   WHERE empresa_id = :empresa_id 
                   AND data_venda >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
                   GROUP BY DATE(data_venda), dia_semana
@@ -440,7 +468,7 @@ try {
     }
 
     $stmt = $pdo->prepare($sqlGrafico);
-    $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $dados = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -467,8 +495,8 @@ try {
 // Formatar produtos mais vendidos
 $produtosFormatados = [];
 foreach ($produtosMaisVendidos as $item) {
-  if (!empty($item['nome_produto'])) {
-    $produtosFormatados[] = htmlspecialchars($item['nome_produto']) . ' (' . $item['total_quantidade'] . ' un)';
+  if (!empty($item['produto_nome'])) {
+    $produtosFormatados[] = htmlspecialchars($item['produto_nome']) . ' (' . $item['total_quantidade'] . ' un)';
   }
 }
 $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados) : 'Nenhum dado disponível';
@@ -678,12 +706,6 @@ $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
           <?php

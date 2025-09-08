@@ -1,3 +1,103 @@
+<?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+session_start();
+
+// ✅ Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
+
+// ✅ Verifica se a pessoa está logada
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
+) {
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
+}
+
+try {
+
+  $sql = "SELECT * FROM produtos_estoque WHERE status_produto = 'estoque_baixo'";
+  $stmt = $pdo->query($sql);
+  $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  echo "Erro ao buscar produtos: " . $e->getMessage();
+  exit;
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/">
@@ -81,13 +181,13 @@
           </li>
 
           <!-- Estoque -->
-          <li class="menu-item active open">
+          <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-package"></i>
               <div data-i18n="Estoque">Produtodos</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item active">
+              <li class="menu-item">
                 <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Produtos">Adicionados</div>
                 </a>
@@ -96,7 +196,7 @@
           </li>
 
           <!-- Relatórios -->
-          <li class="menu-item">
+          <li class="menu-item active open">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
               <div data-i18n="Relatorios">Relatórios</div>
@@ -107,7 +207,7 @@
                   <div data-i18n="BaixoEstoque">Estoque Alto</div>
                 </a>
               </li>
-              <li class="menu-item">
+              <li class="menu-item active">
                 <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                 </a>
@@ -144,27 +244,44 @@
               <div data-i18n="Authentications">Delivery</div>
             </a>
           </li>
-
           <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
             </a>
           </li>
           <?php
-          $isFilial = str_starts_with($idSelecionado, 'filial_');
-          $link = $isFilial
-            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-            : '../filial/index.php?id=principal_1';
-          $titulo = $isFilial ? 'Matriz' : 'Filial';
-          ?>
+          $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+          $idLogado = $_SESSION['empresa_id'] ?? '';
 
-          <li class="menu-item">
-            <a href="<?= $link ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications"><?= $titulo ?></div>
-            </a>
-          </li>
+          // Se for matriz (principal), mostrar links para filial, franquia e unidade
+          if ($tipoLogado === 'principal') {
+          ?>
+            <li class="menu-item">
+              <a href="../filial/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Authentications">Filial</div>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="Authentications">Franquias</div>
+              </a>
+            </li>
+          <?php
+          } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+            // Se for filial, franquia ou unidade, mostra link para matriz
+          ?>
+            <li class="menu-item">
+              <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-cog"></i>
+                <div data-i18n="Authentications">Matriz</div>
+              </a>
+            </li>
+          <?php
+          }
+          ?>
           <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
@@ -207,28 +324,25 @@
             <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
-              <!-- Place this tag where you want the button to render. -->
               <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
-                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                   <li>
                     <a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                              class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <!-- Exibindo o nome e nível do usuário -->
-                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                         </div>
                       </div>
                     </a>
@@ -237,7 +351,7 @@
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
+                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-user me-2"></i>
                       <span class="align-middle">Minha Conta</span>
                     </a>
@@ -257,11 +371,11 @@
                       <span class="align-middle">Sair</span>
                     </a>
                   </li>
-
                 </ul>
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
         <!-- / Navbar -->
@@ -277,22 +391,6 @@
             <h5 class="card-header">Lista de Produtos</h5>
             <div class="card">
               <div class="table-responsive text-nowrap">
-                <?php
-
-
-                require '../../assets/php/conexao.php';
-
-                try {
-
-                  $sql = "SELECT * FROM produtos WHERE status_produto = 'estoque_baixo'";
-                  $stmt = $pdo->query($sql);
-                  $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (PDOException $e) {
-                  echo "Erro ao buscar produtos: " . $e->getMessage();
-                  exit;
-                }
-                ?>
-
 
                 <table class="table table-hover">
                   <thead>

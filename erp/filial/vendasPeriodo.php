@@ -95,6 +95,70 @@
             </ul>
           </li>
 
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="B2B">B2B - Matriz</div>
+            </a>
+            <ul class="menu-sub">
+              <!-- Contas das Filiais -->
+              <li class="menu-item">
+                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Pagamentos Solic.</div>
+                </a>
+              </li>
+
+              <!-- Produtos solicitados pelas filiais -->
+              <li class="menu-item">
+                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Solicitados</div>
+                </a>
+              </li>
+
+              <!-- Produtos enviados pela matriz -->
+              <li class="menu-item">
+                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Enviados</div>
+                </a>
+              </li>
+
+              <!-- Transferências em andamento -->
+              <li class="menu-item">
+                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Transf. Pendentes</div>
+                </a>
+              </li>
+
+              <!-- Histórico de transferências -->
+              <li class="menu-item">
+                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Histórico Transf.</div>
+                </a>
+              </li>
+
+              <!-- Gestão de Estoque Central -->
+              <li class="menu-item">
+                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Estoque Matriz</div>
+                </a>
+              </li>
+
+              <!-- Configurações de Política de Envio -->
+              <li class="menu-item">
+                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Política de Envio</div>
+                </a>
+              </li>
+
+              <!-- Relatórios e indicadores B2B -->
+              <li class="menu-item">
+                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Relatórios B2B</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
           <!-- Relatórios -->
           <li class="menu-item active open">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
@@ -158,12 +222,6 @@
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
           <li class="menu-item">

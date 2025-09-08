@@ -110,7 +110,7 @@ try {
     // Redirecionar de volta com sucesso
     echo "<script>
              alert('Venda cancelada com sucesso.');
-             window.location.href = '../../../../frentedeloja/caixa/cancelarVenda.php?id=" . urlencode($empresa_id) . "';
+             window.location.href = '../../../frentedeloja/caixa/cancelarVenda.php?id=" . urlencode($empresa_id) . "';
           </script>";
     exit;
 

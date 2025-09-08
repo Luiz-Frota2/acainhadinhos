@@ -1,9 +1,16 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
@@ -12,56 +19,16 @@ if (
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = $idFilial;
-} else {
-  echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-  exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Buscar imagem da tabela sobre_empresa
-try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
-} catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
-}
-
-// ✅ Buscar nome e nível do usuário logado
+// ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
+$tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -72,11 +39,51 @@ try {
 
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
   }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 // ✅ Buscar dados estatísticos da empresa
@@ -85,7 +92,7 @@ $taxaAbsenteismo = 0;
 $distribuicaoSetores = [];
 $ultimosRegistros = [];
 $horasTrabalhadas = [];
-$bancoHoras = 0;
+$bancoHoras = '00:00:00';
 $pontosAdicionados = 0;
 $frequenciaMensal = [];
 $funcionariosAtrasados = [];
@@ -94,58 +101,75 @@ $funcionariosAtrasados = [];
 $filtroRegistros = $_GET['filtro_registros'] ?? 'hoje';
 
 try {
-  // Total de funcionários
-  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM funcionarios WHERE empresa_id = :empresa_id");
+  // Total de funcionários ativos
+  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM funcionarios WHERE empresa_id = :empresa_id AND status = 'ativo'");
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $result = $stmt->fetch(PDO::FETCH_ASSOC);
   $totalFuncionarios = $result['total'] ?? 0;
 
-  // Taxa de absenteísmo (simplificado)
+  // Taxa de absenteísmo (considerando apenas funcionários ativos)
   $hoje = date('Y-m-d');
-  $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cpf) as ausentes FROM pontos WHERE empresa_id = :empresa_id AND data = :hoje AND entrada IS NULL");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->bindParam(':hoje', $hoje, PDO::PARAM_STR);
-  $stmt->execute();
-  $result = $stmt->fetch(PDO::FETCH_ASSOC);
-  $ausentes = $result['ausentes'] ?? 0;
-  $taxaAbsenteismo = $totalFuncionarios > 0 ? round(($ausentes / $totalFuncionarios) * 100, 2) : 0;
+  if ($totalFuncionarios > 0) {
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT f.cpf) as ausentes 
+                          FROM funcionarios f
+                          LEFT JOIN pontos p ON f.cpf = p.cpf AND p.data = :hoje
+                          WHERE f.empresa_id = :empresa_id 
+                          AND f.status = 'ativo'
+                          AND (p.entrada IS NULL OR p.data IS NULL)");
+    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+    $stmt->bindParam(':hoje', $hoje, PDO::PARAM_STR);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $ausentes = $result['ausentes'] ?? 0;
+    $taxaAbsenteismo = round(($ausentes / $totalFuncionarios) * 100, 2);
+  }
 
-  // Distribuição por setor
-  $stmt = $pdo->prepare("SELECT setor, COUNT(*) as total FROM funcionarios WHERE empresa_id = :empresa_id GROUP BY setor");
+  // Distribuição por setor (apenas funcionários ativos)
+  $stmt = $pdo->prepare("SELECT setor, COUNT(*) as total FROM funcionarios 
+                        WHERE empresa_id = :empresa_id AND status = 'ativo' 
+                        GROUP BY setor");
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $distribuicaoSetores = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
   // Últimos registros de ponto com filtros
-  $sqlUltimosRegistros = "SELECT nome, data, entrada, saida_final FROM pontos WHERE empresa_id = :empresa_id";
+  $sqlUltimosRegistros = "SELECT p.nome, p.data, p.entrada, p.saida_final 
+                         FROM pontos p
+                         JOIN funcionarios f ON p.cpf = f.cpf
+                         WHERE p.empresa_id = :empresa_id
+                         AND f.status = 'ativo'";
 
   switch ($filtroRegistros) {
     case 'hoje':
-      $sqlUltimosRegistros .= " AND data = CURDATE()";
+      $sqlUltimosRegistros .= " AND p.data = CURDATE()";
       break;
     case 'ontem':
-      $sqlUltimosRegistros .= " AND data = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+      $sqlUltimosRegistros .= " AND p.data = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
       break;
     case 'semana':
-      $sqlUltimosRegistros .= " AND data BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()";
+      $sqlUltimosRegistros .= " AND p.data BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()";
+      break;
+    case 'mes':
+      $sqlUltimosRegistros .= " AND MONTH(p.data) = MONTH(CURDATE()) AND YEAR(p.data) = YEAR(CURDATE())";
       break;
     case 'ano':
-      $sqlUltimosRegistros .= " AND YEAR(data) = YEAR(CURDATE())";
+      $sqlUltimosRegistros .= " AND YEAR(p.data) = YEAR(CURDATE())";
       break;
   }
 
-  $sqlUltimosRegistros .= " ORDER BY data DESC, entrada DESC LIMIT 5";
+  $sqlUltimosRegistros .= " ORDER BY p.data DESC, p.entrada DESC LIMIT 5";
 
   $stmt = $pdo->prepare($sqlUltimosRegistros);
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $ultimosRegistros = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-  // Horas trabalhadas nos últimos 12 meses (inteiro)
+  // Horas trabalhadas nos últimos 12 meses (formato mais preciso)
   $currentYear = date('Y');
   for ($i = 1; $i <= 12; $i++) {
-    $stmt = $pdo->prepare("SELECT SUM(HOUR(TIMEDIFF(saida_final, entrada))) as total_horas 
+    $stmt = $pdo->prepare("SELECT 
+                          SUM(TIME_TO_SEC(TIMEDIFF(saida_final, entrada))) / 3600 as total_horas
                           FROM pontos 
                           WHERE empresa_id = :empresa_id 
                           AND MONTH(data) = :mes 
@@ -157,18 +181,29 @@ try {
     $stmt->bindParam(':ano', $currentYear, PDO::PARAM_INT);
     $stmt->execute();
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    $horasTrabalhadas[] = $result['total_horas'] ?? 0;
+    $horasTrabalhadas[] = round($result['total_horas'] ?? 0, 2);
   }
 
-  // Banco de horas (simplificado)
-  $stmt = $pdo->prepare("SELECT SEC_TO_TIME(SUM(TIME_TO_SEC(hora_extra))) as total FROM pontos WHERE empresa_id = :empresa_id AND YEAR(data) = YEAR(CURDATE())");
+  // Banco de horas (considerando crédito e débito)
+  $stmt = $pdo->prepare("SELECT 
+                        SEC_TO_TIME(SUM(
+                          TIME_TO_SEC(CASE 
+                            WHEN hora_extra > '00:00:00' THEN hora_extra 
+                            ELSE '-' || hora_extra 
+                          END)
+                        )) as saldo
+                        FROM pontos 
+                        WHERE empresa_id = :empresa_id 
+                        AND YEAR(data) = YEAR(CURDATE())");
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $result = $stmt->fetch(PDO::FETCH_ASSOC);
-  $bancoHoras = $result['total'] ?? '00:00:00';
+  $bancoHoras = $result['saldo'] ?? '00:00:00';
 
-  // Pontos adicionados (simplificado - contagem de registros este ano)
-  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM pontos WHERE empresa_id = :empresa_id AND YEAR(data) = YEAR(CURDATE())");
+  // Pontos adicionados (este ano)
+  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM pontos 
+                        WHERE empresa_id = :empresa_id 
+                        AND YEAR(data) = YEAR(CURDATE())");
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -176,7 +211,13 @@ try {
 
   // Frequência mensal (últimos 12 meses)
   for ($i = 1; $i <= 12; $i++) {
-    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT cpf) as total FROM pontos WHERE empresa_id = :empresa_id AND MONTH(data) = :mes AND YEAR(data) = :ano");
+    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT p.cpf) as total 
+                          FROM pontos p
+                          JOIN funcionarios f ON p.cpf = f.cpf
+                          WHERE p.empresa_id = :empresa_id 
+                          AND MONTH(p.data) = :mes 
+                          AND YEAR(p.data) = :ano
+                          AND f.status = 'ativo'");
     $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmt->bindParam(':mes', $i, PDO::PARAM_INT);
     $stmt->bindParam(':ano', $currentYear, PDO::PARAM_INT);
@@ -185,20 +226,24 @@ try {
     $frequenciaMensal[] = $result['total'] ?? 0;
   }
 
-  // Funcionários atrasados (entrada após 10 minutos de tolerância)
-  $stmt = $pdo->prepare("SELECT nome, data, entrada 
-                        FROM pontos 
-                        WHERE empresa_id = :empresa_id 
-                        AND TIME(entrada) > '08:10:00' 
-                        AND TIME(entrada) < '18:00:00'
-                        AND data = CURDATE()
-                        ORDER BY entrada DESC");
+  // Funcionários atrasados (considerando horário padrão de 8h com 10min de tolerância)
+  $stmt = $pdo->prepare("SELECT p.nome, p.data, p.entrada 
+                        FROM pontos p
+                        JOIN funcionarios f ON p.cpf = f.cpf
+                        WHERE p.empresa_id = :empresa_id 
+                        AND TIME(p.entrada) > '08:10:00' 
+                        AND TIME(p.entrada) < '18:00:00'
+                        AND p.data = CURDATE()
+                        AND f.status = 'ativo'
+                        ORDER BY p.entrada DESC");
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $funcionariosAtrasados = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 } catch (PDOException $e) {
   error_log("Erro ao buscar dados estatísticos: " . $e->getMessage());
+  // Define valores padrão em caso de erro
+  $horasTrabalhadas = array_fill(0, 12, 0);
+  $frequenciaMensal = array_fill(0, 12, 0);
 }
 
 // Preparar dados para os gráficos
@@ -216,11 +261,12 @@ foreach ($distribuicaoSetores as $setor) {
   $setoresChartData[] = $setor['total'];
 }
 
-// Se não houver dados de setores, usar valores padrão
+// Valores padrão caso não haja dados
 if (empty($setoresChartLabels)) {
   $setoresChartLabels = ['Administrativo', 'Operacional', 'Vendas', 'Suporte'];
   $setoresChartData = [12, 30, 10, 6];
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -351,7 +397,7 @@ if (empty($setoresChartLabels)) {
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
                 </a>
               </li>
-              <li class="menu-item ">
+              <li class="menu-item">
                 <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                 </a>
@@ -416,31 +462,50 @@ if (empty($setoresChartLabels)) {
             </a>
           </li>
           <li class="menu-item">
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
+            </a>
+          </li>
+          <li class="menu-item">
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
-          </li>
-          <?php
-          $isFilial = str_starts_with($idSelecionado, 'filial_');
-          $link = $isFilial
-            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-            : '../filial/index.php?id=principal_1';
-          $titulo = $isFilial ? 'Matriz' : 'Filial';
-          ?>
 
-          <li class="menu-item">
-            <a href="<?= $link ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications"><?= $titulo ?></div>
-            </a>
-          </li>
+          <?php
+          $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+          $idLogado = $_SESSION['empresa_id'] ?? '';
+
+          // Se for matriz (principal), mostrar links para filial, franquia e unidade
+          if ($tipoLogado === 'principal') {
+          ?>
+            <li class="menu-item">
+              <a href="../filial/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Authentications">Filial</div>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="Authentications">Franquias</div>
+              </a>
+            </li>
+          <?php
+          } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+            // Se for filial, franquia ou unidade, mostra link para matriz
+          ?>
+            <li class="menu-item">
+              <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-cog"></i>
+                <div data-i18n="Authentications">Matriz</div>
+              </a>
+            </li>
+          <?php
+          }
+          ?>
           <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
@@ -481,28 +546,25 @@ if (empty($setoresChartLabels)) {
             <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
-              <!-- Place this tag where you want the button to render. -->
               <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
-                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                   <li>
                     <a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                              class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <!-- Exibindo o nome e nível do usuário -->
-                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                         </div>
                       </div>
                     </a>
@@ -511,7 +573,7 @@ if (empty($setoresChartLabels)) {
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
+                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-user me-2"></i>
                       <span class="align-middle">Minha Conta</span>
                     </a>
@@ -531,11 +593,11 @@ if (empty($setoresChartLabels)) {
                       <span class="align-middle">Sair</span>
                     </a>
                   </li>
-
                 </ul>
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
 
@@ -790,7 +852,7 @@ if (empty($setoresChartLabels)) {
                         <?php foreach ($funcionariosAtrasados as $index => $atrasado):
                           $entrada = $atrasado['entrada'] ? date('H:i', strtotime($atrasado['entrada'])) : '--:--';
                           $bgColors = ['primary', 'success', 'warning', 'info', 'secondary'];
-                          ?>
+                        ?>
                           <li class="d-flex mb-4 pb-1">
                             <div class="avatar flex-shrink-0 me-3">
                               <span class="avatar-initial rounded bg-label-<?= $bgColors[$index % count($bgColors)] ?>">
@@ -847,7 +909,7 @@ if (empty($setoresChartLabels)) {
                       $saida = $registro['saida_final'] ? date('H:i', strtotime($registro['saida_final'])) : '--:--';
                       $dataFormatada = date('d/m', strtotime($registro['data']));
                       $bgColors = ['primary', 'success', 'warning', 'info', 'secondary'];
-                      ?>
+                    ?>
                       <li class="d-flex mb-4 pb-1">
                         <div class="avatar flex-shrink-0 me-3">
                           <span class="avatar-initial rounded bg-label-<?= $bgColors[$index % count($bgColors)] ?>">
@@ -912,7 +974,7 @@ if (empty($setoresChartLabels)) {
 
   <script>
     // Aguarde o DOM estar totalmente carregado
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
       // Verifique se ApexCharts está disponível
       if (typeof ApexCharts === 'undefined') {
         console.error('ApexCharts não foi carregado corretamente');
@@ -966,14 +1028,14 @@ if (empty($setoresChartLabels)) {
               text: 'Horas'
             },
             labels: {
-              formatter: function (val) {
+              formatter: function(val) {
                 return Math.round(val); // Garante números inteiros
               }
             }
           },
           tooltip: {
             y: {
-              formatter: function (val) {
+              formatter: function(val) {
                 return val + " horas";
               }
             }
@@ -1021,7 +1083,7 @@ if (empty($setoresChartLabels)) {
                     fontFamily: 'Public Sans',
                     color: '#2d3748',
                     offsetY: 0,
-                    formatter: function (val) {
+                    formatter: function(val) {
                       return val;
                     }
                   },
@@ -1029,7 +1091,7 @@ if (empty($setoresChartLabels)) {
                     show: true,
                     label: 'Total',
                     color: '#718096',
-                    formatter: function () {
+                    formatter: function() {
                       return '<?= $totalFuncionarios ?>';
                     }
                   }
@@ -1088,7 +1150,7 @@ if (empty($setoresChartLabels)) {
           },
           tooltip: {
             y: {
-              formatter: function (val) {
+              formatter: function(val) {
                 return val + " registros";
               }
             }
@@ -1108,21 +1170,41 @@ if (empty($setoresChartLabels)) {
           chart: {
             type: 'line',
             height: 80,
-            sparkline: { enabled: true },
-            toolbar: { show: false }
+            sparkline: {
+              enabled: true
+            },
+            toolbar: {
+              show: false
+            }
           },
           stroke: {
             width: 4,
             curve: 'smooth'
           },
           colors: [config.colors.warning],
-          dataLabels: { enabled: false },
-          grid: { show: false },
-          xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
-          yaxis: { show: false },
+          dataLabels: {
+            enabled: false
+          },
+          grid: {
+            show: false
+          },
+          xaxis: {
+            labels: {
+              show: false
+            },
+            axisBorder: {
+              show: false
+            },
+            axisTicks: {
+              show: false
+            }
+          },
+          yaxis: {
+            show: false
+          },
           tooltip: {
             y: {
-              formatter: function (val) {
+              formatter: function(val) {
                 return val + " pontos";
               }
             }
@@ -1142,21 +1224,41 @@ if (empty($setoresChartLabels)) {
           chart: {
             type: 'line',
             height: 80,
-            sparkline: { enabled: true },
-            toolbar: { show: false }
+            sparkline: {
+              enabled: true
+            },
+            toolbar: {
+              show: false
+            }
           },
           stroke: {
             width: 4,
             curve: 'smooth'
           },
           colors: [config.colors.info],
-          dataLabels: { enabled: false },
-          grid: { show: false },
-          axis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
-          yaxis: { show: false },
+          dataLabels: {
+            enabled: false
+          },
+          grid: {
+            show: false
+          },
+          axis: {
+            labels: {
+              show: false
+            },
+            axisBorder: {
+              show: false
+            },
+            axisTicks: {
+              show: false
+            }
+          },
+          yaxis: {
+            show: false
+          },
           tooltip: {
             y: {
-              formatter: function (val) {
+              formatter: function(val) {
                 return val + "h";
               }
             }

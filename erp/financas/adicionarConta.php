@@ -1,49 +1,77 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = $idFilial;
-} else {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
   echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
   exit;
 }
+
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
@@ -252,13 +280,6 @@ try {
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
-
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
-          </li>
           <?php
           $isFilial = str_starts_with($idSelecionado, 'filial_');
           $link = $isFilial
@@ -377,7 +398,7 @@ try {
           <div class="card">
             <h5 class="card-header">Adicionar Conta da Empresa</h5>
             <div class="card-body">
-              <form id="addContaForm" action="../../assets/php/financas/contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" method="POST">
+              <form id="addContaForm" action="../../assets/php/financas/adicionarConta.php?id=<?= urlencode($idSelecionado); ?>" method="POST">
                 <div class="mb-3">
                   <label for="descricao" class="form-label">Descrição da Conta</label>
                   <input type="text" class="form-control" id="descricao" name="descricao" placeholder="Ex: Pagamento de Fornecedor" required />
@@ -406,7 +427,7 @@ try {
                     <option value="futura">Futura</option>
                   </select>
                 </div>
-
+                  <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>" />
                 <div class="d-flex custom-button">
                   <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar Conta</button>
                 </div>

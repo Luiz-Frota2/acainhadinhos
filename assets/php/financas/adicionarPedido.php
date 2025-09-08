@@ -51,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $lastInsertId = $pdo->lastInsertId();
 
             // Retorna mensagem de sucesso com o ID do pedido
-            echo "<script>
-                alert('Pedido adicionado com sucesso!');
-                window.location.href = '../../../erp/financas/gestaoPedidos.php?id=$empresa_id';
-            </script>";
+            echo '<script>
+                alert("Pedido adicionado com sucesso!");
+                window.location.href = "../../../erp/financas/gestaoPedidos.php?id=' . urlencode($empresa_id) . '";
+            </script>';
             exit();
         } else {
             throw new Exception("Erro ao executar a query.");

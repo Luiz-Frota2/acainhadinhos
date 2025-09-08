@@ -7,14 +7,19 @@ session_start();
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
+if (!$idSelecionado) {
+  header("Location: ./login.php");
+  exit;
+}
+
 // ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // Verifica se o ID do usuário está na sessão
+  !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: ./login.php?id=$idSelecionado");
+  header("Location: ./login.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
@@ -36,55 +41,49 @@ try {
     $nomeUsuario = $usuario['usuario'];
     $tipoUsuario = ucfirst($usuario['nivel']);
   } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './login.php?id=$idSelecionado';</script>";
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = './login.php?id=$idSelecionado';
-        </script>";
-    exit;
-  }
-  $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = './login.php?id=$idSelecionado';
-        </script>";
-    exit;
-  }
-  $id = $idFilial;
-} else {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
   echo "<script>
-        alert('Empresa não identificada!');
-        window.location.href = './login.php?id=$idSelecionado';
-    </script>";
+          alert('Acesso negado!');
+          window.location.href = './login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
   exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// ✅ Buscar logo da empresa
 try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
   $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
   $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
+    ? "../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+  $logoEmpresa = "../assets/img/favicon/logo.png"; // fallback
 }
 
 ?>
@@ -103,7 +102,7 @@ try {
   <meta name="description" content="" />
 
   <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
+  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -133,6 +132,7 @@ try {
   <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
   <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../assets/js/config.js"></script>
+
 </head>
 
 <body>
@@ -184,26 +184,40 @@ try {
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
             </a>
+            <a href="./empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
+            </a>
             <a href="./estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
             </a>
-            <a href="./clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
             <?php
-            $isFilial = str_starts_with($idSelecionado, 'filial_');
-            $link = $isFilial
-              ? './matriz/index.php?id=' . urlencode($idSelecionado)
-              : './filial/index.php?id=principal_1';
-            $titulo = $isFilial ? 'Matriz' : 'Filial';
-            ?>
+            $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+            $idLogado = $_SESSION['empresa_id'] ?? '';
 
-            <a href="<?= $link ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications"><?= $titulo ?></div>
-            </a>
+            // Se for matriz (principal), mostrar links para filial, franquia e unidade
+            if ($tipoLogado === 'principal') {
+            ?>
+              <a href="./filial/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Authentications">Filial</div>
+              </a>
+              <a href="./franquia/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="Authentications">Franquias</div>
+              </a>
+            <?php
+            } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+              // Se for filial, franquia ou unidade, mostra link para matriz
+            ?>
+              <a href="./matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-cog"></i>
+                <div data-i18n="Authentications">Matriz</div>
+              </a>
+            <?php
+            }
+            ?>
 
             <a href="./usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
@@ -249,27 +263,25 @@ try {
             <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
-              <!-- Place this tag where you want the button to render. -->
               <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
-                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                   <li>
                     <a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                              class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
-                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario); ?></small>
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                         </div>
                       </div>
                     </a>
@@ -302,6 +314,7 @@ try {
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
         <!-- / Navbar -->
@@ -322,7 +335,7 @@ try {
                   </div>
                   <div class="col-sm-5 text-center text-sm-left">
                     <div class="card-body pb-0 px-0 px-md-4">
-                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="140"
+                      <img src="../assets/img/illustrations/man-with-laptop-light.png" height="140"
                         alt="View Badge User" data-app-dark-img="illustrations/man-with-laptop-dark.png"
                         data-app-light-img="illustrations/man-with-laptop-light.png" />
                     </div>
@@ -337,8 +350,9 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/chart-success.png" alt="gráfico de sucesso"
-                            class="rounded" />
+                          <span class="avatar-initial rounded bg-label-success">
+                            <i class="bx bx-line-chart"></i>
+                          </span>
                         </div>
                         <div class="dropdown">
                           <button class="btn p-0" type="button" id="cardOpt3" data-bs-toggle="dropdown"
@@ -362,8 +376,9 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Cartão de Crédito"
-                            class="rounded" />
+                          <span class="avatar-initial rounded bg-label-info">
+                            <i class="bx bx-shopping-bag"></i>
+                          </span>
                         </div>
                         <div class="dropdown">
                           <button class="btn p-0" type="button" id="cardOpt6" data-bs-toggle="dropdown"
@@ -445,8 +460,9 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/paypal.png" alt="Cartão de Crédito"
-                            class="rounded" />
+                            <span class="avatar-initial rounded bg-label-danger">
+                            <i class="bx bx-credit-card"></i>
+                            </span>
                         </div>
                         <div class="dropdown">
                           <button class="btn p-0" type="button" id="cardOpt4" data-bs-toggle="dropdown"
@@ -470,8 +486,9 @@ try {
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
                         <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Cartão de Crédito"
-                            class="rounded" />
+                          <span class="avatar-initial rounded bg-label-primary">
+                            <i class="bx bx-credit-card"></i>
+                          </span>
                         </div>
                         <div class="dropdown">
                           <button class="btn p-0" type="button" id="cardOpt1" data-bs-toggle="dropdown"
@@ -640,7 +657,9 @@ try {
                     <div class="tab-pane fade show active" id="navs-tabs-line-card-income" role="tabpanel">
                       <div class="d-flex p-4 pt-3">
                         <div class="avatar flex-shrink-0 me-3">
-                          <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" />
+                          <span class="avatar-initial rounded bg-label-primary">
+                          <i class="bx bx-wallet"></i>
+                          </span>
                         </div>
                         <div>
                           <small class="text-muted d-block">Saldo Total</small>
@@ -691,7 +710,7 @@ try {
                   <ul class="p-0 m-0">
                     <li class="d-flex mb-4 pb-1">
                       <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/paypal.png" alt="Usuário" class="rounded" />
+                        <img src="../assets/img/icons/unicons/paypal.png" alt="Usuário" class="rounded" />
                       </div>
                       <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                         <div class="me-2">
@@ -706,7 +725,7 @@ try {
                     </li>
                     <li class="d-flex mb-4 pb-1">
                       <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
+                        <img src="../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
                       </div>
                       <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                         <div class="me-2">
@@ -721,7 +740,7 @@ try {
                     </li>
                     <li class="d-flex mb-4 pb-1">
                       <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/chart.png" alt="Usuário" class="rounded" />
+                        <img src="../assets/img/icons/unicons/chart.png" alt="Usuário" class="rounded" />
                       </div>
                       <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                         <div class="me-2">
@@ -736,7 +755,7 @@ try {
                     </li>
                     <li class="d-flex mb-4 pb-1">
                       <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/cc-success.png" alt="Usuário" class="rounded" />
+                        <img src="../assets/img/icons/unicons/cc-success.png" alt="Usuário" class="rounded" />
                       </div>
                       <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                         <div class="me-2">
@@ -751,7 +770,7 @@ try {
                     </li>
                     <li class="d-flex mb-4 pb-1">
                       <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
+                        <img src="../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
                       </div>
                       <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                         <div class="me-2">
@@ -766,7 +785,7 @@ try {
                     </li>
                     <li class="d-flex">
                       <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/cc-warning.png" alt="Usuário" class="rounded" />
+                        <img src="../assets/img/icons/unicons/cc-warning.png" alt="Usuário" class="rounded" />
                       </div>
                       <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                         <div class="me-2">
@@ -796,7 +815,7 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
+              , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
               Desenvolvido por <strong>CodeGeek</strong>.
             </div>
           </div>
@@ -819,26 +838,27 @@ try {
 
   <!-- Core JS -->
   <!-- build:js assets/vendor/js/core.js -->
-  <script src="../../js/saudacao.js"></script>
-  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-  <script src="../../assets/vendor/libs/popper/popper.js"></script>
-  <script src="../../assets/vendor/js/bootstrap.js"></script>
-  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <script src="../js/saudacao.js"></script>
+  <script src="../assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="../assets/vendor/libs/popper/popper.js"></script>
+  <script src="../assets/vendor/js/bootstrap.js"></script>
+  <script src="../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 
-  <script src="../../assets/vendor/js/menu.js"></script>
+  <script src="../assets/vendor/js/menu.js"></script>
   <!-- endbuild -->
 
   <!-- Vendors JS -->
-  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+  <script src="../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
   <!-- Main JS -->
-  <script src="../../assets/js/main.js"></script>
+  <script src="../assets/js/main.js"></script>
 
   <!-- Page JS -->
-  <script src="../../assets/js/dashboards-analytics.js"></script>
+  <script src="../assets/js/dashboards-analytics.js"></script>
 
   <!-- Place this tag in your head or just before your close body tag. -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
+
 
 </body>
 

@@ -265,13 +265,6 @@ try {
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
-
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
-          </li>
           <?php
           $isFilial = str_starts_with($idSelecionado, 'filial_');
           $link = $isFilial

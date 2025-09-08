@@ -1,49 +1,221 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+// === AJAX: itens do caixa (vendas + sangrias + suprimentos) ===
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
+    header('Content-Type: application/json; charset=utf-8');
+    $empresa_id = $idSelecionado ?? ($_GET['id'] ?? '');
+    $idCaixa = (int)($_GET['id_caixa'] ?? 0);
+    if ($idCaixa <= 0 || empty($empresa_id)) {
+        echo json_encode(['ok' => false, 'msg' => 'Parâmetros inválidos']); exit;
+    }
+    try {
+        $st = $pdo->prepare("SELECT id, empresa_id, responsavel, abertura_datetime,
+                                    COALESCE(fechamento_datetime, NOW()) AS fechamento_datetime
+                             FROM aberturas
+                             WHERE id = :id AND empresa_id = :eid");
+        $st->execute([':id' => $idCaixa, ':eid' => $empresa_id]);
+        $ab = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$ab) { 
+            // Fallback: tentar por data + responsável quando id_caixa não veio
+            $resp = $_GET['resp'] ?? '';
+            $data = $_GET['data'] ?? '';
+            if (!empty($resp) && !empty($data)) {
+                $st2 = $pdo->prepare("SELECT id, empresa_id, responsavel, abertura_datetime,
+                                            COALESCE(fechamento_datetime, NOW()) AS fechamento_datetime
+                                      FROM aberturas
+                                      WHERE empresa_id = :eid
+                                        AND DATE(abertura_datetime) = :dt
+                                        AND responsavel = :resp
+                                      ORDER BY abertura_datetime DESC
+                                      LIMIT 1");
+                $st2->execute([':eid'=>$empresa_id, ':dt'=>$data, ':resp'=>$resp]);
+                $ab = $st2->fetch(PDO::FETCH_ASSOC);
+            }
+            if (!$ab) { echo json_encode(['ok'=>false,'msg'=>'Caixa não encontrado']); exit; }
+        }
+        $ini = $ab['abertura_datetime']; $fim = $ab['fechamento_datetime'];
+        $try = function(array $sqls) use ($pdo, $empresa_id, $ini, $fim) {
+            foreach ($sqls as $sql) {
+                try {
+                    $st = $pdo->prepare($sql);
+                    $st->execute([':eid'=>$empresa_id, ':ini'=>$ini, ':fim'=>$fim]);
+                    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+                    if (is_array($rows)) return $rows;
+                } catch (Throwable $e) {}
+            }
+            return [];
+        };
+        $sqlItens = [
+
+"SELECT vi.id,
+        vi.venda_id,
+        COALESCE(vi.nome_produto, p.nome, p.descricao, CONCAT('Produto #', vi.produto_id)) AS produto,
+        COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
+        COALESCE(vi.created_at, v.data_venda, v.created_at) AS datahora
+ FROM venda_itens_peca vi
+ JOIN vendas_peca v ON v.id = vi.venda_id
+ LEFT JOIN produtos_peca p ON p.id = vi.produto_id
+ WHERE v.empresa_id = :eid AND COALESCE(v.data_venda, v.created_at) BETWEEN :ini AND :fim
+ ORDER BY datahora ASC",
+"SELECT iv.id, iv.venda_id,
+        COALESCE(iv.nome_produto, p.nome, p.descricao, CONCAT('Produto #', iv.produto_id)) AS produto,
+        COALESCE(iv.total, iv.valor_total, iv.valor, (iv.preco*iv.quantidade), (iv.preco_unitario*iv.quantidade)) AS valor,
+        COALESCE(iv.created_at, v.data_venda, v.created_at) AS datahora
+ FROM itens_venda iv
+ JOIN vendas_peca v ON v.id = iv.venda_id
+ LEFT JOIN produtos p ON p.id = iv.produto_id
+ WHERE v.empresa_id = :eid AND COALESCE(v.data_venda, v.created_at) BETWEEN :ini AND :fim
+ ORDER BY datahora ASC",
+"SELECT vi.id,
+        vi.venda_id,
+        COALESCE(vi.nome_produto, p.nome, p.descricao, CONCAT('Produto #', vi.produto_id)) AS produto,
+        COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
+        COALESCE(vi.created_at, v.data_venda) AS datahora
+ FROM venda_itens_peca vi
+ JOIN vendas v ON v.id = vi.venda_id
+ LEFT JOIN produtos_peca p ON p.id = vi.produto_id
+ WHERE v.empresa_id = :eid AND v.data_venda BETWEEN :ini AND :fim
+ ORDER BY datahora ASC",
+"SELECT iv.id, iv.venda_id,
+        COALESCE(iv.nome_produto, p.nome, p.descricao, CONCAT('Produto #', iv.produto_id)) AS produto,
+        COALESCE(iv.total, iv.valor_total, iv.valor, (iv.preco*iv.quantidade), (iv.preco_unitario*iv.quantidade)) AS valor,
+        COALESCE(iv.created_at, v.data_venda) AS datahora
+ FROM itens_venda iv
+ JOIN vendas v ON v.id = iv.venda_id
+ LEFT JOIN produtos p ON p.id = iv.produto_id
+ WHERE v.empresa_id = :eid AND v.data_venda BETWEEN :ini AND :fim
+ ORDER BY datahora ASC",
+"SELECT vi.id, vi.venda_id,
+        COALESCE(vi.nome_produto, p.nome, p.descricao, CONCAT('Produto #', vi.produto_id)) AS produto,
+        COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
+        COALESCE(vi.created_at, v.data_venda) AS datahora
+ FROM vendas_itens vi
+ JOIN vendas v ON v.id = vi.venda_id
+ LEFT JOIN produtos p ON p.id = vi.produto_id
+ WHERE v.empresa_id = :eid AND v.data_venda BETWEEN :ini AND :fim
+ ORDER BY datahora ASC",
+"SELECT vi.id, vi.venda_id,
+        COALESCE(vi.nome_produto, CONCAT('Produto #', vi.produto_id)) AS produto,
+        COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
+        COALESCE(vi.created_at, v.data_venda) AS datahora
+ FROM venda_itens vi
+ JOIN vendas v ON v.id = vi.venda_id
+ WHERE v.empresa_id = :eid AND v.data_venda BETWEEN :ini AND :fim
+ ORDER BY datahora ASC",
+        ];
+        $itens = $try($sqlItens);
+
+        $sqlSupr = [
+"SELECT id, COALESCE(valor, valor_suprimento) AS valor, data_registro AS datahora
+ FROM suprimentos
+ WHERE empresa_id = :eid AND data_registro BETWEEN :ini AND :fim
+ ORDER BY datahora ASC"
+        ];
+        $supr = $try($sqlSupr);
+
+        $sqlSang = [
+"SELECT id, valor, data_registro AS datahora
+ FROM sangrias
+ WHERE empresa_id = :eid AND data_registro BETWEEN :ini AND :fim
+ ORDER BY datahora ASC"
+        ];
+        $sang = $try($sqlSang);
+
+        $totV = array_sum(array_map(fn($r)=> (float)($r['valor']??0), $itens));
+        $totS = array_sum(array_map(fn($r)=> (float)($r['valor']??0), $sang));
+        $totU = array_sum(array_map(fn($r)=> (float)($r['valor']??0), $supr));
+
+        echo json_encode([
+            'ok' => true,
+            'caixa' => [
+                'id' => (int)$ab['id'],
+                'responsavel' => (string)$ab['responsavel'],
+                'inicio' => $ini,
+                'fim' => $fim
+            ],
+            'itens' => $itens,
+            'sangrias' => $sang,
+            'suprimentos' => $supr,
+            'totais' => ['vendas'=>$totV, 'sangrias'=>$totS, 'suprimentos'=>$totU]
+        ], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    } catch (Throwable $e) {
+        echo json_encode(['ok'=>false,'msg'=>'Erro ao carregar itens']); 
+    }
+    exit;
+}
+
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-    exit;
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
@@ -82,7 +254,88 @@ try {
     $nivelUsuario = 'Erro ao carregar nível';
 }
 
+
+// ===== BLOCO DINÂMICO: RELATÓRIO DIÁRIO =====
+date_default_timezone_set('America/Manaus');
+$empresa_id = $idSelecionado;
+
+/**
+ * Lista de caixas (aberturas) de HOJE. Se não houver aberturas, retorna um consolidado do dia.
+ * Saídas/Entradas/Saldo 100% pelo banco.
+ */
+function obterResumoDiarioLista(PDO $pdo, string $empresa_id): array {
+    $hoje = date('Y-m-d');
+    // Buscar aberturas de hoje
+    $sql = "SELECT id, responsavel, status, abertura_datetime, fechamento_datetime,
+                   valor_total, valor_suprimentos, valor_sangrias, valor_liquido
+            FROM aberturas
+            WHERE empresa_id = :eid
+              AND DATE(abertura_datetime) = :hoje
+            ORDER BY abertura_datetime DESC";
+    $st = $pdo->prepare($sql);
+    $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    $itens = [];
+
+    if ($rows) {
+        foreach ($rows as $r) {
+            $entradas = (float)$r['valor_total'] + (float)$r['valor_suprimentos'];
+            $saidas   = (float)$r['valor_sangrias'];
+            $saldo    = (float)$r['valor_liquido']; // já calculado no banco
+            $data     = $r['abertura_datetime'] ? date('d/m/Y H:i', strtotime($r['abertura_datetime'])) : date('d/m/Y');
+            $itens[] = [
+                'id_caixa'    => (int)$r['id'],
+                'data'        => $data,
+                'entradas'    => $entradas,
+                'saidas'      => $saidas,
+                'saldo'       => $saldo,
+                'responsavel' => (string)$r['responsavel'],
+                'status'      => (string)$r['status'],
+            ];
+        }
+    } else {
+        // Consolidado do dia (sem aberturas)
+        // Vendas do dia
+        $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) FROM vendas WHERE empresa_id=:eid AND DATE(data_venda)=:hoje");
+        $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+        $vendasDia = (float)($st->fetchColumn() ?: 0);
+
+        // Suprimentos do dia
+        $st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos WHERE empresa_id=:eid AND DATE(data_registro)=:hoje");
+        $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+        $suprDia = (float)($st->fetchColumn() ?: 0);
+
+        // Sangrias do dia
+        $st = $pdo->prepare("SELECT COALESCE(SUM(valor),0) FROM sangrias WHERE empresa_id=:eid AND DATE(data_registro)=:hoje");
+        $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+        $sangDia = (float)($st->fetchColumn() ?: 0);
+
+        $entradas = $vendasDia + $suprDia;
+        $saidas   = $sangDia;
+        $saldo    = $entradas - $saidas;
+
+        $itens[] = [
+            'id_caixa'    => null,
+            'data'        => date('d/m/Y'),
+            'entradas'    => $entradas,
+            'saidas'      => $saidas,
+            'saldo'       => $saldo,
+            'responsavel' => '—',
+            'status'      => '—',
+        ];
+    }
+
+    return $itens;
+}
+
+function fmtBR($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
+
+// Prepara dados JSON para o JS popular o card 'Resumo Diário' (sem mudar o HTML base)
+$__listaResumoHoje = obterResumoDiarioLista($pdo, $empresa_id);
+$__listaResumoHoje_json = htmlspecialchars(json_encode($__listaResumoHoje, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -255,12 +508,6 @@ try {
                         </a>
                     </li>
 
-                    <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
-                        </a>
-                    </li>
                     <?php
                     $isFilial = str_starts_with($idSelecionado, 'filial_');
                     $link = $isFilial
@@ -376,12 +623,12 @@ try {
                     </div>
 
                     <!-- RESUMO -->
-                   <?php
+                 <?php
 // Conexão com o banco de dados (ajuste conforme sua configuração)
-$host = 'localhost'; // ou o IP do servidor de banco de dados
-$dbname = 'u920914488_ERP'; // Nome do banco de dados
-$username = 'u920914488_ERP'; // Seu nome de usuário do banco de dados
-$password = 'N8r=$&Wrs$'; // Sua senha do banco de dados
+$host = 'localhost';
+$dbname = 'u920914488_ERP';
+$username = 'u920914488_ERP';
+$password = 'N8r=$&Wrs$';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
@@ -390,7 +637,11 @@ try {
     die("Erro na conexão: " . $e->getMessage());
 }
 
-// Funções para calcular os dados
+// Verificar se o ID da empresa foi fornecido
+$empresa_id = $_GET['id'] ?? '';
+if (empty($empresa_id)) {
+    die("<div class='alert alert-danger'>ID da empresa não fornecido na URL</div>");
+}
 
 /**
  * Calcula as entradas do dia (vendas + suprimentos)
@@ -399,7 +650,7 @@ function calcularEntradasDia($pdo, $empresa_id) {
     $hoje = date('Y-m-d');
     
     // Total de vendas do dia
-    $sqlVendas = "SELECT SUM(total) as total_vendas FROM venda_rapida 
+    $sqlVendas = "SELECT SUM(valor_total) as total_vendas FROM vendas 
                  WHERE DATE(data_venda) = :hoje AND empresa_id = :empresa_id";
     $stmtVendas = $pdo->prepare($sqlVendas);
     $stmtVendas->bindParam(':hoje', $hoje);
@@ -429,7 +680,7 @@ function calcularEntradasDia($pdo, $empresa_id) {
 }
 
 /**
- * Calcula as saídas do dia (sangrias + despesas)
+ * Calcula as saídas do dia (apenas sangrias, sem despesas)
  */
 function calcularSaidasDia($pdo, $empresa_id) {
     $hoje = date('Y-m-d');
@@ -444,24 +695,13 @@ function calcularSaidasDia($pdo, $empresa_id) {
     $sangrias = $stmtSangrias->fetch(PDO::FETCH_ASSOC);
     $totalSangrias = $sangrias['total_sangrias'] ?? 0;
     
-    // Total de despesas do dia (assumindo que há uma tabela de despesas)
-    // Se não houver, você pode ajustar conforme sua estrutura
-    $sqlDespesas = "SELECT SUM(valor) as total_despesas FROM despesas 
-                   WHERE DATE(data_registro) = :hoje AND empresa_id = :empresa_id";
-    $stmtDespesas = $pdo->prepare($sqlDespesas);
-    $stmtDespesas->bindParam(':hoje', $hoje);
-    $stmtDespesas->bindParam(':empresa_id', $empresa_id);
-    $stmtDespesas->execute();
-    $despesas = $stmtDespesas->fetch(PDO::FETCH_ASSOC);
-    $totalDespesas = $despesas['total_despesas'] ?? 0;
-    
-    // Total de saídas
-    $totalSaidas = $totalSangrias + $totalDespesas;
+    // Total de saídas (apenas sangrias)
+    $totalSaidas = $totalSangrias;
     
     return [
         'total_saidas' => $totalSaidas,
         'total_sangrias' => $totalSangrias,
-        'total_despesas' => $totalDespesas
+        'total_despesas' => 0 // Definido como 0 pois não há tabela de despesas
     ];
 }
 
@@ -481,7 +721,7 @@ function calcularSaldoCaixa($pdo, $empresa_id) {
     if ($caixa) {
         return [
             'saldo_caixa' => $caixa['valor_liquido'],
-            'valor_meta' => 1500.00, // Você pode ajustar para pegar do banco se tiver meta configurada
+            'valor_meta' => 1500.00,
             'percentual_meta' => ($caixa['valor_liquido'] / 1500) * 100
         ];
     }
@@ -494,44 +734,44 @@ function calcularSaldoCaixa($pdo, $empresa_id) {
 }
 
 /**
- * Obtém o resumo diário para a tabela
+ * Obtém o resumo diário para a tabela (sem despesas)
  */
 function obterResumoDiario($pdo, $empresa_id, $limit = 10, $offset = 0) {
     $sql = "SELECT 
-                DATE(abertura_datetime) as data,
-                valor_total as entrada,
-                (valor_sangrias + (SELECT COALESCE(SUM(valor), 0) FROM despesas 
-                 WHERE DATE(data_registro) = DATE(abertura_datetime) AND empresa_id = a.empresa_id)) as saida,
-                valor_liquido as saldo,
-                responsavel,
-                status,
-                abertura_datetime
+                a.id AS id_caixa,
+                DATE(a.abertura_datetime)    AS data,
+                a.valor_total                 AS entrada,
+                a.valor_sangrias              AS saida,
+                a.valor_liquido               AS saldo,
+                a.responsavel                 AS responsavel,
+                a.status                      AS status,
+                a.abertura_datetime           AS abertura_datetime,
+                a.fechamento_datetime         AS fechamento_datetime
             FROM aberturas a
-            WHERE empresa_id = :empresa_id AND status = 'fechado'
-            ORDER BY abertura_datetime DESC
+            WHERE a.empresa_id = :empresa_id
+            ORDER BY a.abertura_datetime DESC
             LIMIT :limit OFFSET :offset";
-    
     $stmt = $pdo->prepare($sql);
     $stmt->bindParam(':empresa_id', $empresa_id);
     $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
     $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
-    
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+
 /**
- * Obtém as últimas movimentações
+ * Obtém as últimas movimentações (sem despesas)
  */
 function obterUltimasMovimentacoes($pdo, $empresa_id, $limit = 5) {
     // Vendas
     $sqlVendas = "SELECT 
                     'Venda' as tipo,
                     CONCAT('Venda #', id) as descricao,
-                    total as valor,
+                    valor_total as valor,
                     data_venda as data,
                     'success' as classe_cor
-                 FROM venda_rapida
+                 FROM vendas
                  WHERE empresa_id = :empresa_id
                  ORDER BY data_venda DESC
                  LIMIT :limit";
@@ -560,22 +800,10 @@ function obterUltimasMovimentacoes($pdo, $empresa_id, $limit = 5) {
                     ORDER BY data_registro DESC
                     LIMIT :limit";
     
-    // Despesas (assumindo que existe tabela despesas)
-    $sqlDespesas = "SELECT 
-                       'Despesa' as tipo,
-                       CONCAT('Despesa - ', descricao) as descricao,
-                       valor as valor,
-                       data_registro as data,
-                       'warning' as classe_cor
-                    FROM despesas
-                    WHERE empresa_id = :empresa_id
-                    ORDER BY data_registro DESC
-                    LIMIT :limit";
-    
-    // Executa todas as consultas
+    // Executa todas as consultas (apenas vendas, suprimentos e sangrias)
     $movimentacoes = [];
     
-    foreach (['Vendas', 'Suprimentos', 'Sangrias', 'Despesas'] as $tipo) {
+    foreach (['Vendas', 'Suprimentos', 'Sangrias'] as $tipo) {
         $sqlVar = "sql$tipo";
         $stmt = $pdo->prepare($$sqlVar);
         $stmt->bindParam(':empresa_id', $empresa_id);
@@ -610,9 +838,6 @@ function formatarPorcentagem($valor) {
     return number_format($valor, 0) . '%';
 }
 
-// Exemplo de uso (supondo que você tenha o ID da empresa)
-$empresa_id = $idSelecionado || 'principal_1'; // Substitua pelo ID real da empresa
-
 // Calcula os dados
 $entradas = calcularEntradasDia($pdo, $empresa_id);
 $saidas = calcularSaidasDia($pdo, $empresa_id);
@@ -644,7 +869,6 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                 <small class="text-danger fw-semibold">+5% vs ontem</small>
                 <div class="mt-3">
                     <span class="badge bg-label-danger">Sangrias: <?= formatarMoeda($saidas['total_sangrias']) ?></span>
-                    <span class="badge bg-label-warning ms-1">Despesas: <?= formatarMoeda($saidas['total_despesas']) ?></span>
                 </div>
             </div>
         </div>
@@ -708,9 +932,6 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                             </td>
                             <td>
                                 <button class="btn btn-sm btn-icon">
-                                    <i class="bx bx-show"></i>
-                                </button>
-                                <button class="btn btn-sm btn-icon">
                                     <i class="bx bx-printer"></i>
                                 </button>
                             </td>
@@ -751,13 +972,17 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                                 <small class="text-muted"><?= date('d/m - H:i', strtotime($movimentacao['data'])) ?></small>
                             </div>
                             <span class="text-<?= $movimentacao['classe_cor'] ?>">
-                                <?= ($movimentacao['tipo'] == 'Sangria' || $movimentacao['tipo'] == 'Despesa') ? '-' : '+' ?>
+                                <?= ($movimentacao['tipo'] == 'Sangria') ? '-' : '+' ?>
                                 <?= formatarMoeda($movimentacao['valor']) ?>
                             </span>
                         </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
             </div>
            
             </div>
@@ -771,6 +996,275 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/js/main.js"></script>
-</body>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  try {
+    var dados = JSON.parse('<?php echo $__listaResumoHoje_json ?? "[]"; ?>') || [];
+    // Procura um card com título "Resumo Diário"
+    var cards = document.querySelectorAll('.card');
+    var alvo = null;
+    for (var i=0;i<cards.length;i++){
+      var h = cards[i].querySelector('.card-header h5, .card-header h4, .card-header h6');
+      if (h && h.textContent.trim().toLowerCase() === 'resumo diário'){
+        alvo = cards[i];
+        break;
+      }
+    }
+    if (!alvo) return; // se não existir, não quebramos layout
 
-</html>
+    // Área onde vamos renderizar a lista (mantendo o card)
+    var body = alvo.querySelector('.card-body');
+    if (!body){
+      body = document.createElement('div');
+      body.className = 'card-body';
+      alvo.appendChild(body);
+    }
+    // Render em LISTA (sem mudar o card)
+    var ul = document.createElement('ul');
+    ul.className = 'list-group list-group-flush';
+
+    // Cabeçalho (como item da lista)
+    var head = document.createElement('li');
+    head.className = 'list-group-item p-2 small fw-semibold text-muted';
+    head.innerHTML = '<div class="row">'+
+        '<div class="col-2">Data</div>'+
+        '<div class="col-2 text-end">Entrada</div>'+
+        '<div class="col-2 text-end">Saída</div>'+
+        '<div class="col-2 text-end">Saldo</div>'+
+        '<div class="col-2">Responsável</div>'+
+        '<div class="col-2">Status</div>'+
+      '</div>';
+    ul.appendChild(head);
+
+    dados.forEach(function(it){
+      var li = document.createElement('li');
+      li.className = 'list-group-item p-2';
+      var saldoClass = (parseFloat(it.saldo||0) >= 0) ? 'text-success' : 'text-danger';
+      li.innerHTML = '<div class="row align-items-center">'+
+        '<div class="col-2"><span>'+ (it.data||'') +'</span></div>'+
+        '<div class="col-2 text-end"><span>'+ (new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.entradas||0)) +'</span></div>'+
+        '<div class="col-2 text-end"><span>'+ (new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.saidas||0)) +'</span></div>'+
+        '<div class="col-2 text-end"><span class="'+saldoClass+'">'+ (new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.saldo||0)) +'</span></div>'+
+        '<div class="col-2"><span>'+ (it.responsavel||"") +'</span></div>'+
+        '<div class="col-2 d-flex align-items-center justify-content-between">'+
+           '<span>'+ (it.status||"") +'</span>'+
+           '<div class="btn-group btn-group-sm">'+
+              '<button type="button" class="btn btn-outline-secondary" title="Imprimir" onclick="window.print()"><i class="bx bx-printer"></i></button>'+
+              '<button type="button" class="btn btn-outline-secondary" title="Baixar CSV" onclick="(function(){downloadCSV([it])})()"><i class="bx bx-download"></i></button>'+
+           '</div>'+
+        '</div>'+
+      '</div>';
+      // guardar item para o botão CSV
+      li.it = it;
+      ul.appendChild(li);
+    });
+
+    // Função para baixar 1 linha (ou várias) como CSV
+    window.downloadCSV = function(list){
+      try{
+        var arr = list || dados;
+        var csv = 'Data;Entrada;Saída;Saldo;Responsável;Status\n';
+        arr.forEach(function(x){
+          csv += [
+            (x.data||''),
+            (x.entradas||0).toString().replace('.',','),
+            (x.saidas||0).toString().replace('.',','),
+            (x.saldo||0).toString().replace('.',','),
+            (x.responsavel||''),
+            (x.status||'')
+          ].join(';') + '\n';
+        });
+        var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'resumo-diario.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }catch(e){ console.error(e); }
+    };
+
+    body.innerHTML = '';
+    body.appendChild(ul);
+  } catch(e){
+    console.warn('Resumo Diário não pôde ser renderizado:', e);
+  }
+});
+</script>
+
+<!-- Modal Itens do Caixa -->
+<div class="modal fade" id="modalItensCaixa" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Itens vendidos — <span id="mic-resp"></span>
+          <small class="text-muted d-block" id="mic-periodo"></small>
+        </h5>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="mic-print">
+          <i class="bx bx-printer"></i> Imprimir
+        </button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="mic-conteudo">
+          <h6 class="mb-2">Itens de venda</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-striped" id="mic-tb-itens">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th><th>Produto</th><th class="text-end">Valor</th><th>Data/Hora</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+              <tfoot><tr><th colspan="2" class="text-end">Total</th><th class="text-end" id="mic-tot-vendas">R$ 0,00</th><th></th></tr></tfoot>
+            </table>
+          </div>
+
+          <div class="row g-3 mt-3">
+            <div class="col-md-6">
+              <h6 class="mb-2">Suprimentos</h6>
+              <table class="table table-sm table-striped" id="mic-tb-supr">
+                <thead class="table-light"><tr><th>#</th><th class="text-end">Valor</th><th>Data/Hora</th></tr></thead>
+                <tbody></tbody>
+                <tfoot><tr><th class="text-end" colspan="1">Total</th><th class="text-end" id="mic-tot-supr">R$ 0,00</th><th></th></tr></tfoot>
+              </table>
+            </div>
+            <div class="col-md-6">
+              <h6 class="mb-2">Sangrias</h6>
+              <table class="table table-sm table-striped" id="mic-tb-sang">
+                <thead class="table-light"><tr><th>#</th><th class="text-end">Valor</th><th>Data/Hora</th></tr></thead>
+                <tbody></tbody>
+                <tfoot><tr><th class="text-end" colspan="1">Total</th><th class="text-end" id="mic-tot-sang">R$ 0,00</th><th></th></tr></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <small class="me-auto text-muted">Dica: use a coluna “Ações” do Resumo Diário.</small>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  // Empresa atual (mantém seu filtro original via ?id=)
+  var EMPRESA_ID = <?php echo json_encode($idSelecionado ?? ($_GET['id'] ?? ''), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); ?>;
+
+  function ensureHtml2Canvas(){
+    return new Promise(function(res, rej){
+      if (window.html2canvas) return res(window.html2canvas);
+      var s = document.createElement('script');
+      s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+      s.onload = function(){ res(window.html2canvas); };
+      s.onerror = function(){ rej(new Error('Falha ao carregar html2canvas')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function br(v){
+    v = parseFloat(v||0);
+    return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  }
+
+  function fillTable(tbody, rows, render){
+    tbody.innerHTML = '';
+    rows.forEach(function(r, i){
+      var tr = document.createElement('tr');
+      tr.innerHTML = render(r, i+1);
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function abrirModalItens(idCaixa){
+    try{
+      const url = new URL(window.location.href);
+      url.searchParams.set('ajax','itens_caixa');
+      url.searchParams.set('id_caixa', idCaixa);
+      const resp = btn.getAttribute('data-responsavel')||'';
+      const dataYmd = btn.getAttribute('data-data')||'';
+      if (resp) url.searchParams.set('resp', resp);
+      if (dataYmd) url.searchParams.set('data', dataYmd);
+      if (EMPRESA_ID) url.searchParams.set('id', EMPRESA_ID);
+      const r = await fetch(url.toString(), {cache:'no-store'});
+      const j = await r.json();
+      if (!j.ok) { alert(j.msg||'Não foi possível carregar os itens'); return; }
+      document.getElementById('mic-resp').textContent = 'Responsável: ' + (j.caixa.responsavel||'-');
+      const ini = new Date(j.caixa.inicio); const fim = new Date(j.caixa.fim);
+      document.getElementById('mic-periodo').textContent =
+        'Período: ' + ini.toLocaleString('pt-BR') + ' — ' + fim.toLocaleString('pt-BR');
+
+      const tbItens = document.querySelector('#mic-tb-itens tbody');
+      fillTable(tbItens, j.itens, (r,i)=>(
+        `<td>${i}</td><td>${(r.produto||'-')}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
+      ));
+      document.getElementById('mic-tot-vendas').textContent = br(j.totais.vendas);
+
+      const tbSupr = document.querySelector('#mic-tb-supr tbody');
+      fillTable(tbSupr, j.suprimentos, (r,i)=>(
+        `<td>${i}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
+      ));
+      document.getElementById('mic-tot-supr').textContent = br(j.totais.suprimentos);
+
+      const tbSang = document.querySelector('#mic-tb-sang tbody');
+      fillTable(tbSang, j.sangrias, (r,i)=>(
+        `<td>${i}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
+      ));
+      document.getElementById('mic-tot-sang').textContent = br(j.totais.sangrias);
+
+      new bootstrap.Modal(document.getElementById('modalItensCaixa')).show();
+    }catch(e){ console.error(e); alert('Erro ao abrir itens do caixa.'); }
+  }
+
+  // Delegação do botão Visualizar (classe adicionada no PHP)
+  document.addEventListener('click', function(ev){
+    const btn = ev.target.closest('.btn-visualizar-caixa');
+    if (!btn) return;
+    ev.preventDefault();
+    const id = parseInt(btn.getAttribute('data-id-caixa')||'0',10);
+    if (id>0) abrirModalItens(id);
+  });
+
+  // Botão Imprimir dentro do Modal
+  document.getElementById('mic-print').addEventListener('click', async function(){
+    try{
+      await ensureHtml2Canvas();
+      const alvo = document.getElementById('mic-tb-itens');
+      const canvas = await html2canvas(alvo, {scale:2, useCORS:true});
+      const dataUrl = canvas.toDataURL('image/png');
+      const w = window.open('', '_blank');
+      w.document.write('<html><head><title>Impressão</title><meta charset="utf-8"></head><body style="margin:0">');
+      w.document.write('<img src=\"'+dataUrl+'\" style=\"width:100%;display:block\"/>');
+      w.document.write('</body></html>');
+      w.document.close(); w.focus(); w.print();
+    }catch(e){ console.error(e); window.print(); }
+  });
+
+  // Qualquer ícone de printer dentro da página: imprime a tabela do card correspondente
+  document.addEventListener('click', async function(e){
+    const icon = e.target.closest('.bx-printer');
+    if (!icon) return;
+    const btn = icon.closest('button, a');
+    if (!btn) return;
+    // card root
+    const card = btn.closest('.card');
+    if (!card) return;
+    const table = card.querySelector('table');
+    if (!table) return;
+    e.preventDefault();
+    try{
+      await ensureHtml2Canvas();
+      const canvas = await html2canvas(table, {scale:2, useCORS:true});
+      const dataUrl = canvas.toDataURL('image/png');
+      const w = window.open('', '_blank');
+      w.document.write('<html><head><title>Impressão</title><meta charset=\"utf-8\"></head><body style=\"margin:0\">');
+      w.document.write('<img src=\"'+dataUrl+'\" style=\"width:100%;display:block\"/>');
+      w.document.write('</body></html>');
+      w.document.close(); w.focus(); w.print();
+    }catch(err){ console.error(err); window.print(); }
+  });
+})();
+</script>
+</body></html>

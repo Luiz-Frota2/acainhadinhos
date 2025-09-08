@@ -1,207 +1,150 @@
 <?php
 // folga_Salvar.php
-declare(strict_types=1);
-ini_set('display_errors', '1');
-error_reporting(E_ALL);
-session_start();
+// Inclui o arquivo de conexão (ajuste o caminho se precisar)
+require '../../assets/php/conexao.php';
 
-/**
- * Conexão PDO — tenta alguns caminhos comuns.
- * Se você já tem um caminho certo, pode deixar só ele.
- */
-$pdo = null;
-$paths = [
-    __DIR__ . '/../../assets/php/conexao.php',
-    __DIR__ . '/../assets/php/conexao.php',
-    __DIR__ . '/assets/php/conexao.php',
-    __DIR__ . '/../../dist/dashboard/php/conexao.php',
-    __DIR__ . '/../php/conexao.php',
-    __DIR__ . '/../../php/conexao.php',
-];
-foreach ($paths as $p) {
-    if (is_file($p)) { require_once $p; break; }
-}
-if (!isset($pdo) || !($pdo instanceof PDO)) {
-    http_response_code(500);
-    exit('Conexão indisponível.');
-}
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Coleta dos dados
+    $empresa_id = isset($_POST["id"]) ? trim($_POST["id"])
+        : (isset($_POST["id_selecionado"]) ? trim($_POST["id_selecionado"])
+            : (isset($_GET["id"]) ? trim($_GET["id"]) : null));
 
-/* ===== Helpers ===== */
-function only_digits(string $v): string { return preg_replace('/\D+/', '', $v) ?? ''; }
-function back_with(string $url, array $params): void {
-    $qs = http_build_query($params);
-    header('Location: ' . $url . (str_contains($url, '?') ? "&$qs" : "?$qs"));
-    exit;
-}
+    $cpf_raw    = isset($_POST["cpf"]) ? trim($_POST["cpf"]) : (isset($_GET["cpf"]) ? trim($_GET["cpf"]) : "");
+    $data_folga = isset($_POST["data_folga"]) ? trim($_POST["data_folga"]) : "";
 
-/* ===== Entradas =====
-   - empresa_id e cpf virão pela URL (GET)
-   - data_folga vem do POST da modal
-*/
-$empresaId = trim((string)($_GET['id'] ?? $_POST['id'] ?? ''));
-$cpfRaw    = trim((string)($_GET['cpf'] ?? $_POST['cpf'] ?? ''));
-$dataStr   = trim((string)($_POST['data_folga'] ?? ''));
-
-$paginaRetorno = './folgasIndividuaisAdicionar.php';
-
-if ($empresaId === '' || $cpfRaw === '' || $dataStr === '') {
-    back_with($paginaRetorno, [
-        'id'  => $empresaId,
-        'cpf' => $cpfRaw,
-        'err' => 1,
-        'msg' => 'Empresa, CPF e data são obrigatórios.'
-    ]);
-}
-
-// Normaliza
-$cpfDigits = only_digits($cpfRaw);
-if ($cpfDigits === '' || strlen($cpfDigits) < 11) {
-    back_with($paginaRetorno, [
-        'id'  => $empresaId,
-        'cpf' => $cpfRaw,
-        'err' => 1,
-        'msg' => 'CPF inválido.'
-    ]);
-}
-
-try {
-    $d = new DateTime($dataStr);
-    $dataFolga = $d->format('Y-m-d');
-} catch (Throwable $e) {
-    back_with($paginaRetorno, [
-        'id'  => $empresaId,
-        'cpf' => $cpfRaw,
-        'err' => 1,
-        'msg' => 'Data da folga inválida.'
-    ]);
-}
-
-/* ===== Busca do nome do funcionário (usa CPF; tenta filtrar por empresa se existir) ===== */
-$nomeFuncionario = null;
-
-// 1) tenta funcionarios por cpf+empresa (se a coluna existir)
-try {
-    $sql = "SELECT nome FROM funcionarios WHERE (REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf) AND empresa_id = :empresa LIMIT 1";
-    $st  = $pdo->prepare($sql);
-    $st->execute([':cpf' => $cpfDigits, ':empresa' => $empresaId]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
-    if ($row && !empty($row['nome'])) $nomeFuncionario = $row['nome'];
-} catch (Throwable $e) {
-    // segue pro fallback
-}
-
-// 2) tenta funcionarios só por cpf
-if (!$nomeFuncionario) {
-    try {
-        $sql = "SELECT nome FROM funcionarios 
-                WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
-                LIMIT 1";
-        $st  = $pdo->prepare($sql);
-        $st->execute([':cpf' => $cpfDigits]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if ($row && !empty($row['nome'])) $nomeFuncionario = $row['nome'];
-    } catch (Throwable $e) { /* continua */ }
-}
-
-// 3) tenta reaproveitar último nome já usado em folgas
-if (!$nomeFuncionario) {
-    try {
-        $sql = "SELECT nome FROM folgas
-                WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
-                ORDER BY id DESC LIMIT 1";
-        $st  = $pdo->prepare($sql);
-        $st->execute([':cpf' => $cpfDigits]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if ($row && !empty($row['nome'])) $nomeFuncionario = $row['nome'];
-    } catch (Throwable $e) { /* continua */ }
-}
-
-// 4) contas_acesso como último recurso (se existir)
-if (!$nomeFuncionario) {
-    try {
-        $sql = "SELECT usuario AS nome FROM contas_acesso
-                WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
-                LIMIT 1";
-        $st  = $pdo->prepare($sql);
-        $st->execute([':cpf' => $cpfDigits]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if ($row && !empty($row['nome'])) $nomeFuncionario = $row['nome'];
-    } catch (Throwable $e) { /* continua */ }
-}
-
-if (!$nomeFuncionario) {
-    back_with($paginaRetorno, [
-        'id'  => $empresaId,
-        'cpf' => $cpfRaw,
-        'err' => 1,
-        'msg' => 'Não foi possível localizar o nome do funcionário para este CPF.'
-    ]);
-}
-
-/* ===== Duplicidade: mesma data + CPF =====
-   Observação: a tabela `folgas` (conforme seu SQL) NÃO tem empresa_id.
-   Logo, a verificação é apenas por CPF+data.
-*/
-try {
-    $check = $pdo->prepare("
-        SELECT COUNT(*) FROM folgas
-        WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
-          AND data_folga = :data
-    ");
-    $check->execute([':cpf' => $cpfDigits, ':data' => $dataFolga]);
-    if ((int)$check->fetchColumn() > 0) {
-        back_with($paginaRetorno, [
-            'id'  => $empresaId,
-            'cpf' => $cpfRaw,
-            'err' => 1,
-            'msg' => 'Já existe uma folga cadastrada para este CPF nesta data.'
-        ]);
-    }
-} catch (Throwable $e) {
-    back_with($paginaRetorno, [
-        'id'  => $empresaId,
-        'cpf' => $cpfRaw,
-        'err' => 1,
-        'msg' => 'Falha ao verificar duplicidade.'
-    ]);
-}
-
-/* ===== Inserção =====
-   Tabela folgas possui: id, cpf, nome, data_folga
-*/
-try {
-    $ins = $pdo->prepare("
-        INSERT INTO folgas (cpf, nome, data_folga)
-        VALUES (:cpf, :nome, :data)
-    ");
-    // Armazeno CPF apenas dígitos (padronizado)
-    $ok = $ins->execute([
-        ':cpf'  => $cpfDigits,
-        ':nome' => $nomeFuncionario,
-        ':data' => $dataFolga,
-    ]);
-
-    if (!$ok) {
-        back_with($paginaRetorno, [
-            'id'  => $empresaId,
-            'cpf' => $cpfRaw,
-            'err' => 1,
-            'msg' => 'Não foi possível cadastrar a folga.'
-        ]);
+    // Validações básicas
+    if (empty($empresa_id) || empty($cpf_raw) || empty($data_folga)) {
+        echo "<script>
+                alert('Empresa, CPF e data são obrigatórios.');
+                history.back();
+              </script>";
+        exit();
     }
 
-    back_with($paginaRetorno, [
-        'id'  => $empresaId,
-        'cpf' => $cpfRaw,
-        'ok'  => 1,
-        'msg' => 'Folga cadastrada com sucesso.'
-    ]);
+    // Normaliza CPF (somente dígitos)
+    $cpf = preg_replace('/\D+/', '', $cpf_raw);
+    if (strlen($cpf) < 11) {
+        echo "<script>
+                alert('CPF inválido.');
+                history.back();
+              </script>";
+        exit();
+    }
 
-} catch (Throwable $e) {
-    back_with($paginaRetorno, [
-        'id'  => $empresaId,
-        'cpf' => $cpfRaw,
-        'err' => 1,
-        'msg' => 'Erro ao inserir a folga.'
-    ]);
+    // Normaliza data
+    try {
+        $dt = new DateTime($data_folga);
+        $data_sql = $dt->format('Y-m-d');
+    } catch (Exception $e) {
+        echo "<script>
+                alert('Data da folga inválida.');
+                history.back();
+              </script>";
+        exit();
+    }
+
+    try {
+        // ===== Busca do nome do funcionário =====
+        $nome = null;
+
+        // 1) Tenta funcionarios por CPF + empresa_id
+        try {
+            $sql = "SELECT nome FROM funcionarios
+                    WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
+                      AND empresa_id = :empresa
+                    LIMIT 1";
+            $st = $pdo->prepare($sql);
+            $st->execute([':cpf' => $cpf, ':empresa' => $empresa_id]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if ($row && !empty($row['nome'])) $nome = $row['nome'];
+        } catch (Exception $e) { /* segue */
+        }
+
+        // 2) Só por CPF (sem empresa)
+        if (!$nome) {
+            $sql = "SELECT nome FROM funcionarios
+                    WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
+                    LIMIT 1";
+            $st = $pdo->prepare($sql);
+            $st->execute([':cpf' => $cpf]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if ($row && !empty($row['nome'])) $nome = $row['nome'];
+        }
+
+        // 3) Último nome já usado em folgas
+        if (!$nome) {
+            $sql = "SELECT nome FROM folgas
+                    WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
+                    ORDER BY id DESC
+                    LIMIT 1";
+            $st = $pdo->prepare($sql);
+            $st->execute([':cpf' => $cpf]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if ($row && !empty($row['nome'])) $nome = $row['nome'];
+        }
+
+        // 4) contas_acesso como último recurso
+        if (!$nome) {
+            $sql = "SELECT usuario AS nome FROM contas_acesso
+                    WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
+                    LIMIT 1";
+            $st = $pdo->prepare($sql);
+            $st->execute([':cpf' => $cpf]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if ($row && !empty($row['nome'])) $nome = $row['nome'];
+        }
+
+        if (!$nome) {
+            echo "<script>
+                    alert('Não foi possível localizar o nome do funcionário para este CPF.');
+                    history.back();
+                  </script>";
+            exit();
+        }
+
+        // ===== Duplicidade (CPF + data) =====
+        $dup = $pdo->prepare("
+            SELECT COUNT(*) FROM folgas
+            WHERE REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),' ','') = :cpf
+              AND data_folga = :data
+        ");
+        $dup->execute([':cpf' => $cpf, ':data' => $data_sql]);
+        if ((int)$dup->fetchColumn() > 0) {
+            echo "<script>
+                    alert('Já existe uma folga cadastrada para este CPF nesta data.');
+                    history.back();
+                  </script>";
+            exit();
+        }
+
+        // ===== Inserção =====
+        $ins = $pdo->prepare("INSERT INTO folgas (cpf, nome, data_folga) VALUES (:cpf, :nome, :data)");
+        $ok  = $ins->execute([
+            ':cpf'  => $cpf,
+            ':nome' => $nome,
+            ':data' => $data_sql
+        ]);
+
+        if ($ok) {
+            echo "<script>
+                    alert('Folga cadastrada com sucesso!');
+                    window.location.href = './ajusteFolga.php?id=" . rawurlencode($empresa_id) . "';
+                  </script>";
+            exit();
+        } else {
+            echo "<script>
+                    alert('Erro ao cadastrar a folga.');
+                    history.back();
+                  </script>";
+            exit();
+        }
+    } catch (Exception $e) {
+        echo "<script>
+                alert('Erro: " . addslashes($e->getMessage()) . "');
+                history.back();
+              </script>";
+        exit();
+    }
 }
+
+?>

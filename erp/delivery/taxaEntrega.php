@@ -1,46 +1,75 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
-require_once '../../assets/php/conexao.php';
 
-// ✅ Recupera os parâmetros da URL
-$idSelecionado = $_GET['id'] ?? ''; // Obtém o valor do parâmetro 'id' da URL, como 'filial_3'
-$id_entrega = isset($_GET['idEntrega']) ? intval($_GET['idEntrega']) : 0; // Obtém o valor de 'idEntrega' da URL
+// ✅ Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
 
-// ✅ Verifica se o usuário está logado corretamente
-if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id'])
-) {
-    header("Location: ../../erp/login.php?id=$idSelecionado");
-    exit;
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
 }
 
-// ✅ Validação de acesso por tipo de empresa
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-                alert('Acesso negado!');
-                window.location.href = '../../erp/login.php?id=$idSelecionado';
-              </script>";
-        exit;
-    }
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-                alert('Acesso negado!');
-                window.location.href = '../../erp/login.php?id=$idSelecionado';
-              </script>";
-        exit;
-    }
-} else {
-    echo "<script>
-            alert('Empresa não identificada!');
-            window.location.href = '../../erp/login.php?id=$idSelecionado';
-          </script>";
+// ✅ Verifica se a pessoa está logada
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
+) {
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
 }
 
 // ✅ Buscar dados da empresa com base no idSelecionado (usando id_selecionado no banco)
@@ -299,14 +328,6 @@ if ($id_entrega > 0) {
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div data-i18n="Basic">Clientes</div>
-                                </a>
-                            </li>
-                        </ul>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
                                 <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
@@ -339,12 +360,6 @@ if ($id_entrega > 0) {
                         <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Authentications">Estoque</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../clientes/index.ph?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
                         </a>
                     </li>
                     <?php

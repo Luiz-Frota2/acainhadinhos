@@ -14,7 +14,7 @@ if (!$id) {
 
 try {
     // Deletar o setor
-    $sql = "DELETE FROM produtos WHERE id = :id";
+    $sql = "DELETE FROM produtos_estoque WHERE id = :id";
     $stmt = $pdo->prepare($sql);
     $stmt->bindParam(":id", $id, PDO::PARAM_INT);
 

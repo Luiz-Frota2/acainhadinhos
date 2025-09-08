@@ -9,6 +9,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $datatransacao = trim($_POST["datatransacao"] ?? '');
     $responsavel = trim($_POST["responsavel"] ?? '');
     $statuss = trim($_POST["statuss"] ?? '');
+    $empresa_id = trim($_GET['empresa_id']);
+
 
     // Verifica se os campos foram preenchidos
     if (!$id || empty($descricao) || empty($valorpago) || empty($datatransacao) || empty($responsavel) || empty($statuss)) {
@@ -29,12 +31,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt->bindParam(":responsavel", $responsavel, PDO::PARAM_STR);
         $stmt->bindParam(":statuss", $statuss, PDO::PARAM_STR);
         $stmt->bindParam(":id", $id, PDO::PARAM_INT);
-
+        
         if ($stmt->execute()) {
-            echo "<script>
-                     alert('Conta Atualizada com sucesso!');
-                    window.location.href = '../../../erp/financas/contasPendentes.php';
-                  </script>";
+            echo '<script>
+                     alert("Conta Atualizada com sucesso!");
+                    window.location.href = "../../../erp/financas/contasPendentes.php?id=' . urlencode($empresa_id) . '";
+                  </script>';
             exit;
         } else {
             echo "<script>

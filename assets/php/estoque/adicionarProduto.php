@@ -10,11 +10,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $empresa_id = isset($_POST["id_selecionado"]) ? trim($_POST["id_selecionado"]) : null;
 
     try {
-        // Verificar se o empresa_id é válido (principal_X ou filial_X)
-        if (!preg_match('/^(principal|filial)_\d+$/', $empresa_id)) {
-            throw new Exception("ID da empresa inválido");
-        }
-
         // Preparar a query SQL com empresa_id
         $sql = "INSERT INTO produtos_estoque (nome_produto, fornecedor_produto, quantidade_produto, status_produto, empresa_id) 
                 VALUES (:nome_produto, :fornecedor_produto, :quantidade_produto, :status_produto, :empresa_id)";

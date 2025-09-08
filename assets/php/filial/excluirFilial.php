@@ -1,37 +1,39 @@
 <?php
-require '../conexao.php'; // Ajuste o caminho se necessário
+// ./assets/php/filial/excluirFilial.php
+declare(strict_types=1);
+if (session_status() === PHP_SESSION_NONE) session_start();
 
-if (isset($_GET['id']) && is_numeric($_GET['id'])) {
-    $id_filial = $_GET['id'];
-
-    try {
-        $stmt = $pdo->prepare("DELETE FROM filiais WHERE id_filial = :id");
-        $stmt->bindParam(':id', $id_filial, PDO::PARAM_INT);
-        $stmt->execute();
-
-        if ($stmt->rowCount() > 0) {
-            echo "<script>
-                alert('Filial excluída com sucesso!');
-                window.location.href='../../../erp/filial/filialAdicionada.php';
-            </script>";
-        } else {
-            echo "<script>
-                alert('Nenhuma filial foi excluída. Verifique o ID.');
-                history.back();
-            </script>";
-        }
-
-    } catch (PDOException $e) {
-        echo "<script>
-            alert('Erro ao excluir filial: " . $e->getMessage() . "');
-            history.back();
-        </script>";
-    }
-
-} else {
-    echo "<script>
-        alert('ID inválido para exclusão.');
-        history.back();
-    </script>";
+if (!isset($_GET['id'])) {
+  $ret = $_GET['return'] ?? '../../../filialAdicionada.php';
+  header('Location: ' . $ret);
+  exit;
 }
-?>
+
+require_once __DIR__ . '/../conexao.php';
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  echo "<script>alert('Erro de conexão com o banco.');history.back();</script>"; exit;
+}
+
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$empresaId = (string)($_GET['idSelecionado'] ?? $_GET['idEmpresa'] ?? $_GET['empresa_id'] ?? '');
+$returnUrl = (string)($_GET['return'] ?? '');
+
+if ($id <= 0) {
+  $dest = $returnUrl !== '' ? $returnUrl : ('../../../filialAdicionada.php?id=' . urlencode($empresaId));
+  header('Location: ' . $dest . '&del=0&msg=' . urlencode('ID inválido.')); 
+  exit;
+}
+
+try {
+  $stmt = $pdo->prepare("DELETE FROM unidades WHERE id = :id");
+  $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+  $stmt->execute();
+
+  $dest = $returnUrl !== '' ? $returnUrl : ('../../../filialAdicionada.php?id=' . urlencode($empresaId));
+  header('Location: ' . $dest . '&del=1'); 
+  exit;
+} catch (PDOException $e) {
+  $dest = $returnUrl !== '' ? $returnUrl : ('../../../filialAdicionada.php?id=' . urlencode($empresaId));
+  header('Location: ' . $dest . '&del=0&msg=' . urlencode('Erro: '.$e->getMessage())); 
+  exit;
+}

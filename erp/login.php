@@ -6,22 +6,19 @@
   <meta charset="utf-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-
   <title>ERP - LOGIN</title>
 
   <meta name="description" content="" />
-
-  <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="../assets/img/favicon/site.png"/>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap"
     rel="stylesheet" />
 
-  <!-- Icons. Uncomment required icon fonts -->
+  <!-- Icons -->
   <link rel="stylesheet" href="../assets/vendor/fonts/boxicons.css" />
 
   <!-- Core CSS -->
@@ -31,60 +28,47 @@
 
   <!-- Vendors CSS -->
   <link rel="stylesheet" href="../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
-  <!-- Page CSS -->
-  <!-- Page -->
   <link rel="stylesheet" href="../assets/vendor/css/pages/page-auth.css" />
+
   <!-- Helpers -->
   <script src="../assets/vendor/js/helpers.js"></script>
-
-  <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-  <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../assets/js/config.js"></script>
 </head>
 
 <body>
-  <!-- Content -->
+  <?php
+    $idSelecionado = $_GET['id'] ?? '';
+
+    if (str_starts_with($idSelecionado, 'principal_')) {
+      $id = 1; // ID fixo para empresa principal
+      $tipoEmpresa = 'principal';
+    } elseif (str_starts_with($idSelecionado, 'unidade_')) {
+      $id = (int) str_replace('unidade_', '', $idSelecionado);
+      $tipoEmpresa = 'unidade';
+    } else {
+      echo "<script>alert('Empresa não identificada!'); history.back();</script>";
+      exit;
+    }
+  ?>
 
   <div class="container-xxl">
     <div class="authentication-wrapper authentication-basic container-p-y">
       <div class="authentication-inner">
-        <!-- Register -->
         <div class="card">
           <div class="card-body">
-            <!-- Logo -->
             <div class="app-brand justify-content-center">
               <a href="#" class="app-brand-link gap-2">
                 <span class="app-brand-text demo text-body fw-bolder">Login</span>
               </a>
             </div>
-            <!-- /Logo -->
-
-            <?php
-
-              $idSelecionado = $_GET['id'] ?? '';
-
-              if (str_starts_with($idSelecionado, 'principal_')) {
-                $id = 1;
-                // lógica para a empresa principal
-              } elseif (str_starts_with($idSelecionado, 'filial_')) {
-                $id = (int) str_replace('filial_', '', $idSelecionado);
-                // lógica para a filial
-              } else {
-                echo "<script>alert('Empresa não identificada!'); history.back();</script>";
-                exit;
-              }
-
-            ?>
 
             <form id="formAuthentication" class="mb-3" action="../erp/login/processarLogin.php" method="POST">
-              
               <input type="hidden" name="empresa_identificador" value="<?= htmlspecialchars($idSelecionado) ?>">
 
               <div class="mb-3">
-                <label for="text" class="form-label">CPF ou Nome de Usuário</label>
-                <input type="text" class="form-control" id="email" name="usuario_cpf"
-                  placeholder="Digite seu CPF ou nome de usuário" required autofocus/>
+                <label for="usuario_cpf" class="form-label">CPF ou Nome de Usuário</label>
+                <input type="text" class="form-control" id="usuario_cpf" name="usuario_cpf"
+                  placeholder="Digite seu CPF ou nome de usuário" required autofocus />
               </div>
 
               <div class="mb-3 form-password-toggle">
@@ -102,10 +86,10 @@
               </div>
 
               <div class="d-flex justify-content-between mb-3">
-                  <a href="criarConta.php?id=<?= htmlspecialchars($idSelecionado) ?>">
-                    <small>Criar conta</small>
-                  </a>
-                </div>
+                <a href="criarConta.php?id=<?= htmlspecialchars($idSelecionado) ?>">
+                  <small>Criar conta</small>
+                </a>
+              </div>
 
               <div class="mb-3">
                 <button class="btn btn-primary d-grid w-100" type="submit">Entrar</button>
@@ -121,32 +105,17 @@
             </div>
           </div>
         </div>
-        <!-- /Register -->
       </div>
     </div>
   </div>
 
-  <!-- / Content -->
-  <!-- Core JS -->
-  <!-- build:js assets/vendor/js/core.js -->
+  <!-- Scripts -->
   <script src="../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../assets/vendor/libs/popper/popper.js"></script>
   <script src="../assets/vendor/js/bootstrap.js"></script>
   <script src="../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
   <script src="../assets/vendor/js/menu.js"></script>
-  <!-- endbuild -->
-
-  <!-- Vendors JS -->
-
-  <!-- Main JS -->
   <script src="../assets/js/main.js"></script>
-
-  <!-- Page JS -->
-
-  <!-- Place this tag in your head or just before your close body tag. -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
-
 </body>
-
 </html>

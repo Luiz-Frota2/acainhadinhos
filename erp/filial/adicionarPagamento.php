@@ -1,48 +1,75 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
+
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-    exit;
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
 }
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
@@ -185,22 +212,21 @@ try {
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
+
                         <ul class="menu-sub">
                             <!-- Contas das Filiais -->
-                            <li class="menu-item">
-                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Contas Filiais</div>
-                                </a>
-                            </li>
-
-                            <!-- Contas das Filiais -->
                             <li class="menu-item active">
-                                <a href="./adicionarPagamento.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Adicionar Pagamento</div>
+                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Pagamentos Solic.</div>
                                 </a>
                             </li>
 
+                            <!-- Adicionar Pagamento das Filiais -->
+                            <li class="menu-item active">
+                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Adicionar Pgto.</div>
+                                </a>
+                            </li>
 
                             <!-- Produtos solicitados pelas filiais -->
                             <li class="menu-item">
@@ -255,7 +281,6 @@ try {
                             </li>
                         </ul>
                     </li>
-
 
                     <!-- Relatórios -->
                     <li class="menu-item">
@@ -321,12 +346,6 @@ try {
                         <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Authentications">Estoque</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
                         </a>
                     </li>
                     <li class="menu-item">

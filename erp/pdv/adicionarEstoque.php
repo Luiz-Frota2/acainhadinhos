@@ -1,70 +1,34 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+    header("Location: .././login.php");
+    exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+    !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-    exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
-try {
-    $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $logoEmpresa = !empty($empresaSobre['imagem'])
-        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png"; // fallback padrão
-} catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
-}
-
-// ✅ Se chegou até aqui, o acesso está liberado
-
-// ✅ Buscar nome e nível do usuário logado
+// ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
+$tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -75,11 +39,51 @@ try {
 
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
-        $nivelUsuario = $usuario['nivel'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
     }
 } catch (PDOException $e) {
-    $nomeUsuario = 'Erro ao carregar nome';
-    $nivelUsuario = 'Erro ao carregar nível';
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+    echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+    exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    $logoEmpresa = !empty($empresaSobre['imagem'])
+        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+        : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 ?>
@@ -164,7 +168,7 @@ try {
 
                     <!-- SEÇÃO ADMINISTRATIVO -->
                     <li class="menu-header small text-uppercase">
-                        <span class="menu-header-text">Administrativo</span>
+                        <span class="menu-header-text">PDV</span>
                     </li>
 
                     <!-- SUBMENU: SEFAZ -->
@@ -269,8 +273,8 @@ try {
                                 </a>
                             </li>
                         </ul>
-
-                        <!-- Misc -->
+                    </li>
+                    <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -288,7 +292,12 @@ try {
                         <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-cart"></i>
                             <div data-i18n="Authentications">Delivery</div>
-
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div data-i18n="Authentications">Empresa</div>
                         </a>
                     </li>
                     <li class="menu-item">
@@ -297,26 +306,38 @@ try {
                             <div data-i18n="Authentications">Estoque</div>
                         </a>
                     </li>
-                    <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
-                        </a>
-                    </li>
                     <?php
-                    $isFilial = str_starts_with($idSelecionado, 'filial_');
-                    $link = $isFilial
-                        ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-                        : '../filial/index.php?id=principal_1';
-                    $titulo = $isFilial ? 'Matriz' : 'Filial';
-                    ?>
+                    $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+                    $idLogado = $_SESSION['empresa_id'] ?? '';
 
-                    <li class="menu-item">
-                        <a href="<?= $link ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications"><?= $titulo ?></div>
-                        </a>
-                    </li>
+                    // Se for matriz (principal), mostrar links para filial, franquia e unidade
+                    if ($tipoLogado === 'principal') {
+                    ?>
+                        <li class="menu-item">
+                            <a href="../filial/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-building"></i>
+                                <div data-i18n="Authentications">Filial</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-store"></i>
+                                <div data-i18n="Authentications">Franquias</div>
+                            </a>
+                        </li>
+                    <?php
+                    } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+                        // Se for filial, franquia ou unidade, mostra link para matriz
+                    ?>
+                        <li class="menu-item">
+                            <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-cog"></i>
+                                <div data-i18n="Authentications">Matriz</div>
+                            </a>
+                        </li>
+                    <?php
+                    }
+                    ?>
                     <li class="menu-item">
                         <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
@@ -358,30 +379,25 @@ try {
                         <!-- /Search -->
 
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
-                                    data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
-                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                                            class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
-                                <ul class="dropdown-menu dropdown-menu-end">
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                                                            class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <!-- Exibindo o nome e nível do usuário -->
-                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                                                    <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                                                    <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -390,7 +406,7 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="#">
+                                        <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-user me-2"></i>
                                             <span class="align-middle">Minha Conta</span>
                                         </a>
@@ -402,30 +418,19 @@ try {
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="#">
-                                            <span class="d-flex align-items-center align-middle">
-                                                <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                                                <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span
-                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                                            </span>
-                                        </a>
-                                    </li>
-                                    <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item"
-                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
                                     </li>
-
                                 </ul>
                             </li>
                             <!--/ User -->
                         </ul>
+
                     </div>
                 </nav>
 
@@ -437,80 +442,178 @@ try {
                                 href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>">PDV</a></span>/Adicionar
                         Produto</h4>
 
-                    <!-- / Content -->
                     <div class="card">
                         <h5 class="card-header">Adicionar Produto</h5>
                         <div class="card-body">
-                            <form id="addContaForm" action="../../assets/php/pdv/adicionarEstoque.php" method="POST">
 
+                            <form id="addContaForm" action="../../assets/php/pdv/adicionarEstoque.php" method="POST">
                                 <!-- Campo oculto para passar o idSelecionado -->
-                                <input type="text" name="idSelecionado"
-                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
+                                <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
 
                                 <div class="row">
+                                    <!-- Dados básicos do produto -->
                                     <div class="mb-3 col-12 col-md-6">
-                                        <label for="codigo_produto" class="form-label">Código do Produto</label>
-                                        <input type="text" class="form-control" id="codigo_produto"
-                                            name="codigo_produto" placeholder="Ex: AC500" required />
+                                        <label for="codigo_produto" class="form-label">Código do Produto (GTIN/EAN)</label>
+                                        <input type="text" class="form-control" id="codigo_produto" name="codigo_produto"
+                                            placeholder="Ex: 7891234567890 (código de barras)" required />
                                     </div>
 
                                     <div class="mb-3 col-12 col-md-6">
-                                        <label for="nome_produto" class="form-label">Nome do Produto</label>
+                                        <label for="nome_produto" class="form-label">Nome do Produto*</label>
                                         <input type="text" class="form-control" id="nome_produto" name="nome_produto"
-                                            placeholder="Informe o nome do Produto" required />
+                                            placeholder="Nome completo do produto para NFC-e" required />
                                     </div>
 
+                                    <!-- Dados fiscais -->
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="ncm_produto" class="form-label">NCM*</label>
+                                        <input type="text" class="form-control" id="ncm_produto" name="ncm_produto"
+                                            placeholder="Código NCM (8 dígitos)" required />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="cest_produto" class="form-label">CEST (opcional)</label>
+                                        <input type="text" class="form-control" id="cest_produto" name="cest_produto"
+                                            placeholder="Código CEST (7 dígitos)" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="cfop_produto" class="form-label">CFOP*</label>
+                                        <input type="text" class="form-control" id="cfop_produto" name="cfop_produto"
+                                            placeholder="Ex: 5102" required />
+                                    </div>
+
+                                    <!-- Dados tributários -->
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="origem_produto" class="form-label">Origem*</label>
+                                        <select class="form-select" id="origem_produto" name="origem_produto" required>
+                                            <option value="">Selecione...</option>
+                                            <option value="0">0 - Nacional</option>
+                                            <option value="1">1 - Estrangeira (importação direta)</option>
+                                            <option value="2">2 - Estrangeira (adquirida no mercado interno)</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="tributacao_produto" class="form-label">Tributação*</label>
+                                        <select class="form-select" id="tributacao_produto" name="tributacao_produto" required>
+                                            <option value="">Selecione...</option>
+                                            <option value="00">00 - Tributada integralmente</option>
+                                            <option value="20">20 - Com redução de base de cálculo</option>
+                                            <option value="40">40 - Isenta</option>
+                                            <option value="41">41 - Não tributada</option>
+                                            <option value="60">60 - ICMS cobrado anteriormente</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="unidade_produto" class="form-label">Unidade*</label>
+                                        <select class="form-select" id="unidade_produto" name="unidade_produto" required>
+                                            <option value="">Selecione...</option>
+                                            <option value="UN">UN - Unidade</option>
+                                            <option value="PC">PC - Peça</option>
+                                            <option value="KG">KG - Quilograma</option>
+                                            <option value="LT">LT - Litro</option>
+                                            <option value="CX">CX - Caixa</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Dados comerciais -->
                                     <div class="mb-3 col-12 col-md-6">
-                                        <label for="categoria_produto" class="form-label">Categoria</label>
+                                        <label for="categoria_produto" class="form-label">Categoria*</label>
                                         <input type="text" class="form-control" id="categoria_produto"
                                             name="categoria_produto" placeholder="Informe a categoria" required />
                                     </div>
 
                                     <div class="mb-3 col-12 col-md-6">
-                                        <label for="quantidade_produto" class="form-label">Quantidade</label>
-                                        <input type="number" class="form-control" id="quantidade_produto"
-                                            name="quantidade_produto" placeholder="Ex: 500" required />
+                                        <label for="quantidade_produto" class="form-label">Quantidade*</label>
+                                        <input type="number" step="0.01" class="form-control" id="quantidade_produto"
+                                            name="quantidade_produto" placeholder="Ex: 1.00" required />
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="preco_produto" class="form-label">Preço Unitário</label>
-                                        <input type="text" class="form-control" id="preco_produto" name="preco_produto"
-                                            placeholder="Ex: R$ 10,00" required />
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="preco_produto" class="form-label">Preço Unitário (R$)*</label>
+                                        <input type="text" class="form-control money" id="preco_produto" name="preco_produto"
+                                            placeholder="Ex: 10,99" required />
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-6">
-                                        <label for="status_produto" class="form-label">Status</label>
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="preco_custo" class="form-label">Preço de Custo (R$)</label>
+                                        <input type="text" class="form-control money" id="preco_custo" name="preco_custo"
+                                            placeholder="Ex: 7,50" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="status_produto" class="form-label">Status*</label>
                                         <select class="form-select" id="status_produto" name="status_produto" required>
                                             <option value=""></option>
+                                            <option value="ativo">Ativo</option>
+                                            <option value="inativo">Inativo</option>
                                             <option value="estoque_alto">Estoque Alto</option>
                                             <option value="estoque_baixo">Estoque Baixo</option>
                                         </select>
                                     </div>
 
+                                    <!-- Campos adicionados que estavam faltando -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                        <label for="codigo_barras" class="form-label">Código de Barras</label>
+                                        <input type="text" class="form-control" id="codigo_barras" name="codigo_barras"
+                                            placeholder="Código de barras do produto" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                        <label for="codigo_anp" class="form-label">Código ANP (para combustíveis)</label>
+                                        <input type="text" class="form-control" id="codigo_anp" name="codigo_anp"
+                                            placeholder="Código ANP (se aplicável)" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="peso_bruto" class="form-label">Peso Bruto (kg)</label>
+                                        <input type="number" step="0.001" class="form-control" id="peso_bruto" name="peso_bruto"
+                                            placeholder="Peso bruto em kg" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="peso_liquido" class="form-label">Peso Líquido (kg)</label>
+                                        <input type="number" step="0.001" class="form-control" id="peso_liquido" name="peso_liquido"
+                                            placeholder="Peso líquido em kg" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                        <label for="aliquota_icms" class="form-label">Alíquota ICMS (%)</label>
+                                        <input type="number" step="0.01" class="form-control" id="aliquota_icms" name="aliquota_icms"
+                                            placeholder="Ex: 18.00" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                        <label for="aliquota_pis" class="form-label">Alíquota PIS (%)</label>
+                                        <input type="number" step="0.01" class="form-control" id="aliquota_pis" name="aliquota_pis"
+                                            placeholder="Ex: 1.65" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                        <label for="aliquota_cofins" class="form-label">Alíquota COFINS (%)</label>
+                                        <input type="number" step="0.01" class="form-control" id="aliquota_cofins" name="aliquota_cofins"
+                                            placeholder="Ex: 7.60" />
+                                    </div>
+
+                                    <!-- Informações adicionais para NFC-e -->
+                                    <div class="mb-3 col-12">
+                                        <label for="informacoes_adicionais" class="form-label">Informações Adicionais (NFC-e)</label>
+                                        <textarea class="form-control" id="informacoes_adicionais" name="informacoes_adicionais"
+                                            rows="2" placeholder="Informações que aparecerão na NFC-e"></textarea>
+                                    </div>
+
                                     <div class="d-flex custom-button">
-                                        <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar
-                                            Produto</button>
+                                        <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar Produto</button>
                                     </div>
                                 </div>
                             </form>
                         </div>
                     </div>
-                </div>
-                <!-- Footer -->
-                <footer class="content-footer footer bg-footer-theme text-center">
-                    <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-                        <div class="mb-2 mb-md-0">
-                            &copy;
-                            <script>
-                                document.write(new Date().getFullYear());
-                            </script>
-                            , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por <strong>CodeGeek</strong>.
-                        </div>
-                    </div>
-                </footer>
 
-                <!-- / Footer -->
+                </div>
+
 
             </div>
             <!-- Content wrapper -->

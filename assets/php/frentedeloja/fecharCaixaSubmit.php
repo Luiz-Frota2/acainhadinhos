@@ -42,7 +42,7 @@ try {
     if (!$abertura) {
         echo "<script>
                 alert('Nenhum caixa aberto encontrado para esse responsável.');
-                window.location.href='../../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
+                window.location.href='../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
               </script>";
         exit;
     }
@@ -62,7 +62,7 @@ try {
 
     echo "<script>
             alert('Caixa fechado com sucesso.');
-            window.location.href='../../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
+            window.location.href='../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
           </script>";
     exit;
 } catch (PDOException $e) {

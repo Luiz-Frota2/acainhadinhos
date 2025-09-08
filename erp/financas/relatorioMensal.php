@@ -1,49 +1,77 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
+
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-    exit;
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
@@ -82,8 +110,290 @@ try {
     $nivelUsuario = 'Erro ao carregar nível';
 }
 
-?>
 
+// ===== BLOCO DINÂMICO: RELATÓRIO MENSAL =====
+date_default_timezone_set('America/Manaus');
+$empresa_id = $idSelecionado;
+
+$ano = isset($_GET['ano']) ? (int)$_GET['ano'] : (int)date('Y');
+$mes = isset($_GET['mes']) ? (int)$_GET['mes'] : (int)date('n');
+if ($mes < 1 || $mes > 12) $mes = (int)date('n');
+
+function fmtBR($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
+
+
+// ==== DIAS ÚTEIS (MENSAL) ====================================================
+if (!function_exists('dias_uteis_mes')) {
+    function dias_uteis_mes(int $ano, int $mes): int {
+        $inicio = new DateTime(sprintf('%04d-%02d-01', $ano, $mes));
+        $fim    = (clone $inicio)->modify('last day of this month');
+        $total = 0;
+        for ($d = clone $inicio; $d <= $fim; $d->modify('+1 day')) {
+            $w = (int)$d->format('N'); // 1..7 (Seg..Dom)
+            if ($w <= 5) $total++;
+        }
+        return $total;
+    }
+}
+if (!function_exists('dias_uteis_decorridos_mes')) {
+    function dias_uteis_decorridos_mes(int $ano, int $mes): int {
+        $hoje   = new DateTime('today');
+        $inicio = new DateTime(sprintf('%04d-%02d-01', $ano, $mes));
+        $fim    = (clone $inicio)->modify('last day of this month');
+        if ($hoje < $inicio) return 0;
+        $limite = $hoje > $fim ? $fim : $hoje;
+        $total = 0;
+        for ($d = clone $inicio; $d <= $limite; $d->modify('+1 day')) {
+            $w = (int)$d->format('N');
+            if ($w <= 5) $total++;
+        }
+        return $total;
+    }
+}
+
+// Pré-cálculos para o card "Dias Úteis"
+$diasUteisMesTotal    = dias_uteis_mes((int)$ano, (int)$mes);
+$diasUteisDecorridos  = dias_uteis_decorridos_mes((int)$ano, (int)$mes);
+$badgeDiasUteis       = 'Mês ' . str_pad((string)$mes, 2, '0', STR_PAD_LEFT) . '/' . $ano;
+// Totais do mês
+$st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) AS tv, COUNT(*) AS qv
+                     FROM vendas WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$r = $st->fetch(PDO::FETCH_ASSOC) ?: ['tv'=>0,'qv'=>0];
+$totalVendasMes = (float)$r['tv'];
+$qtdVendasMes   = (int)$r['qv'];
+
+// ==== FUNÇÕES AUXILIARES DINÂMICAS (mensal) ==================================
+if (!function_exists('dia_semana_ptbr')) {
+    function dia_semana_ptbr(?string $dateTime): string {
+        if (!$dateTime) return '—';
+        $w = (int)date('w', strtotime($dateTime)); // 0=Dom,6=Sáb
+        $map = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+        return $map[$w] ?? '';
+    }
+}
+if (!function_exists('safe_date_br')) {
+    function safe_date_br(?string $dateTime): string {
+        if (!$dateTime) return '—';
+        $ts = strtotime($dateTime);
+        return $ts ? date('d/m', $ts) : '—';
+    }
+}
+
+// Maior venda do mês
+$st = $pdo->prepare("SELECT id, data_venda, valor_total 
+                     FROM vendas 
+                     WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m AND valor_total>0
+                     ORDER BY valor_total DESC LIMIT 1");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$mov_maior = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+$maiVenda_leg = $mov_maior ? ('#'.(string)$mov_maior['id'].' - '.dia_semana_ptbr($mov_maior['data_venda']).' ('.safe_date_br($mov_maior['data_venda']).')') : '—';
+$maiVenda_val = $mov_maior ? (float)$mov_maior['valor_total'] : 0.0;
+
+// Menor venda do mês (desconsiderando zeradas)
+$st = $pdo->prepare("SELECT id, data_venda, valor_total 
+                     FROM vendas 
+                     WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m AND valor_total>0
+                     ORDER BY valor_total ASC LIMIT 1");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$mov_menor = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+$menorVenda_leg = $mov_menor ? ('#'.(string)$mov_menor['id'].' - '.dia_semana_ptbr($mov_menor['data_venda']).' ('.safe_date_br($mov_menor['data_venda']).')') : '—';
+$menorVenda_val = $mov_menor ? (float)$mov_menor['valor_total'] : 0.0;
+
+// Dia com mais vendas
+$st = $pdo->prepare("SELECT DATE(data_venda) AS d, COUNT(*) AS qtd, COALESCE(SUM(valor_total),0) AS total
+                     FROM vendas 
+                     WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m
+                     GROUP BY DATE(data_venda) 
+                     ORDER BY qtd DESC, total DESC LIMIT 1");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$diaTop = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+$diaTop_leg = $diaTop ? (dia_semana_ptbr($diaTop['d']).' ('.safe_date_br($diaTop['d']).') - '.(int)$diaTop['qtd'].' vendas') : '—';
+$diaTop_val = $diaTop ? (float)$diaTop['total'] : 0.0;
+
+// Maior despesa (contas pagas no mês)
+$st = $pdo->prepare("SELECT descricao, valorpago, datatransacao 
+                     FROM contas 
+                     WHERE id_selecionado=:e AND statuss='pago' AND YEAR(datatransacao)=:a AND MONTH(datatransacao)=:m
+                     ORDER BY valorpago DESC LIMIT 1");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$contaMaior = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+$maiorDespesa_leg = $contaMaior ? (trim((string)$contaMaior['descricao']).' - '.dia_semana_ptbr($contaMaior['datatransacao']).' ('.safe_date_br($contaMaior['datatransacao']).')') : '—';
+$maiorDespesa_val = $contaMaior ? (float)$contaMaior['valorpago'] : 0.0;
+
+// Suprimentos (outras receitas)
+$st = $pdo->prepare("SELECT COUNT(*) AS qtd, COALESCE(SUM(valor_suprimento),0) AS total 
+                     FROM suprimentos WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$supr = $st->fetch(PDO::FETCH_ASSOC) ?: ['qtd'=>0,'total'=>0];
+$qtdSuprimentos = (int)$supr['qtd'];
+$totalSuprimentos = (float)$supr['total'];
+
+// Sangrias (saídas de caixa)
+$st = $pdo->prepare("SELECT COUNT(*) AS qtd, COALESCE(SUM(valor_liquido),0) AS total 
+                     FROM sangrias 
+                     WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$sang = $st->fetch(PDO::FETCH_ASSOC) ?: ['qtd'=>0,'total'=>0];
+$qtdSangrias = (int)$sang['qtd'];
+$totalSangrias = (float)$sang['total'];
+
+// Itens/Serviços vendidos (dos itens_venda)
+$st = $pdo->prepare("SELECT COALESCE(SUM(iv.quantidade),0) AS qtd_itens,
+                            COALESCE(SUM(iv.quantidade*iv.preco_unitario),0) AS total_itens
+                     FROM itens_venda iv
+                     JOIN vendas v ON v.id = iv.venda_id
+                     WHERE v.empresa_id=:e AND YEAR(v.data_venda)=:a AND MONTH(v.data_venda)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$iv = $st->fetch(PDO::FETCH_ASSOC) ?: ['qtd_itens'=>0,'total_itens'=>0];
+$qtdItensMes = (int)$iv['qtd_itens'];
+$totalItensMes = (float)$iv['total_itens'];
+
+// Despesas pagas (usando 'Despesas Fixas' no layout)
+$st = $pdo->prepare("SELECT COUNT(*) AS qtd, COALESCE(SUM(valorpago),0) AS total
+                     FROM contas
+                     WHERE id_selecionado=:e AND statuss='pago' AND YEAR(datatransacao)=:a AND MONTH(datatransacao)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$dp = $st->fetch(PDO::FETCH_ASSOC) ?: ['qtd'=>0,'total'=>0];
+$qtdDespesasPagas = (int)$dp['qtd'];
+$totalDespesasPagas = (float)$dp['total'];
+
+// Ticket médio semanal (média ponderada == média mensal)
+$ticketMedioSemanal = $qtdVendasMes > 0 ? ($totalVendasMes / $qtdVendasMes) : 0.0;
+// Número de semanas com vendas no mês (para descrição)
+$st = $pdo->prepare("SELECT COUNT(DISTINCT YEARWEEK(data_venda,3)) AS semanas
+                     FROM vendas WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$semanasComVendas = (int)($st->fetchColumn() ?: 0);
+
+
+$st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$totalSuprMes = (float)($st->fetchColumn() ?: 0);
+
+$st = $pdo->prepare("SELECT COALESCE(SUM(valor_liquido),0) FROM sangrias WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+$totalSangMes = (float)($st->fetchColumn() ?: 0);
+
+$entradasMes = $totalVendasMes + $totalSuprMes;
+$saidasMes   = $totalSangMes;
+$saldoMes    = $entradasMes - $saidasMes;
+$ticketMedioMes = $qtdVendasMes > 0 ? $totalVendasMes / $qtdVendasMes : 0;
+
+$mensal = [
+  'total_vendas'  => $totalVendasMes,
+  'qtd_vendas'    => $qtdVendasMes,
+  'entradas'      => $entradasMes,
+  'saidas'        => $saidasMes,
+  'saldo'         => $saldoMes,
+  'ticket_medio'  => $ticketMedioMes,
+  'suprimentos'   => $totalSuprMes,
+  'sangrias'      => $totalSangMes,
+];
+
+// Resumo por semana (no mês)
+$vendasSem = [];
+$st = $pdo->prepare("SELECT YEARWEEK(data_venda,3) AS wkey, WEEK(data_venda,3) AS semana,
+                            MIN(DATE(data_venda)) AS inicio, MAX(DATE(data_venda)) AS fim,
+                            COUNT(*) AS qtd, COALESCE(SUM(valor_total),0) AS total
+                     FROM vendas
+                     WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m
+                     GROUP BY wkey, semana ORDER BY inicio");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $vendasSem[$r['wkey']] = [
+      'semana' => (int)$r['semana'],
+      'inicio' => $r['inicio'],
+      'fim'    => $r['fim'],
+      'qtd_vendas' => (int)$r['qtd'],
+      'vendas'     => (float)$r['total'],
+      'suprimentos'=> 0.0,
+      'sangrias'   => 0.0,
+    ];
+}
+
+$st = $pdo->prepare("SELECT YEARWEEK(data_registro,3) AS wkey, COALESCE(SUM(valor_suprimento),0) AS total
+                     FROM suprimentos WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m
+                     GROUP BY wkey");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $k = $r['wkey'];
+    if (!isset($vendasSem[$k])) $vendasSem[$k] = ['semana'=>null,'inicio'=>null,'fim'=>null,'qtd_vendas'=>0,'vendas'=>0.0,'suprimentos'=>0.0,'sangrias'=>0.0];
+    $vendasSem[$k]['suprimentos'] = (float)$r['total'];
+}
+
+$st = $pdo->prepare("SELECT YEARWEEK(data_registro,3) AS wkey, COALESCE(SUM(valor_liquido),0) AS total
+                     FROM sangrias
+                     WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m
+                     GROUP BY wkey");
+$st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$mes]);
+foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+    $k = $r['wkey'];
+    if (!isset($vendasSem[$k])) $vendasSem[$k] = ['semana'=>null,'inicio'=>null,'fim'=>null,'qtd_vendas'=>0,'vendas'=>0.0,'suprimentos'=>0.0,'sangrias'=>0.0];
+    $vendasSem[$k]['sangrias'] = (float)$r['total'];
+}
+
+$resumoSemanal = [];
+foreach ($vendasSem as $wk => $info) {
+    $entr = (float)$info['vendas'] + (float)$info['suprimentos'];
+    $said = (float)$info['sangrias'];
+    $saldo = $entr - $said;
+    $ticket = $info['qtd_vendas'] > 0 ? $info['vendas'] / $info['qtd_vendas'] : 0;
+    $rotulo = '';
+    if ($info['inicio'] && $info['fim']) {
+        $d1 = date('d/m', strtotime($info['inicio']));
+        $d2 = date('d/m', strtotime($info['fim']));
+        $rotulo = ($info['semana'] ?: '') . " ($d1 - $d2)";
+    } else {
+        $rotulo = (string)($info['semana'] ?: '—');
+    }
+    $resumoSemanal[] = [
+       'semana_rotulo' => $rotulo,
+       'entradas'      => $entr,
+       'saidas'        => $said,
+       'saldo'         => $saldo,
+       'qtd_vendas'    => (int)$info['qtd_vendas'],
+       'ticket_medio'  => $ticket,
+       'status'        => $saldo >= 0 ? 'Positivo' : 'Negativo',
+    ];
+}
+usort($resumoSemanal, function($a,$b){
+    return strnatcmp($a['semana_rotulo'], $b['semana_rotulo']);
+});
+
+// Endpoint de download CSV (sem alterar layout)
+if (isset($_GET['download']) && $_GET['download']=='1') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="relatorio-mensal.csv"');
+    echo "\xEF\xBB\xBF"; // BOM
+    echo "Semana;Entradas;Saídas;Saldo;Vendas;Ticket Médio;Status\n";
+    foreach ($resumoSemanal as $s) {
+        echo implode(";", [
+            $s['semana_rotulo'],
+            number_format((float)$s['entradas'], 2, ',', ''),
+            number_format((float)$s['saidas'],   2, ',', ''),
+            number_format((float)$s['saldo'],    2, ',', ''),
+            (int)$s['qtd_vendas'],
+            number_format((float)$s['ticket_medio'], 2, ',', ''),
+            $s['status'],
+        ])."\n";
+    }
+    exit;
+}
+?>
+<?php
+// === Rodapé dinâmico para tabela semanal ===
+$__qtd_semanas = count($resumoSemanal);
+$__sum_entr = array_sum(array_map(fn($x)=> (float)($x['entradas']??0), $resumoSemanal));
+$__sum_said = array_sum(array_map(fn($x)=> (float)($x['saidas']??0), $resumoSemanal));
+$__sum_saldo = array_sum(array_map(fn($x)=> (float)($x['saldo']??0), $resumoSemanal));
+$__sum_vendas = array_sum(array_map(fn($x)=> (int)($x['qtd_vendas']??0), $resumoSemanal));
+
+$__media_entr = $__qtd_semanas>0 ? $__sum_entr / $__qtd_semanas : 0.0;
+$__media_said = $__qtd_semanas>0 ? $__sum_said / $__qtd_semanas : 0.0;
+$__media_saldo= $__qtd_semanas>0 ? $__sum_saldo/ $__qtd_semanas : 0.0;
+$__ticket_mes = $mensal['ticket_medio'] ?? 0.0;
+?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
@@ -254,12 +564,6 @@ try {
                         </a>
                     </li>
 
-                    <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
-                        </a>
-                    </li>
                     <?php
                     $isFilial = str_starts_with($idSelecionado, 'filial_');
                     $link = $isFilial
@@ -325,7 +629,7 @@ try {
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <small class="text-muted d-block">Entradas</small>
-                                            <h4 class="mb-0">R$ 12.540,00</h4>
+                                            <h4 class="mb-0"><?= fmtBR($mensal['entradas']) ?></h4>
                                         </div>
                                         <span class="badge bg-label-success">+8%</span>
                                     </div>
@@ -338,7 +642,7 @@ try {
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <small class="text-muted d-block">Saídas</small>
-                                            <h4 class="mb-0">R$ 5.230,00</h4>
+                                            <h4 class="mb-0"><?= fmtBR($mensal['saidas']) ?></h4>
                                         </div>
                                         <span class="badge bg-label-danger">+3%</span>
                                     </div>
@@ -351,7 +655,7 @@ try {
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <small class="text-muted d-block">Saldo</small>
-                                            <h4 class="mb-0">R$ 7.310,00</h4>
+                                            <h4 class="mb-0"><?= fmtBR($mensal['saldo']) ?></h4>
                                         </div>
                                         <span class="badge bg-label-success">+12%</span>
                                     </div>
@@ -364,9 +668,9 @@ try {
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <small class="text-muted d-block">Dias Úteis</small>
-                                            <h4 class="mb-0">5/7 dias</h4>
+                                            <h4 class="mb-0"><?= $diasUteisDecorridos ?>/<?= $diasUteisMesTotal ?> dias</h4>
                                         </div>
-                                        <span class="badge bg-label-info">Sem 26</span>
+                                        <span class="badge bg-label-info"><?= htmlspecialchars($badgeDiasUteis) ?></span>
                                     </div>
                                 </div>
                             </div>
@@ -400,60 +704,29 @@ try {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td><strong>26 (24/06 - 30/06)</strong></td>
-                                        <td class="text-end">R$ 12.540,00</td>
-                                        <td class="text-end">R$ 5.230,00</td>
-                                        <td class="text-end text-success">R$ 7.310,00</td>
-                                        <td class="text-end">146</td>
-                                        <td class="text-end">R$ 85,89</td>
-                                        <td><span class="badge bg-success">Fechada</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>25 (17/06 - 23/06)</strong></td>
-                                        <td class="text-end">R$ 11.620,00</td>
-                                        <td class="text-end">R$ 5.080,00</td>
-                                        <td class="text-end text-success">R$ 6.540,00</td>
-                                        <td class="text-end">132</td>
-                                        <td class="text-end">R$ 78,25</td>
-                                        <td><span class="badge bg-success">Fechada</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>24 (10/06 - 16/06)</strong></td>
-                                        <td class="text-end">R$ 10.850,00</td>
-                                        <td class="text-end">R$ 4.950,00</td>
-                                        <td class="text-end text-success">R$ 5.900,00</td>
-                                        <td class="text-end">125</td>
-                                        <td class="text-end">R$ 76,40</td>
-                                        <td><span class="badge bg-success">Fechada</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>23 (03/06 - 09/06)</strong></td>
-                                        <td class="text-end">R$ 9.780,00</td>
-                                        <td class="text-end">R$ 4.750,00</td>
-                                        <td class="text-end text-success">R$ 5.030,00</td>
-                                        <td class="text-end">118</td>
-                                        <td class="text-end">R$ 72,71</td>
-                                        <td><span class="badge bg-success">Fechada</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>22 (27/05 - 02/06)</strong></td>
-                                        <td class="text-end">R$ 8.950,00</td>
-                                        <td class="text-end">R$ 4.600,00</td>
-                                        <td class="text-end text-success">R$ 4.350,00</td>
-                                        <td class="text-end">110</td>
-                                        <td class="text-end">R$ 69,55</td>
-                                        <td><span class="badge bg-success">Fechada</span></td>
-                                    </tr>
-                                </tbody>
+<?php if (empty($resumoSemanal)): ?>
+<tr><td colspan="7" class="text-center text-muted">Nenhuma venda encontrada</td></tr>
+<?php endif; ?>
+<?php foreach ($resumoSemanal as $sem): ?>
+    <tr>
+        <td><strong><?= htmlspecialchars($sem['semana_rotulo']) ?></strong></td>
+        <td class="text-end"><?= fmtBR($sem['entradas']) ?></td>
+        <td class="text-end"><?= fmtBR($sem['saidas']) ?></td>
+        <td class="text-end <?= ($sem['saldo']>=0?'text-success':'text-danger') ?>"><?= fmtBR($sem['saldo']) ?></td>
+        <td class="text-end"><?= (int)$sem['qtd_vendas'] ?></td>
+        <td class="text-end"><?= fmtBR($sem['ticket_medio']) ?></td>
+        <td><?= $sem['status'] ?></td>
+    </tr>
+<?php endforeach; ?>
+</tbody>
                                 <tfoot class="table-light">
                                     <tr>
                                         <th>Média Mensal</th>
-                                        <th class="text-end">R$ 10.748,00</th>
-                                        <th class="text-end">R$ 4.922,00</th>
-                                        <th class="text-end text-success">R$ 5.826,00</th>
-                                        <th class="text-end">126</th>
-                                        <th class="text-end">R$ 76,56</th>
+                                        <th class="text-end"><?= fmtBR($__media_entr) ?></th>
+                                        <th class="text-end"><?= fmtBR($__media_said) ?></th>
+                                        <th class="text-end <?= ($__media_saldo>=0?'text-success':'text-danger') ?>"><?= fmtBR($__media_saldo) ?></th>
+                                        <th class="text-end"><?= (int)$__sum_vendas ?></th>
+                                        <th class="text-end"><?= fmtBR($__ticket_mes) ?></th>
                                         <th></th>
                                     </tr>
                                 </tfoot>
@@ -474,38 +747,39 @@ try {
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h6 class="mb-1">Maior Venda</h6>
-                                                    <small class="text-muted">#4621 - Terça (25/06)</small>
+                                                    <small class="text-muted"><?= htmlspecialchars($maiVenda_leg) ?></small>
                                                 </div>
-                                                <span class="text-success fw-semibold">R$ 1.250,00</span>
+                                                <span class="text-success fw-semibold"><?= fmtBR($maiVenda_val) ?></span>
+                                            </div>
+                                        </div>
+                                        <div class="list-group-item list-group-item-action p-3">
+                                            <div class="d-flex justify-content-between">
+                                                <div>
+                                                    <h6 class="mb-1">menor Venda</h6>
+                                                    <small class="text-muted"><?= htmlspecialchars($menorVenda_leg) ?></small>
+                                                </div>
+                                                <span class="text-info fw-semibold"><?= fmtBR($menorVenda_val) ?></span>
                                             </div>
                                         </div>
                                         <div class="list-group-item list-group-item-action p-3">
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h6 class="mb-1">Maior Despesa</h6>
-                                                    <small class="text-muted">Aluguel - Quinta (27/06)</small>
+                                                    <small class="text-muted"><?= htmlspecialchars($maiorDespesa_leg) ?></small>
                                                 </div>
-                                                <span class="text-danger fw-semibold">R$ 1.000,00</span>
+                                                <span class="text-danger fw-semibold"><?= fmtBR($maiorDespesa_val) ?></span>
                                             </div>
                                         </div>
                                         <div class="list-group-item list-group-item-action p-3">
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h6 class="mb-1">Dia com Mais Vendas</h6>
-                                                    <small class="text-muted">Terça (25/06) - 35 vendas</small>
+                                                    <small class="text-muted"><?= htmlspecialchars($diaTop_leg) ?></small>
                                                 </div>
-                                                <span class="text-primary fw-semibold">R$ 3.120,00</span>
+                                                <span class="text-primary fw-semibold"><?= fmtBR($diaTop_val) ?></span>
                                             </div>
                                         </div>
-                                        <div class="list-group-item list-group-item-action p-3">
-                                            <div class="d-flex justify-content-between">
-                                                <div>
-                                                    <h6 class="mb-1">Ticket Médio Semanal</h6>
-                                                    <small class="text-muted">Média por venda</small>
-                                                </div>
-                                                <span class="text-info fw-semibold">R$ 85,89</span>
-                                            </div>
-                                        </div>
+                                    
                                     </div>
                                 </div>
                             </div>
@@ -521,11 +795,11 @@ try {
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h6 class="mb-1">Vendas</h6>
-                                                    <small class="text-muted">Total de transações</small>
+                                                    <small class="text-muted"><?= "Total de transações" ?></small>
                                                 </div>
                                                 <div>
-                                                    <span class="fw-semibold">146</span>
-                                                    <small class="text-muted ms-2">(R$ 7.750,00)</small>
+                                                    <span class="fw-semibold"><?= (int)$qtdVendasMes ?></span>
+                                                    <small class="text-muted ms-2">(<small class="text-muted ms-2">(<?= fmtBR($totalVendasMes) ?>))</small>
                                                 </div>
                                             </div>
                                         </div>
@@ -533,11 +807,11 @@ try {
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h6 class="mb-1">Serviços</h6>
-                                                    <small class="text-muted">Serviços prestados</small>
+                                                    <small class="text-muted"><?= "Serviços prestados" ?></small>
                                                 </div>
                                                 <div>
-                                                    <span class="fw-semibold">42</span>
-                                                    <small class="text-muted ms-2">(R$ 3.125,00)</small>
+                                                    <span class="fw-semibold"><?= (int)$qtdItensMes ?></span>
+                                                    <small class="text-muted ms-2">(<small class="text-muted ms-2">(<?= fmtBR($totalItensMes) ?>))</small>
                                                 </div>
                                             </div>
                                         </div>
@@ -545,11 +819,11 @@ try {
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h6 class="mb-1">Despesas Fixas</h6>
-                                                    <small class="text-muted">Aluguel, contas, etc</small>
+                                                    <small class="text-muted"><?= "Contas pagas no mês" ?></small>
                                                 </div>
                                                 <div>
-                                                    <span class="fw-semibold">8</span>
-                                                    <small class="text-muted ms-2">(R$ 2.850,00)</small>
+                                                    <span class="fw-semibold"><?= (int)$qtdDespesasPagas ?></span>
+                                                    <small class="text-muted ms-2">(<small class="text-muted ms-2">(<?= fmtBR($totalDespesasPagas) ?>))</small>
                                                 </div>
                                             </div>
                                         </div>
@@ -557,11 +831,11 @@ try {
                                             <div class="d-flex justify-content-between">
                                                 <div>
                                                     <h6 class="mb-1">Outras Receitas</h6>
-                                                    <small class="text-muted">Suprimentos, etc</small>
+                                                    <small class="text-muted"><?= "Suprimentos, etc" ?></small>
                                                 </div>
                                                 <div>
-                                                    <span class="fw-semibold">15</span>
-                                                    <small class="text-muted ms-2">(R$ 1.665,00)</small>
+                                                    <span class="fw-semibold"><?= (int)$qtdSuprimentos ?></span>
+                                                    <small class="text-muted ms-2">(<small class="text-muted ms-2">(<?= fmtBR($totalSuprimentos) ?>))</small>
                                                 </div>
                                             </div>
                                         </div>
@@ -584,7 +858,28 @@ try {
                 .card-slim .card-body {
                     padding: 0.75rem;
                 }
-            </style>
+            
+
+/* === Ajustes pontuais para os cards "Movimentações" e "Resumo por Categoria" ===
+   - Remove visual de "caixa dentro de caixa" nos itens (list-group)
+   - Evita espaço vazio no final do card (altura se adapta ao conteúdo)
+   - Mantém layout global intacto
+*/
+.card-flow { height: auto !important; }
+.card-flow .card-body { padding: 0 !important; }
+.card-flow .list-group { border: 0; margin-bottom: 0; }
+.card-flow .list-group-item {
+  background: transparent;
+  border: 0;
+  padding: .75rem 1rem;
+}
+.card-flow .list-group-item + .list-group-item {
+  border-top: 1px solid rgba(0,0,0,.06);
+}
+.card-flow .d-flex > div:last-child { text-align: right; }
+.card-flow .fw-semibold { display: inline-block; min-width: 60px; text-align: right; }
+
+</style>
             <!-- build:js assets/vendor/js/core.js -->
 
             <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
@@ -616,6 +911,106 @@ try {
                     new bootstrap.Modal(document.getElementById('deleteContaModal')).show();
                 }
             </script>
-</body>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  // Botão de download CSV (primeiro card que tiver ícone bx-download dentro de "Detalhes por Semana")
+  var area = Array.from(document.querySelectorAll('.card')).find(c => {
+    var h = c.querySelector('.card-header h5, .card-header h4'); 
+    return h && h.textContent.trim().toLowerCase() === 'detalhes por semana';
+  });
+  if (area){
+    var btnDown = area.querySelector('.bx-download');
+    if (btnDown){
+      var btn = btnDown.closest('button, a');
+      if (btn) btn.addEventListener('click', function(e){
+        e.preventDefault();
+        var q = new URLSearchParams(window.location.search);
+        q.set('download','1');
+        window.location.href = window.location.pathname + '?' + q.toString();
+      });
+    }
+    var btnPrint = area.querySelector('.bx-printer');
+    if (btnPrint){
+      var btn = btnPrint.closest('button, a');
+      if (btn) btn.addEventListener('click', function(e){
+        e.preventDefault();
+        // Abre impressão somente da tabela
+        var table = area.querySelector('table');
+        if (!table){ window.print(); return; }
+        var w = window.open('', '_blank');
+        w.document.write('<html><head><title>Imprimir</title>');
+        w.document.write('<meta charset="utf-8" />');
+        w.document.write('</head><body>');
+        w.document.write('<h3>Detalhes por Semana</h3>');
+        w.document.write(table.outerHTML);
+        w.document.write('</body></html>');
+        w.document.close();
+        w.focus();
+        w.print();
+        w.close();
+      });
+    }
+  }
+});
+</script>
 
-</html>
+<script>
+(function(){
+  function ensureHtml2Canvas(){
+    return new Promise(function(res, rej){
+      if (window.html2canvas) return res(window.html2canvas);
+      var s = document.createElement('script');
+      s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+      s.onload = function(){ res(window.html2canvas); };
+      s.onerror = function(){ rej(new Error('Falha ao carregar html2canvas')); };
+      document.head.appendChild(s);
+    });
+  }
+  document.addEventListener('click', async function(e){
+    const icon = e.target.closest('.bx-printer');
+    if (!icon) return;
+    const btn = icon.closest('button, a');
+    if (!btn) return;
+    const card = btn.closest('.card');
+    const table = card ? card.querySelector('table') : null;
+    if (!table) return;
+    e.preventDefault();
+    try{
+      await ensureHtml2Canvas();
+      const canvas = await html2canvas(table, {scale:2, useCORS:true});
+      const dataUrl = canvas.toDataURL('image/png');
+      const w = window.open('', '_blank');
+      w.document.write('<html><head><title>Impressão</title><meta charset="utf-8"></head><body style="margin:0">');
+      w.document.write('<img src="'+dataUrl+'" style="width:100%;display:block"/>');
+      w.document.write('</body></html>');
+      w.document.close(); w.focus(); w.print();
+    }catch(err){ console.error(err); window.print(); }
+  });
+})();
+</script>
+
+
+<script>
+  (function() {
+    // Garanta que rode após o carregamento do DOM e também caso o JS esteja no rodapé
+    function applyCardFlow(){
+      var headers = document.querySelectorAll('h5.mb-0');
+      headers.forEach(function(h){
+        var t = (h.textContent || '').trim();
+        if (t === 'Movimentações' || t === 'Resumo por Categoria') {
+          var card = h.closest('.card');
+          if (card && !card.classList.contains('card-flow')) {
+            card.classList.add('card-flow');
+          }
+        }
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', applyCardFlow);
+    } else {
+      applyCardFlow();
+    }
+  })();
+</script>
+
+</body></html>

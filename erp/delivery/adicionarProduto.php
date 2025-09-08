@@ -276,14 +276,6 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./relatorioClientes.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div data-i18n="Basic">Clientes</div>
-                                </a>
-                            </li>
-                        </ul>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
                                 <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Vendas</div>
                                 </a>
@@ -316,12 +308,6 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                         <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Authentications">Estoque</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
                         </a>
                     </li>
                     <?php

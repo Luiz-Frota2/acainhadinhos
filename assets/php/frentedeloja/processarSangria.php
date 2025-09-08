@@ -106,7 +106,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // 7. Sucesso
         echo "<script>
                 alert('Sangria registrada com sucesso!');
-                window.location.href = '../../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
+                window.location.href = '../../../frentedeloja/caixa/index.php?id=" . urlencode($empresa_id) . "';
               </script>";
         exit();
     } catch (Exception $e) {

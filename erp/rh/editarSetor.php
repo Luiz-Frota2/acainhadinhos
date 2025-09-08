@@ -13,56 +13,16 @@ if (
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $idEmpresa = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $idEmpresa = $idFilial;
-} else {
-  echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-  exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
-try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
-} catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
-}
-
-// ✅ Buscar nome e nível do usuário logado
+// ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
+$tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -73,11 +33,51 @@ try {
 
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
   }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 // ✅ Verifica se o ID do setor foi passado corretamente
@@ -237,7 +237,7 @@ try {
                   <div data-i18n="Escalas e Configuração"> Escalas Adicionadas</div>
                 </a>
               </li>
-                <li class="menu-item">
+              <li class="menu-item">
                 <a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Adicionar Ponto</div>
                 </a>
@@ -247,7 +247,7 @@ try {
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
                 </a>
               </li>
-              <li class="menu-item ">
+              <li class="menu-item">
                 <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                 </a>
@@ -314,31 +314,50 @@ try {
             </a>
           </li>
           <li class="menu-item">
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
+            </a>
+          </li>
+          <li class="menu-item">
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
-          </li>
-          <?php
-          $isFilial = str_starts_with($idSelecionado, 'filial_');
-          $link = $isFilial
-            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-            : '../filial/index.php?id=principal_1';
-          $titulo = $isFilial ? 'Matriz' : 'Filial';
-          ?>
 
-          <li class="menu-item">
-            <a href="<?= $link ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications"><?= $titulo ?></div>
-            </a>
-          </li>
+          <?php
+          $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+          $idLogado = $_SESSION['empresa_id'] ?? '';
+
+          // Se for matriz (principal), mostrar links para filial, franquia e unidade
+          if ($tipoLogado === 'principal') {
+          ?>
+            <li class="menu-item">
+              <a href="../filial/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Authentications">Filial</div>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="Authentications">Franquias</div>
+              </a>
+            </li>
+          <?php
+          } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+            // Se for filial, franquia ou unidade, mostra link para matriz
+          ?>
+            <li class="menu-item">
+              <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-cog"></i>
+                <div data-i18n="Authentications">Matriz</div>
+              </a>
+            </li>
+          <?php
+          }
+          ?>
           <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>

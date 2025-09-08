@@ -1,47 +1,75 @@
 <?php
-session_start();
-require_once '../../assets/php/conexao.php';
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-// Recupera o identificador vindo da URL
+session_start();
+
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
-// Verifica se a pessoa está logada
-if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id'])
-) {
-    header("Location: .././login.php?id=$idSelecionado");
-    exit;
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
 }
 
-// Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
+// ✅ Verifica se a pessoa está logada
+if (
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
+) {
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
 }
 
 // Buscar imagem da tabela sobre_empresa
@@ -84,11 +112,11 @@ $solicitacoes = [];
 try {
     // Consulta tanto solicitações feitas POR esta empresa quanto PARA esta empresa
     $sql = "SELECT sp.*, 
-                   p.nome_produto, 
+                   COALESCE(p.nome, p.nome_produto, p.descricao, CONCAT('ID #', sp.produto_id)) AS nome_produto, 
                    fo.nome as nome_filial_origem,
                    fd.nome as nome_filial_destino
             FROM solicitacoes_produtos sp
-            JOIN produtos_estoque p ON sp.produto_id = p.id
+            LEFT JOIN produtos_estoque p ON sp.produto_id = p.id
             LEFT JOIN filiais fo ON sp.empresa_origem = CONCAT('filial_', fo.id_filial)
             LEFT JOIN filiais fd ON sp.empresa_destino = CONCAT('filial_', fd.id_filial)
             WHERE sp.empresa_origem = :id_selecionado OR sp.empresa_destino = :id_selecionado
@@ -113,7 +141,7 @@ try {
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-    <title>ERP - Estoque</title>
+    <title>ERP - B2B</title>
 
     <meta name="description" content="" />
 
@@ -148,433 +176,472 @@ try {
     <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
     <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="../../assets/js/config.js"></script>
+
 </head>
 
-<body>
-    <!-- Layout wrapper -->
-    <div class="layout-wrapper layout-content-navbar">
-        <div class="layout-container">
-            <!-- Menu -->
+    <body>
 
-            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-                <div class="app-brand demo">
-                    <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
-                            style=" text-transform: capitalize;">Açaínhadinhos</span>
-                    </a>
-
-                    <a href="javascript:void(0);"
-                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
-                        <i class="bx bx-chevron-left bx-sm align-middle"></i>
-                    </a>
-                </div>
-
-                <div class="menu-inner-shadow"></div>
-
-                <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
-                    <li class="menu-item">
-                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-home-circle"></i>
-                            <div data-i18n="Analytics">Dashboard</div>
-                        </a>
-                    </li>
-
-                    <!-- Administração de Filiais -->
-                    <li class="menu-header small text-uppercase">
-                        <span class="menu-header-text">Administração Filiais</span>
-                    </li>
-
-                    <!-- Adicionar Filial -->
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-building"></i>
-                            <div data-i18n="Adicionar">Filiais</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Filiais">Adicionadas</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-
-                    <li class="menu-item active open">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
-                            <div data-i18n="Authentications">B2B</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Contas Filiais</div>
-                                </a>
-                            </li>
-                            <li class="menu-item active"><a
-                                    href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div> Produtos Solicitados</div>
-                                </a>
-                            </li>
-                            <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div> Produtos Enviados</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-
-                    <!-- Relatórios -->
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-                            <div data-i18n="Relatorios">Relatórios</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Vendas">Vendas por Filial</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Pedidos">Vendas por Período</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./CancelamentosFiliais.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div data-i18n="Cancelamentos">Cancelamentos</div>
-                                </a>
-                            </li>
-
-                        </ul>
-                    </li>
-                    <!--END DELIVERY-->
-
-                    <!-- Misc -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-                    <li class="menu-item">
-                        <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-group"></i>
-                            <div data-i18n="Authentications">RH</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-dollar"></i>
-                            <div data-i18n="Authentications">Finanças</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-desktop"></i>
-                            <div data-i18n="Authentications">PDV</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-cart"></i>
-                            <div data-i18n="Authentications">Delivery</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-box"></i>
-                            <div data-i18n="Authentications">Estoque</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-group"></i>
-                            <div data-i18n="Authentications">Usuários </div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-support"></i>
-                            <div data-i18n="Basic">Suporte</div>
-                        </a>
-                    </li>
-                    <!--/MISC-->
-                </ul>
-            </aside>
-            <!-- / Menu -->
+        <!-- Layout wrapper -->
+        <div class="layout-wrapper layout-content-navbar">
 
             <!-- Layout container -->
-            <div class="layout-page">
-                <!-- Navbar -->
+            <div class="layout-container">
 
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
-                    id="layout-navbar">
-                    <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                            <i class="bx bx-menu bx-sm"></i>
+                <!-- Menu -->
+                <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+                    <div class="app-brand demo">
+                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
+
+                            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                                style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        </a>
+
+                        <a href="javascript:void(0);"
+                            class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                            <i class="bx bx-chevron-left bx-sm align-middle"></i>
                         </a>
                     </div>
 
-                    <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
-                        <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center">
-                                <i class="bx bx-search fs-4 lh-0"></i>
-                                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
-                                    aria-label="Search..." />
-                            </div>
-                        </div>
-                        <!-- /Search -->
+                    <div class="menu-inner-shadow"></div>
 
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                                <a class="dropdown-item" href="#">
-                                    <div class="d-flex">
-                                        <div class="flex-shrink-0 me-3">
-                                            <div class="avatar avatar-online">
-                                                <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                                                    class="w-px-40 h-auto rounded-circle" />
+                    <ul class="menu-inner py-1">
+                        <!-- Dashboard -->
+                        <li class="menu-item">
+                            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-home-circle"></i>
+                                <div data-i18n="Analytics">Dashboard</div>
+                            </a>
+                        </li>
+
+                        <!-- Administração de Filiais -->
+                        <li class="menu-header small text-uppercase">
+                            <span class="menu-header-text">Administração Filiais</span>
+                        </li>
+
+                        <!-- Adicionar Filial -->
+                        <li class="menu-item">
+                            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                                <i class="menu-icon tf-icons bx bx-building"></i>
+                                <div data-i18n="Adicionar">Filiais</div>
+                            </a>
+                            <ul class="menu-sub">
+                                <li class="menu-item">
+                                    <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div data-i18n="Filiais">Adicionadas</div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <li class="menu-item active open">
+                            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                                <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                                <div data-i18n="B2B">B2B - Matriz</div>
+                            </a>
+                            <ul class="menu-sub">
+                                <!-- Contas das Filiais -->
+                                <li class="menu-item">
+                                    <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Pagamentos Solic.</div>
+                                    </a>
+                                </li>
+
+                                <!-- Produtos solicitados pelas filiais -->
+                                <li class="menu-item active">
+                                    <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Produtos Solicitados</div>
+                                    </a>
+                                </li>
+
+                                <!-- Produtos enviados pela matriz -->
+                                <li class="menu-item">
+                                    <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Produtos Enviados</div>
+                                    </a>
+                                </li>
+
+                                <!-- Transferências em andamento -->
+                                <li class="menu-item">
+                                    <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Transf. Pendentes</div>
+                                    </a>
+                                </li>
+
+                                <!-- Histórico de transferências -->
+                                <li class="menu-item">
+                                    <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Histórico Transf.</div>
+                                    </a>
+                                </li>
+
+                                <!-- Gestão de Estoque Central -->
+                                <li class="menu-item">
+                                    <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Estoque Matriz</div>
+                                    </a>
+                                </li>
+
+                                <!-- Configurações de Política de Envio -->
+                                <li class="menu-item">
+                                    <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Política de Envio</div>
+                                    </a>
+                                </li>
+
+                                <!-- Relatórios e indicadores B2B -->
+                                <li class="menu-item">
+                                    <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div>Relatórios B2B</div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
+
+                        <!-- Relatórios -->
+                        <li class="menu-item">
+                            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                                <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+                                <div data-i18n="Relatorios">Relatórios</div>
+                            </a>
+                            <ul class="menu-sub">
+                                <li class="menu-item">
+                                    <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div data-i18n="Vendas">Vendas por Filial</div>
+                                    </a>
+                                </li>
+                                <li class="menu-item">
+                                    <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div data-i18n="MaisVendidos">Mais Vendidos</div>
+                                    </a>
+                                </li>
+                                <li class="menu-item">
+                                    <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                        <div data-i18n="Pedidos">Vendas por Período</div>
+                                    </a>
+                                </li>
+                                <li class="menu-item">
+                                    <a href="./CancelamentosFiliais.php?id=<?= urlencode($idSelecionado); ?>"
+                                        class="menu-link">
+                                        <div data-i18n="Cancelamentos">Cancelamentos</div>
+                                    </a>
+                                </li>
+
+                            </ul>
+                        </li>
+                        <!--END DELIVERY-->
+
+                        <!-- Misc -->
+                        <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+                        <li class="menu-item">
+                            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                                <i class="menu-icon tf-icons bx bx-group"></i>
+                                <div data-i18n="Authentications">RH</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                                <i class="menu-icon tf-icons bx bx-dollar"></i>
+                                <div data-i18n="Authentications">Finanças</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                                <i class="menu-icon tf-icons bx bx-desktop"></i>
+                                <div data-i18n="Authentications">PDV</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                                <i class="menu-icon tf-icons bx bx-cart"></i>
+                                <div data-i18n="Authentications">Delivery</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                                <i class="menu-icon tf-icons bx bx-box"></i>
+                                <div data-i18n="Authentications">Estoque</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                                <i class="menu-icon tf-icons bx bx-group"></i>
+                                <div data-i18n="Authentications">Usuários </div>
+                            </a>
+                        </li>
+                        <li class="menu-item mb-5">
+                            <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-support"></i>
+                                <div data-i18n="Basic">Suporte</div>
+                            </a>
+                        </li>
+                        <!--/MISC-->
+                    </ul>
+                </aside>
+                <!-- / Menu -->
+
+                <!-- layout-page -->
+                <div class="layout-page">
+
+                    <!-- Navbar -->
+                    <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                        id="layout-navbar">
+                        <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+                            <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
+                                <i class="bx bx-menu bx-sm"></i>
+                            </a>
+                        </div>
+
+                        <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+                            <!-- Search -->
+                            <div class="navbar-nav align-items-center">
+                                <div class="nav-item d-flex align-items-center">
+                                    <i class="bx bx-search fs-4 lh-0"></i>
+                                    <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
+                                        aria-label="Search..." />
+                                </div>
+                            </div>
+                            <!-- /Search -->
+
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0 me-3">
+                                                <div class="avatar avatar-online">
+                                                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
+                                                        class="w-px-40 h-auto rounded-circle" />
+                                                </div>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <!-- Exibindo o nome e nível do usuário -->
+                                                <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                                                <small class="text-muted"><?php echo $nivelUsuario; ?></small>
                                             </div>
                                         </div>
-                                        <div class="flex-grow-1">
-                                            <!-- Exibindo o nome e nível do usuário -->
-                                            <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                                            <small class="text-muted"><?php echo $nivelUsuario; ?></small>
-                                        </div>
-                                    </div>
-                                </a>
-                            </li>
-                            <li>
-                                <div class="dropdown-divider"></div>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="#">
-                                    <i class="bx bx-user me-2"></i>
-                                    <span class="align-middle">Minha Conta</span>
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="#">
-                                    <i class="bx bx-cog me-2"></i>
-                                    <span class="align-middle">Configurções</span>
-                                </a>
-                            </li>
-                            <li>
-                                <div class="dropdown-divider"></div>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <i class="bx bx-power-off me-2"></i>
-                                    <span class="align-middle">Sair</span>
-                                </a>
-                            </li>
+                                    </a>
+                                </li>
+                                <li>
+                                    <div class="dropdown-divider"></div>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bx bx-user me-2"></i>
+                                        <span class="align-middle">Minha Conta</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#">
+                                        <i class="bx bx-cog me-2"></i>
+                                        <span class="align-middle">Configurções</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <div class="dropdown-divider"></div>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <i class="bx bx-power-off me-2"></i>
+                                        <span class="align-middle">Sair</span>
+                                    </a>
+                                </li>
 
-                        </ul>
-                    </div>
-                </nav>
+                            </ul>
+                        </div>
 
-                <!-- / Navbar -->
+                    </nav>
+                    <!-- / Navbar -->
 
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                                href="./produtosSolicitados.php">B2B</a>/</span> Produtos Solicitados</h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie as
-                            Solicitações de Produtos das Filiais</span></h5>
+                    <!-- container-xxl -->
+                    <div class="container-xxl flex-grow-1 container-p-y">
+                        <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
+                                    href="#">B2B</a>/</span> Produtos Solicitados</h4>
+                        <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie as
+                                Solicitações de Produtos das Filiais</span></h5>
 
-                    <!-- Restante do HTML permanece similar, mas com ajustes na exibição -->
-                    <div class="card">
-                        <h5 class="card-header">Histórico Completo de Solicitações</h5>
+                        <!-- Restante do HTML permanece similar, mas com ajustes na exibição -->
                         <div class="card">
-                            <div class="table-responsive text-nowrap">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Produto</th>
-                                            <th>Origem</th>
-                                            <th>Destino</th>
-                                            <th>Quantidade</th>
-                                            <th>Data</th>
-                                            <th>Status</th>
-                                            <th>Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="table-border-bottom-0">
-                                        <?php if (empty($solicitacoes)): ?>
+                            <h5 class="card-header">Histórico Completo de Solicitações</h5>
+                            <div class="card">
+                                <div class="table-responsive text-nowrap">
+                                    <table class="table table-hover">
+                                        <thead>
                                             <tr>
-                                                <td colspan="7" class="text-center">Nenhuma solicitação encontrada</td>
+                                                <th>Produto</th>
+                                                <th>Origem</th>
+                                                <th>Destino</th>
+                                                <th>Quantidade</th>
+                                                <th>Data</th>
+                                                <th>Status</th>
+                                                <th>Ações</th>
                                             </tr>
-                                        <?php else: ?>
-                                            <?php foreach ($solicitacoes as $solicitacao): ?>
-                                                <?php
-                                                $badgeClass = match ($solicitacao['status']) {
-                                                    'aprovada' => 'bg-success',
-                                                    'recusada' => 'bg-danger',
-                                                    'entregue' => 'bg-info',
-                                                    default => 'bg-warning'
-                                                };
-
-                                                // Determina os nomes de origem e destino
-                                                $origem = $solicitacao['empresa_origem'] === 'principal_1'
-                                                    ? 'Matriz'
-                                                    : ($solicitacao['nome_filial_origem'] ?? 'Filial Desconhecida');
-
-                                                $destino = $solicitacao['empresa_destino'] === 'principal_1'
-                                                    ? 'Matriz'
-                                                    : ($solicitacao['nome_filial_destino'] ?? 'Filial Desconhecida');
-                                                ?>
+                                        </thead>
+                                        <tbody class="table-border-bottom-0">
+                                           
                                                 <tr>
-                                                    <td><?= htmlspecialchars($solicitacao['nome_produto']) ?></td>
-                                                    <td><?= htmlspecialchars($origem) ?></td>
-                                                    <td><?= htmlspecialchars($destino) ?></td>
-                                                    <td><?= htmlspecialchars($solicitacao['quantidade']) ?> un.</td>
-                                                    <td><?= date('d/m/Y H:i', strtotime($solicitacao['data_solicitacao'])) ?>
-                                                    </td>
-                                                    <td><span
-                                                            class="badge <?= $badgeClass ?>"><?= ucfirst($solicitacao['status']) ?></span>
-                                                    </td>
-                                                    <td>
-                                                        <button class="btn btn-link text-info p-0" title="Visualizar"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#modalSolicitacao<?= $solicitacao['id'] ?>">
-                                                            <i class="tf-icons bx bx-show"></i>
-                                                        </button>
-                                                    </td>
+                                                    <td colspan="7" class="text-center">Nenhuma solicitação encontrada</td>
                                                 </tr>
-                                            <?php endforeach; ?>
-                                        <?php endif; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                                          
+                                                <?php foreach ($solicitacoes as $solicitacao): ?>
+                                                    <?php
+                                                    $badgeClass = match ($solicitacao['status']) {
+                                                        'aprovada' => 'bg-success',
+                                                        'recusada' => 'bg-danger',
+                                                        'entregue' => 'bg-info',
+                                                        default => 'bg-warning'
+                                                    };
 
-                    <?php foreach ($solicitacoes as $solicitacao): ?>
-                        <!-- Modal para cada solicitação -->
-                        <div class="modal fade" id="modalSolicitacao<?= $solicitacao['id'] ?>" tabindex="-1"
-                            aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Detalhes da Solicitação #<?= $solicitacao['id'] ?></h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                            aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <strong>Origem:</strong><br>
-                                                <?= htmlspecialchars($origem) ?>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <strong>Destino:</strong><br>
-                                                <?= htmlspecialchars($destino) ?>
-                                            </div>
-                                        </div>
+                                                    // Determina os nomes de origem e destino
+                                                    $origem = $solicitacao['empresa_origem'] === 'principal_1'
+                                                        ? 'Matriz'
+                                                        : ($solicitacao['nome_filial_origem'] ?? 'Filial Desconhecida');
 
-                                        <div class="mb-3">
-                                            <strong>Produto:</strong><br>
-                                            <?= htmlspecialchars($solicitacao['nome_produto']) ?>
-                                        </div>
-
-                                        <div class="row mb-3">
-                                            <div class="col-md-6">
-                                                <strong>Quantidade:</strong><br>
-                                                <?= htmlspecialchars($solicitacao['quantidade']) ?> unidades
-                                            </div>
-                                            <div class="col-md-6">
-                                                <strong>Status:</strong><br>
-                                                <span
-                                                    class="badge <?= $badgeClass ?>"><?= ucfirst($solicitacao['status']) ?></span>
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <strong>Justificativa:</strong><br>
-                                            <?= nl2br(htmlspecialchars($solicitacao['justificativa'])) ?>
-                                        </div>
-
-                                        <?php if (!empty($solicitacao['resposta_matriz'])): ?>
-                                            <div class="mb-3">
-                                                <strong>Resposta:</strong><br>
-                                                <?= nl2br(htmlspecialchars($solicitacao['resposta_matriz'])) ?>
-                                            </div>
-                                        <?php endif; ?>
-
-                                        <?php if ($solicitacao['status'] === 'pendente' && $_SESSION['tipo_empresa'] === 'principal'): ?>
-                                            <form action="../../assets/php/filial/confirmarSolicitacao.php" method="POST">
-                                                <input type="hidden" name="id" value="<?= $solicitacao['id'] ?>">
-
-                                                <input type="hidden" name="empresa_destino"
-                                                    value="<?= htmlspecialchars($solicitacao['empresa_destino']) ?>">
-
-                                                <input type="text" name="id_selecionado"
-                                                    value="<?= htmlspecialchars($idSelecionado); ?>">
-
-                                                <div class="mb-3">
-                                                    <label class="form-label">Resposta:</label>
-                                                    <textarea name="resposta" class="form-control" rows="3" required></textarea>
-                                                </div>
-
-                                                <div class="d-flex justify-content-between">
-                                                    <button type="submit" name="acao" value="recusar"
-                                                        class="btn btn-danger">Recusar</button>
-                                                    <button type="submit" name="acao" value="aprovar"
-                                                        class="btn btn-success">Aprovar</button>
-                                                </div>
-                                            </form>
-                                        <?php endif; ?>
-                                    </div>
+                                                    $destino = $solicitacao['empresa_destino'] === 'principal_1'
+                                                        ? 'Matriz'
+                                                        : ($solicitacao['nome_filial_destino'] ?? 'Filial Desconhecida');
+                                                    ?>
+                                                    <tr>
+                                                        <td><?= htmlspecialchars($solicitacao['nome_produto'] ?: ('Produto #'.$solicitacao['produto_id'])) ?></td>
+                                                        <td><?= htmlspecialchars($origem) ?></td>
+                                                        <td><?= htmlspecialchars($destino) ?></td>
+                                                        <td><?= htmlspecialchars($solicitacao['quantidade']) ?> un.</td>
+                                                        <td><?= date('d/m/Y H:i', strtotime($solicitacao['data_solicitacao'])) ?>
+                                                        </td>
+                                                        <td><span
+                                                                class="badge <?= $badgeClass ?>"><?= ucfirst($solicitacao['status']) ?></span>
+                                                        </td>
+                                                        <td>
+                                                            <button class="btn btn-link text-info p-0" title="Visualizar"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#modalSolicitacao<?= $solicitacao['id'] ?>">
+                                                                <i class="tf-icons bx bx-show"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                    <!-- Modal de Exclusão -->
 
+                        <?php foreach ($solicitacoes as $solicitacao): ?>
+                            <!-- Modal para cada solicitação -->
+                            <div class="modal fade" id="modalSolicitacao<?= $solicitacao['id'] ?>" tabindex="-1"
+                                aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Detalhes da Solicitação #<?= $solicitacao['id'] ?></h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <strong>Origem:</strong><br>
+                                                    <?= htmlspecialchars($origem) ?>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <strong>Destino:</strong><br>
+                                                    <?= htmlspecialchars($destino) ?>
+                                                </div>
+                                            </div>
 
-                    <!-- / Layout wrapper -->
+                                            <div class="mb-3">
+                                                <strong>Produto:</strong><br>
+                                                <?= htmlspecialchars($solicitacao['nome_produto'] ?: ('Produto #'.$solicitacao['produto_id'])) ?>
+                                            </div>
 
-                    <!-- Core JS -->
-                    <!-- build:js assets/vendor/js/core.js -->
-                    <script src="../../js/saudacao.js"></script>
-                    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-                    <script src="../../assets/vendor/libs/popper/popper.js"></script>
-                    <script src="../../assets/vendor/js/bootstrap.js"></script>
-                    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <strong>Quantidade:</strong><br>
+                                                    <?= htmlspecialchars($solicitacao['quantidade']) ?> unidades
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <strong>Status:</strong><br>
+                                                    <span
+                                                        class="badge <?= $badgeClass ?>"><?= ucfirst($solicitacao['status']) ?></span>
+                                                </div>
+                                            </div>
 
-                    <script src="../../assets/vendor/js/menu.js"></script>
-                    <!-- endbuild -->
+                                            <div class="mb-3">
+                                                <strong>Justificativa:</strong><br>
+                                                <?= nl2br(htmlspecialchars($solicitacao['justificativa'])) ?>
+                                            </div>
 
-                    <!-- Vendors JS -->
-                    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+                                            <?php if (!empty($solicitacao['resposta_matriz'])): ?>
+                                                <div class="mb-3">
+                                                    <strong>Resposta:</strong><br>
+                                                    <?= nl2br(htmlspecialchars($solicitacao['resposta_matriz'])) ?>
+                                                </div>
+                                            <?php endif; ?>
 
-                    <!-- Main JS -->
-                    <script src="../../assets/js/main.js"></script>
+                                            <?php if ($solicitacao['status'] === 'pendente' && $_SESSION['tipo_empresa'] === 'principal'): ?>
+                                                <form action="../../assets/php/filial/confirmarSolicitacao.php" method="POST">
+                                                    <input type="hidden" name="id" value="<?= $solicitacao['id'] ?>">
 
-                    <!-- Page JS -->
-                    <script src="../../assets/js/dashboards-analytics.js"></script>
+                                                    <input type="hidden" name="empresa_destino"
+                                                        value="<?= htmlspecialchars($solicitacao['empresa_destino']) ?>">
 
-                    <!-- Place this tag in your head or just before your close body tag. -->
-                    <script async defer src="https://buttons.github.io/buttons.js"></script>
-                    <script>
-                        function openEditModal() {
-                            new bootstrap.Modal(document.getElementById('editContaModal')).show();
-                        }
+                                                    <input type="text" name="id_selecionado"
+                                                        value="<?= htmlspecialchars($idSelecionado); ?>">
 
-                        function openDeleteModal() {
-                            new bootstrap.Modal(document.getElementById('deleteContaModal')).show();
-                        }
-                    </script>
-</body>
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Resposta:</label>
+                                                        <textarea name="resposta" class="form-control" rows="3" required></textarea>
+                                                    </div>
+
+                                                    <div class="d-flex justify-content-between">
+                                                        <button type="submit" name="acao" value="recusar"
+                                                            class="btn btn-danger">Recusar</button>
+                                                        <button type="submit" name="acao" value="aprovar"
+                                                            class="btn btn-success">Aprovar</button>
+                                                    </div>
+                                                </form>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                        <!-- Modal de Exclusão -->
+                            
+                    </div>
+                    <!-- /container-xxl -->
+
+                </div>
+                <!-- / Layout page -->
+
+            </div>
+            <!-- / Layout container -->
+
+        </div>
+        <!-- / Layout wrapper -->
+
+        <!-- Core JS -->
+        <!-- build:js assets/vendor/js/core.js -->
+        <script src="../../js/saudacao.js"></script>
+        <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+        <script src="../../assets/vendor/libs/popper/popper.js"></script>
+        <script src="../../assets/vendor/js/bootstrap.js"></script>
+        <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+
+        <script src="../../assets/vendor/js/menu.js"></script>
+        <!-- endbuild -->
+
+        <!-- Vendors JS -->
+        <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+
+        <!-- Main JS -->
+        <script src="../../assets/js/main.js"></script>
+
+        <!-- Page JS -->
+        <script src="../../assets/js/dashboards-analytics.js"></script>
+
+        <!-- Place this tag in your head or just before your close body tag. -->
+        <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+    </body>
 
 </html>

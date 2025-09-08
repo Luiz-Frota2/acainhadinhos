@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 require_once '../../assets/php/conexao.php';
 
@@ -6,63 +9,28 @@ require_once '../../assets/php/conexao.php';
 $idSelecionado = $_GET['idSelecionado'] ?? '';
 $funcionario_id = $_GET['id'] ?? '';
 
-// ✅ Verifica se o usuário está logado
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
+
+// ✅ Verifica se a pessoa está logada
 if (
-  empty($_SESSION['usuario_logado']) ||
-  empty($_SESSION['empresa_id']) ||
-  empty($_SESSION['tipo_empresa']) ||
-  empty($_SESSION['usuario_id'])
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: ../login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
-// ✅ Valida o tipo de empresa e define o ID real
-if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-                alert('Acesso negado!');
-                window.location.href = '../login.php?id=$idSelecionado';
-              </script>";
-    exit;
-  }
-  $empresa_id = 'principal_1';
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-                alert('Acesso negado!');
-                window.location.href = '../login.php?id=$idSelecionado';
-              </script>";
-    exit;
-  }
-  $empresa_id = 'filial_' . $idFilial;
-} else {
-  echo "<script>
-            alert('Empresa não identificada!');
-            window.location.href = '../login.php?id=$idSelecionado';
-          </script>";
-  exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
-try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
-} catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
-}
-
-// ✅ Dados do usuário logado
+// ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
+$tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
@@ -73,11 +41,51 @@ try {
 
   if ($usuario) {
     $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
   }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 // ✅ Carregando dados do funcionário
@@ -86,7 +94,7 @@ if (!empty($funcionario_id)) {
   try {
     $stmtFuncionario = $pdo->prepare("SELECT * FROM funcionarios WHERE id = :id AND empresa_id = :empresa_id");
     $stmtFuncionario->bindParam(':id', $funcionario_id, PDO::PARAM_INT);
-    $stmtFuncionario->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+    $stmtFuncionario->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
     $stmtFuncionario->execute();
     $funcionario = $stmtFuncionario->fetch(PDO::FETCH_ASSOC);
   } catch (PDOException $e) {
@@ -99,7 +107,7 @@ if (!empty($funcionario_id)) {
 $setores = [];
 try {
   $stmtSetores = $pdo->prepare("SELECT nome FROM setores WHERE id_selecionado = :empresa_id");
-  $stmtSetores->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+  $stmtSetores->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmtSetores->execute();
   $setores = $stmtSetores->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -112,35 +120,35 @@ $escalas = [];
 $escala_funcionario = null; // Armazenará a escala atual do funcionário
 
 try {
-    // Primeiro carrega a escala atual do funcionário (se existir)
-    if (!empty($funcionario_id) && isset($funcionario['escala'])) {
-        $escala_funcionario = $funcionario['escala'];
+  // Primeiro carrega a escala atual do funcionário (se existir)
+  if (!empty($funcionario_id) && isset($funcionario['escala'])) {
+    $escala_funcionario = $funcionario['escala'];
+  }
+
+  // Carrega todas as escalas disponíveis para a empresa
+  $stmtEscalas = $pdo->prepare("SELECT nome_escala FROM escalas WHERE empresa_id = :empresa_id");
+  $stmtEscalas->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmtEscalas->execute();
+  $escalas = $stmtEscalas->fetchAll(PDO::FETCH_ASSOC);
+
+  // Verifica se a escala do funcionário existe na lista de escalas disponíveis
+  if ($escala_funcionario) {
+    $escala_existe = false;
+    foreach ($escalas as $escala) {
+      if ($escala['nome_escala'] === $escala_funcionario) {
+        $escala_existe = true;
+        break;
+      }
     }
 
-    // Carrega todas as escalas disponíveis para a empresa
-    $stmtEscalas = $pdo->prepare("SELECT nome_escala FROM escalas WHERE empresa_id = :empresa_id");
-    $stmtEscalas->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
-    $stmtEscalas->execute();
-    $escalas = $stmtEscalas->fetchAll(PDO::FETCH_ASSOC);
-
-    // Verifica se a escala do funcionário existe na lista de escalas disponíveis
-    if ($escala_funcionario) {
-        $escala_existe = false;
-        foreach ($escalas as $escala) {
-            if ($escala['nome_escala'] === $escala_funcionario) {
-                $escala_existe = true;
-                break;
-            }
-        }
-        
-        // Se não existir, adiciona a escala do funcionário à lista
-        if (!$escala_existe) {
-            $escalas[] = ['nome_escala' => $escala_funcionario];
-        }
+    // Se não existir, adiciona a escala do funcionário à lista
+    if (!$escala_existe) {
+      $escalas[] = ['nome_escala' => $escala_funcionario];
     }
+  }
 } catch (PDOException $e) {
-    echo "Erro ao carregar escalas: " . $e->getMessage();
-    exit;
+  echo "Erro ao carregar escalas: " . $e->getMessage();
+  exit;
 }
 
 ?>
@@ -281,7 +289,7 @@ try {
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de Ponto</div>
                 </a>
               </li>
-              <li class="menu-item ">
+              <li class="menu-item">
                 <a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Registro de Ponto Eletrônico">Ajuste de folga</div>
                 </a>
@@ -347,31 +355,50 @@ try {
             </a>
           </li>
           <li class="menu-item">
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
+            </a>
+          </li>
+          <li class="menu-item">
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
-            </a>
-          </li>
-          <?php
-          $isFilial = str_starts_with($idSelecionado, 'filial_');
-          $link = $isFilial
-            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-            : '../filial/index.php?id=principal_1';
-          $titulo = $isFilial ? 'Matriz' : 'Filial';
-          ?>
 
-          <li class="menu-item">
-            <a href="<?= $link ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications"><?= $titulo ?></div>
-            </a>
-          </li>
+          <?php
+          $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+          $idLogado = $_SESSION['empresa_id'] ?? '';
+
+          // Se for matriz (principal), mostrar links para filial, franquia e unidade
+          if ($tipoLogado === 'principal') {
+          ?>
+            <li class="menu-item">
+              <a href="../filial/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Authentications">Filial</div>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="Authentications">Franquias</div>
+              </a>
+            </li>
+          <?php
+          } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+            // Se for filial, franquia ou unidade, mostra link para matriz
+          ?>
+            <li class="menu-item">
+              <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-cog"></i>
+                <div data-i18n="Authentications">Matriz</div>
+              </a>
+            </li>
+          <?php
+          }
+          ?>
           <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
@@ -411,28 +438,25 @@ try {
             <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
-              <!-- Place this tag where you want the button to render. -->
               <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
-                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                   <li>
                     <a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                              class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <!-- Exibindo o nome e nível do usuário -->
-                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                         </div>
                       </div>
                     </a>
@@ -441,7 +465,7 @@ try {
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
+                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-user me-2"></i>
                       <span class="align-middle">Minha Conta</span>
                     </a>
@@ -461,11 +485,11 @@ try {
                       <span class="align-middle">Sair</span>
                     </a>
                   </li>
-
                 </ul>
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
         <!-- / Navbar -->
@@ -512,10 +536,10 @@ try {
                             value="<?= htmlspecialchars($funcionario['cpf']) ?>" required maxlength="14" />
                         </div>
                         <script>
-                          document.addEventListener("DOMContentLoaded", function () {
+                          document.addEventListener("DOMContentLoaded", function() {
                             const cpfInput = document.getElementById('cpf');
                             if (cpfInput) {
-                              cpfInput.addEventListener('input', function (e) {
+                              cpfInput.addEventListener('input', function(e) {
                                 let v = cpfInput.value.replace(/\D/g, '');
                                 if (v.length > 11) v = v.slice(0, 11);
                                 v = v.replace(/(\d{3})(\d)/, '$1.$2');
@@ -585,7 +609,7 @@ try {
                         <div class="col-12 col-md-6 mb-3">
                           <label class="form-label" for="pis">Número do PIS</label>
                           <input type="text" class="form-control input-custom" name="pis" id="pis"
-                             value="<?= htmlspecialchars($funcionario['pis']) ?>" placeholder="Informe o PIS" required />
+                            value="<?= htmlspecialchars($funcionario['pis']) ?>" placeholder="Informe o PIS" required />
                         </div>
 
                       </div>
@@ -599,15 +623,15 @@ try {
                         </div>
 
                         <div class="col-12 col-md-6 mb-3">
-                            <label class="form-label" for="escala">Escala</label>
-                            <select class="form-control input-custom" name="escala" id="escala" required>
-                                <?php foreach ($escalas as $escala): ?>
-                                    <option value="<?= htmlspecialchars($escala['nome_escala']) ?>"
-                                        <?= (isset($funcionario['escala']) && $funcionario['escala'] === $escala['nome_escala']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($escala['nome_escala']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                          <label class="form-label" for="escala">Escala</label>
+                          <select class="form-control input-custom" name="escala" id="escala" required>
+                            <?php foreach ($escalas as $escala): ?>
+                              <option value="<?= htmlspecialchars($escala['nome_escala']) ?>"
+                                <?= (isset($funcionario['escala']) && $funcionario['escala'] === $escala['nome_escala']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($escala['nome_escala']) ?>
+                              </option>
+                            <?php endforeach; ?>
+                          </select>
                         </div>
 
                       </div>
@@ -713,7 +737,7 @@ try {
                   </form>
 
                   <script>
-                    document.addEventListener("DOMContentLoaded", function () {
+                    document.addEventListener("DOMContentLoaded", function() {
                       const nextButtons = document.querySelectorAll('.next-step');
                       const prevButtons = document.querySelectorAll('.prev-step');
                       const steps = document.querySelectorAll('.step');
@@ -728,7 +752,7 @@ try {
                       showStep(currentStep);
 
                       nextButtons.forEach(button => {
-                        button.addEventListener('click', function () {
+                        button.addEventListener('click', function() {
                           if (currentStep < steps.length - 1) {
                             currentStep++;
                             showStep(currentStep);
@@ -737,7 +761,7 @@ try {
                       });
 
                       prevButtons.forEach(button => {
-                        button.addEventListener('click', function () {
+                        button.addEventListener('click', function() {
                           if (currentStep > 0) {
                             currentStep--;
                             showStep(currentStep);

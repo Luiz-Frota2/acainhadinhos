@@ -1,73 +1,150 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-session_start();
-require_once '../../assets/php/conexao.php';
 
+session_start();
+
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+    header("Location: .././login.php");
+    exit;
+}
+
+// ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: ../login.php?id=$idSelecionado");
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
     exit;
 }
 
-// Validação da empresa
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        header("Location: ../login.php?id=$idSelecionado");
-        exit;
-    }
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $empresa_id = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $empresa_id) {
-        header("Location: ../login.php?id=$idSelecionado");
-        exit;
-    }
-} else {
-    header("Location: ../login.php?id=$idSelecionado");
-    exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
 try {
-    $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
+if (str_starts_with($idSelecionado, 'principal_')) {
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
+    echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+    exit;
+}
+
+// ✅ Buscar logo da empresa
+try {
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
     $logoEmpresa = !empty($empresaSobre['imagem'])
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png"; // fallback padrão
+        : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
-// Buscar dados do usuário logado
-$nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+// Obter parâmetros da URL
+$empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
+$cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
+
+// Validar parâmetros obrigatórios
+if (empty($empresa_id) || empty($cpf)) {
+    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
+}
+
+// Consulta para obter os meses/anos com registros
+$mesesAnos = [];
+$nomeFuncionario = '';
 
 try {
-    $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
-    $stmt->bindParam(':id', $usuario_id);
+    // Primeiro, pegar o nome do funcionário
+    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
     $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $nivelUsuario = $usuario['nivel'];
-        $cpfUsuario = $usuario['cpf'];
+
+    if ($stmt->rowCount() > 0) {
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $nomeFuncionario = htmlspecialchars($result['nome']);
     }
+
+    // Agora pegar todos os meses/anos distintos com registros
+    $stmt = $pdo->prepare("SELECT 
+                            YEAR(data) as ano, 
+                            MONTH(data) as mes_numero,
+                            MONTHNAME(data) as mes_nome
+                          FROM pontos 
+                          WHERE empresa_id = :empresa_id 
+                          AND cpf = :cpf
+                          GROUP BY YEAR(data), MONTH(data)
+                          ORDER BY ano DESC, mes_numero DESC");
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':cpf', $cpf);
+    $stmt->execute();
+
+    $mesesAnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $nomeUsuario = 'Erro ao carregar';
-    $nivelUsuario = 'Erro';
+    die("Erro ao consultar meses/anos: " . $e->getMessage());
 }
 
-
+// Nomes dos meses em português
+$mesesPortugues = [
+    'January' => 'Janeiro',
+    'February' => 'Fevereiro',
+    'March' => 'Março',
+    'April' => 'Abril',
+    'May' => 'Maio',
+    'June' => 'Junho',
+    'July' => 'Julho',
+    'August' => 'Agosto',
+    'September' => 'Setembro',
+    'October' => 'Outubro',
+    'November' => 'Novembro',
+    'December' => 'Dezembro'
+];
 
 ?>
 
@@ -396,71 +473,6 @@ try {
                         </ul>
                     </div>
                 </nav>
-
-
-                <?php
-
-
-                // Obter parâmetros da URL
-                $empresa_id = isset($_GET['id']) ? $_GET['id'] : '';
-                $cpf = isset($_GET['cpf']) ? $_GET['cpf'] : '';
-
-                // Validar parâmetros obrigatórios
-                if (empty($empresa_id) || empty($cpf)) {
-                    die("Parâmetros empresa_id e CPF são obrigatórios na URL");
-                }
-
-                // Consulta para obter os meses/anos com registros
-                $mesesAnos = [];
-                $nomeFuncionario = '';
-
-                try {
-                    // Primeiro, pegar o nome do funcionário
-                    $stmt = $pdo->prepare("SELECT nome FROM pontos WHERE empresa_id = :empresa_id AND cpf = :cpf LIMIT 1");
-                    $stmt->bindParam(':empresa_id', $empresa_id);
-                    $stmt->bindParam(':cpf', $cpf);
-                    $stmt->execute();
-
-                    if ($stmt->rowCount() > 0) {
-                        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-                        $nomeFuncionario = htmlspecialchars($result['nome']);
-                    }
-
-                    // Agora pegar todos os meses/anos distintos com registros
-                    $stmt = $pdo->prepare("SELECT 
-                            YEAR(data) as ano, 
-                            MONTH(data) as mes_numero,
-                            MONTHNAME(data) as mes_nome
-                          FROM pontos 
-                          WHERE empresa_id = :empresa_id 
-                          AND cpf = :cpf
-                          GROUP BY YEAR(data), MONTH(data)
-                          ORDER BY ano DESC, mes_numero DESC");
-                    $stmt->bindParam(':empresa_id', $empresa_id);
-                    $stmt->bindParam(':cpf', $cpf);
-                    $stmt->execute();
-
-                    $mesesAnos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (PDOException $e) {
-                    die("Erro ao consultar meses/anos: " . $e->getMessage());
-                }
-
-                // Nomes dos meses em português
-                $mesesPortugues = [
-                    'January' => 'Janeiro',
-                    'February' => 'Fevereiro',
-                    'March' => 'Março',
-                    'April' => 'Abril',
-                    'May' => 'Maio',
-                    'June' => 'Junho',
-                    'July' => 'Julho',
-                    'August' => 'Agosto',
-                    'September' => 'Setembro',
-                    'October' => 'Outubro',
-                    'November' => 'Novembro',
-                    'December' => 'Dezembro'
-                ];
-                ?>
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Folga por Mês</h4>

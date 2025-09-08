@@ -1,50 +1,76 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
+
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
-    exit;
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
+if (!$acessoPermitido) {
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
+  exit;
+}
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
     $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
@@ -82,17 +108,6 @@ try {
     $nivelUsuario = 'Erro ao carregar nível';
 }
 
-// Consulta contas com nome da filial (ajustado para o nome correto da tabela: pagamentos_filial)
-$sql = "SELECT pf.id, f.nome AS filial, pf.descricao, pf.valor, pf.data_vencimento, pf.status_pagamento
-          FROM pagamentos_filial pf
-          INNER JOIN filiais f ON pf.id_filial = f.id_filial
-          WHERE pf.id_selecionado = :id_selecionado
-          ORDER BY pf.data_vencimento ASC";
-
-$stmt = $pdo->prepare($sql);
-$stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-$stmt->execute();
-$contas = $stmt->fetchAll();
 
 ?>
 
@@ -197,12 +212,12 @@ $contas = $stmt->fetchAll();
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
-                        
+
                         <ul class="menu-sub">
                             <!-- Contas das Filiais -->
                             <li class="menu-item active">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Solic. Pagamento</div>
+                                    <div>Pagamentos Solic.</div>
                                 </a>
                             </li>
 
@@ -259,7 +274,6 @@ $contas = $stmt->fetchAll();
                             </li>
                         </ul>
                     </li>
-
 
                     <!-- Relatórios -->
                     <li class="menu-item">
@@ -328,18 +342,12 @@ $contas = $stmt->fetchAll();
                         </a>
                     </li>
                     <li class="menu-item">
-                        <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-user"></i>
-                            <div data-i18n="Authentications">Clientes</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
                         <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">Usuários </div>
                         </a>
                     </li>
-                    <li class="menu-item">
+                    <li class="menu-item mb-5">
                         <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-support"></i>
                             <div data-i18n="Basic">Suporte</div>
@@ -440,7 +448,8 @@ $contas = $stmt->fetchAll();
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
 
-                    <h4 class="fw-bold py-3 mb-4">Contas das Filiais</h4>
+                    <h4 class="fw-bold py-3 mb-4"><span class="text-muted fw-light"><a
+                                href="#">B2B</a>/</span>Contas das Filiais</h4>
 
                     <div class="card">
                         <div class="table-responsive text-nowrap">
@@ -456,110 +465,110 @@ $contas = $stmt->fetchAll();
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                    <?php if (count($contas) > 0): ?>
-                                        <?php foreach ($contas as $row): ?>
-                                            <tr>
-                                                <td><?= htmlspecialchars($row['filial']) ?></td>
-                                                <td><?= htmlspecialchars($row['descricao']) ?></td>
-                                                <td>R$ <?= number_format($row['valor'], 2, ',', '.') ?></td>
-                                                <td><?= date('d/m/Y', strtotime($row['data_vencimento'])) ?></td>
-                                                <td>
-                                                    <span
-                                                        class="badge <?= $row['status_pagamento'] === 'pago' ? 'bg-success' : ($row['status_pagamento'] === 'cancelado' ? 'bg-danger' : 'bg-warning') ?>">
-                                                        <?= ucfirst($row['status_pagamento']) ?>
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <?php if ($row['status_pagamento'] === 'pendente'): ?>
-                                                        <!-- Botão que abre a modal de pagamento -->
-                                                        <a href="#modalPagar<?= $row['id'] ?>" class="btn btn-sm btn-primary" data-bs-toggle="modal">Pagar</a>
-                                                        <!-- Botão que abre a modal de cancelamento -->
-                                                        <a href="#modalCancelar<?= $row['id'] ?>" class="btn btn-sm btn-danger" data-bs-toggle="modal">Cancelar</a>
+                                    <tr>
+                                        <td>Filial Manaus</td>
+                                        <td>Conta de energia</td>
+                                        <td>R$ 1.200,00</td>
+                                        <td>10/06/2024</td>
+                                        <td>
+                                            <span class="badge bg-warning">Pendente</span>
+                                        </td>
+                                        <td>
+                                            <a href="#modalPagar1" class="btn btn-sm btn-primary" data-bs-toggle="modal">Pagar</a>
+                                            <a href="#modalCancelar1" class="btn btn-sm btn-danger" data-bs-toggle="modal">Cancelar</a>
 
-                                                        <!-- Modal de confirmação de pagamento -->
-                                                        <div class="modal fade" id="modalPagar<?= $row['id'] ?>" tabindex="-1" aria-labelledby="modalLabelPagar<?= $row['id'] ?>" aria-hidden="true">
-                                                            <div class="modal-dialog">
-                                                                <div class="modal-content">
-                                                                    <form method="post" action="../../assets/php/filial/confirmarPagamento.php">
-                                                                        <input type="hidden" name="id_selecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                                                        <input type="hidden" name="id" value="<?= $row['id'] ?>">
-                                                                        <div class="modal-header">
-                                                                            <h5 class="modal-title" id="modalLabelPagar<?= $row['id'] ?>">Confirmar Pagamento</h5>
-                                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                                                        </div>
-                                                                        <div class="modal-body">
-                                                                            <p>Tem certeza que deseja marcar como <b>pago</b> esta conta?</p>
-                                                                            <ul class="list-unstyled">
-                                                                                <li><strong>Filial:</strong> <?= htmlspecialchars($row['filial']) ?></li>
-                                                                                <li><strong>Descrição:</strong> <?= htmlspecialchars($row['descricao']) ?></li>
-                                                                                <li><strong>Valor:</strong> R$ <?= number_format($row['valor'], 2, ',', '.') ?></li>
-                                                                                <li><strong>Vencimento:</strong> <?= date('d/m/Y', strtotime($row['data_vencimento'])) ?></li>
-                                                                            </ul>
-                                                                        </div>
-                                                                        <div class="modal-footer">
-                                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                                            <button type="submit" class="btn btn-primary">Confirmar Pagamento</button>
-                                                                        </div>
-                                                                    </form>
-                                                                </div>
+                                            <!-- Modal de confirmação de pagamento -->
+                                            <div class="modal fade" id="modalPagar1" tabindex="-1" aria-labelledby="modalLabelPagar1" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <form>
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title" id="modalLabelPagar1">Confirmar Pagamento</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                                             </div>
-                                                        </div>
+                                                            <div class="modal-body">
+                                                                <p>Tem certeza que deseja marcar como <b>pago</b> esta conta?</p>
+                                                                <ul class="list-unstyled">
+                                                                    <li><strong>Filial:</strong> Filial Manaus</li>
+                                                                    <li><strong>Descrição:</strong> Conta de energia</li>
+                                                                    <li><strong>Valor:</strong> R$ 1.200,00</li>
+                                                                    <li><strong>Vencimento:</strong> 10/06/2024</li>
+                                                                </ul>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                                <button type="button" class="btn btn-primary">Confirmar Pagamento</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                                        <!-- Modal de confirmação de cancelamento -->
-                                                        <div class="modal fade" id="modalCancelar<?= $row['id'] ?>" tabindex="-1" aria-labelledby="modalLabelCancelar<?= $row['id'] ?>" aria-hidden="true">
-                                                            <div class="modal-dialog">
-                                                                <div class="modal-content">
-                                                                    <form method="post" action="../../assets/php/filial/cancelarPagamento.php">
-                                                                        <input type="hidden" name="id_selecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                                                        <input type="hidden" name="id" value="<?= $row['id'] ?>">
-                                                                        <div class="modal-header">
-                                                                            <h5 class="modal-title" id="modalLabelCancelar<?= $row['id'] ?>">Confirmar Cancelamento</h5>
-                                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                                                        </div>
-                                                                        <div class="modal-body">
-                                                                            <p>Tem certeza que deseja <b>cancelar</b> esta conta?</p>
-                                                                            <ul class="list-unstyled">
-                                                                                <li><strong>Filial:</strong> <?= htmlspecialchars($row['filial']) ?></li>
-                                                                                <li><strong>Descrição:</strong> <?= htmlspecialchars($row['descricao']) ?></li>
-                                                                                <li><strong>Valor:</strong> R$ <?= number_format($row['valor'], 2, ',', '.') ?></li>
-                                                                                <li><strong>Vencimento:</strong> <?= date('d/m/Y', strtotime($row['data_vencimento'])) ?></li>
-                                                                            </ul>
-                                                                        </div>
-                                                                        <div class="modal-footer">
-                                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                                                                            <button type="submit" class="btn btn-danger">Confirmar Cancelamento</button>
-                                                                        </div>
-                                                                    </form>
-                                                                </div>
+                                            <!-- Modal de confirmação de cancelamento -->
+                                            <div class="modal fade" id="modalCancelar1" tabindex="-1" aria-labelledby="modalLabelCancelar1" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <form>
+                                                            <div class="modal-header">
+                                                                <h5 class="modal-title" id="modalLabelCancelar1">Confirmar Cancelamento</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                                             </div>
-                                                        </div>
-                                                    <?php elseif ($row['status_pagamento'] === 'pago'): ?>
-                                                        <i class="bx bx-check-double text-success" title="Pago"></i>
-                                                    <?php elseif ($row['status_pagamento'] === 'cancelado'): ?>
-                                                        <i class="bx bx-x text-danger" title="Cancelado"></i>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <tr>
-                                            <td colspan="6">Nenhuma conta encontrada.</td>
-                                        </tr>
-                                    <?php endif; ?>
+                                                            <div class="modal-body">
+                                                                <p>Tem certeza que deseja <b>cancelar</b> esta conta?</p>
+                                                                <ul class="list-unstyled">
+                                                                    <li><strong>Filial:</strong> Filial Manaus</li>
+                                                                    <li><strong>Descrição:</strong> Conta de energia</li>
+                                                                    <li><strong>Valor:</strong> R$ 1.200,00</li>
+                                                                    <li><strong>Vencimento:</strong> 10/06/2024</li>
+                                                                </ul>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                                                                <button type="button" class="btn btn-danger">Confirmar Cancelamento</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Filial Belém</td>
+                                        <td>Água</td>
+                                        <td>R$ 800,00</td>
+                                        <td>15/06/2024</td>
+                                        <td>
+                                            <span class="badge bg-success">Pago</span>
+                                        </td>
+                                        <td>
+                                            <i class="bx bx-check-double text-success" title="Pago"></i>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Filial Porto Velho</td>
+                                        <td>Internet</td>
+                                        <td>R$ 350,00</td>
+                                        <td>12/06/2024</td>
+                                        <td>
+                                            <span class="badge bg-danger">Cancelado</span>
+                                        </td>
+                                        <td>
+                                            <i class="bx bx-x text-danger" title="Cancelado"></i>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                     <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-                        onclick="window.location.href='adicionarPagamento.php?id=<?= urlencode($idSelecionado); ?>';"
+                        onclick="window.location.href='adicionarPagamento.php';"
                         style="cursor: pointer;">
                         <i class="tf-icons bx bx-plus me-2"></i>
-                        <span>Adicionar Pagamento</span>
+                        <span>Solicitar Pagamento</span>
                     </div>
 
                 </div>
                 <!-- / Content -->
-
 
                 <div class="content-backdrop fade"></div>
             </div>

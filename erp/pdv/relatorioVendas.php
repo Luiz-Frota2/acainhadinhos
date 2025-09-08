@@ -1,9 +1,16 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
@@ -12,37 +19,56 @@ if (
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = 1;
-  $empresa_id = 'principal_1';
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = $idFilial;
-  $empresa_id = 'filial_' . $idFilial;
-} else {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
   echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
   exit;
 }
 
@@ -88,7 +114,7 @@ $data_fim = $_GET['data_fim'] ?? '';
 
 // Definir condições de data com base no filtro
 $condicao_data = "";
-$params = [':empresa_id' => $empresa_id];
+$params = [':empresa_id' => $idSelecionado];
 
 switch ($filtro_periodo) {
   case 'dia':
@@ -119,8 +145,8 @@ switch ($filtro_periodo) {
 // ✅ Calcular totais de vendas
 try {
   // Total de vendas
-  $sql_total = "SELECT COUNT(*) as total_vendas, SUM(total) as valor_total 
-                FROM venda_rapida 
+  $sql_total = "SELECT COUNT(*) as total_vendas, SUM(valor_total) as valor_total 
+                FROM vendas 
                 WHERE empresa_id = :empresa_id $condicao_data";
   $stmt_total = $pdo->prepare($sql_total);
   foreach ($params as $key => &$val) {
@@ -141,19 +167,35 @@ try {
 // ✅ Buscar vendas recentes
 $vendas_recentes = [];
 try {
-  $sql_vendas = "SELECT vr.*, a.responsavel as nome_responsavel 
-                 FROM venda_rapida vr
-                 LEFT JOIN aberturas a ON vr.id_caixa = a.id
-                 WHERE vr.empresa_id = :empresa_id $condicao_data
-                 ORDER BY vr.data_venda DESC 
+  $sql_vendas = "SELECT v.*, a.responsavel as nome_responsavel
+                 FROM vendas v
+                 LEFT JOIN aberturas a ON v.id_caixa = a.id
+                 WHERE v.empresa_id = :empresa_id $condicao_data
+                 ORDER BY v.data_venda DESC
                  LIMIT 5";
-  $stmt_vendas = $pdo->prepare($sql_vendas);
-  foreach ($params as $key => &$val) {
-    $stmt_vendas->bindParam($key, $val);
+
+  // Garante que os parâmetros usados no WHERE existem:
+  if (!isset($params) || !is_array($params)) {
+    $params = [];
   }
+  $params[':empresa_id'] = $idSelecionado;
+  // Se seu $condicao_data for "personalizar", ele usa BETWEEN com :data_inicio e :data_fim
+  if ($filtro_periodo === 'personalizar' && !empty($data_inicio) && !empty($data_fim)) {
+    $params[':data_inicio'] = $data_inicio;
+    $params[':data_fim']    = $data_fim;
+  }
+
+  $stmt_vendas = $pdo->prepare($sql_vendas);
+  foreach ($params as $key => $val) {
+    // bindValue evita problemas com referências
+    $stmt_vendas->bindValue($key, $val);
+  }
+
   $stmt_vendas->execute();
   $vendas_recentes = $stmt_vendas->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
+  // Se quiser depurar, descomente a linha abaixo:
+  // echo "<pre>Erro vendas recentes: ".$e->getMessage()."</pre>";
   $vendas_recentes = [];
 }
 
@@ -371,12 +413,6 @@ $mostrar_modal = ($filtro_periodo === 'personalizar' && (empty($data_inicio) || 
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
           <?php
@@ -633,7 +669,7 @@ $mostrar_modal = ($filtro_periodo === 'personalizar' && (empty($data_inicio) || 
                                 <tr>
                                   <td><?= date('d/m/Y - H:i', strtotime($venda['data_venda'])) ?></td>
                                   <td><?= htmlspecialchars($venda['responsavel']) ?></td>
-                                  <td><?= formatarMoeda($venda['total']) ?></td>
+                                  <td><?= formatarMoeda($venda['valor_total']) ?></td>
                                   <td><?= htmlspecialchars($venda['forma_pagamento']) ?></td>
                                 </tr>
                               <?php endforeach; ?>

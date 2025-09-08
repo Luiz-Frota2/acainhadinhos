@@ -1,47 +1,74 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+  header("Location: .././login.php");
+  exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+  !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=$idSelecionado");
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = 1;
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-    echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '.././login.php?id=$idSelecionado';
-          </script>";
-    exit;
-  }
-  $id = $idFilial;
-} else {
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
   echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '.././login.php?id=$idSelecionado';
-      </script>";
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
   exit;
 }
 
@@ -139,7 +166,7 @@ try {
 
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
-          <a href="./index.php" class="app-brand-link">
+          <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
             <span class="app-brand-text demo menu-text fw-bolder ms-2"
               style=" text-transform: capitalize;">Açaínhadinhos</span>
@@ -190,21 +217,62 @@ try {
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div data-i18n="Authentications">B2B</div>
+              <div data-i18n="B2B">B2B - Matriz</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Contas Filiais</div>
+              <!-- Contas das Filiais -->
+              <li class="menu-item">
+                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Pagamentos Solic.</div>
                 </a>
               </li>
-              <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
-                  <div> Produtos Solicitados</div>
+
+              <!-- Produtos solicitados pelas filiais -->
+              <li class="menu-item">
+                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Solicitados</div>
                 </a>
               </li>
-              <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
-                  <div> Produtos Enviados</div>
+
+              <!-- Produtos enviados pela matriz -->
+              <li class="menu-item">
+                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Enviados</div>
+                </a>
+              </li>
+
+              <!-- Transferências em andamento -->
+              <li class="menu-item">
+                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Transf. Pendentes</div>
+                </a>
+              </li>
+
+              <!-- Histórico de transferências -->
+              <li class="menu-item">
+                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Histórico Transf.</div>
+                </a>
+              </li>
+
+              <!-- Gestão de Estoque Central -->
+              <li class="menu-item">
+                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Estoque Matriz</div>
+                </a>
+              </li>
+
+              <!-- Configurações de Política de Envio -->
+              <li class="menu-item">
+                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Política de Envio</div>
+                </a>
+              </li>
+
+              <!-- Relatórios e indicadores B2B -->
+              <li class="menu-item">
+                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Relatórios B2B</div>
                 </a>
               </li>
             </ul>
@@ -240,7 +308,7 @@ try {
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
-            <a href="../rh/index.php" class="menu-link ">
+            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">RH</div>
             </a>
@@ -265,15 +333,9 @@ try {
             </a>
           </li>
           <li class="menu-item">
-            <a href="../estoque/index.php" class="menu-link ">
+            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../clientes/index.php" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Clientes</div>
             </a>
           </li>
           <li class="menu-item">
@@ -380,7 +442,7 @@ try {
         <!-- / Nav bar -->
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0">
-            <span class="text-muted fw-light"><a href="./filialAdicionada.php">Filiais</a> /</span>Adicionar Filial
+            <span class="text-muted fw-light"><a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>">Filiais</a> /</span>Adicionar Filial
             <h5 class="fw-bold mt-3 mb-3 custor-font">
               <span class="text-muted fw-light">Adicione as Filiais da empresa</span>
             </h5>
@@ -393,6 +455,8 @@ try {
 
                 <form action="../../assets/php/filial/adicionarFilial.php" method="POST" id="formAdicionarFilial">
                   <div class="row">
+
+                    <input type="hidden" name="idSelecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="nomeFilial" class="form-label">Nome da Filial</label>
