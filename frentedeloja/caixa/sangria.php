@@ -1,7 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
@@ -12,43 +13,28 @@ if (
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id']) ||
-    !isset($_SESSION['nivel']) // necessário para saber se é Admin ou Funcionário
+    !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
-    header("Location: ../index.php?id=$idSelecionado");
+    header("Location: ./index.php?id=$idSelecionado");
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>alert('Acesso negado!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>alert('Acesso negado!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>alert('Empresa não identificada!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
-    exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Recupera dados do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
-$cpfUsuario = '';
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
     if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+        // Buscar na tabela de contas_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     } else {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+        // Buscar na tabela de funcionarios_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
     }
 
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
@@ -58,18 +44,54 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
-        $cpfUsuario = $usuario['cpf'];
     } else {
         echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar dados do usuário: " . $e->getMessage() . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-// ✅ Buscar imagem da empresa (favicon)
-$iconeEmpresa = '../assets/img/favicon/favicon.ico';
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+    // Para principal, verifica se é admin ou se pertence à mesma empresa
+    if (
+        $_SESSION['tipo_empresa'] !== 'principal' &&
+        !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+    ) {
+        echo "<script>
+            alert('Acesso negado!');
+            window.location.href = './index.php?id=$idSelecionado';
+        </script>";
+        exit;
+    }
+    $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $idUnidade = str_replace('unidade_', '', $idSelecionado);
+
+    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+    $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+        ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
+    if (!$acessoPermitido) {
+        echo "<script>
+            alert('Acesso negado!');
+            window.location.href = './index.php?id=$idSelecionado';
+        </script>";
+        exit;
+    }
+    $id = $idUnidade;
+} else {
+    echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = './index.php?id=$idSelecionado';
+    </script>";
+    exit;
+}
+
+// ✅ Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
@@ -81,7 +103,8 @@ try {
         $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    // Não mostra erro para o usuário para não quebrar a página
 }
 
 // ✅ Consulta o saldo do caixa (com base no CPF)
@@ -468,7 +491,7 @@ try {
         </div>
     </div>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             const idCaixa = document.getElementById('id_caixa');
             const form = document.querySelector('form');
             const aviso = document.getElementById('avisoSemCaixa');
@@ -499,7 +522,7 @@ try {
 
             // Atualiza data_registro no momento da submissão
             if (form && inputDataRegistro) {
-                form.addEventListener('submit', function () {
+                form.addEventListener('submit', function() {
                     inputDataRegistro.value = formatarDataLocal(new Date());
                 });
             }
