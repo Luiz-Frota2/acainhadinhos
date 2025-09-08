@@ -90,7 +90,9 @@ try {
 function timeToMinutes($time)
 {
     if (!$time || $time === '00:00:00' || $time === '--:--') return 0;
-    list($h, $m) = explode(':', $time);
+    $parts = explode(':', $time);
+    $h = (int)$parts[0];
+    $m = (int)($parts[1] ?? 0);
     return $h * 60 + $m;
 }
 
@@ -129,16 +131,20 @@ function formatarCPF($cpf)
 function converterHoraParaDecimal($horaString)
 {
     if (!$horaString || $horaString === '--:--') return 0;
-    list($hours, $minutes) = explode(':', $horaString);
+    $parts = explode(':', $horaString);
+    $hours = (int)$parts[0];
+    $minutes = (int)($parts[1] ?? 0);
     return $hours + $minutes / 60;
 }
 
 function calcularDiferencaMinutos($horaInicial, $horaFinal)
 {
     if (!$horaInicial || !$horaFinal || $horaInicial === '--:--' || $horaFinal === '--:--') return 0;
-    list($hi, $mi) = explode(':', $horaInicial);
-    list($hf, $mf) = explode(':', $horaFinal);
-    return ($hf * 60 + $mf) - ($hi * 60 + $mi);
+    $hiParts = explode(':', $horaInicial);
+    $hfParts = explode(':', $horaFinal);
+    $hi = (int)$hiParts[0] * 60 + (int)($hiParts[1] ?? 0);
+    $hf = (int)$hfParts[0] * 60 + (int)($hfParts[1] ?? 0);
+    return $hf - $hi;
 }
 
 function mesPortugues($mes)
@@ -157,7 +163,7 @@ function mesPortugues($mes)
         11 => 'Novembro',
         12 => 'Dezembro'
     ];
-    return $meses[$mes] ?? '';
+    return $meses[(int)$mes] ?? '';
 }
 
 function calcularHorasTrabalhadas($entrada, $saida_intervalo, $retorno_intervalo, $saida_final)
@@ -166,12 +172,12 @@ function calcularHorasTrabalhadas($entrada, $saida_intervalo, $retorno_intervalo
 
     $total = 0;
 
-    // Calcula tempo antes do intervalo
+    // antes do intervalo
     if ($saida_intervalo && $saida_intervalo !== '--:--') {
         $total += timeToMinutes($saida_intervalo) - timeToMinutes($entrada);
     }
 
-    // Calcula tempo após o intervalo
+    // após o intervalo
     if ($retorno_intervalo && $retorno_intervalo !== '--:--' && $saida_final && $saida_final !== '--:--') {
         $total += timeToMinutes($saida_final) - timeToMinutes($retorno_intervalo);
     } elseif ($saida_final && $saida_final !== '--:--') {
@@ -186,8 +192,8 @@ function calcularAdicionalNoturno($entrada, $saida_intervalo, $retorno_intervalo
     if (!$entrada || !$saida_final || $entrada === '--:--' || $saida_final === '--:--') return 0;
 
     $totalMinutosNoturnos = 0;
-    $inicioNoturno = 22 * 60;    // 22:00 = 1320min
-    $fimNoturno = 5 * 60;        // 05:00 = 300min
+    $inicioNoturno = 22 * 60;    // 22:00
+    $fimNoturno = 5 * 60;        // 05:00
 
     $calcularNoturnoPeriodo = function ($inicio, $fim) use ($inicioNoturno, $fimNoturno) {
         $minutosNoturnos = 0;
@@ -196,7 +202,7 @@ function calcularAdicionalNoturno($entrada, $saida_intervalo, $retorno_intervalo
             $fim += 1440;
         }
 
-        // Período noturno (22h às 5h)
+        // 22h às 5h
         if ($inicio >= $inicioNoturno || $fim <= $fimNoturno + 1440) {
             $inicioNoturnoPeriodo = max($inicio, $inicioNoturno);
             $fimNoturnoPeriodo = min($fim, $fimNoturno + 1440);
@@ -209,14 +215,14 @@ function calcularAdicionalNoturno($entrada, $saida_intervalo, $retorno_intervalo
         return $minutosNoturnos;
     };
 
-    // Calcula para o período antes do intervalo
+    // antes do intervalo
     if ($saida_intervalo && $saida_intervalo !== '--:--') {
         $entrada_min = timeToMinutes($entrada);
         $saida_intervalo_min = timeToMinutes($saida_intervalo);
         $totalMinutosNoturnos += $calcularNoturnoPeriodo($entrada_min, $saida_intervalo_min);
     }
 
-    // Calcula para o período após o intervalo
+    // após o intervalo
     if ($retorno_intervalo && $retorno_intervalo !== '--:--') {
         $retorno_intervalo_min = timeToMinutes($retorno_intervalo);
         $saida_final_min = timeToMinutes($saida_final);
@@ -259,11 +265,12 @@ function calcularCargaHorariaDiaria($funcionario)
 
 function verificarFolga($cpf, $data, $pdo)
 {
-    $stmt = $pdo->prepare("SELECT * FROM folgas 
+    $stmt = $pdo->prepare("SELECT 1 FROM folgas 
                           WHERE REPLACE(REPLACE(cpf, '.', ''), '-', '') = REPLACE(REPLACE(?, '.', ''), '-', '')
-                          AND data_folga = ?");
+                          AND data_folga = ?
+                          LIMIT 1");
     $stmt->execute([$cpf, $data]);
-    return $stmt->fetch(PDO::FETCH_ASSOC) !== false;
+    return $stmt->fetch(PDO::FETCH_NUM) !== false;
 }
 
 try {
@@ -349,76 +356,81 @@ try {
             'diasFolga' => count($folgas)
         ];
 
+        // === Estatísticas por dia (sem "Dia Incompleto"; Hora Extra vem do banco) ===
         foreach ($todosOsDias as $data => $ponto) {
             if ($ponto === null) {
                 continue; // Dia sem registro
             }
-
             if (isset($ponto['folga'])) {
                 continue; // Pula dias de folga
             }
 
-            if ($ponto['entrada'] && $ponto['saida_final'] && $ponto['entrada'] !== '--:--' && $ponto['saida_final'] !== '--:--') {
+            // minutos trabalhados com base nos horários
+            $horasTrabalhadasMin = calcularHorasTrabalhadas(
+                $ponto['entrada'] ?? null,
+                $ponto['saida_intervalo'] ?? null,
+                $ponto['retorno_intervalo'] ?? null,
+                $ponto['saida_final'] ?? null
+            );
+
+            // conta dia trabalhado se tem entrada e saída_final
+            if (
+                !empty($ponto['entrada']) && $ponto['entrada'] !== '--:--'
+                && !empty($ponto['saida_final']) && $ponto['saida_final'] !== '--:--'
+            ) {
                 $estatisticas['diasTrabalhados']++;
-
-                $horasTrabalhadas = calcularHorasTrabalhadas(
-                    $ponto['entrada'],
-                    $ponto['saida_intervalo'],
-                    $ponto['retorno_intervalo'],
-                    $ponto['saida_final']
-                );
-
-                $estatisticas['horasTrabalhadas'] += $horasTrabalhadas / 60;
-
-                // Calcula adicional noturno
-                $minutosNoturnos = calcularAdicionalNoturno(
-                    $ponto['entrada'],
-                    $ponto['saida_intervalo'],
-                    $ponto['retorno_intervalo'],
-                    $ponto['saida_final']
-                );
-                $estatisticas['adicionalNoturno'] += $minutosNoturnos;
-
-                // Calcula horas extras
-                $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiariaMinutos);
-                $estatisticas['horasExtras'] += $horasExtras / 60;
-                $estatisticas['horasExcedentes'] += $horasExtras / 60;
-
-                // Calcula horas devidas (quando trabalhou menos que a carga horária)
-                if ($horasTrabalhadas < $cargaHorariaDiariaMinutos) {
-                    $estatisticas['horasDevidas'] += ($cargaHorariaDiariaMinutos - $horasTrabalhadas) / 60;
-                }
-
-                // Verifica atraso apenas se não houver horas extras ou adicional noturno
-                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
-                    $entradaEsperada = $funcionario['entrada'];
-                    $entradaRegistrada = $ponto['entrada'];
-
-                    if ($entradaEsperada && $entradaRegistrada && $entradaEsperada !== '--:--' && $entradaRegistrada !== '--:--') {
-                        $diffEntrada = calcularDiferencaMinutos($entradaEsperada, $entradaRegistrada);
-                        if ($diffEntrada > 10) { // Mais de 10 minutos de atraso
-                            $estatisticas['atrasos']++;
-                        }
-                    }
-                }
-
-                // Verifica saída antecipada apenas se não houver horas extras ou adicional noturno
-                if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
-                    $saidaEsperada = $funcionario['saida_final'];
-                    $saidaRegistrada = $ponto['saida_final'];
-
-                    if ($saidaEsperada && $saidaRegistrada && $saidaEsperada !== '--:--' && $saidaRegistrada !== '--:--') {
-                        $diffSaida = calcularDiferencaMinutos($saidaRegistrada, $saidaEsperada);
-                        if ($diffSaida > 0) { // Saída antecipada
-                            $estatisticas['saidasAntecipadas']++;
-                        }
-                    }
-                }
             }
 
-            if ($ponto['horas_pendentes'] && $ponto['horas_pendentes'] !== '--:--') {
+            // adicional noturno (min)
+            $minutosNoturnos = calcularAdicionalNoturno(
+                $ponto['entrada'] ?? null,
+                $ponto['saida_intervalo'] ?? null,
+                $ponto['retorno_intervalo'] ?? null,
+                $ponto['saida_final'] ?? null
+            );
+
+            // hora extra (min) direto da tabela pontos.hora_extra (TIME)
+            $horaExtraMin = 0;
+            if (!empty($ponto['hora_extra']) && $ponto['hora_extra'] !== '--:--') {
+                $horaExtraMin = timeToMinutes($ponto['hora_extra']);
+            }
+
+            // acumula
+            $estatisticas['horasTrabalhadas'] += ($horasTrabalhadasMin / 60);
+            $estatisticas['adicionalNoturno'] += $minutosNoturnos;
+            $estatisticas['horasExtras']      += ($horaExtraMin / 60);
+            $estatisticas['horasExcedentes']  += ($horaExtraMin / 60);
+
+            // devidas quando trabalhou menos que a carga
+            if ($cargaHorariaDiariaMinutos > 0 && $horasTrabalhadasMin < $cargaHorariaDiariaMinutos) {
+                $estatisticas['horasDevidas'] += ($cargaHorariaDiariaMinutos - $horasTrabalhadasMin) / 60;
+            }
+
+            // pendências (TIME)
+            if (!empty($ponto['horas_pendentes']) && $ponto['horas_pendentes'] !== '--:--') {
                 $estatisticas['horasPendentes'] += converterHoraParaDecimal($ponto['horas_pendentes']);
-                $estatisticas['horasDevidas'] += converterHoraParaDecimal($ponto['horas_pendentes']);
+                $estatisticas['horasDevidas']   += converterHoraParaDecimal($ponto['horas_pendentes']);
+            }
+
+            // atrasos e saídas antecipadas só quando NÃO há hora extra nem adicional noturno
+            if ($horaExtraMin <= 0 && $minutosNoturnos <= 0) {
+                // atraso > 10min
+                if (
+                    !empty($funcionario['entrada']) && $funcionario['entrada'] !== '--:--'
+                    && !empty($ponto['entrada']) && $ponto['entrada'] !== '--:--'
+                ) {
+                    $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
+                    if ($diffEntrada > 10) $estatisticas['atrasos']++;
+                }
+
+                // saída antecipada
+                if (
+                    !empty($funcionario['saida_final']) && $funcionario['saida_final'] !== '--:--'
+                    && !empty($ponto['saida_final']) && $ponto['saida_final'] !== '--:--'
+                ) {
+                    $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
+                    if ($diffSaida > 0) $estatisticas['saidasAntecipadas']++;
+                }
             }
         }
 
@@ -1183,6 +1195,8 @@ try {
                                     $cnpjEmpresa = $relatorio['cnpjEmpresa'];
                                     $cargaHorariaDiaria = $relatorio['cargaHorariaDiaria'];
                                     $cargaHorariaDiariaMinutos = $relatorio['cargaHorariaDiariaMinutos'];
+                                    $nomeMes = mesPortugues($_GET['mes'] ?? date('m'));
+                                    $ano = $_GET['ano'] ?? date('Y');
                                 ?>
                                     <div class="report-container">
                                         <h1 class="report-title">RELATÓRIO ESPELHO PONTO - <?= strtoupper($nomeMes) ?>/<?= $ano ?></h1>
@@ -1249,7 +1263,7 @@ try {
                                                 <tbody>
                                                     <?php
                                                     $primeiroDiaMes = date('Y-m-01', strtotime("$ano-$mes-01"));
-                                                    $ultimoDiaMes = date('Y-m-t', strtotime("$ano-$mes-01"));
+                                                    $ultimoDiaMes   = date('Y-m-t', strtotime("$ano-$mes-01"));
 
                                                     $dataAtual = $primeiroDiaMes;
                                                     while ($dataAtual <= $ultimoDiaMes):
@@ -1279,77 +1293,65 @@ try {
                                                             $ocorrencias = [];
                                                             $normal = false;
 
-                                                            // Verifica se o dia está completo
-                                                            if (!$ponto['entrada'] || !$ponto['saida_final'] || $ponto['entrada'] === '--:--' || $ponto['saida_final'] === '--:--') {
-                                                                $ocorrencias[] = 'Dia Incompleto';
-                                                            } else {
-                                                                // Calcula horas trabalhadas
-                                                                $horasTrabalhadas = calcularHorasTrabalhadas(
-                                                                    $ponto['entrada'],
-                                                                    $ponto['saida_intervalo'],
-                                                                    $ponto['retorno_intervalo'],
-                                                                    $ponto['saida_final']
-                                                                );
+                                                            // Calcula horas trabalhadas (min)
+                                                            $horasTrabalhadas = calcularHorasTrabalhadas(
+                                                                $ponto['entrada'] ?? null,
+                                                                $ponto['saida_intervalo'] ?? null,
+                                                                $ponto['retorno_intervalo'] ?? null,
+                                                                $ponto['saida_final'] ?? null
+                                                            );
 
-                                                                // Calcula adicional noturno
-                                                                $minutosNoturnos = calcularAdicionalNoturno(
-                                                                    $ponto['entrada'],
-                                                                    $ponto['saida_intervalo'],
-                                                                    $ponto['retorno_intervalo'],
-                                                                    $ponto['saida_final']
-                                                                );
+                                                            // Adicional noturno (min)
+                                                            $minutosNoturnos = calcularAdicionalNoturno(
+                                                                $ponto['entrada'] ?? null,
+                                                                $ponto['saida_intervalo'] ?? null,
+                                                                $ponto['retorno_intervalo'] ?? null,
+                                                                $ponto['saida_final'] ?? null
+                                                            );
 
-                                                                // Calcula horas extras
-                                                                $horasExtras = calcularHorasExtras($horasTrabalhadas, $cargaHorariaDiariaMinutos);
+                                                            // Horas extras (min) → direto do banco (TIME)
+                                                            $horasExtrasMin = 0;
+                                                            if (!empty($ponto['hora_extra']) && $ponto['hora_extra'] !== '--:--') {
+                                                                $horasExtrasMin = timeToMinutes($ponto['hora_extra']);
+                                                            }
 
-                                                                // Verifica se é um dia normal (horas trabalhadas = carga horária)
-                                                                if ($horasTrabalhadas == $cargaHorariaDiariaMinutos) {
-                                                                    $normal = true;
+                                                            // Dia normal: trabalhado exatamente a carga
+                                                            if ($cargaHorariaDiariaMinutos > 0 && $horasTrabalhadas === $cargaHorariaDiariaMinutos) {
+                                                                $normal = true;
+                                                            }
+
+                                                            // Ocorrências (sem "Dia Incompleto")
+                                                            if ($minutosNoturnos > 0) $ocorrencias[] = 'Ad. Noturno';
+                                                            if ($horasExtrasMin > 0)  $ocorrencias[] = 'Hora Extra';
+
+                                                            // Atraso e saída antecipada só se não houver HE nem Noturno
+                                                            if ($horasExtrasMin <= 0 && $minutosNoturnos <= 0) {
+                                                                if (
+                                                                    !empty($funcionario['entrada']) && $funcionario['entrada'] !== '--:--'
+                                                                    && !empty($ponto['entrada']) && $ponto['entrada'] !== '--:--'
+                                                                ) {
+                                                                    $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
+                                                                    if ($diffEntrada > 10) $ocorrencias[] = 'Atraso';
                                                                 }
 
-                                                                // Adiciona adicional noturno se houver, independente de ser dia normal
-                                                                if ($minutosNoturnos > 0) {
-                                                                    $ocorrencias[] = 'Ad. Noturno';
-                                                                }
-
-                                                                // Se não for dia normal, verifica outras ocorrências
-                                                                if (!$normal) {
-                                                                    // Adiciona horas extras se houver
-                                                                    if ($horasExtras > 0) {
-                                                                        $ocorrencias[] = 'Hora Extra';
-                                                                    }
-
-                                                                    // Verifica atraso apenas se não houver horas extras ou adicional noturno
-                                                                    if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
-                                                                        if ($funcionario['entrada'] && $funcionario['entrada'] !== '--:--') {
-                                                                            $diffEntrada = calcularDiferencaMinutos($funcionario['entrada'], $ponto['entrada']);
-                                                                            if ($diffEntrada > 10) {
-                                                                                $ocorrencias[] = 'Atraso';
-                                                                            }
-                                                                        }
-                                                                    }
-
-                                                                    // Verifica saída antecipada apenas se não houver horas extras ou adicional noturno
-                                                                    if ($horasExtras <= 0 && $minutosNoturnos <= 0) {
-                                                                        if ($funcionario['saida_final'] && $funcionario['saida_final'] !== '--:--') {
-                                                                            $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
-                                                                            if ($diffSaida > 0) {
-                                                                                $ocorrencias[] = 'Saída Antecip.';
-                                                                            }
-                                                                        }
-                                                                    }
+                                                                if (
+                                                                    !empty($funcionario['saida_final']) && $funcionario['saida_final'] !== '--:--'
+                                                                    && !empty($ponto['saida_final']) && $ponto['saida_final'] !== '--:--'
+                                                                ) {
+                                                                    $diffSaida = calcularDiferencaMinutos($ponto['saida_final'], $funcionario['saida_final']);
+                                                                    if ($diffSaida > 0) $ocorrencias[] = 'Saída Antecip.';
                                                                 }
                                                             }
                                                         ?>
                                                             <tr>
                                                                 <td><?= formatarData($ponto['data']) ?></td>
-                                                                <td><?= $ponto['entrada'] ? date('H:i', strtotime($ponto['entrada'])) : '--:--' ?></td>
-                                                                <td><?= $ponto['saida_intervalo'] ? date('H:i', strtotime($ponto['saida_intervalo'])) : '--:--' ?></td>
-                                                                <td><?= $ponto['retorno_intervalo'] ? date('H:i', strtotime($ponto['retorno_intervalo'])) : '--:--' ?></td>
-                                                                <td><?= $ponto['saida_final'] ? date('H:i', strtotime($ponto['saida_final'])) : '--:--' ?></td>
+                                                                <td><?= !empty($ponto['entrada']) ? date('H:i', strtotime($ponto['entrada'])) : '--:--' ?></td>
+                                                                <td><?= !empty($ponto['saida_intervalo']) ? date('H:i', strtotime($ponto['saida_intervalo'])) : '--:--' ?></td>
+                                                                <td><?= !empty($ponto['retorno_intervalo']) ? date('H:i', strtotime($ponto['retorno_intervalo'])) : '--:--' ?></td>
+                                                                <td><?= !empty($ponto['saida_final']) ? date('H:i', strtotime($ponto['saida_final'])) : '--:--' ?></td>
                                                                 <td><?= $horasTrabalhadas > 0 ? minutesToHM($horasTrabalhadas) : '--:--' ?></td>
                                                                 <td><?= $cargaHorariaDiaria ?></td>
-                                                                <td><?= $horasExtras > 0 ? minutesToHM($horasExtras) : '--:--' ?></td>
+                                                                <td><?= $horasExtrasMin > 0 ? minutesToHM($horasExtrasMin) : '--:--' ?></td>
                                                                 <td><?= $minutosNoturnos > 0 ? minutesToHM($minutosNoturnos) : '--:--' ?></td>
                                                                 <td>
                                                                     <?php
