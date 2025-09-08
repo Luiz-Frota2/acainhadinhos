@@ -23,10 +23,7 @@ if (
 require '../../assets/php/conexao.php';
 
 // Helpers
-function soDigitos(string $v): string
-{
-    return preg_replace('/\D+/', '', $v) ?? '';
-}
+function soDigitos(string $v): string { return preg_replace('/\D+/', '', $v) ?? ''; }
 
 $nomeUsuario        = 'Usuário';
 $tipoUsuario        = 'Comum';
@@ -158,9 +155,8 @@ try {
     }
 } catch (PDOException $e) {
     $mensagem = "<span class='text-danger'>Erro ao buscar saldo do caixa.</span>";
-    error_log("Erro saldo caixa: " . $e->getMessage());
+    error_log("Erro saldo caixa: ".$e->getMessage());
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -440,47 +436,47 @@ try {
 
                     <div class="card">
                         <div class="card-body">
-                            <!-- Mostra o aviso SÓ se não houver caixa aberto -->
-                            <div id="avisoSemCaixa" class="alert alert-danger text-center" style="<?= $temCaixaAberto ? 'display:none;' : '' ?>">
+                            <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
                                 Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
                             </div>
 
                             <form
-                                action="../../assets/php/frentedeloja/processarSangria.php?id=<?= $empresaIdOut; ?>"
+                                action="../../assets/php/frentedeloja/processarSangria.php?id=<?= urlencode($idSelecionado); ?>"
                                 method="POST" onsubmit="return confirmarSangria();">
 
                                 <div class="mb-3">
                                     <label for="valor" class="form-label">Valor da Sangria (R$)</label>
-                                    <input type="number" step="0.01" class="form-control" name="valor" id="valor" required>
+                                    <input type="number" step="0.01" class="form-control" name="valor" id="valor"
+                                        required>
                                 </div>
 
                                 <div class="mb-3">
                                     <label for="saldo_caixa" class="form-label">Saldo do Caixa</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        class="form-control"
-                                        name="saldo_caixa"
-                                        id="saldo_caixa"
-                                        value="<?= number_format($valorLiquidoExibicao, 2, '.', '') ?>"
+                                    <input type="number" step="0.01" class="form-control" name="saldo_caixa"
+                                        id="saldo_caixa" value="<?= number_format($valorLiquido, 2, '.', '') ?>"
                                         readonly>
                                     <div class="form-text mt-1"><?= $mensagem ?></div>
                                 </div>
+                                <input type="hidden" name="idSelecionado"
+                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
 
-                                <input type="hidden" name="idSelecionado" value="<?= $empresaIdOut; ?>" />
-                                <input type="hidden" id="responsavel" name="responsavel" value="<?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?>">
+                                <input type="hidden" id="responsavel" name="responsavel"
+                                    value="<?= ucwords($nomeUsuario); ?>">
+
                                 <input type="hidden" name="data_registro" id="data_registro">
-                                <!-- Envia o CPF sem máscara, igual salvo em aberturas.cpf_responsavel -->
-                                <input type="hidden" id="cpf" name="cpf" value="<?= htmlspecialchars($cpfUsuario, ENT_QUOTES); ?>">
 
-                                <?php if ($temCaixaAberto && $idAbertura): ?>
-                                    <input type="hidden" id="id_caixa" name="id_caixa" value="<?= (int)$idAbertura; ?>">
-                                <?php endif; ?>
+                                <input type="hidden" id="cpf" name="cpf" value="<?= ucwords($cpfUsuario); ?>">
 
+                                <?php
+                                // Exibe o campo id_caixa se houver resultado
+                                if ($resultado && isset($resultado['id'])) {
+                                    $idAbertura = $resultado['id'];
+                                    echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
+                                }
+                                ?>
                                 <div class="mb-3">
-                                    <button class="btn btn-primary d-grid w-100" type="submit" <?= $temCaixaAberto ? '' : 'disabled' ?>>
-                                        Registrar Sangria
-                                    </button>
+                                    <button class="btn btn-primary d-grid w-100" type="submit">Registrar
+                                        Sangria</button>
                                 </div>
                             </form>
 
