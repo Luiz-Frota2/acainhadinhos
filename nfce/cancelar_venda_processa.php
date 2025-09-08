@@ -24,7 +24,7 @@ function redirVendaRapida($empresaId, $ok, $modelo, $msg=''){
     $modelo    = urlencode((string)$modelo);
     $status    = $ok ? 'ok' : 'erro';
     $msg       = $msg ? ('&msg='.urlencode($msg)) : '';
-    header("Location: ./vendaRapida.php?id={$empresaId}&cancel={$status}&modelo={$modelo}{$msg}");
+    header("Location: ../frentedeloja/caixa/vendaRapida.php?id={$empresaId}&cancel={$status}&modelo={$modelo}{$msg}");
     exit;
 }
 
