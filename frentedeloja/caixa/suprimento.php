@@ -22,10 +22,39 @@ if (
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-$nomeUsuario = 'Usuário';
-$tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+/** Helpers **/
+function soDigitos(string $v): string
+{
+    return preg_replace('/\D+/', '', $v) ?? '';
+}
+
+$nomeUsuario       = 'Usuário';
+$tipoUsuario       = 'Comum';
+$usuario_id        = (int)$_SESSION['usuario_id'];
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
+
+// ⛏️ Tentar obter CPF do usuário logado (evita "Undefined variable $cpfUsuario")
+$cpfUsuario = '';
+if (!empty($_SESSION['cpf'])) {
+    $cpfUsuario = soDigitos((string)$_SESSION['cpf']);
+} else {
+    // Tenta buscar na base dependendo do tipo
+    try {
+        if ($tipoUsuarioSessao === 'Admin') {
+            // Se a tabela tiver coluna cpf
+            $stmtCpf = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id LIMIT 1");
+        } else {
+            $stmtCpf = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id LIMIT 1");
+        }
+        $stmtCpf->execute([':id' => $usuario_id]);
+        $rowCpf = $stmtCpf->fetch(PDO::FETCH_ASSOC);
+        if ($rowCpf && !empty($rowCpf['cpf'])) {
+            $cpfUsuario = soDigitos((string)$rowCpf['cpf']);
+        }
+    } catch (Throwable $e) {
+        // Silencia caso a coluna/consulta não exista. Mantém $cpfUsuario = ''.
+    }
+}
 
 try {
     // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
@@ -91,8 +120,8 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// Observação: vamos montar um caminho seguro. Se no banco já vier um caminho com "/", usamos direto; se for só o nome do arquivo, usamos a pasta padrão.
+$faviconHref = "../../assets/img/empresa/favicon.ico"; // padrão
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
@@ -100,42 +129,46 @@ try {
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($empresa && !empty($empresa['imagem'])) {
-        $iconeEmpresa = $empresa['imagem'];
+        $img = (string)$empresa['imagem'];
+        if (strpos($img, '/') !== false) {
+            $faviconHref = $img; // já é um caminho/URL
+        } else {
+            $faviconHref = "../../assets/img/empresa/" . $img;
+        }
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
     // Não mostra erro para o usuário para não quebrar a página
 }
 
-// Defina seu limite de saldo para sangria (ex: R$ 500,00)
+// Defina seu limite de saldo para suprimento (ex: R$ 30,00)
 $limiteSuprimento = 30.00;
 
 // Variáveis esperadas já definidas:
-$empresaId = htmlspecialchars($idSelecionado); // ou a variável correspondente
-$responsavel = htmlspecialchars($nomeUsuario); // ou a variável correspondente ao usuário logado
+$empresaId  = $idSelecionado; // sem htmlspecialchars aqui pois é usado em consulta
+$responsavel = $nomeUsuario;
 
+// 🔎 Buscar saldo do caixa da última abertura "aberta" do usuário (por CPF se disponível, senão por nome)
 try {
-    // Se o CPF do usuário logado estiver disponível, buscar pelo cpf_responsavel
-    if ($cpfUsuario) {
+    if (!empty($cpfUsuario)) {
         $sql = "SELECT valor_liquido 
                 FROM aberturas 
                 WHERE empresa_id = :empresa_id 
-                AND cpf_responsavel = :cpf_responsavel 
-                AND status = 'aberto' 
+                  AND cpf_responsavel = :cpf_responsavel 
+                  AND status = 'aberto' 
                 ORDER BY id DESC 
                 LIMIT 1";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([
-            ':empresa_id' => $empresaId,
+            ':empresa_id'     => $empresaId,
             ':cpf_responsavel' => $cpfUsuario
         ]);
     } else {
-        // Fallback para buscar pelo nome do responsável
         $sql = "SELECT valor_liquido 
                 FROM aberturas 
                 WHERE empresa_id = :empresa_id 
-                AND responsavel = :responsavel 
-                AND status = 'aberto' 
+                  AND responsavel = :responsavel 
+                  AND status = 'aberto' 
                 ORDER BY id DESC 
                 LIMIT 1";
         $stmt = $pdo->prepare($sql);
@@ -145,8 +178,8 @@ try {
         ]);
     }
 
-    $aberturas = $stmt->fetch(PDO::FETCH_ASSOC);
-    $valorLiquido = $aberturas ? (float) $aberturas['valor_liquido'] : 0.00;
+    $aberturas    = $stmt->fetch(PDO::FETCH_ASSOC);
+    $valorLiquido = $aberturas ? (float)$aberturas['valor_liquido'] : 0.00;
 
     // Mensagem com base no limite
     if ($valorLiquido < $limiteSuprimento) {
@@ -161,15 +194,15 @@ try {
 
 // Supondo que esses dados venham da sessão ou variável de sessão
 $responsavel = ucwords($nomeUsuario); // ou $_SESSION['usuario']
-$empresa_id = htmlspecialchars($idSelecionado); // ou $_POST['empresa_id']
+$empresa_id = $idSelecionado;        // usado nas consultas
 
 if (!$responsavel || !$empresa_id) {
     die("Erro: Dados de sessão ausentes.");
 }
 
+// 🔎 Obter ID da abertura aberta (por CPF se disponível, senão por nome)
 try {
-    // Se o CPF do usuário logado estiver disponível, buscar abertura pelo cpf_responsavel
-    if ($cpfUsuario) {
+    if (!empty($cpfUsuario)) {
         $stmt = $pdo->prepare("
             SELECT id 
             FROM aberturas 
@@ -181,10 +214,9 @@ try {
         ");
         $stmt->execute([
             'cpf_responsavel' => $cpfUsuario,
-            'empresa_id' => $empresa_id
+            'empresa_id'      => $empresa_id
         ]);
     } else {
-        // Fallback para buscar pelo nome do responsável
         $stmt = $pdo->prepare("
             SELECT id 
             FROM aberturas 
@@ -196,7 +228,7 @@ try {
         ");
         $stmt->execute([
             'responsavel' => $responsavel,
-            'empresa_id' => $empresa_id
+            'empresa_id'  => $empresa_id
         ]);
     }
 
@@ -207,7 +239,6 @@ try {
     // Você pode tratar o erro conforme necessário
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
@@ -216,14 +247,11 @@ try {
     <meta charset="utf-8" />
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-
     <title>ERP - PDV</title>
-
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon"
-        href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+    <link rel="icon" type="image/x-icon" href="<?php echo htmlspecialchars($faviconHref, ENT_QUOTES, 'UTF-8'); ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -242,16 +270,10 @@ try {
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-    <!-- Page CSS -->
 
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
-
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="../../assets/js/config.js"></script>
 </head>
 
@@ -260,17 +282,13 @@ try {
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             <!-- Menu -->
-
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
-                            style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
-                    <a href="javascript:void(0);"
-                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
@@ -287,8 +305,7 @@ try {
                     </li>
 
                     <!-- CAIXA -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span>
-                    </li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
 
                     <!-- Operações de Caixa -->
                     <li class="menu-item active open">
@@ -348,12 +365,10 @@ try {
                                     <div data-i18n="Basic">Resumo de Vendas</div>
                                 </a>
                             </li>
-
                         </ul>
                     </li>
                     <!-- END CAIXA -->
 
-                    </li>
                     <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
@@ -382,7 +397,6 @@ try {
             <!-- Layout container -->
             <div class="layout-page">
                 <!-- Navbar -->
-
                 <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
@@ -392,22 +406,16 @@ try {
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
                         <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center">
-                            </div>
+                            <div class="nav-item d-flex align-items-center"></div>
                         </div>
-                        <!-- /Search -->
 
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
-                                    data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
-                                            class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -416,13 +424,11 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
-                                                            class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <!-- Exibindo o nome e nível do usuário -->
-                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                                                    <span class="fw-semibold d-block"><?php echo htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8'); ?></span>
                                                 </div>
                                             </div>
                                         </a>
@@ -430,25 +436,14 @@ try {
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">Minha conta</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Configurações</span>
-                                        </a>
-                                    </li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-user me-2"></i><span class="align-middle">Minha conta</span></a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span
-                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -456,20 +451,17 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item"
-                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
                                     </li>
-
                                 </ul>
                             </li>
                             <!--/ User -->
                         </ul>
                     </div>
                 </nav>
-
                 <!-- / Navbar -->
 
                 <!-- CONTEÚDO PRINCIPAL -->
@@ -481,7 +473,6 @@ try {
                         Suprimento
                     </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Registrar entrada de valores do caixa</h5>
-
 
                     <div class="card">
                         <div class="card-body">
@@ -507,41 +498,37 @@ try {
                                     <div class="form-text mt-1"><?= $mensagem ?></div>
                                 </div>
 
-                                <input type="hidden" name="idSelecionado"
-                                    value="<?php echo htmlspecialchars($idSelecionado); ?>" />
-
-                                <input type="hidden" id="responsavel" name="responsavel"
-                                    value="<?= ucwords($nomeUsuario); ?>">
-
+                                <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado, ENT_QUOTES, 'UTF-8'); ?>" />
+                                <input type="hidden" id="responsavel" name="responsavel" value="<?= htmlspecialchars(ucwords($nomeUsuario), ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="data_registro" id="data_registro_dispositivo">
-
-
-                                <input type="hidden" id="cpf" name="cpf" value="<?= ucwords($cpfUsuario); ?>">
+                                <input type="hidden" id="cpf" name="cpf" value="<?= htmlspecialchars($cpfUsuario, ENT_QUOTES, 'UTF-8'); ?>">
 
                                 <div class="mb-3">
                                     <?php
                                     if ($resultado) {
                                         $idAbertura = $resultado['id'];
-                                        echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
+                                        echo "<input type='hidden' id='id_caixa' name='id_caixa' value='" . htmlspecialchars((string)$idAbertura, ENT_QUOTES, 'UTF-8') . "' >";
                                     } else {
                                         echo "";
                                     }
                                     ?>
-
-                                    <button class="btn btn-primary d-grid w-100" type="submit">Registrar
-                                        Suprimento</button>
+                                    <button class="btn btn-primary d-grid w-100" type="submit">Registrar Suprimento</button>
                                 </div>
                             </form>
-
                         </div>
                     </div>
                 </div>
                 <!-- FIM CONTEÚDO PRINCIPAL -->
-
             </div>
         </div>
     </div>
+
     <script>
+        // Confirmação simples (mantém o nome usado no onsubmit para compatibilidade)
+        function confirmarSangria() {
+            return confirm('Confirmar registro de suprimento?');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const idCaixa = document.getElementById('id_caixa');
             const form = document.querySelector('form');
@@ -577,6 +564,8 @@ try {
             }
         });
     </script>
+
+    <!-- Vendors -->
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
