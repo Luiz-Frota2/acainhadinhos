@@ -13,7 +13,7 @@ if (
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id']) ||
-    !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
+    !isset($_SESSION['nivel'])
 ) {
     header("Location: ./index.php?id=$idSelecionado");
     exit;
@@ -33,15 +33,13 @@ $tipoUsuario       = 'Comum';
 $usuario_id        = (int)$_SESSION['usuario_id'];
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
-// ⛏️ Tentar obter CPF do usuário logado (evita "Undefined variable $cpfUsuario")
+// ⛏️ Tentar obter CPF do usuário logado
 $cpfUsuario = '';
 if (!empty($_SESSION['cpf'])) {
     $cpfUsuario = soDigitos((string)$_SESSION['cpf']);
 } else {
-    // Tenta buscar na base dependendo do tipo
     try {
         if ($tipoUsuarioSessao === 'Admin') {
-            // Se a tabela tiver coluna cpf
             $stmtCpf = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id LIMIT 1");
         } else {
             $stmtCpf = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id LIMIT 1");
@@ -52,20 +50,16 @@ if (!empty($_SESSION['cpf'])) {
             $cpfUsuario = soDigitos((string)$rowCpf['cpf']);
         }
     } catch (Throwable $e) {
-        // Silencia caso a coluna/consulta não exista. Mantém $cpfUsuario = ''.
+        // Mantém $cpfUsuario = ''
     }
 }
 
 try {
-    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
     if ($tipoUsuarioSessao === 'Admin') {
-        // Buscar na tabela de contas_acesso
         $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     } else {
-        // Buscar na tabela de funcionarios_acesso
         $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
     }
-
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
     $stmt->execute();
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -84,112 +78,91 @@ try {
 
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
-    // Para principal, verifica se é admin ou se pertence à mesma empresa
     if (
         $_SESSION['tipo_empresa'] !== 'principal' &&
         !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
     ) {
-        echo "<script>
-            alert('Acesso negado!');
-            window.location.href = './index.php?id=$idSelecionado';
-        </script>";
+        echo "<script>alert('Acesso negado!'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
     }
     $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
     $idUnidade = str_replace('unidade_', '', $idSelecionado);
-
-    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
     $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
         ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-
     if (!$acessoPermitido) {
-        echo "<script>
-            alert('Acesso negado!');
-            window.location.href = './index.php?id=$idSelecionado';
-        </script>";
+        echo "<script>alert('Acesso negado!'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
     }
     $id = $idUnidade;
 } else {
-    echo "<script>
-        alert('Empresa não identificada!');
-        window.location.href = './index.php?id=$idSelecionado';
-    </script>";
+    echo "<script>alert('Empresa não identificada!'); window.location.href = './index.php?id=$idSelecionado';</script>";
     exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
-// Observação: vamos montar um caminho seguro. Se no banco já vier um caminho com "/", usamos direto; se for só o nome do arquivo, usamos a pasta padrão.
-$faviconHref = "../../assets/img/empresa/favicon.ico"; // padrão
+$faviconHref = "../../assets/img/empresa/favicon.ico";
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
     $stmt->execute();
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if ($empresa && !empty($empresa['imagem'])) {
         $img = (string)$empresa['imagem'];
-        if (strpos($img, '/') !== false) {
-            $faviconHref = $img; // já é um caminho/URL
-        } else {
-            $faviconHref = "../../assets/img/empresa/" . $img;
-        }
+        $faviconHref = (strpos($img, '/') !== false) ? $img : "../../assets/img/empresa/" . $img;
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-    // Não mostra erro para o usuário para não quebrar a página
 }
 
-// Buscar abertura aberta para este usuário (CPF) e empresa
+/* ========= Buscar abertura aberta (opcional, se precisar do id_caixa) ========= */
+$idAbertura = null;
 try {
     $stmt = $pdo->prepare("
-        SELECT id 
-        FROM aberturas 
-        WHERE cpf_responsavel = :cpf_responsavel
-          AND empresa_id = :empresa_id
-          AND status = 'aberto'
-        ORDER BY id DESC
-        LIMIT 1
+        SELECT id
+          FROM aberturas
+         WHERE empresa_id = :empresa_id
+           AND cpf_responsavel = :cpf_responsavel
+           AND status = 'aberto'
+      ORDER BY id DESC
+         LIMIT 1
     ");
     $stmt->execute([
-        ':cpf_responsavel' => $cpfUsuario,
-        ':empresa_id' => $idSelecionado
-    ]);
-    $abertura = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($abertura) {
-        $idAbertura = $abertura['id'];
-        // Pode usar $idAbertura para lógica adicional se precisar
-    } else {
-        // Nenhuma abertura encontrada — pode tratar aqui ou redirecionar
-        echo "";
-    }
-} catch (PDOException $e) {
-    echo "Erro ao buscar abertura: " . $e->getMessage();
-    exit;
-}
-
-// Buscar vendas rápidas da empresa atual feitas pelo usuário logado
-try {
-    $stmt = $pdo->prepare("
-        SELECT * 
-        FROM vendas 
-        WHERE empresa_id = :empresa_id 
-          AND cpf_responsavel = :cpf_responsavel 
-        ORDER BY data_venda DESC
-    ");
-    $stmt->execute([
-        ':empresa_id' => $idSelecionado,
+        ':empresa_id'      => $idSelecionado,
         ':cpf_responsavel' => $cpfUsuario
     ]);
-    $vendasRapidas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $abertura = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($abertura) $idAbertura = (int)$abertura['id'];
 } catch (PDOException $e) {
-    echo "Erro ao buscar vendas rápidas: " . $e->getMessage();
-    exit;
+    error_log("Erro ao buscar abertura: " . $e->getMessage());
 }
 
-
+/* ========= Buscar VENDAS (não venda_rapida) da empresa/usuário =========
+   Atenção ao CPF: o banco pode armazenar com máscara. Vamos comparar
+   removendo '.', '-', '/' no banco e usando só dígitos do CPF. */
+try {
+    $sqlVendas = "
+        SELECT id, valor_total, data_venda, forma_pagamento, status_nfce
+          FROM vendas
+         WHERE empresa_id = :empresa_id
+           AND (
+                (:cpf <> '' AND REPLACE(REPLACE(REPLACE(cpf_responsavel, '.', ''), '-', ''), '/', '') = :cpf)
+             OR (:cpf = '' AND responsavel = :responsavel)
+           )
+      ORDER BY data_venda DESC
+         LIMIT 300
+    ";
+    $stmt = $pdo->prepare($sqlVendas);
+    $stmt->execute([
+        ':empresa_id'  => $idSelecionado,
+        ':cpf'         => $cpfUsuario,
+        ':responsavel' => $nomeUsuario,
+    ]);
+    $vendas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    echo "Erro ao buscar vendas: " . htmlspecialchars($e->getMessage());
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -466,104 +439,96 @@ try {
                     </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Selecione uma venda para cancelar</h5>
 
-                    <!-- card -->
                     <div class="card">
                         <div class="card-body">
                             <div class="table-responsive text-nowrap">
-                                <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
-                                    Nenhuma venda encontrada. Por favor, abra um caixa para continuar com a venda.
-                                </div>
-
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>#ID</th>
-                                            <th>Produto</th>
-                                            <th>Valor Total</th>
-                                            <th>Data - Hora</th>
-                                            <th>Status</th>
-                                            <th>Ação</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($vendasRapidas as $venda): ?>
+                                <?php if (empty($vendas)): ?>
+                                    <div id="avisoSemCaixa" class="alert alert-danger text-center">
+                                        Nenhuma venda encontrada. Por favor, abra um caixa para continuar com a venda.
+                                    </div>
+                                <?php else: ?>
+                                    <table class="table table-hover">
+                                        <thead>
                                             <tr>
-                                                <td><?= htmlspecialchars($venda['id']) ?></td>
-                                                <td><?= htmlspecialchars($venda['produtos']) ?></td>
-                                                <td>R$ <?= number_format($venda['total'], 2, ',', '.') ?></td>
-                                                <td><?= date('d/m/Y - H:i', strtotime($venda['data_venda'])) ?></td>
-                                                <td><span class="badge bg-success">Finalizada</span></td>
-                                                <td>
-                                                    <!-- Botão para abrir o modal -->
-                                                    <button type="button" class="btn btn-danger btn-sm"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#modalCancelarVenda<?= $venda['id'] ?>">
-                                                        Cancelar
-                                                    </button>
+                                                <th>#ID</th>
+                                                <th>Forma de Pagamento</th>
+                                                <th>Valor Total</th>
+                                                <th>Data - Hora</th>
+                                                <th>Status</th>
+                                                <th>Ação</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($vendas as $venda): ?>
+                                                <tr>
+                                                    <td><?= htmlspecialchars($venda['id']) ?></td>
+                                                    <td><?= htmlspecialchars($venda['forma_pagamento']) ?></td>
+                                                    <td>R$ <?= number_format((float)$venda['valor_total'], 2, ',', '.') ?></td>
+                                                    <td><?= htmlspecialchars(date('d/m/Y - H:i', strtotime($venda['data_venda']))) ?></td>
+                                                    <td>
+                                                        <?php
+                                                        $status = $venda['status_nfce'] ?: 'Finalizada';
+                                                        $badge = ($status === 'autorizada') ? 'bg-success' : (($status === 'cancelada') ? 'bg-danger' : 'bg-secondary');
+                                                        ?>
+                                                        <span class="badge <?= $badge ?>"><?= htmlspecialchars(ucfirst($status)) ?></span>
+                                                    </td>
+                                                    <td>
+                                                        <!-- Botão para abrir o modal -->
+                                                        <button type="button" class="btn btn-danger btn-sm"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#modalCancelarVenda<?= (int)$venda['id'] ?>">
+                                                            Cancelar
+                                                        </button>
 
-                                                    <!-- Modal de confirmação -->
-                                                    <div class="modal fade" id="modalCancelarVenda<?= $venda['id'] ?>"
-                                                        tabindex="-1"
-                                                        aria-labelledby="modalCancelarVendaLabel<?= $venda['id'] ?>"
-                                                        aria-hidden="true">
-                                                        <div class="modal-dialog modal-dialog-scrollable"
-                                                            style="margin-top: 1rem;">
-                                                            <div class="modal-content">
-                                                                <div class="modal-header">
-                                                                    <h5 class="modal-title"
-                                                                        id="modalCancelarVendaLabel<?= $venda['id'] ?>">
-                                                                        Confirmar Cancelamento
-                                                                    </h5>
-                                                                    <button type="button" class="btn-close"
-                                                                        data-bs-dismiss="modal"
-                                                                        aria-label="Fechar"></button>
-                                                                </div>
-                                                                <div class="modal-body">
-                                                                    Tem certeza que deseja cancelar a venda
-                                                                    <strong>#<?= htmlspecialchars($venda['id']) ?></strong>?
-                                                                </div>
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-secondary"
-                                                                        data-bs-dismiss="modal">Não</button>
-                                                                    <form method="POST"
-                                                                        action="../../assets/php/frentedeloja/cancelarVendaSubmit.php?id=<?= urlencode($venda['id']) ?>"
-                                                                        style="display:inline;">
-                                                                        <input type="hidden" name="idSelecionado"
-                                                                            value="<?= htmlspecialchars($idSelecionado); ?>" />
-                                                                        <input type="hidden" name="id"
-                                                                            value="<?= $venda['id'] ?>">
-                                                                        <input type="hidden" name="empresa_id"
-                                                                            value="<?= htmlspecialchars($id) ?>">
-                                                                        <input type="hidden" name="usuario_id"
-                                                                            value="<?= $usuario_id ?>">
-                                                                        <button type="submit" class="btn btn-danger">Sim,
-                                                                            Cancelar</button>
-                                                                    </form>
+                                                        <!-- Modal de confirmação -->
+                                                        <div class="modal fade" id="modalCancelarVenda<?= (int)$venda['id'] ?>"
+                                                            tabindex="-1"
+                                                            aria-labelledby="modalCancelarVendaLabel<?= (int)$venda['id'] ?>"
+                                                            aria-hidden="true">
+                                                            <div class="modal-dialog modal-dialog-scrollable" style="margin-top: 1rem;">
+                                                                <div class="modal-content">
+                                                                    <div class="modal-header">
+                                                                        <h5 class="modal-title" id="modalCancelarVendaLabel<?= (int)$venda['id'] ?>">
+                                                                            Confirmar Cancelamento
+                                                                        </h5>
+                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                                                    </div>
+                                                                    <div class="modal-body">
+                                                                        Tem certeza que deseja cancelar a venda
+                                                                        <strong>#<?= htmlspecialchars($venda['id']) ?></strong>?
+                                                                    </div>
+                                                                    <div class="modal-footer">
+                                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Não</button>
+                                                                        <form method="POST"
+                                                                            action="../../assets/php/frentedeloja/cancelarVendaSubmit.php?id=<?= urlencode($venda['id']) ?>"
+                                                                            style="display:inline;">
+                                                                            <input type="hidden" name="idSelecionado" value="<?= htmlspecialchars($idSelecionado) ?>" />
+                                                                            <input type="hidden" name="id" value="<?= htmlspecialchars($venda['id']) ?>">
+                                                                            <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                                                            <input type="hidden" name="usuario_id" value="<?= (int)$usuario_id ?>">
+                                                                            <?php if (!is_null($idAbertura)): ?>
+                                                                                <input type="hidden" name="id_caixa" value="<?= (int)$idAbertura ?>">
+                                                                            <?php endif; ?>
+                                                                            <button type="submit" class="btn btn-danger">Sim, Cancelar</button>
+                                                                        </form>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            <!-- fim modal-content -->
                                                         </div>
-                                                        <!-- fim modal-dialog -->
-                                                    </div>
-                                                    <!-- fim modal -->
+                                                        <!-- fim modal -->
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
 
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-
-                                        <?php if (isset($idAbertura)): ?>
-                                            <input type='hidden' id='id_caixa' name='id_caixa'
-                                                value='<?= htmlspecialchars($idAbertura) ?>'>
-                                        <?php endif; ?>
-                                    </tbody>
-                                </table>
+                                            <?php if (isset($idAbertura)): ?>
+                                                <input type='hidden' id='id_caixa' name='id_caixa' value='<?= (int)$idAbertura ?>'>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
+                                <?php endif; ?>
                             </div>
-                            <!-- fim table-responsive -->
                         </div>
-                        <!-- fim card-body -->
                     </div>
-                    <!-- fim card -->
-
                 </div>
                 <!-- FIM CONTEÚDO PRINCIPAL -->
 
