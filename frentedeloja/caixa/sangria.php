@@ -22,21 +22,32 @@ if (
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-$nomeUsuario = 'Usuário';
-$tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
+// === Helpers ===
+function soDigitos(string $v): string
+{
+    return preg_replace('/\D+/', '', $v) ?? '';
+}
+function formataCPF14(string $cpf): string
+{
+    $d = soDigitos($cpf);
+    if (strlen($d) !== 11) return $cpf; // retorna como veio se não tiver 11 dígitos
+    return substr($d, 0, 3) . '.' . substr($d, 3, 3) . '.' . substr($d, 6, 3) . '-' . substr($d, 9, 2);
+}
 
+$nomeUsuario        = 'Usuário';
+$tipoUsuario        = 'Comum';
+$usuario_id         = (int)$_SESSION['usuario_id'];
+$tipoUsuarioSessao  = $_SESSION['nivel']; // "Admin" ou "Comum"
+
+// ✅ Carrega nome, nível E CPF do usuário (fonte depende do nível)
 try {
-    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
     if ($tipoUsuarioSessao === 'Admin') {
-        // Buscar na tabela de contas_acesso
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+        // usuários "donos" do sistema
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
     } else {
-        // Buscar na tabela de funcionarios_acesso
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+        // funcionários
+        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
     }
-
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
     $stmt->execute();
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -44,12 +55,24 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
+        // Normaliza o CPF para o padrão 000.000.000-00 (VARCHAR(14) em aberturas)
+        $cpfUsuario  = formataCPF14($usuario['cpf'] ?? '');
+        if (strlen($cpfUsuario) !== 14) {
+            // fallback: se a sessão tiver cpf, tenta normalizar também
+            if (!empty($_SESSION['cpf'])) {
+                $cpfUsuario = formataCPF14($_SESSION['cpf']);
+            }
+        }
+        if (strlen($cpfUsuario) !== 14) {
+            echo "<script>alert('CPF do usuário não encontrado/ inválido.'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
+            exit;
+        }
     } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar dados do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
@@ -62,7 +85,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     ) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = './index.php?id=$idSelecionado';
+            window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';
         </script>";
         exit;
     }
@@ -77,7 +100,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     if (!$acessoPermitido) {
         echo "<script>
             alert('Acesso negado!');
-            window.location.href = './index.php?id=$idSelecionado';
+            window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';
         </script>";
         exit;
     }
@@ -85,7 +108,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } else {
     echo "<script>
         alert('Empresa não identificada!');
-        window.location.href = './index.php?id=$idSelecionado';
+        window.location.href = './index.php?id=" . htmlspecialchars($idSelecionado, ENT_QUOTES) . "';
     </script>";
     exit;
 }
@@ -104,62 +127,70 @@ try {
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-    // Não mostra erro para o usuário para não quebrar a página
 }
 
-// ✅ Consulta o saldo do caixa (com base no CPF)
-$empresaId = htmlspecialchars($idSelecionado);
-$responsavel = htmlspecialchars($nomeUsuario);
+// ✅ Consulta o saldo do caixa (com base no CPF formatado)
+$empresaId   = $idSelecionado;                // use bruto nas queries; escape só na saída HTML
+$responsavel = $nomeUsuario;                  // apenas para exibição
 $valorLiquido = 0.00;
-$mensagem = '';
+$mensagem     = '';
 
 try {
     $sql = "SELECT valor_liquido 
-            FROM aberturas 
-            WHERE empresa_id = :empresa_id 
-              AND cpf_responsavel = :cpf_responsavel 
-              AND status = 'aberto' 
-            ORDER BY id DESC 
-            LIMIT 1";
+              FROM aberturas 
+             WHERE empresa_id = :empresa_id 
+               AND cpf_responsavel = :cpf_responsavel 
+               AND status = 'aberto' 
+             ORDER BY id DESC 
+             LIMIT 1";
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
-        ':empresa_id' => $empresaId,
-        ':cpf_responsavel' => $cpfUsuario
+        ':empresa_id'      => $empresaId,
+        ':cpf_responsavel' => $cpfUsuario,   // <-- agora definido
     ]);
-    $aberturas = $stmt->fetch(PDO::FETCH_ASSOC);
-    $valorLiquido = $aberturas ? (float) $aberturas['valor_liquido'] : 0.00;
+    $abertura = $stmt->fetch(PDO::FETCH_ASSOC);
+    $valorLiquido = $abertura ? (float)$abertura['valor_liquido'] : 0.00;
 
     $mensagem = $valorLiquido <= 0
         ? "<span class='text-danger fw-bold'>Saldo insuficiente para sangria.</span>"
         : "<span class='text-success'>Saldo disponível para sangria.</span>";
 } catch (PDOException $e) {
     $mensagem = "<span class='text-danger'>Erro ao buscar saldo do caixa.</span>";
+    error_log("Erro saldo caixa: " . $e->getMessage());
 }
 
-// ✅ Buscar ID da abertura do caixa com base no CPF
+// ✅ Buscar ID da abertura do caixa com base no CPF (aberto mais recente)
 try {
     $stmt = $pdo->prepare("
         SELECT id 
-        FROM aberturas 
-        WHERE cpf_responsavel = :cpf_responsavel 
-          AND empresa_id = :empresa_id 
-          AND status = 'aberto'
-        ORDER BY id DESC 
-        LIMIT 1
+          FROM aberturas 
+         WHERE cpf_responsavel = :cpf_responsavel 
+           AND empresa_id = :empresa_id 
+           AND status = 'aberto'
+         ORDER BY id DESC 
+         LIMIT 1
     ");
     $stmt->execute([
         ':cpf_responsavel' => $cpfUsuario,
-        ':empresa_id' => $empresaId
+        ':empresa_id'      => $empresaId
     ]);
-    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-    $idAbertura = $resultado ? $resultado['id'] : null;
+    $resultado  = $stmt->fetch(PDO::FETCH_ASSOC);
+    $idAbertura = $resultado ? (int)$resultado['id'] : null;
 } catch (PDOException $e) {
     $idAbertura = null;
     $mensagem = "<span class='text-danger'>Erro ao buscar ID do caixa.</span>";
+    error_log("Erro id abertura: " . $e->getMessage());
 }
 
-
+/*
+    A partir daqui, sua view/HTML pode usar:
+    - $nomeUsuario, $tipoUsuario, $cpfUsuario
+    - $empresaId, $iconeEmpresa
+    - $valorLiquido, $mensagem
+    - $idAbertura
+*/
 ?>
+
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
