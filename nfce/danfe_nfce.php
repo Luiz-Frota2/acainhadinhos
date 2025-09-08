@@ -289,7 +289,7 @@ h2{ font-size:12px; margin:4px 0; }
   <div class="center noprint" style="margin:8px 0">
     <button onclick="window.print()">Imprimir</button>
   </div>
-  <button id="nfce-cancelar" title="Cancelar NFC-e (110111/110112)">Cancelar NFC-e</button>
+  <button id="nfce-cancelar" class="center noprint" title="Cancelar NFC-e (110111/110112)">Cancelar NFC-e</button>
 </div>
 
 <!-- QRCode JS (CDN). Se preferir, baixe qrcode.min.js local e troque o src. -->
