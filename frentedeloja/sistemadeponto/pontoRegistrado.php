@@ -1,47 +1,110 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+
 session_start();
 
-require_once '../../assets/php/conexao.php';
-
-// ✅ Verifica se o usuário está logado
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+// ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
+  !isset($_SESSION['usuario_cpf']) // Adicionado verificação do CPF na sessão
 ) {
-  header("Location: ../login.php?id=$idSelecionado");
+  header("Location: ../index.php?id=$idSelecionado");
   exit;
 }
 
-// ✅ Dados do usuário logado
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoSessao = $_SESSION['nivel'];
-$cpfUsuario = '';
-$nomeUsuario = '';
+$cpfUsuario = $_SESSION['usuario_cpf']; // Adicionado para pegar o CPF da sessão
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
-  if ($tipoSessao === 'Admin') {
-    $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+  if ($tipoUsuarioSessao === 'Admin') {
+    // Buscar na tabela de contas_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
   } else {
-    $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+    // Buscar na tabela de funcionarios_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
   }
+
   $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
   $stmt->execute();
-  $u = $stmt->fetch(PDO::FETCH_ASSOC);
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if (!$u) {
-    throw new Exception('Usuário não encontrado.');
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+    exit;
   }
-
-  $nomeUsuario = $u['usuario'];
-  $cpfUsuario = $u['cpf'];
-} catch (Exception $e) {
-  echo "<script>alert('{$e->getMessage()}'); history.back();</script>";
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
   exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  // Para principal, verifica se é admin ou se pertence à mesma empresa
+  if ($_SESSION['tipo_empresa'] !== 'principal' && 
+      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $idUnidade = str_replace('unidade_', '', $idSelecionado);
+  
+  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
+                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+  
+  if (!$acessoPermitido) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = $idUnidade;
+} else {
+  echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = '../index.php?id=$idSelecionado';
+    </script>";
+  exit;
+}
+
+// ✅ Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
+
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
+  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($empresa && !empty($empresa['imagem'])) {
+    $iconeEmpresa = $empresa['imagem'];
+  }
+} catch (PDOException $e) {
+  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+  // Não mostra erro para o usuário para não quebrar a página
 }
 
 // ✅ Busca os registros de ponto do funcionário logado
@@ -77,22 +140,6 @@ try {
   $pontos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
   die("Erro ao buscar pontos: " . $e->getMessage());
-}
-
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
-try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
-} catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
 
 ?>
@@ -630,21 +677,7 @@ try {
           </script>
 
         </div>
-        <!-- Footer -->
-        <footer class="content-footer footer bg-footer-theme text-center">
-          <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-            <div class="mb-2 mb-md-0">
-              &copy;
-              <script>
-                document.write(new Date().getFullYear());
-              </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>CodeGeek</strong>.
-            </div>
-          </div>
-        </footer>
 
-        <!-- / Footer -->
 
       </div>
     </div>
@@ -652,35 +685,13 @@ try {
 
 
   <!-- Scripts -->
-  <script src="../../../assets/vendor/libs/jquery/jquery.js"></script>
-  <script src="../../../assets/vendor/libs/popper/popper.js"></script>
-  <script src="../../../assets/vendor/js/bootstrap.js"></script>
-  <script src="../../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-  <script src="../../../assets/vendor/js/menu.js"></script>
-  <script src="../../../assets/js/main.js"></script>
+  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="../../assets/vendor/libs/popper/popper.js"></script>
+  <script src="../../assets/vendor/js/bootstrap.js"></script>
+  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <script src="../../assets/vendor/js/menu.js"></script>
+  <script src="../../assets/js/main.js"></script>
 
-  <!-- Script para preencher data e hora e controlar os botões -->
-  <script>
-    function atualizarDataHora() {
-      const data = new Date();
-      document.getElementById('data').value = data.toLocaleDateString('pt-BR');
-      document.getElementById('hora').value = data.toLocaleTimeString('pt-BR');
-    }
-
-    function registrarEntrada() {
-      alert("Entrada registrada com sucesso!");
-      document.getElementById('btnEntrada').style.display = 'none';
-      document.getElementById('btnSaida').style.display = 'inline-block';
-    }
-
-    function registrarSaida() {
-      alert("Saída registrada com sucesso!");
-      document.getElementById('btnSaida').style.display = 'none';
-    }
-
-    atualizarDataHora();
-    setInterval(atualizarDataHora, 1000); // Atualiza hora a cada segundo
-  </script>
 </body>
 
 </html>

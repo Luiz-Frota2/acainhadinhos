@@ -1,61 +1,130 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
+// Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
-// ✅ Verifica se a pessoa está logada
+// Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id'])
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel'])
 ) {
-    header("Location: ../index.php?id=$idSelecionado");
-    exit;
+  header("Location: ../index.php?id=$idSelecionado");
+  exit;
 }
 
-// ✅ Conexão com o banco de dados
+// Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
-$cpfUsuario = '';
-$nomeFuncionario = '';
+$tipoUsuarioSessao = $_SESSION['nivel'];
 
+// Buscar o CPF do usuário logado PRIMEIRO
+$cpfUsuario = '';
 try {
     if ($tipoUsuarioSessao === 'Admin') {
-        // Buscar na tabela de Admins
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+        $stmtCpf = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id");
     } else {
-        // Buscar na tabela de Funcionários
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+        $stmtCpf = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id");
     }
-
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $tipoUsuario = ucfirst($usuario['nivel']);
-        if (isset($usuario['cpf'])) {
-            $cpfUsuario = $usuario['cpf'];
-        }
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-        exit;
+    $stmtCpf->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmtCpf->execute();
+    $cpfRow = $stmtCpf->fetch(PDO::FETCH_ASSOC);
+    if ($cpfRow && !empty($cpfRow['cpf'])) {
+        $cpfUsuario = $cpfRow['cpf'];
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
-    exit;
+    $cpfUsuario = '';
 }
 
-// ✅ Função para buscar o nome do funcionário pelo CPF
+// AGORA buscar o nome do funcionário com o CPF obtido
+$nomeFuncionario = 'Funcionário não identificado';
+if (!empty($cpfUsuario)) {
+    $nomeFuncionario = obterNomeFuncionario($pdo, $cpfUsuario);
+}
+
+// Restante do código para buscar dados do usuário
+try {
+  if ($tipoUsuarioSessao === 'Admin') {
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  } else {
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+  }
+
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+  exit;
+}
+
+// Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  if ($_SESSION['tipo_empresa'] !== 'principal' && 
+      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $idUnidade = str_replace('unidade_', '', $idSelecionado);
+  
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
+                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+  
+  if (!$acessoPermitido) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = $idUnidade;
+} else {
+  echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = '../index.php?id=$idSelecionado';
+    </script>";
+  exit;
+}
+
+// Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
+
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
+  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($empresa && !empty($empresa['imagem'])) {
+    $iconeEmpresa = $empresa['imagem'];
+  }
+} catch (PDOException $e) {
+  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+}
+
+// Função para buscar o nome do funcionário pelo CPF
 function obterNomeFuncionario($pdo, $cpf)
 {
     try {
@@ -66,61 +135,12 @@ function obterNomeFuncionario($pdo, $cpf)
 
         if ($funcionario && !empty($funcionario['nome'])) {
             return $funcionario['nome'];
-        } else {
-            return 'Funcionário não identificado';
         }
+        return 'Funcionário não encontrado';
     } catch (PDOException $e) {
+        error_log("Erro ao buscar nome do funcionário: " . $e->getMessage());
         return 'Erro ao buscar nome';
     }
-}
-
-// ✅ Aplica a função se for funcionário
-if (!empty($cpfUsuario)) {
-    $nomeFuncionario = obterNomeFuncionario($pdo, $cpfUsuario);
-}
-
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-        alert('Empresa não identificada!');
-        window.location.href = '../index.php?id=$idSelecionado';
-    </script>";
-    exit;
-}
-
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
-try {
-    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-    $stmt->bindParam(':id_selecionado', $idSelecionado);
-    $stmt->execute();
-    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($empresa && !empty($empresa['imagem'])) {
-        $iconeEmpresa = $empresa['imagem'];
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
 }
 
 ?>
@@ -396,11 +416,11 @@ try {
                             <form action="../php/sistemaPonto/adicionarAtestado.php" method="POST"
                                 enctype="multipart/form-data">
                                 <!-- Campos ocultos -->
-                                <input type="hidden" name="nomeFuncionario"
+                                <input type="text" name="nomeFuncionario"
                                     value="<?= htmlspecialchars($nomeFuncionario); ?>">
                                 <input type="hidden" name="idSelecionado"
                                     value="<?= htmlspecialchars($idSelecionado); ?>">
-                                <input type="hidden" name="cpfUsuario" value="<?= htmlspecialchars($cpfUsuario); ?>">
+                                <input type="text" name="cpfUsuario" value="<?= htmlspecialchars($cpfUsuario); ?>">
 
                                 <div class="row">
                                     <div class="mb-3 col-md-6 col-12">

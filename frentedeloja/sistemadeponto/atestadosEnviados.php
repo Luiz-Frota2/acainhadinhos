@@ -9,14 +9,15 @@ $idSelecionado = $_GET['id'] ?? '';
 
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) ||
-    !isset($_SESSION['nivel']) // Garante que o nível do usuário esteja presente
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
+  !isset($_SESSION['usuario_cpf']) // Verifica se o CPF está na sessão
 ) {
-    header("Location: ../index.php?id=$idSelecionado");
-    exit;
+  header("Location: ../index.php?id=$idSelecionado");
+  exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -25,98 +26,122 @@ require '../../assets/php/conexao.php';
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
+$usuario_cpf = $_SESSION['usuario_cpf']; // Recupera o CPF da sessão
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
-// ✅ Buscar nome e tipo de usuário
 try {
-    if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    } else {
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-    }
+  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+  if ($tipoUsuarioSessao === 'Admin') {
+    // Buscar na tabela de contas_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  } else {
+    // Buscar na tabela de funcionarios_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+  }
 
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $tipoUsuario = ucfirst($usuario['nivel']);
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+  exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
-$idEmpresaSessao = $_SESSION['tipo_empresa'] . '_' . $_SESSION['empresa_id'];
-
-if ($idSelecionado === $idEmpresaSessao) {
-    // Acesso permitido, define $id com base no ID da sessão
-    $id = $_SESSION['empresa_id'];
-} else {
+if (str_starts_with($idSelecionado, 'principal_')) {
+  // Para principal, verifica se é admin ou se pertence à mesma empresa
+  if ($_SESSION['tipo_empresa'] !== 'principal' && 
+      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
     echo "<script>
-          alert('Acesso negado! Empresa não corresponde à sessão.');
-          window.location.href = '../index.php?id=$idSelecionado';
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
         </script>";
     exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $idUnidade = str_replace('unidade_', '', $idSelecionado);
+  
+  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
+                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+  
+  if (!$acessoPermitido) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = $idUnidade;
+} else {
+  echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = '../index.php?id=$idSelecionado';
+    </script>";
+  exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
-    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-    $stmt->bindParam(':id_selecionado', $idSelecionado);
-    $stmt->execute();
-    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
+  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($empresa && !empty($empresa['imagem'])) {
-        $iconeEmpresa = $empresa['imagem'];
-    }
+  if ($empresa && !empty($empresa['imagem'])) {
+    $iconeEmpresa = $empresa['imagem'];
+  }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+  // Não mostra erro para o usuário para não quebrar a página
 }
 
-// ✅ Buscar CPF do usuário logado
-$cpfUsuario = '';
+// ✅ Obter nome do funcionário usando o CPF da sessão
+$nomeFuncionario = obterNomeFuncionario($pdo, $usuario_cpf);
 
-try {
-    if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id");
-    } else {
-        $stmt = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id");
-    }
-
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($resultado && !empty($resultado['cpf'])) {
-        $cpfUsuario = $resultado['cpf'];
-    } else {
-        echo "<script>alert('CPF do usuário não encontrado.');</script>";
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao obter CPF do usuário: " . $e->getMessage() . "');</script>";
-}
-
-// ✅ Consultar atestados do usuário logado com base no CPF e empresa
-$idEmpresaAtestado = $idEmpresaSessao;
+// ✅ Buscar atestados do usuário logado
 $atestados = [];
-
 try {
-    $stmt = $pdo->prepare("SELECT * FROM atestados WHERE cpf_usuario = :cpf_usuario AND id_empresa = :id_empresa");
-    $stmt->bindParam(':cpf_usuario', $cpfUsuario);
-    $stmt->bindParam(':id_empresa', $idEmpresaAtestado);
-    $stmt->execute();
-    $atestados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmtAtestados = $pdo->prepare("SELECT * FROM atestados WHERE cpf_usuario = :cpf AND id_empresa = :empresa_id ORDER BY data_atestado DESC");
+    $stmtAtestados->bindParam(':cpf', $usuario_cpf, PDO::PARAM_STR);
+    $stmtAtestados->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+    $stmtAtestados->execute();
+    $atestados = $stmtAtestados->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar os atestados: " . $e->getMessage() . "');</script>";
+    error_log("Erro ao buscar atestados: " . $e->getMessage());
+    // Você pode adicionar uma mensagem de erro para o usuário se desejar
 }
+
+// ✅ Função para buscar o nome do funcionário pelo CPF
+function obterNomeFuncionario($pdo, $cpf) {
+    try {
+        $stmt = $pdo->prepare("SELECT nome FROM funcionarios WHERE cpf = :cpf");
+        $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
+        $stmt->execute();
+        $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($funcionario && !empty($funcionario['nome'])) {
+            return $funcionario['nome'];
+        } else {
+            return 'Funcionário não identificado';
+        }
+    } catch (PDOException $e) {
+        error_log("Erro ao buscar nome do funcionário: " . $e->getMessage());
+        return 'Erro ao buscar nome';
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -415,7 +440,7 @@ try {
                                                         } elseif ($status === 'inválido') {
                                                             $badgeClass = 'bg-danger';
                                                         } elseif ($status === 'pendente') {
-                                                            $badgeClass = 'bg-warning text-dark';
+                                                            $badgeClass = 'bg-warning';
                                                         }
                                                         ?>
                                                         <span class="badge <?= $badgeClass; ?>">

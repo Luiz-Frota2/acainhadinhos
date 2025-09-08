@@ -1,7 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
@@ -11,54 +12,33 @@ if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
+    !isset($_SESSION['usuario_cpf']) // Verifica se o CPF está na sessão
 ) {
     header("Location: ../index.php?id=$idSelecionado");
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '../index.php?id=$idSelecionado';
-      </script>";
-    exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// ✅ Se chegou até aqui, o acesso está liberado
+
 
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
+$usuario_cpf = $_SESSION['usuario_cpf']; // Recupera o CPF da sessão
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
     if ($tipoUsuarioSessao === 'Admin') {
-        // Buscar na tabela de Admins
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+        // Buscar na tabela de contas_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     } else {
-        // Buscar na tabela de Funcionários
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+        // Buscar na tabela de funcionarios_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
     }
 
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
@@ -68,18 +48,54 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
-        $cpfUsuario = $usuario['cpf'];
     } else {
         echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-// ✅ Buscar imagem da empresa (favicon)
-$iconeEmpresa = '../assets/img/favicon/favicon.ico';
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+    // Para principal, verifica se é admin ou se pertence à mesma empresa
+    if (
+        $_SESSION['tipo_empresa'] !== 'principal' &&
+        !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+    ) {
+        echo "<script>
+                alert('Acesso negado!');
+                window.location.href = '../index.php?id=$idSelecionado';
+            </script>";
+        exit;
+    }
+    $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $idUnidade = str_replace('unidade_', '', $idSelecionado);
+
+    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+    $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+        ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
+    if (!$acessoPermitido) {
+        echo "<script>
+                alert('Acesso negado!');
+                window.location.href = '../index.php?id=$idSelecionado';
+            </script>";
+        exit;
+    }
+    $id = $idUnidade;
+} else {
+    echo "<script>
+            alert('Empresa não identificada!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+}
+
+// ✅ Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
@@ -91,7 +107,8 @@ try {
         $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    // Não mostra erro para o usuário para não quebrar a página
 }
 
 try {
@@ -126,7 +143,7 @@ try {
         LIMIT 1
     ");
     $stmt->execute([
-        'cpf_responsavel' => $cpfUsuario,
+        'cpf_responsavel' => $usuario_cpf, // Corrigido para usar $usuario_cpf em vez de $cpfUsuario
         'empresa_id' => $empresa_id
     ]);
 
@@ -136,7 +153,6 @@ try {
     echo "<script>alert('Erro ao buscar abertura do caixa: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -432,13 +448,10 @@ try {
                             </div>
 
                             <!-- Formulário de Venda Rápida -->
-                            <form method="POST"
-                                action="../../assets/php/frentedeloja/vendaRapidaSubmit.php?id=<?= urlencode($idSelecionado); ?>">
-
+                            <form method="POST" action="./vendaRapidaSubmit.php?id=<?= urlencode($idSelecionado); ?>" id="formVendaRapida">
                                 <div class="row g-3 ms-3">
                                     <!-- Produtos Selecionados -->
-                                    <div class="fixed-items mb-3 p-2 border rounded bg-light row" id="fixedDisplay"
-                                        style="min-height:48px;"></div>
+                                    <div class="fixed-items mb-3 p-2 border rounded bg-light row" id="fixedDisplay" style="min-height:48px;"></div>
                                     <!-- /Produtos Selecionados -->
                                 </div>
 
@@ -577,6 +590,22 @@ try {
                                         background-color: rgba(0, 0, 0, 0.5);
                                         z-index: 9998;
                                     }
+
+                                    /* Estilo para o campo de troco */
+                                    .troco-container {
+                                        display: none;
+                                        margin-top: 10px;
+                                        padding: 10px;
+                                        background-color: #f8f9fa;
+                                        border-radius: 5px;
+                                        border: 1px solid #dee2e6;
+                                    }
+
+                                    .troco-valor {
+                                        font-weight: bold;
+                                        color: #28a745;
+                                        font-size: 1.1em;
+                                    }
                                 </style>
 
                                 <!-- Modal de Edição de Quantidade -->
@@ -588,14 +617,11 @@ try {
                                         </div>
                                         <div class="quantidade-container">
                                             <label for="quantidadeEdicao">Quantidade:</label>
-                                            <input type="number" id="quantidadeEdicao" min="1" value="1"
-                                                class="form-control form-control-sm">
+                                            <input type="number" id="quantidadeEdicao" min="1" value="1" class="form-control form-control-sm">
                                         </div>
                                         <div class="modal-buttons">
-                                            <button type="button" class="btn btn-secondary btn-sm"
-                                                id="cancelarEdicao">Cancelar</button>
-                                            <button type="button" class="btn btn-primary btn-sm"
-                                                id="confirmarEdicao">Confirmar</button>
+                                            <button type="button" class="btn btn-secondary btn-sm" id="cancelarEdicao">Cancelar</button>
+                                            <button type="button" class="btn btn-primary btn-sm" id="confirmarEdicao">Confirmar</button>
                                         </div>
                                     </div>
                                 </div>
@@ -612,6 +638,19 @@ try {
                                     </select>
                                 </div>
                                 <!-- /Forma de Pagamento -->
+
+                                <!-- Campo para valor recebido em dinheiro -->
+                                <div class="col-md-12 mb-3" id="valorRecebidoContainer" style="display: none;">
+                                    <label for="valor_recebido" class="form-label">Valor Recebido (R$)</label>
+                                    <input type="number" id="valor_recebido" name="valor_recebido" min="0" step="0.01" class="form-control">
+                                </div>
+
+                                <!-- Exibição do troco -->
+                                <div class="col-md-12 mb-3 troco-container" id="trocoContainer">
+                                    <label class="form-label">Troco:</label>
+                                    <span class="troco-valor" id="trocoValor">R$ 0,00</span>
+                                    <input type="hidden" id="troco" name="troco" value="0">
+                                </div>
 
                                 <!-- Seleção de Categoria -->
                                 <div class="col-md-12 mb-2">
@@ -641,13 +680,12 @@ try {
                                 </div>
                                 <!-- /Seleção de Produto -->
 
-                                <!-- Quantidade do Produto (inicialmente oculto) -->
+                                <!-- Quantidade do Produto -->
                                 <div class="col-md-12 mb-3" id="quantidadeContainer" style="display: none;">
                                     <div class="quantidade-container">
                                         <label for="quantidadeProduto" class="form-label">Quantidade:</label>
                                         <div class="input-group input-group-sm" style="width: 120px;">
-                                            <input type="number" id="quantidadeProduto" min="1" value="1"
-                                                class="form-control form-control-sm">
+                                            <input type="number" id="quantidadeProduto" min="1" value="1" class="form-control form-control-sm">
                                         </div>
                                     </div>
                                 </div>
@@ -663,10 +701,15 @@ try {
 
                                 <!-- Remover Todos -->
                                 <div class="col-12 text-end mb-4">
-                                    <button id="removerTodosBtn" type="button"
-                                        class="btn btn-danger btn-sm remove-produto">Remover Todos</button>
+                                    <button id="removerTodosBtn" type="button" class="btn btn-danger btn-sm remove-produto">Remover Todos</button>
                                 </div>
                                 <!-- /Remover Todos -->
+
+                                <!-- CPF do Cliente -->
+                                <div class="col-md-12 mb-3">
+                                    <label for="cpf_cliente" class="form-label">CPF do Cliente (opcional)</label>
+                                    <input type="text" id="cpf_cliente" name="cpf_cliente" class="form-control cpf-mask" placeholder="000.000.000-00">
+                                </div>
 
                                 <!-- Adicionar Produto -->
                                 <div class="col-12 d-grid mb-2">
@@ -684,38 +727,42 @@ try {
                                         echo "<input type='hidden' id='id_caixa' name='id_caixa' value='$idAbertura' >";
                                     }
                                     ?>
-                                    <input type="hidden" id="responsavel" name="responsavel"
-                                        value="<?= ucwords($nomeUsuario); ?>">
-                                    <input type="hidden" id="cpf" name="cpf" value="<?= ucwords($cpfUsuario); ?>">
+                                    <input type="hidden" id="responsavel" name="responsavel" value="<?= ucwords($nomeUsuario); ?>">
+                                    <input type="hidden" id="cpf" name="cpf" value="<?php echo isset($usuario_cpf) ? htmlspecialchars($usuario_cpf) : ''; ?>">
                                     <input type="hidden" name="data_registro" id="data_registro">
-                                    <input type="hidden" name="idSelecionado"
-                                        value="<?php echo htmlspecialchars($idSelecionado); ?>" />
-                                    <button type="submit" id="finalizarVendaBtn" disabled
-                                        class="btn btn-primary w-100 mt-2">Finalizar Venda</button>
+                                    <input type="hidden" name="empresa_id" value="<?php echo htmlspecialchars($idSelecionado); ?>">
+                                    <button type="submit" id="finalizarVendaBtn" disabled class="btn btn-primary w-100 mt-2">Finalizar Venda</button>
                                 </div>
                                 <!-- /Campos Ocultos e Finalizar -->
-
                             </form>
                             <!-- /Formulário de Venda Rápida -->
 
                             <script>
                                 // Produtos agrupados por categoria
                                 const produtosPorCategoria = <?php
-                                $jsCategorias = [];
-                                foreach ($categorias as $categoria => $produtos) {
-                                    foreach ($produtos as $estoques) {
-                                        $jsCategorias[$categoria][] = [
-                                            'id' => $estoques['id'],
-                                            'nome' => $estoques['nome_produto'],
-                                            'preco' => $estoques['preco_produto'],
-                                            'quantidade' => $estoques['quantidade_produto'],
-                                            'categoria' => $categoria
-                                        ];
-                                    }
-                                }
-                                echo json_encode($jsCategorias);
-                                ?>;
+                                                                $jsCategorias = [];
+                                                                foreach ($categorias as $categoria => $produtos) {
+                                                                    foreach ($produtos as $estoques) {
+                                                                        $jsCategorias[$categoria][] = [
+                                                                            'id' => $estoques['id'],
+                                                                            'nome' => $estoques['nome_produto'],
+                                                                            'preco' => $estoques['preco_produto'],
+                                                                            'quantidade' => $estoques['quantidade_produto'],
+                                                                            'categoria' => $categoria,
+                                                                            'ncm' => $estoques['ncm'],
+                                                                            'cest' => $estoques['cest'],
+                                                                            'cfop' => $estoques['cfop'],
+                                                                            'origem' => $estoques['origem'],
+                                                                            'tributacao' => $estoques['tributacao'],
+                                                                            'unidade' => $estoques['unidade'],
+                                                                            'informacoes_adicionais' => $estoques['informacoes_adicionais']
+                                                                        ];
+                                                                    }
+                                                                }
+                                                                echo json_encode($jsCategorias);
+                                                                ?>;
 
+                                // Elementos do DOM
                                 const categoriaSelect = document.getElementById('categoriaSelect');
                                 const multiSelect = document.getElementById('multiSelect');
                                 const fixarBtn = document.getElementById('fixarBtn');
@@ -726,10 +773,14 @@ try {
                                 const formaPagamentoSelect = document.getElementById('forma_pagamento');
                                 const quantidadeProdutoInput = document.getElementById('quantidadeProduto');
                                 const quantidadeContainer = document.getElementById('quantidadeContainer');
-                                const form = document.querySelector('form');
+                                const form = document.getElementById('formVendaRapida');
                                 const fixedItems = new Map();
                                 let selectedOption = null;
-                                const nenhumProdutoLabel = document.getElementById('nenhumProdutoLabel');
+                                const valorRecebidoContainer = document.getElementById('valorRecebidoContainer');
+                                const valorRecebidoInput = document.getElementById('valor_recebido');
+                                const trocoContainer = document.getElementById('trocoContainer');
+                                const trocoValor = document.getElementById('trocoValor');
+                                const trocoInput = document.getElementById('troco');
 
                                 // Elementos do modal de edição
                                 const modalEdicao = document.getElementById('modalEdicao');
@@ -739,16 +790,48 @@ try {
                                 const confirmarEdicaoBtn = document.getElementById('confirmarEdicao');
                                 let produtoEmEdicao = null;
 
-                                // Habilita/desabilita botão Adicionar Produto com base na forma de pagamento
-                                formaPagamentoSelect.addEventListener('change', function () {
+                                // Mostra/oculta campo de valor recebido e troco conforme forma de pagamento
+                                formaPagamentoSelect.addEventListener('change', function() {
+                                    if (this.value === 'Dinheiro') {
+                                        valorRecebidoContainer.style.display = 'block';
+                                        trocoContainer.style.display = 'block';
+                                        calcularTroco();
+                                    } else {
+                                        valorRecebidoContainer.style.display = 'none';
+                                        trocoContainer.style.display = 'none';
+                                        trocoValor.textContent = 'R$ 0,00';
+                                        trocoInput.value = '0';
+                                    }
+
+                                    // Habilita/desabilita botão Adicionar Produto
                                     fixarBtn.disabled = formaPagamentoSelect.value === "" || !selectedOption;
                                 });
 
+                                // Calcula o troco quando o valor recebido é alterado
+                                valorRecebidoInput.addEventListener('input', calcularTroco);
+
+                                // Função para calcular o troco
+                                function calcularTroco() {
+                                    if (formaPagamentoSelect.value !== 'Dinheiro') return;
+
+                                    const total = parseFloat(document.getElementById('totalTotal').value) || 0;
+                                    const valorRecebido = parseFloat(valorRecebidoInput.value) || 0;
+
+                                    if (valorRecebido >= total) {
+                                        const troco = valorRecebido - total;
+                                        trocoValor.textContent = 'R$ ' + troco.toFixed(2).replace('.', ',');
+                                        trocoInput.value = troco.toFixed(2);
+                                    } else {
+                                        trocoValor.textContent = 'R$ 0,00';
+                                        trocoInput.value = '0';
+                                    }
+                                }
+
                                 // Categoria -> Produtos
-                                categoriaSelect.addEventListener('change', function () {
+                                categoriaSelect.addEventListener('change', function() {
                                     const categoria = this.value;
                                     multiSelect.innerHTML = '';
-                                    quantidadeContainer.style.display = 'none'; // Esconde o container de quantidade
+                                    quantidadeContainer.style.display = 'none';
                                     fixarBtn.disabled = true;
 
                                     if (!categoria || !produtosPorCategoria[categoria]) {
@@ -763,6 +846,13 @@ try {
                                         option.dataset.preco = produto.preco;
                                         option.dataset.categoria = categoria;
                                         option.dataset.estoque = produto.quantidade;
+                                        option.dataset.ncm = produto.ncm;
+                                        option.dataset.cest = produto.cest;
+                                        option.dataset.cfop = produto.cfop;
+                                        option.dataset.origem = produto.origem;
+                                        option.dataset.tributacao = produto.tributacao;
+                                        option.dataset.unidade = produto.unidade;
+                                        option.dataset.informacoes = produto.informacoes_adicionais;
                                         option.textContent = `${produto.nome} - Qtd: ${produto.quantidade} - R$ ${parseFloat(produto.preco).toFixed(2).replace('.', ',')}` + (produto.quantidade < 15 ? ' - ESTOQUE BAIXO!' : '');
                                         multiSelect.appendChild(option);
                                     });
@@ -791,7 +881,7 @@ try {
                                 });
 
                                 // Validação do input de quantidade
-                                quantidadeProdutoInput.addEventListener('change', function () {
+                                quantidadeProdutoInput.addEventListener('change', function() {
                                     if (!selectedOption) return;
 
                                     const estoqueDisponivel = parseInt(selectedOption.dataset.estoque);
@@ -823,6 +913,13 @@ try {
                                     const preco = parseFloat(selectedOption.dataset.preco);
                                     const categoria = selectedOption.dataset.categoria;
                                     const quantidade = parseInt(quantidadeProdutoInput.value) || 1;
+                                    const ncm = selectedOption.dataset.ncm;
+                                    const cest = selectedOption.dataset.cest;
+                                    const cfop = selectedOption.dataset.cfop;
+                                    const origem = selectedOption.dataset.origem;
+                                    const tributacao = selectedOption.dataset.tributacao;
+                                    const unidade = selectedOption.dataset.unidade;
+                                    const informacoes = selectedOption.dataset.informacoes;
 
                                     // Verifica se já existe o produto na lista
                                     if (fixedItems.has(id)) {
@@ -844,7 +941,14 @@ try {
                                             preco,
                                             quantidade,
                                             categoria,
-                                            id
+                                            id,
+                                            ncm,
+                                            cest,
+                                            cfop,
+                                            origem,
+                                            tributacao,
+                                            unidade,
+                                            informacoes
                                         });
                                     }
 
@@ -854,7 +958,12 @@ try {
                                     selectedOption = null;
                                     multiSelect.selectedIndex = -1;
                                     quantidadeProdutoInput.value = 1;
-                                    quantidadeContainer.style.display = 'none'; // Esconde o container após adicionar
+                                    quantidadeContainer.style.display = 'none';
+
+                                    // Recalcula o troco se for pagamento em dinheiro
+                                    if (formaPagamentoSelect.value === 'Dinheiro') {
+                                        calcularTroco();
+                                    }
                                 });
 
                                 // Atualiza exibição dos produtos fixados
@@ -862,28 +971,26 @@ try {
                                     fixedDisplay.innerHTML = '';
                                     if (fixedItems.size === 0) {
                                         fixedDisplay.textContent = 'Nenhum item fixado';
-                                        if (nenhumProdutoLabel) nenhumProdutoLabel.style.display = '';
                                         totalDisplay.textContent = '0,00';
                                         document.getElementById('totalTotal').value = '0.00';
                                         finalizarVendaBtn.disabled = true;
                                         return;
                                     }
-                                    if (nenhumProdutoLabel) nenhumProdutoLabel.style.display = 'none';
 
                                     fixedItems.forEach((item, id) => {
                                         const container = document.createElement('div');
                                         container.className = 'col-12 col-md-4';
                                         container.innerHTML = `
-                                                        <div class="fixed-item">
-                                                            <div class="fixed-item-content">${item.nome} (${item.quantidade}x)</div>
-                                                            <div class="fixed-item-actions">
-                                                                <button class="edit-btn" data-id="${id}" type="button">
-                                                                    <i class="bx bx-edit"></i>
-                                                                </button>
-                                                                <button class="remove-btn" data-id="${id}" type="button">×</button>
-                                                            </div>
-                                                        </div>
-                                                    `;
+                                                                <div class="fixed-item">
+                                                                    <div class="fixed-item-content">${item.nome} (${item.quantidade}x)</div>
+                                                                    <div class="fixed-item-actions">
+                                                                        <button class="edit-btn" data-id="${id}" type="button">
+                                                                            <i class="bx bx-edit"></i>
+                                                                        </button>
+                                                                        <button class="remove-btn" data-id="${id}" type="button">×</button>
+                                                                    </div>
+                                                                </div>
+                                                            `;
 
                                         // Adiciona evento para editar quantidade
                                         const editBtn = container.querySelector('.edit-btn');
@@ -893,7 +1000,7 @@ try {
                                             quantidadeEdicaoInput.value = fixedItems.get(id).quantidade;
                                             quantidadeEdicaoInput.max = getEstoqueMaximo(id);
                                             modalEdicao.style.display = 'flex';
-                                            document.body.style.overflow = 'hidden'; // Impede rolagem da página
+                                            document.body.style.overflow = 'hidden';
                                         });
 
                                         // Adiciona evento para remover produto
@@ -902,6 +1009,9 @@ try {
                                             e.preventDefault();
                                             fixedItems.delete(id);
                                             updateFixedDisplay();
+                                            if (formaPagamentoSelect.value === 'Dinheiro') {
+                                                calcularTroco();
+                                            }
                                         });
 
                                         fixedDisplay.appendChild(container);
@@ -938,6 +1048,10 @@ try {
                                     modalEdicao.style.display = 'none';
                                     document.body.style.overflow = 'auto';
                                     produtoEmEdicao = null;
+
+                                    if (formaPagamentoSelect.value === 'Dinheiro') {
+                                        calcularTroco();
+                                    }
                                 });
 
                                 // Fechar modal ao clicar fora
@@ -966,6 +1080,11 @@ try {
                                     });
                                     totalDisplay.textContent = total.toFixed(2).replace('.', ',');
                                     document.getElementById('totalTotal').value = total.toFixed(2);
+
+                                    // Recalcula o troco se for pagamento em dinheiro
+                                    if (formaPagamentoSelect.value === 'Dinheiro') {
+                                        calcularTroco();
+                                    }
                                 }
 
                                 // Remover todos os produtos
@@ -977,27 +1096,44 @@ try {
                                     if (confirm('Deseja remover todos os produtos fixados?')) {
                                         fixedItems.clear();
                                         updateFixedDisplay();
+                                        if (formaPagamentoSelect.value === 'Dinheiro') {
+                                            calcularTroco();
+                                        }
                                     }
                                 });
 
-                                // Finalizar venda
-                                form.addEventListener('submit', function (e) {
-                                    if (finalizarVendaBtn.disabled) {
-                                        e.preventDefault();
-                                        alert('Selecione ao menos um produto antes de finalizar a venda.');
-                                        return;
-                                    }
+                                // Envio do formulário
+                                form.addEventListener('submit', function(e) {
+                                    e.preventDefault();
 
+                                    // Sanitiza CPFs (responsável e consumidor)
+                                    try {
+                                        const elResp = document.getElementById('cpf_responsavel') || document.querySelector('[name="cpf_responsavel"]');
+                                        const elCli  = document.getElementById('cpf_cliente') || document.querySelector('[name="cpf_cliente"]');
+                                        if (elResp) elResp.value = String(elResp.value||'').replace(/\D+/g,'').slice(0,11);
+                                        if (elCli)  elCli.value  = String(elCli.value||'').replace(/\D+/g,'').slice(0,11);
+                                    } catch(_) {}
+
+                                    // Validações
                                     if (fixedItems.size === 0) {
-                                        e.preventDefault();
                                         alert('Selecione ao menos um produto antes de finalizar a venda.');
                                         return;
                                     }
 
                                     if (formaPagamentoSelect.value === "") {
-                                        e.preventDefault();
                                         alert('Por favor, selecione uma forma de pagamento.');
                                         return;
+                                    }
+
+                                    // Validação especial para pagamento em dinheiro
+                                    if (formaPagamentoSelect.value === 'Dinheiro') {
+                                        const total = parseFloat(document.getElementById('totalTotal').value);
+                                        const valorRecebido = parseFloat(valorRecebidoInput.value) || 0;
+
+                                        if (valorRecebido < total) {
+                                            alert('O valor recebido não pode ser menor que o total da compra.');
+                                            return;
+                                        }
                                     }
 
                                     // Remove inputs antigos
@@ -1012,13 +1148,15 @@ try {
                                         inputNome.value = item.nome;
                                         inputNome.classList.add('input-produto-dinamico');
                                         form.appendChild(inputNome);
+
                                         // Quantidade
                                         const inputQuantidade = document.createElement('input');
                                         inputQuantidade.type = 'hidden';
-                                        inputQuantidade.name = 'quantidade[]';
+                                        inputQuantidade.name = 'quantidades[]';
                                         inputQuantidade.value = item.quantidade;
                                         inputQuantidade.classList.add('input-produto-dinamico');
                                         form.appendChild(inputQuantidade);
+
                                         // Preço
                                         const inputPreco = document.createElement('input');
                                         inputPreco.type = 'hidden';
@@ -1026,6 +1164,7 @@ try {
                                         inputPreco.value = item.preco;
                                         inputPreco.classList.add('input-produto-dinamico');
                                         form.appendChild(inputPreco);
+
                                         // ID do Produto
                                         const inputIdProduto = document.createElement('input');
                                         inputIdProduto.type = 'hidden';
@@ -1033,56 +1172,100 @@ try {
                                         inputIdProduto.value = item.id;
                                         inputIdProduto.classList.add('input-produto-dinamico');
                                         form.appendChild(inputIdProduto);
-                                        // ID da Categoria (nome da categoria)
-                                        const inputIdCategoria = document.createElement('input');
-                                        inputIdCategoria.type = 'hidden';
-                                        inputIdCategoria.name = 'id_categoria[]';
-                                        inputIdCategoria.value = item.categoria;
-                                        inputIdCategoria.classList.add('input-produto-dinamico');
-                                        form.appendChild(inputIdCategoria);
+
+                                        // Categoria
+                                        const inputCategoria = document.createElement('input');
+                                        inputCategoria.type = 'hidden';
+                                        inputCategoria.name = 'categorias[]';
+                                        inputCategoria.value = item.categoria;
+                                        inputCategoria.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputCategoria);
+
+                                        // Dados fiscais
+                                        const inputNcm = document.createElement('input');
+                                        inputNcm.type = 'hidden';
+                                        inputNcm.name = 'ncms[]';
+                                        inputNcm.value = item.ncm;
+                                        inputNcm.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputNcm);
+
+                                        const inputCest = document.createElement('input');
+                                        inputCest.type = 'hidden';
+                                        inputCest.name = 'cests[]';
+                                        inputCest.value = item.cest;
+                                        inputCest.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputCest);
+
+                                        const inputCfop = document.createElement('input');
+                                        inputCfop.type = 'hidden';
+                                        inputCfop.name = 'cfops[]';
+                                        inputCfop.value = item.cfop;
+                                        inputCfop.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputCfop);
+
+                                        const inputOrigem = document.createElement('input');
+                                        inputOrigem.type = 'hidden';
+                                        inputOrigem.name = 'origens[]';
+                                        inputOrigem.value = item.origem;
+                                        inputOrigem.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputOrigem);
+
+                                        const inputTributacao = document.createElement('input');
+                                        inputTributacao.type = 'hidden';
+                                        inputTributacao.name = 'tributacoes[]';
+                                        inputTributacao.value = item.tributacao;
+                                        inputTributacao.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputTributacao);
+
+                                        const inputUnidade = document.createElement('input');
+                                        inputUnidade.type = 'hidden';
+                                        inputUnidade.name = 'unidades[]';
+                                        inputUnidade.value = item.unidade;
+                                        inputUnidade.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputUnidade);
+
+                                        const inputInformacoes = document.createElement('input');
+                                        inputInformacoes.type = 'hidden';
+                                        inputInformacoes.name = 'informacoes[]';
+                                        inputInformacoes.value = item.informacoes;
+                                        inputInformacoes.classList.add('input-produto-dinamico');
+                                        form.appendChild(inputInformacoes);
+
+                                        // === Monta JSON 'itens' para redundância segura com o backend ===
+                                        try {
+                                            const itensArr = [];
+                                            fixedItems.forEach((it) => {
+                                                itensArr.push({
+                                                    produto_id: parseInt(it.id, 10),
+                                                    qtd: Number(it.quantidade),
+                                                    vun: Number(it.preco)
+                                                });
+                                            });
+                                            let itensInput = document.getElementById('itensJson');
+                                            if (!itensInput) {
+                                                itensInput = document.createElement('input');
+                                                itensInput.type = 'hidden';
+                                                itensInput.name = 'itens';
+                                                itensInput.id   = 'itensJson';
+                                                form.appendChild(itensInput);
+                                            }
+                                            itensInput.value = JSON.stringify(itensArr);
+                                        } catch(e) {
+                                            console.warn('Falha ao montar JSON de itens:', e);
+                                        }
+
                                     });
-                                });
 
-                                // Exibe aviso se não houver caixa aberto
-                                document.addEventListener('DOMContentLoaded', function () {
-                                    const idCaixa = document.getElementById('id_caixa');
-                                    const aviso = document.getElementById('avisoSemCaixa');
-                                    if (!idCaixa || !idCaixa.value.trim()) {
-                                        form.style.display = 'none';
-                                        if (aviso) aviso.style.display = 'block';
-                                    }
-                                    updateFixedDisplay(); // Garante que o label está correto ao carregar
+                                    // Define a data atual no campo oculto
+                                    const now = new Date();
+                                    document.getElementById('data_registro').value = now.toISOString();
 
-                                    // Desabilita apenas o botão Adicionar Produto inicialmente
-                                    fixarBtn.disabled = true;
+                                    // Desabilita o botão para evitar múltiplos cliques
                                     finalizarVendaBtn.disabled = true;
-                                });
+                                    finalizarVendaBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processando...';
 
-                                document.addEventListener("DOMContentLoaded", function () {
-                                    const inputDataRegistro = document.getElementById("data_registro");
-
-                                    // Função para formatar data/hora local como "YYYY-MM-DD HH:mm:ss"
-                                    function formatarDataLocal(date) {
-                                        const pad = num => String(num).padStart(2, '0');
-                                        const ano = date.getFullYear();
-                                        const mes = pad(date.getMonth() + 1);
-                                        const dia = pad(date.getDate());
-                                        const horas = pad(date.getHours());
-                                        const minutos = pad(date.getMinutes());
-                                        const segundos = pad(date.getSeconds());
-                                        return `${ano}-${mes}-${dia} ${horas}:${minutos}:${segundos}`;
-                                    }
-
-                                    if (inputDataRegistro) {
-                                        // Define data atual assim que o DOM carregar
-                                        inputDataRegistro.value = formatarDataLocal(new Date());
-                                    }
-
-                                    if (form && inputDataRegistro) {
-                                        form.addEventListener('submit', function () {
-                                            inputDataRegistro.value = formatarDataLocal(new Date());
-                                        });
-                                    }
+                                    // Envia o formulário normalmente (sem AJAX)
+                                    form.submit();
                                 });
                             </script>
 

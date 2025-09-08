@@ -12,7 +12,8 @@ if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) // Verifica se o ID do usuário está na sessão
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
   header("Location: ./index.php?id=$idSelecionado");
   exit;
@@ -24,14 +25,15 @@ require '../assets/php/conexao.php';
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Funcionario"
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
+  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
   if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de Admins
+    // Buscar na tabela de contas_acesso
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
   } else {
-    // Buscar na tabela de Funcionários
+    // Buscar na tabela de funcionarios_acesso
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
   }
 
@@ -47,13 +49,15 @@ try {
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
+  // Para principal, verifica se é admin ou se pertence à mesma empresa
+  if ($_SESSION['tipo_empresa'] !== 'principal' && 
+      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
     echo "<script>
             alert('Acesso negado!');
             window.location.href = './index.php?id=$idSelecionado';
@@ -61,16 +65,21 @@ if (str_starts_with($idSelecionado, 'principal_')) {
     exit;
   }
   $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-  if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $idUnidade = str_replace('unidade_', '', $idSelecionado);
+  
+  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
+                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+  
+  if (!$acessoPermitido) {
     echo "<script>
             alert('Acesso negado!');
             window.location.href = './index.php?id=$idSelecionado';
         </script>";
     exit;
   }
-  $id = $idFilial;
+  $id = $idUnidade;
 } else {
   echo "<script>
         alert('Empresa não identificada!');
@@ -92,7 +101,8 @@ try {
     $iconeEmpresa = $empresa['imagem'];
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+  // Não mostra erro para o usuário para não quebrar a página
 }
 
 ?>
@@ -234,7 +244,7 @@ try {
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                   <div class="avatar avatar-online">
-                    <img src="../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
@@ -243,7 +253,7 @@ try {
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
@@ -310,7 +320,7 @@ try {
                   </div>
                   <div class="col-sm-5 text-center text-sm-left">
                     <div class="card-body pb-0 px-0 px-md-4">
-                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="140"
+                      <img src="../assets/img/illustrations/man-with-laptop-light.png" height="140"
                         alt="Painel Açaínhadinhos" data-app-dark-img="illustrations/man-with-laptop-dark.png"
                         data-app-light-img="illustrations/man-with-laptop-light.png" />
                     </div>

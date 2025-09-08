@@ -1,6 +1,7 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+
 session_start();
 
 // ✅ Recupera o identificador vindo da URL
@@ -8,96 +9,126 @@ $idSelecionado = $_GET['id'] ?? '';
 
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) ||
-    !isset($_SESSION['nivel'])
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id']) ||
+  !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
+  !isset($_SESSION['usuario_cpf']) // Verifica se o CPF está na sessão
 ) {
-    header("Location: ../index.php?id=$idSelecionado");
-    exit;
+  header("Location: ../index.php?id=$idSelecionado");
+  exit;
 }
 
+// ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-$usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel'];
-$cpfUsuario = '';
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+$usuario_cpf = $_SESSION['usuario_cpf']; // Recupera o CPF da sessão
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
-// ✅ Recuperar dados do usuário
 try {
-    if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    } else {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
-    }
+  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+  if ($tipoUsuarioSessao === 'Admin') {
+    // Buscar na tabela de contas_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  } else {
+    // Buscar na tabela de funcionarios_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+  }
 
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $tipoUsuario = ucfirst($usuario['nivel']);
-        if (isset($usuario['cpf'])) {
-            $cpfUsuario = $usuario['cpf'];
-        }
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+  exit;
 }
 
-// ✅ Função para buscar nome do funcionário por CPF
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  // Para principal, verifica se é admin ou se pertence à mesma empresa
+  if ($_SESSION['tipo_empresa'] !== 'principal' && 
+      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $idUnidade = str_replace('unidade_', '', $idSelecionado);
+  
+  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
+                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+  
+  if (!$acessoPermitido) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = $idUnidade;
+} else {
+  echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = '../index.php?id=$idSelecionado';
+    </script>";
+  exit;
+}
+
+// ✅ Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
+
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
+  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($empresa && !empty($empresa['imagem'])) {
+    $iconeEmpresa = $empresa['imagem'];
+  }
+} catch (PDOException $e) {
+  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+  // Não mostra erro para o usuário para não quebrar a página
+}
+
+// ✅ Função para buscar o nome do funcionário pelo CPF
 function obterNomeFuncionario($pdo, $cpf)
 {
-    try {
-        $stmt = $pdo->prepare("SELECT nome FROM funcionarios_acesso WHERE cpf = :cpf LIMIT 1");
-        $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
-        $stmt->execute();
-        $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $funcionario && !empty($funcionario['nome']) ? $funcionario['nome'] : 'Funcionário não identificado';
-    } catch (PDOException $e) {
-        return 'Erro ao buscar nome';
-    }
-}
-
-// ✅ Valida empresa
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>alert('Acesso negado!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>alert('Acesso negado!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>alert('Empresa não identificada!'); window.location.href = '../index.php?id=$idSelecionado';</script>";
-    exit;
-}
-
-// ✅ Favicon da empresa
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
-try {
-    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
-    $stmt->bindParam(':id', $idSelecionado, PDO::PARAM_STR);
+  try {
+    $stmt = $pdo->prepare("SELECT nome, cpf FROM funcionarios_acesso WHERE cpf = :cpf");
+    $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
     $stmt->execute();
-    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($empresa && !empty($empresa['imagem'])) {
-        $iconeEmpresa = $empresa['imagem'];
+    $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($funcionario && (!empty($funcionario['nome']) || !empty($funcionario['cpf']))) {
+      return $funcionario['nome'];
+    } else {
+      return 'Funcionário não identificado';
     }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone: " . addslashes($e->getMessage()) . "');</script>";
+  } catch (PDOException $e) {
+    return 'Erro ao buscar nome';
+  }
+}
+
+// ✅ Aplica a função se for funcionário
+if (!empty($usuario_cpf)) {
+  $nomeFuncionario = obterNomeFuncionario($pdo, $usuario_cpf);
 }
 
 // ✅ Processar filtros de data
@@ -129,8 +160,8 @@ try {
     $stmtVendas = $pdo->prepare("
         SELECT 
             COUNT(*) as quantidade_vendas,
-            SUM(total) as valor_total
-        FROM venda_rapida
+            SUM(valor_total) as valor_total
+        FROM vendas
         WHERE empresa_id = :empresa_id
         AND cpf_responsavel = :cpf_responsavel
         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
@@ -164,8 +195,8 @@ try {
         SELECT 
             forma_pagamento,
             COUNT(*) as quantidade,
-            SUM(total) as valor_total
-        FROM venda_rapida
+            SUM(valor_total) as valor_total
+        FROM vendas
         WHERE empresa_id = :empresa_id
         AND cpf_responsavel = :cpf_responsavel
         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
@@ -183,9 +214,9 @@ try {
         SELECT 
             DATE(data_venda) as data,
             COUNT(*) as quantidade,
-            SUM(total) as valor_total,
+            SUM(valor_total) as valor_total,
             DAYNAME(data_venda) as dia_semana
-        FROM venda_rapida
+        FROM vendas
         WHERE empresa_id = :empresa_id
         AND cpf_responsavel = :cpf_responsavel
         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
@@ -205,8 +236,8 @@ try {
             DAYNAME(data_venda) as dia_semana,
             forma_pagamento,
             COUNT(*) as quantidade,
-            SUM(total) as valor_total
-        FROM venda_rapida
+            SUM(valor_total) as valor_total
+        FROM vendas
         WHERE empresa_id = :empresa_id
         AND cpf_responsavel = :cpf_responsavel
         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final

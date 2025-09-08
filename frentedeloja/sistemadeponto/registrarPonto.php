@@ -1,55 +1,108 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+
 session_start();
 
-require '../../assets/php/conexao.php';
-
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
+// ✅ Verifica se a pessoa está logada
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id']) ||
-  !isset($_SESSION['nivel'])
+  !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
   header("Location: ../index.php?id=$idSelecionado");
   exit;
 }
 
-// Ícone da empresa
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
+
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
-  $stmt->execute([':id' => $idSelecionado]);
+  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+  if ($tipoUsuarioSessao === 'Admin') {
+    // Buscar na tabela de contas_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  } else {
+    // Buscar na tabela de funcionarios_acesso
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+  }
+
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+    exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+  exit;
+}
+
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+  // Para principal, verifica se é admin ou se pertence à mesma empresa
+  if ($_SESSION['tipo_empresa'] !== 'principal' && 
+      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+  $idUnidade = str_replace('unidade_', '', $idSelecionado);
+  
+  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
+                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+  
+  if (!$acessoPermitido) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = $idUnidade;
+} else {
+  echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = '../index.php?id=$idSelecionado';
+    </script>";
+  exit;
+}
+
+// ✅ Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../assets/img/favicon/favicon.ico'; // Ícone padrão
+
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado);
+  $stmt->execute();
   $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-  if (!empty($empresa['imagem'])) {
+
+  if ($empresa && !empty($empresa['imagem'])) {
     $iconeEmpresa = $empresa['imagem'];
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar ícone: " . addslashes($e->getMessage()) . "');</script>";
-}
-
-// Dados do usuário
-$usuario_id = $_SESSION['usuario_id'];
-$tipoSessao = $_SESSION['nivel'];
-$cpf = '';
-$nomeFuncionario = 'Desconhecido';
-
-try {
-  $sql = $tipoSessao === 'Admin'
-    ? "SELECT cpf FROM contas_acesso WHERE id = :id"
-    : "SELECT cpf FROM funcionarios_acesso WHERE id = :id";
-  $stmt = $pdo->prepare($sql);
-  $stmt->execute([':id' => $usuario_id]);
-  $u = $stmt->fetch(PDO::FETCH_ASSOC);
-  if ($u) {
-    $cpf = $u['cpf'];
-  }
-} catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar CPF: " . addslashes($e->getMessage()) . "');</script>";
-  exit;
+  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+  // Não mostra erro para o usuário para não quebrar a página
 }
 
 $dataAtual = date('Y-m-d');
@@ -68,6 +121,34 @@ $mapaDias = [
   'saturday' => 'sabado'
 ];
 $diaTraduzido = $mapaDias[$diaSemanaIng];
+
+// PRINCIPAL CORREÇÃO: Obter o CPF do funcionário da sessão ou de outro lugar
+// Você precisa definir $cpf antes de usá-lo na consulta
+// Exemplo 1: Se o CPF está na sessão:
+$cpf = $_SESSION['cpf'] ?? null;
+
+// Exemplo 2: Se você precisa buscar o CPF do usuário logado:
+if (!isset($cpf)) {
+  try {
+    if ($tipoUsuarioSessao === 'Admin') {
+      $stmt = $pdo->prepare("SELECT cpf FROM contas_acesso WHERE id = :id");
+    } else {
+      $stmt = $pdo->prepare("SELECT cpf FROM funcionarios_acesso WHERE id = :id");
+    }
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $cpf = $result['cpf'] ?? null;
+  } catch (PDOException $e) {
+    echo "<script>alert('Erro ao buscar CPF do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
+  }
+}
+
+if (empty($cpf)) {
+  echo "<script>alert('CPF do funcionário não encontrado.'); history.back();</script>";
+  exit;
+}
 
 // Busca o funcionário na tabela `funcionarios`
 $stmt = $pdo->prepare("SELECT * FROM funcionarios WHERE cpf = :cpf LIMIT 1");
@@ -131,16 +212,16 @@ if ($func) {
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&display=swap"
     rel="stylesheet" />
 
-  <link rel="stylesheet" href="../../../assets/vendor/fonts/boxicons.css" />
-  <link rel="stylesheet" href="../../../assets/vendor/css/core.css" class="template-customizer-core-css" />
-  <link rel="stylesheet" href="../../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
-  <link rel="stylesheet" href="../../../assets/css/demo.css" />
-  <link rel="stylesheet" href="../../../assets/css/button-responsive.css" />
-  <link rel="stylesheet" href="../../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-  <link rel="stylesheet" href="../../../assets/vendor/css/pages/page-auth.css" />
+  <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
+  <link rel="stylesheet" href="../../assets/css/demo.css" />
+  <link rel="stylesheet" href="../../assets/css/button-responsive.css" />
+  <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/pages/page-auth.css" />
 
-  <script src="../../../assets/vendor/js/helpers.js"></script>
-  <script src="../../../assets/js/config.js"></script>
+  <script src="../../assets/vendor/js/helpers.js"></script>
+  <script src="../../assets/js/config.js"></script>
 </head>
 
 <body>
@@ -432,12 +513,12 @@ if ($func) {
 
 
   <!-- Scripts -->
-  <script src="../../../assets/vendor/libs/jquery/jquery.js"></script>
-  <script src="../../../assets/vendor/libs/popper/popper.js"></script>
-  <script src="../../../assets/vendor/js/bootstrap.js"></script>
-  <script src="../../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-  <script src="../../../assets/vendor/js/menu.js"></script>
-  <script src="../../../assets/js/main.js"></script>
+  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="../../assets/vendor/libs/popper/popper.js"></script>
+  <script src="../../assets/vendor/js/bootstrap.js"></script>
+  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <script src="../../assets/vendor/js/menu.js"></script>
+  <script src="../../assets/js/main.js"></script>
 
 </body>
 

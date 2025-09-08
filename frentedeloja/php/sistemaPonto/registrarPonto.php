@@ -52,6 +52,13 @@ function proximoDia($diaAtual, $diasDepois = 1)
     return $dias[$novoIdx];
 }
 
+// Verifica se hoje é folga
+$hojeDiaSemana = nomeDiaSemana($data);
+if ($acao == 'entrada' && $hojeDiaSemana == $diaFolga) {
+    echo "<script>alert('Hoje é sua folga! Não é permitido registrar ponto.'); window.location.href='../../sistemadeponto/index.php?id=$empresa_id';</script>";
+    exit;
+}
+
 // Buscar registro de ponto do dia
 $sqlBusca = "SELECT * FROM pontos WHERE cpf = ? AND data = ? AND empresa_id = ?";
 $stmtBusca = $pdo->prepare($sqlBusca);
