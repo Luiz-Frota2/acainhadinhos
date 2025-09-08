@@ -329,6 +329,15 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
       filter: brightness(.95)
     }
 
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111;
+    }
+
+    .btn-secondary:hover {
+      filter: brightness(.97);
+    }
+
     @media (max-width:420px) {
       body {
         font-size: 12px
@@ -542,6 +551,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
 
   <!-- Barra fixa de ações -->
   <div class="actions" aria-label="Ações">
+    <button id="btn-back" class="btn btn-secondary" type="button">Voltar</button>
     <button id="btn-print" class="btn btn-primary" type="button">Imprimir</button>
     <button id="nfce-cancelar" class="btn btn-danger" type="button" title="Cancelar NFC-e (110111/110112)">Cancelar NFC-e</button>
   </div>
@@ -552,6 +562,9 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     (function() {
       var qrTxt = <?= json_encode($qrTxt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
       var el = document.getElementById('qrcode');
+
+      // id/empresa para o botão Voltar
+      var empresaId = <?= json_encode($empresaId, JSON_UNESCAPED_UNICODE) ?> || '';
 
       function size() {
         var w = Math.min(210, Math.max(140, el.clientWidth || 180));
@@ -594,6 +607,12 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
 
       document.getElementById('btn-print').addEventListener('click', function() {
         window.print();
+      });
+
+      // Botão VOLTAR -> ../frentedeloja/caixa/vendaRapida.php?id=<empresaId>
+      document.getElementById('btn-back').addEventListener('click', function() {
+        var url = '../frentedeloja/caixa/vendaRapida.php?id=' + encodeURIComponent(empresaId);
+        window.location.href = url;
       });
 
       function openCancelUiFallback() {
