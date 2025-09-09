@@ -4,62 +4,37 @@ error_reporting(E_ALL);
 
 session_start();
 
-include "../../assets/php/conexao.php";
-
-// Recupera o identificador vindo da URL
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
-$chaveCaixa = $_GET['chave'] ?? '';
 
+// ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id'])
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
     header("Location: ../index.php?id=$idSelecionado");
     exit;
 }
 
-// Validação do tipo de empresa
-if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../index.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
-    echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '../index.php?id=$idSelecionado';
-      </script>";
-    exit;
-}
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 
-// Obter informações do usuário
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel'];
-$cpfUsuario = '';
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
     if ($tipoUsuarioSessao === 'Admin') {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM contas_acesso WHERE id = :id");
+        // Buscar na tabela de contas_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     } else {
-        $stmt = $pdo->prepare("SELECT usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id");
+        // Buscar na tabela de funcionarios_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
     }
 
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
@@ -69,17 +44,53 @@ try {
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
         $tipoUsuario = ucfirst($usuario['nivel']);
-        $cpfUsuario = $usuario['cpf'];
     } else {
         echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . $e->getMessage() . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-// Buscar imagem da empresa para usar como favicon
+// ✅ Valida o tipo de empresa e o acesso permitido
+if (str_starts_with($idSelecionado, 'principal_')) {
+    // Para principal, verifica se é admin ou se pertence à mesma empresa
+    if (
+        $_SESSION['tipo_empresa'] !== 'principal' &&
+        !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+    ) {
+        echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+        exit;
+    }
+    $id = 1;
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $idUnidade = str_replace('unidade_', '', $idSelecionado);
+
+    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+    $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+        ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
+    if (!$acessoPermitido) {
+        echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+        exit;
+    }
+    $id = $idUnidade;
+} else {
+    echo "<script>
+        alert('Empresa não identificada!');
+        window.location.href = '../index.php?id=$idSelecionado';
+    </script>";
+    exit;
+}
+
+// ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
@@ -92,7 +103,8 @@ try {
         $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar ícone da empresa: " . addslashes($e->getMessage()) . "');</script>";
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    // Não mostra erro para o usuário para não quebrar a página
 }
 
 // Buscar dados das vendas
@@ -140,7 +152,6 @@ try {
     $stmtTotal->bindParam(':cpf_responsavel', $cpfUsuario);
     $stmtTotal->execute();
     $totalVendas = $stmtTotal->fetch(PDO::FETCH_ASSOC)['total_vendas'] ?? 0;
-
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar vendas: " . addslashes($e->getMessage()) . "');</script>";
 }
@@ -209,6 +220,7 @@ if (!empty($produtosVendas)) {
     $dataSuprimento = new DateTime($suprimentos[0]['data_registro']);
     $dataRelatorio = $dataSuprimento->format('Y-m-d');
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -524,7 +536,7 @@ if (!empty($produtosVendas)) {
                                             <?php else: ?>
                                                 <?php foreach ($produtosVendas as $produto):
                                                     $dataVenda = new DateTime($produto['data_venda']);
-                                                    ?>
+                                                ?>
                                                     <tr>
                                                         <td>#<?= isset($produto['venda_id']) ? htmlspecialchars($produto['venda_id']) : 'N/A' ?>
                                                         </td>
@@ -575,7 +587,7 @@ if (!empty($produtosVendas)) {
                                             <?php else: ?>
                                                 <?php foreach ($sangrias as $sangria):
                                                     $dataSangria = new DateTime($sangria['data_registro']);
-                                                    ?>
+                                                ?>
                                                     <tr>
                                                         <td><?= $dataSangria->format('d-m-Y') ?></td>
                                                         <td><?= $dataSangria->format('H:i') ?></td>
@@ -619,7 +631,7 @@ if (!empty($produtosVendas)) {
                                             <?php else: ?>
                                                 <?php foreach ($suprimentos as $suprimento):
                                                     $dataSuprimento = new DateTime($suprimento['data_registro']);
-                                                    ?>
+                                                ?>
                                                     <tr>
                                                         <td><?= $dataSuprimento->format('d-m-Y') ?></td>
                                                         <td><?= $dataSuprimento->format('H:i') ?></td>
