@@ -41,7 +41,7 @@ if ($arqReq) {
 
 // Diretórios candidatos (PRIORIDADE: ../../nfce/)
 $candidateDirs = [
-    __DIR__ . '/../../nfce/', // <== o que você informou
+    __DIR__ . '/../../nfce/', // <== primeiro
     __DIR__ . '/../nfce/',
     __DIR__ . '/nfce/',
     __DIR__ . '/',            // fallback no mesmo diretório
@@ -225,7 +225,6 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
             --pad: 12px;
             --qr: 210px;
             --accent: #1a73e8;
-            --danger: #e11d48;
             --ink: #111;
             --paper: #fff;
             --bg: #f5f7fb
@@ -442,7 +441,6 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
 </head>
 
 <body>
-
     <div class="wrapper" role="document" aria-label="DANFE NFC-e">
         <header class="center">
             <?php if (is_file(__DIR__ . '/logo.png')): ?>
