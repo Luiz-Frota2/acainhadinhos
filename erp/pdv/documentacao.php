@@ -615,16 +615,16 @@ if ($pfxPath) {
                                 <div class="card-body">
                                     <p>Exemplos de botões:</p>
                                     <pre class="code"><code>
-                                        &lt;a class="btn btn-outline-primary btn-sm"
+                                    &lt;a class="btn btn-outline-primary btn-sm"
                                         href="visualizarNFCe.php?id=&lt;?= urlencode($idSelecionado) ?&gt;" target="_blank"&gt;
                                         Visualizar NFC-e (Modelo)
-                                        &lt;/a&gt;
+                                    &lt;/a&gt;
 
-                                        &lt;a class="btn btn-primary btn-sm"
+                                    &lt;a class="btn btn-primary btn-sm"
                                         href="danfe_nfce.php?id=&lt;?= urlencode($idSelecionado) ?&gt;&amp;venda_id=&lt;?= 123 ?&gt;&amp;chave=&lt;?= urlencode('44...') ?&gt;"
                                         target="_blank"&gt;
                                         Ver DANFE (XML)
-                                        &lt;/a&gt;</code>
+                                    &lt;/a&gt;</code>
                                     </pre>
                                     <p>Nos relatórios/listagens, monte a URL conforme a venda e a chave da NFC-e.</p>
                                 </div>
