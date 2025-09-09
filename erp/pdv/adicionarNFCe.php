@@ -118,6 +118,7 @@ $defaults = [
     'bairro' => '',
     'cidade' => '',
     'uf' => '',
+    'codigo_uf' => '',
     'codigo_municipio' => '',
     'telefone' => '',
     'certificado_digital' => '',
@@ -125,6 +126,7 @@ $defaults = [
     'ambiente' => '',
     'regime_tributario' => '',
     'serie_nfce' => 1,
+    'ultimo_numero_nfce' => 1,
     'csc' => '',
     'csc_id' => '',
     'tipo_emissao' => 1,
@@ -542,7 +544,7 @@ function h($s)
                                             maxlength="100" value="<?= h($dados['cidade']) ?>">
                                     </div>
 
-                                    <div class="mb-3 col-md-6">
+                                    <div class="mb-3 col-md-3">
                                         <label for="uf">UF</label>
                                         <select name="uf" id="uf" class="form-select" required>
                                             <option value="">Selecione</option>
@@ -553,6 +555,13 @@ function h($s)
                                             }
                                             ?>
                                         </select>
+                                    </div>
+
+                                    <div class="mb-3 col-md-3">
+                                        <label for="codigo_uf">Código UF (IBGE)</label>
+                                        <input type="number" class="form-control" name="codigo_uf" id="codigo_uf"
+                                            readonly value="<?= h($dados['codigo_uf']) ?>" placeholder="Ex.: 35 p/ SP">
+                                        <small class="text-muted">Preenchido automaticamente pela UF.</small>
                                     </div>
 
                                     <div class="mb-3 col-md-6">
@@ -645,11 +654,18 @@ function h($s)
                                         </select>
                                     </div>
 
-                                    <div class="mb-3 col-md-6">
+                                    <div class="mb-3 col-md-3">
                                         <label for="serie_nfce">Série da NFC-e</label>
-                                        <input type="text" class="form-control" name="serie_nfce" id="serie_nfce"
-                                            value="<?= h($dados['serie_nfce']) ?>" required maxlength="3">
+                                        <input type="number" class="form-control" name="serie_nfce" id="serie_nfce"
+                                            value="<?= h($dados['serie_nfce']) ?>" required min="1" max="999">
                                         <small class="text-muted">Normalmente começa com 1.</small>
+                                    </div>
+
+                                    <div class="mb-3 col-md-3">
+                                        <label for="ultimo_numero_nfce">Último número da NFC-e</label>
+                                        <input type="number" class="form-control" name="ultimo_numero_nfce" id="ultimo_numero_nfce"
+                                            value="<?= h($dados['ultimo_numero_nfce']) ?>" min="0">
+                                        <small class="text-muted">Informe o último número emitido (o próximo será este + 1).</small>
                                     </div>
 
                                     <div class="mb-3 col-md-6">
@@ -692,8 +708,38 @@ function h($s)
     <script src="../../assets/js/main.js"></script>
     <script src="../../assets/js/dashboards-analytics.js"></script>
 
-    <!-- Mascaras simples -->
+    <!-- Mascaras simples + Código UF automático -->
     <script>
+        const MAP_UF_IBGE = {
+            "RO": 11,
+            "AC": 12,
+            "AM": 13,
+            "RR": 14,
+            "PA": 15,
+            "AP": 16,
+            "TO": 17,
+            "MA": 21,
+            "PI": 22,
+            "CE": 23,
+            "RN": 24,
+            "PB": 25,
+            "PE": 26,
+            "AL": 27,
+            "SE": 28,
+            "BA": 29,
+            "MG": 31,
+            "ES": 32,
+            "RJ": 33,
+            "SP": 35,
+            "PR": 41,
+            "SC": 42,
+            "RS": 43,
+            "MS": 50,
+            "MT": 51,
+            "GO": 52,
+            "DF": 53
+        };
+
         function somenteNumeros(s) {
             return (s || '').replace(/\D+/g, '');
         }
@@ -724,6 +770,16 @@ function h($s)
             }
             inp.value = v;
         }
+
+        function atualizarCodigoUF() {
+            const uf = (document.getElementById('uf').value || '').toUpperCase();
+            const codigo = MAP_UF_IBGE[uf] || '';
+            document.getElementById('codigo_uf').value = codigo;
+        }
+        document.getElementById('uf').addEventListener('change', atualizarCodigoUF);
+        // Ajusta no load
+        atualizarCodigoUF();
+
         // Evita erro se alguém chamar buscarDadosCNPJ
         function buscarDadosCNPJ() {
             /* noop */ }
