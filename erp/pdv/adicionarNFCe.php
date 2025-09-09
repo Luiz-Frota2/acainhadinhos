@@ -782,7 +782,8 @@ function h($s)
 
         // Evita erro se alguém chamar buscarDadosCNPJ
         function buscarDadosCNPJ() {
-            /* noop */ }
+            /* noop */
+        }
     </script>
 </body>
 
