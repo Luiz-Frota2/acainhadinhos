@@ -211,11 +211,10 @@ if (!empty($produtosVendas)) {
 $dtTitulo = $dataRelatorio ? date('d/m/Y', strtotime($dataRelatorio)) : '—';
 
 // ======================== URL DANFE (iframe) ======================
-// Ajuste o caminho se seu danfe_nfce.php estiver em outra pasta.
 $DANFE_BASE = './danfe_nfce.php';
+$DANFE_BASE_ABS = (string)(new \SplFileInfo(__DIR__ . '/danfe_nfce.php'))->getBasename(); // apenas nome
 
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/" data-template="vertical-menu-template-free">
@@ -504,7 +503,7 @@ $DANFE_BASE = './danfe_nfce.php';
                         Empresa: <span class="text-primary"><?= htmlspecialchars($idSelecionado) ?></span> • Caixa: <span class="text-primary">#<?= (int)$idCaixa ?></span>
                     </h5>
 
-                    <!-- Cards de resumo deste caixa -->
+                    <!-- Cards -->
                     <div class="row mb-4">
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
@@ -574,6 +573,9 @@ $DANFE_BASE = './danfe_nfce.php';
                                                     $status = $it['status_nfce'] ?: '—';
                                                     $chave  = $it['chave_nfce'] ?: '';
                                                     $temDanfe = !empty($chave) && in_array(strtolower($status), ['autorizada', '100', 'autorizado', 'aprovada'], true);
+
+                                                    // URL do DANFE pronta para prefetch/uso
+                                                    $urlDanfe = $DANFE_BASE . '?id=' . urlencode($idSelecionado) . '&venda_id=' . (int)$it['venda_id'] . '&chave=' . urlencode($chave);
                                                 ?>
                                                     <tr>
                                                         <td>#<?= (int)$it['venda_id'] ?></td>
@@ -597,11 +599,14 @@ $DANFE_BASE = './danfe_nfce.php';
                                                                     class="btn btn-outline-primary btn-sm ver-danfe"
                                                                     data-bs-toggle="modal"
                                                                     data-bs-target="#modalDanfe"
+                                                                    data-url="<?= htmlspecialchars($urlDanfe) ?>"
                                                                     data-chave="<?= htmlspecialchars($chave) ?>"
                                                                     data-venda="<?= (int)$it['venda_id'] ?>"
                                                                     data-empresa="<?= htmlspecialchars($idSelecionado) ?>">
                                                                     Ver DANFE
                                                                 </button>
+                                                                <!-- Prefetch hint -->
+                                                                <link rel="prefetch" href="<?= htmlspecialchars($urlDanfe) ?>" as="document">
                                                             <?php else: ?>
                                                                 <button type="button" class="btn btn-outline-secondary btn-sm" disabled>Sem DANFE</button>
                                                             <?php endif; ?>
@@ -726,7 +731,7 @@ $DANFE_BASE = './danfe_nfce.php';
                                         <div class="mt-2">Carregando DANFE…</div>
                                     </div>
                                 </div>
-                                <iframe id="danfeFrame" src="about:blank" title="DANFE NFC-e" style="border:0; width:100%; height:70vh" loading="lazy"></iframe>
+                                <iframe id="danfeFrame" src="about:blank" title="DANFE NFC-e" style="border:0; width:100%; height:70vh" loading="lazy" referrerpolicy="no-referrer"></iframe>
                             </div>
                             <div class="modal-footer">
                                 <small class="text-muted me-auto" id="danfeInfo"></small>
@@ -736,61 +741,144 @@ $DANFE_BASE = './danfe_nfce.php';
                     </div>
                 </div>
 
+                <!-- Boost de performance do DANFE -->
                 <script>
+                    // Pré-carrega e cacheia HTML do DANFE e injeta via srcdoc (instantâneo)
                     (function() {
                         const danfeModal = document.getElementById('modalDanfe');
                         const danfeFrame = document.getElementById('danfeFrame');
                         const danfeLoader = document.getElementById('danfeLoader');
                         const danfeInfo = document.getElementById('danfeInfo');
                         const btnNovaGuia = document.getElementById('btnAbrirNovaGuia');
-                        const DANFE_BASE = <?= json_encode($DANFE_BASE) ?>; // ./danfe_nfce.php
 
-                        // Ao abrir a modal (Bootstrap 5)
+                        const danfeCache = new Map(); // url -> html
+                        const queue = []; // URLs para prefetch
+                        const MAX_PREFETCH = 4; // quantos prefetch por página
+
+                        // Constrói <base> para corrigir URLs relativas quando usar srcdoc
+                        function wrapWithBase(html, baseHref) {
+                            const hasHead = /<head[^>]*>/i.test(html);
+                            const baseTag = `<base href="${baseHref}">`;
+                            if (hasHead) return html.replace(/<head[^>]*>/i, m => m + baseTag);
+                            return `<!doctype html><html><head>${baseTag}</head><body>${html}</body></html>`;
+                        }
+
+                        function absoluteBaseFor(url) {
+                            try {
+                                const u = new URL(url, window.location.href);
+                                // base = diretório do recurso
+                                u.pathname = u.pathname.split('/').slice(0, -1).join('/') + '/';
+                                u.search = '';
+                                u.hash = '';
+                                return u.toString();
+                            } catch {
+                                return window.location.origin + '/';
+                            }
+                        }
+
+                        async function prefetch(url) {
+                            if (danfeCache.has(url)) return;
+                            try {
+                                const res = await fetch(url, {
+                                    credentials: 'same-origin',
+                                    cache: 'reload'
+                                });
+                                if (!res.ok) return;
+                                const txt = await res.text();
+                                danfeCache.set(url, txt);
+                            } catch (_) {
+                                /* ignora erros de prefetch */
+                            }
+                        }
+
+                        function schedulePrefetch(urls) {
+                            let count = 0;
+                            urls.slice(0, MAX_PREFETCH).forEach(u => {
+                                if (!u) return;
+                                if (queue.includes(u)) return;
+                                queue.push(u);
+                                const run = () => prefetch(u);
+                                if ('requestIdleCallback' in window) {
+                                    requestIdleCallback(run, {
+                                        timeout: 1500
+                                    });
+                                } else {
+                                    setTimeout(run, 300);
+                                }
+                            });
+                        }
+
+                        // Coleta URLs dos botões e programa prefetch quando entram no viewport
+                        function collectUrlsAndObserve() {
+                            const btns = Array.from(document.querySelectorAll('.ver-danfe[data-url]'));
+                            const urls = btns.map(b => b.getAttribute('data-url')).filter(Boolean);
+                            if ('IntersectionObserver' in window) {
+                                const io = new IntersectionObserver((entries) => {
+                                    entries.forEach(entry => {
+                                        if (entry.isIntersecting) {
+                                            const u = entry.target.getAttribute('data-url');
+                                            if (u) schedulePrefetch([u]);
+                                            io.unobserve(entry.target);
+                                        }
+                                    });
+                                }, {
+                                    rootMargin: '200px'
+                                });
+                                btns.forEach(b => io.observe(b));
+                            } else {
+                                schedulePrefetch(urls);
+                            }
+                        }
+
+                        collectUrlsAndObserve();
+
+                        // Abre modal (Bootstrap 5)
                         danfeModal.addEventListener('show.bs.modal', function(ev) {
                             const btn = ev.relatedTarget;
                             if (!btn) return;
 
+                            const url = btn.getAttribute('data-url') || '';
                             const chave = btn.getAttribute('data-chave') || '';
                             const venda = btn.getAttribute('data-venda') || '';
-                            const empresa = btn.getAttribute('data-empresa') || '';
-
-                            // Monta URL do DANFE (altere se seu danfe_nfce.php precisar de outro caminho)
-                            const url = `${DANFE_BASE}?id=${encodeURIComponent(empresa)}&venda_id=${encodeURIComponent(venda)}&chave=${encodeURIComponent(chave)}`;
+                            const base = absoluteBaseFor(url);
 
                             danfeLoader.style.display = 'flex';
                             danfeInfo.textContent = `Chave: ${chave ? chave.replace(/(\d{4})/g,'$1 ').trim() : '—'} • Venda #${venda}`;
                             btnNovaGuia.style.display = 'inline-block';
                             btnNovaGuia.onclick = () => window.open(url, '_blank');
 
-                            // Carrega no iframe
-                            danfeFrame.src = 'about:blank';
-                            setTimeout(() => {
-                                danfeFrame.src = url;
-                            }, 50); // pequena pausa para forçar reload
+                            // Se já temos cache do HTML, injeta via srcdoc (instantâneo)
+                            if (danfeCache.has(url)) {
+                                const html = danfeCache.get(url);
+                                try {
+                                    danfeFrame.removeAttribute('src');
+                                    danfeFrame.srcdoc = wrapWithBase(html, base);
+                                    // sumir o loader logo (com pequeno atraso p/ UX)
+                                    setTimeout(() => (danfeLoader.style.display = 'none'), 80);
+                                    return;
+                                } catch (_) {
+                                    // fallback abaixo
+                                }
+                            }
+
+                            // Fallback: carregar via src tradicional (será rápido se navegador cacheou)
+                            danfeFrame.removeAttribute('srcdoc');
+                            danfeFrame.src = url;
                         });
 
-                        // Quando o iframe terminar de carregar
                         danfeFrame.addEventListener('load', function() {
-                            // Remover loader após breve atraso (evita piscar)
                             setTimeout(() => {
                                 danfeLoader.style.display = 'none';
-                            }, 150);
+                            }, 120);
                         });
 
-                        // Ao fechar, limpar iframe para liberar memória
                         danfeModal.addEventListener('hidden.bs.modal', function() {
                             danfeFrame.src = 'about:blank';
+                            danfeFrame.removeAttribute('srcdoc');
                             danfeLoader.style.display = 'flex';
                             danfeInfo.textContent = '';
                             btnNovaGuia.style.display = 'none';
                             btnNovaGuia.onclick = null;
-                        });
-
-                        // Delegação de evento para botões "Ver DANFE" (se quiser reforçar)
-                        document.addEventListener('click', function(e) {
-                            const t = e.target.closest('.ver-danfe');
-                            if (!t) return;
-                            // nada aqui; o próprio data-bs-toggle abre a modal
                         });
                     })();
                 </script>
