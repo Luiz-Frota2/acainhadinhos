@@ -1,36 +1,32 @@
 <?php
 // danfe_nfce.php — visualização/print do DANFE NFC-e (80mm)
-// Uso: danfe_nfce.php?id=<empresa_id>&venda_id=123&chave=NNNN... (44)  OU  danfe_nfce.php?arq=procNFCe_....xml
+// Uso: danfe_nfce.php?id=<empresa_id>&venda_id=123&chave=NNNN...(44)  OU  danfe_nfce.php?arq=procNFCe_....xml
 
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 session_start();
 
 header('Content-Type: text/html; charset=utf-8');
-// ajuda no carregamento em revisitas durante a sessão
 header('Cache-Control: private, max-age=60');
 
-// Conexão (ajuste o caminho se necessário)
+// Conexão
 require_once __DIR__ . '/../../assets/php/conexao.php';
 
-// -------------------- Parâmetros --------------------
+/* ====================== Parâmetros ====================== */
 $empresaId = isset($_GET['id']) ? trim((string)$_GET['id']) : (string)($_SESSION['empresa_id'] ?? '');
 $vendaId   = isset($_GET['venda_id']) ? (int)$_GET['venda_id'] : (int)($_SESSION['venda_id'] ?? 0);
 
-// Descobre a chave solicitada
 $chaveReq = null;
 if (!empty($_GET['chave'])) {
     $chaveReq = preg_replace('/\D+/', '', (string)$_GET['chave']);
 }
 
-// Se veio "arq", usamos somente o basename para evitar traversal
 $arqReq = null;
 if (!empty($_GET['arq'])) {
     $arqReq = basename((string)$_GET['arq']); // segurança
 }
 
-// -------------------- Localização do XML --------------------
-// Monta nome-alvo
+/* ====================== Localização do XML ====================== */
 $xmlFileName = null;
 if ($arqReq) {
     $xmlFileName = $arqReq;
@@ -38,15 +34,13 @@ if ($arqReq) {
     $xmlFileName = 'procNFCe_' . $chaveReq . '.xml';
 }
 
-// Diretórios candidatos (PRIORIDADE: ../../nfce/)
 $candidateDirs = [
-    __DIR__ . '/../../nfce/', // principal
+    __DIR__ . '/../../nfce/', // prioridade
     __DIR__ . '/../nfce/',
     __DIR__ . '/nfce/',
-    __DIR__ . '/',            // fallback no mesmo diretório
+    __DIR__ . '/',            // fallback
 ];
 
-// Tenta achar arquivo físico
 $file = null;
 if ($xmlFileName) {
     foreach ($candidateDirs as $dir) {
@@ -58,7 +52,7 @@ if ($xmlFileName) {
     }
 }
 
-// Fallback: tenta obter XML do banco (nfce_emitidas.xml_nfeproc)
+// Fallback: banco nfce_emitidas.xml_nfeproc
 $xmlRaw = null;
 if (!$file) {
     try {
@@ -84,33 +78,35 @@ if (!$file) {
     }
 }
 
-// Se até aqui não temos arquivo nem XML bruto, aborta com mensagem clara
 if (!$file && !$xmlRaw) {
     $hint = $xmlFileName ? " (procurado como {$xmlFileName})" : "";
     echo '<!doctype html><meta charset="utf-8"><title>NFC-e não encontrada</title>';
     echo '<style>body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;padding:24px;}</style>';
     echo '<h2>Arquivo da NFC-e não encontrado</h2>';
-    echo '<p>Não foi possível localizar o XML em <code>../../nfce/</code> nem carregar do banco.' . htmlspecialchars($hint) . '</p>';
+    echo '<p>Não foi possível localizar o XML em <code>../../nfce/</code> nem carregar do banco' . htmlspecialchars($hint) . '.</p>';
     if ($empresaId) {
         echo '<p><a href="./sefazConsulta.php?id=' . htmlspecialchars(urlencode($empresaId)) . '">← Voltar para Consulta</a></p>';
     }
     exit;
 }
 
-// -------------------- Atualiza venda (opcional) --------------------
-try {
-    if ($vendaId > 0 && $empresaId !== '' && $chaveReq && strlen($chaveReq) === 44) {
-        $sql = "UPDATE vendas
-                   SET chave_nfce = :ch, status_nfce = COALESCE(status_nfce,'autorizada')
-                 WHERE id = :id AND empresa_id = :emp";
-        $st = $pdo->prepare($sql);
-        $st->execute([':ch' => $chaveReq, ':id' => $vendaId, ':emp' => $empresaId]);
-    }
-} catch (Throwable $e) {
-    // silencioso
+/* ====================== Helpers DOM seguros ====================== */
+function txt($parent, string $tag): string
+{
+    if (!$parent) return '';
+    $nl = $parent->getElementsByTagName($tag);
+    if (!$nl || $nl->length === 0) return '';
+    $n = $nl->item(0);
+    return isset($n->nodeValue) ? trim((string)$n->nodeValue) : '';
 }
-
-// -------------------- Utilitários --------------------
+function txtAny($parent, array $tags): string
+{
+    foreach ($tags as $t) {
+        $v = txt($parent, $t);
+        if ($v !== '') return $v;
+    }
+    return '';
+}
 function br($v)
 {
     return number_format((float)$v, 2, ',', '.');
@@ -119,14 +115,18 @@ function limpar($s)
 {
     return trim((string)$s);
 }
+function onlyDigits(string $s): string
+{
+    return preg_replace('/\D+/', '', $s);
+}
 function fmtChave($ch)
 {
-    $ch = preg_replace('/\D+/', '', $ch);
+    $ch = onlyDigits((string)$ch);
     return trim(implode(' ', str_split($ch, 4)));
 }
 function mapTPag($t)
 {
-    $k = str_pad(preg_replace('/\D+/', '', (string)$t), 2, '0', STR_PAD_LEFT);
+    $k = str_pad(onlyDigits((string)$t), 2, '0', STR_PAD_LEFT);
     $m = [
         '01' => 'Dinheiro',
         '02' => 'Cheque',
@@ -148,7 +148,7 @@ function mapTPag($t)
     return $m[$k] ?? 'Outros';
 }
 
-// -------------------- Carrega XML --------------------
+/* ====================== Carrega e parseia o XML ====================== */
 $xml = $xmlRaw ?: file_get_contents($file);
 
 $dom = new DOMDocument();
@@ -165,59 +165,61 @@ $prot   = $dom->getElementsByTagNameNS($nfeNS, 'protNFe')->item(0);
 /* Emitente */
 $emit = $dom->getElementsByTagNameNS($nfeNS, 'emit')->item(0);
 $enderEmit = $emit ? $emit->getElementsByTagNameNS($nfeNS, 'enderEmit')->item(0) : null;
-$emit_xNome = $emit ? limpar($emit->getElementsByTagName('xNome')->item(0)->nodeValue) : '';
-$emit_xFant = ($emit && $emit->getElementsByTagName('xFant')->item(0)) ? limpar($emit->getElementsByTagName('xFant')->item(0)->nodeValue) : '';
-$emit_CNPJ  = $emit ? limpar($emit->getElementsByTagName('CNPJ')->item(0)->nodeValue) : '';
-$emit_IE    = ($emit && $emit->getElementsByTagName('IE')->item(0)) ? limpar($emit->getElementsByTagName('IE')->item(0)->nodeValue) : '';
+$emit_xNome = $emit ? txt($emit, 'xNome') : '';
+$emit_xFant = $emit ? txt($emit, 'xFant') : '';
+$emit_CNPJ  = $emit ? txt($emit, 'CNPJ') : '';
+$emit_IE    = $emit ? txt($emit, 'IE') : '';
+
 $end_txt = '';
 if ($enderEmit) {
-    $get = fn($t) => ($x = $enderEmit->getElementsByTagName($t)->item(0)) ? limpar($x->nodeValue) : '';
-    $end_txt = $get('xLgr') . ' ' . $get('nro') . ', ' . $get('xBairro') . ', ' . $get('xMun') . ' - ' . $get('UF');
+    $end_txt = trim(
+        txt($enderEmit, 'xLgr') . ' ' . txt($enderEmit, 'nro') . ', ' .
+            txt($enderEmit, 'xBairro') . ', ' . txt($enderEmit, 'xMun') . ' - ' . txt($enderEmit, 'UF')
+    );
 }
 
 /* IDE */
 $ide    = $dom->getElementsByTagNameNS($nfeNS, 'ide')->item(0);
-$serie  = $ide ? limpar($ide->getElementsByTagName('serie')->item(0)->nodeValue) : '';
-$nNF    = $ide ? limpar($ide->getElementsByTagName('nNF')->item(0)->nodeValue) : '';
-$dhEmi  = $ide ? limpar($ide->getElementsByTagName('dhEmis')->item(0)->nodeValue) : '';
+$serie  = $ide ? txt($ide, 'serie') : '';
+$nNF    = $ide ? txt($ide, 'nNF')   : '';
+// alguns XMLs usam dhEmi, outros dhEmis (erro comum de emissor); tentamos ambos:
+$dhEmi  = $ide ? txtAny($ide, ['dhEmi', 'dhEmis']) : '';
 $idAttr = $infNFe ? $infNFe->getAttribute('Id') : '';
-$chave  = preg_replace('/^NFe/', '', $idAttr);
+$chave  = preg_replace('/^NFe/', '', (string)$idAttr);
 
 /* Totais */
 $tot    = $dom->getElementsByTagNameNS($nfeNS, 'ICMSTot')->item(0);
-$vProd  = $tot ? br($tot->getElementsByTagName('vProd')->item(0)->nodeValue) : '0,00';
-$vDesc  = ($tot && $tot->getElementsByTagName('vDesc')->item(0)) ? br($tot->getElementsByTagName('vDesc')->item(0)->nodeValue) : '0,00';
-$vNF    = $tot ? br($tot->getElementsByTagName('vNF')->item(0)->nodeValue) : '0,00';
-$vTrib  = ($tot && $tot->getElementsByTagName('vTotTrib')->item(0)) ? br($tot->getElementsByTagName('vTotTrib')->item(0)->nodeValue) : '0,00';
+$vProd  = $tot ? br(txt($tot, 'vProd')) : '0,00';
+$vDesc  = $tot ? br(txt($tot, 'vDesc')) : '0,00';
+$vNF    = $tot ? br(txt($tot, 'vNF'))   : '0,00';
+$vTrib  = $tot ? br(txt($tot, 'vTotTrib')) : '0,00';
 
 /* Pagamento (pega 1º detPag) */
 $detPag = $dom->getElementsByTagNameNS($nfeNS, 'detPag')->item(0);
-$tPag   = $detPag ? limpar($detPag->getElementsByTagName('tPag')->item(0)->nodeValue) : '';
-$vPag   = $detPag ? br($detPag->getElementsByTagName('vPag')->item(0)->nodeValue) : '0,00';
-$vTroco = $dom->getElementsByTagNameNS($nfeNS, 'vTroco')->item(0);
-$vTroco = $vTroco ? br($vTroco->nodeValue) : '0,00';
+$tPag   = $detPag ? txt($detPag, 'tPag') : '';
+$vPag   = $detPag ? br(txt($detPag, 'vPag')) : '0,00';
+$vTrocoNode = $dom->getElementsByTagNameNS($nfeNS, 'vTroco')->item(0);
+$vTroco = $vTrocoNode ? br($vTrocoNode->nodeValue) : '0,00';
 
 /* Destinatário */
 $dest     = $dom->getElementsByTagNameNS($nfeNS, 'dest')->item(0);
 $dest_doc = '';
 if ($dest) {
-    $dCNPJ = $dest->getElementsByTagName('CNPJ')->item(0);
-    $dCPF  = $dest->getElementsByTagName('CPF')->item(0);
-    $dest_doc = $dCNPJ ? 'CNPJ: ' . limpar($dCNPJ->nodeValue) : ($dCPF ? 'CPF: ' . limpar($dCPF->nodeValue) : '');
+    $dCNPJ = txt($dest, 'CNPJ');
+    $dCPF  = txt($dest, 'CPF');
+    $dest_doc = $dCNPJ ? ('CNPJ: ' . $dCNPJ) : ($dCPF ? ('CPF: ' . $dCPF) : '');
 }
 
 /* Protocolo */
 $protInfo = '';
+$xMotivo = '';
 if ($prot) {
     $infProt = $prot->getElementsByTagName('infProt')->item(0);
-    $cStat   = $infProt ? limpar($infProt->getElementsByTagName('cStat')->item(0)->nodeValue) : '';
-    $xMotivo = $infProt ? limpar($infProt->getElementsByTagName('xMotivo')->item(0)->nodeValue) : '';
-    $nProt   = ($infProt && $infProt->getElementsByTagName('nProt')->item(0)) ? limpar($infProt->getElementsByTagName('nProt')->item(0)->nodeValue) : '';
-    $dhRec   = ($infProt && $infProt->getElementsByTagName('dhRecbto')->item(0)) ? limpar($infProt->getElementsByTagName('dhRecbto')->item(0)->nodeValue) : '';
-    $protInfo = $nProt ? "Protocolo de Autorização: $nProt — $dhRec" : "Status: $cStat — $xMotivo";
-} else {
-    $cStat = '';
-    $xMotivo = '';
+    $cStat   = $infProt ? txt($infProt, 'cStat')   : '';
+    $xMotivo = $infProt ? txt($infProt, 'xMotivo') : '';
+    $nProt   = $infProt ? txt($infProt, 'nProt')   : '';
+    $dhRec   = $infProt ? txt($infProt, 'dhRecbto') : '';
+    $protInfo = $nProt ? ("Protocolo de Autorização: $nProt — $dhRec") : ($cStat || $xMotivo ? "Status: $cStat — $xMotivo" : '');
 }
 
 /* QR Code */
@@ -229,12 +231,17 @@ $itens = [];
 foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     $prod = $det->getElementsByTagNameNS($nfeNS, 'prod')->item(0);
     if (!$prod) continue;
-    $get = fn($t) => limpar($prod->getElementsByTagName($t)->item(0)->nodeValue);
-    $q   = number_format((float)$prod->getElementsByTagName('qCom')->item(0)->nodeValue, 3, ',', '.');
-    $u   = $get('uCom');
-    $vUn = br($prod->getElementsByTagName('vUnCom')->item(0)->nodeValue);
-    $vTo = br($prod->getElementsByTagName('vProd')->item(0)->nodeValue);
-    $itens[] = ['cProd' => $get('cProd'), 'xProd' => $get('xProd'), 'qCom' => $q, 'uCom' => $u, 'vUn' => $vUn, 'vTot' => $vTo];
+    $qCom = txt($prod, 'qCom');
+    $vUnCom = txt($prod, 'vUnCom');
+    $vProdX = txt($prod, 'vProd');
+    $itens[] = [
+        'cProd' => txt($prod, 'cProd'),
+        'xProd' => txt($prod, 'xProd'),
+        'qCom'  => $qCom !== '' ? number_format((float)$qCom, 3, ',', '.') : '0,000',
+        'uCom'  => txt($prod, 'uCom'),
+        'vUn'   => $vUnCom !== '' ? br($vUnCom) : '0,00',
+        'vTot'  => $vProdX !== '' ? br($vProdX) : '0,00',
+    ];
 }
 ?>
 <!doctype html>
@@ -556,7 +563,11 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
 
         <div class="hr"></div>
 
-        <div class="small">Nº: <?= htmlspecialchars($nNF) ?> &nbsp;&nbsp; Série: <?= htmlspecialchars($serie) ?> &nbsp;&nbsp; Emissão: <?= htmlspecialchars($dhEmi) ?></div>
+        <div class="small">
+            Nº: <?= htmlspecialchars($nNF ?: '—') ?> &nbsp;&nbsp;
+            Série: <?= htmlspecialchars($serie ?: '—') ?> &nbsp;&nbsp;
+            Emissão: <?= htmlspecialchars($dhEmi ?: '—') ?>
+        </div>
 
         <div class="center" style="margin-top:6px">
             <div class="small"><b>CHAVE DE ACESSO</b></div>
@@ -585,7 +596,7 @@ foreach ($dom->getElementsByTagNameNS($nfeNS, 'det') as $det) {
     <!-- Barra de ações -->
     <div class="actions" aria-label="Ações">
         <?php if ($empresaId): ?>
-            <a class="btn btn-secondary" href="./vendaRapida.php?id=<?= urlencode($empresaId) ?>">← Voltar para PDV</a>
+            <a class="btn btn-secondary" href="./sefazConsulta.php?id=<?= urlencode($empresaId) ?>">← Voltar para Consulta</a>
         <?php endif; ?>
         <button id="btn-print" class="btn btn-primary" type="button">Imprimir</button>
     </div>
