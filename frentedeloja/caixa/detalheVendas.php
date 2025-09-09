@@ -1,6 +1,7 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
+
 session_start();
 
 /* ======================== PARÂMETROS / SESSÃO ======================== */
@@ -80,7 +81,7 @@ try {
     $s->execute([':id' => $idSelecionado]);
     $row = $s->fetch(PDO::FETCH_ASSOC);
     if ($row && !empty($row['imagem'])) $iconeEmpresa = $row['imagem'];
-} catch (Throwable $e) {
+} catch (Throwable $e) { /* silencioso */
 }
 
 /* ======================== DEDUZ id_caixa SE FALTOU ================ */
@@ -123,6 +124,7 @@ $suprimentos      = [];
 $totalSuprimentos = 0.0;
 
 try {
+    // Itens (JOIN com vendas; LEFT JOIN estoque para categoria/unidade)
     $sqlItens = "
       SELECT 
         iv.id,
@@ -153,6 +155,7 @@ try {
     $st->execute($bind);
     $produtosVendas = $st->fetchAll(PDO::FETCH_ASSOC);
 
+    // Total das vendas do caixa
     $sqlTot = "
       SELECT COALESCE(SUM(valor_total),0) AS total_vendas
         FROM vendas
@@ -164,6 +167,7 @@ try {
     $st->execute($bind);
     $totalVendas = (float)($st->fetch(PDO::FETCH_ASSOC)['total_vendas'] ?? 0);
 
+    // Sangrias
     $sqlS = "
       SELECT valor, valor_liquido, data_registro
         FROM sangrias
@@ -177,6 +181,7 @@ try {
     $sangrias = $st->fetchAll(PDO::FETCH_ASSOC);
     foreach ($sangrias as $s) $totalSangrias += (float)$s['valor'];
 
+    // Suprimentos
     $sqlSup = "
       SELECT valor_suprimento, valor_liquido, data_registro
         FROM suprimentos
@@ -206,6 +211,8 @@ $dtTitulo = $dataRelatorio ? date('d/m/Y', strtotime($dataRelatorio)) : '—';
 
 /* ======================== URL BASE DO DANFE ======================= */
 $DANFE_BASE = './danfe_nfce.php';
+
+/* ================================================================= */
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
@@ -236,7 +243,7 @@ $DANFE_BASE = './danfe_nfce.php';
 <body>
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- Sidebar reduzido para caber no exemplo -->
+            <!-- Sidebar (mesmo do seu layout) -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -252,6 +259,26 @@ $DANFE_BASE = './danfe_nfce.php';
                             <div>Dashboard</div>
                         </a></li>
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
+                            <div>Operações de Caixa</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item"><a href="./abrirCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Abrir Caixa</div>
+                                </a></li>
+                            <li class="menu-item"><a href="./fecharCaixa.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Fechar Caixa</div>
+                                </a></li>
+                            <li class="menu-item"><a href="./sangria.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Sangria</div>
+                                </a></li>
+                            <li class="menu-item"><a href="./suprimento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Suprimento</div>
+                                </a></li>
+                        </ul>
+                    </li>
                     <li class="menu-item"><a href="./vendaRapida.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart-alt"></i>
                             <div>Venda Rápida</div>
                         </a></li>
@@ -271,19 +298,65 @@ $DANFE_BASE = './danfe_nfce.php';
                                 </a></li>
                         </ul>
                     </li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+                    <li class="menu-item"><a href="../sistemadeponto/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+                            <div>Sistema de Ponto</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../Delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
+                            <div>Delivery</div>
+                        </a></li>
+                    <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
+                            <div>Suporte</div>
+                        </a></li>
                 </ul>
             </aside>
             <!-- /Sidebar -->
 
             <!-- Page -->
             <div class="layout-page">
-                <!-- Navbar (simples) -->
+                <!-- Navbar (mantive seu padrão) -->
                 <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
                     </div>
-                    <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse"></div>
+                    <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+                        <div class="navbar-nav align-items-center">
+                            <div class="nav-item d-flex align-items-center">
+                                <i class="bx bx-search fs-4 lh-0"></i>
+                                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search..." />
+                            </div>
+                        </div>
+                        <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <li class="nav-item navbar-dropdown dropdown-user dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                                    <div class="avatar avatar-online">
+                                        <img src="<?= htmlspecialchars($iconeEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                                    </div>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="#">
+                                            <div class="d-flex">
+                                                <div class="flex-shrink-0 me-3">
+                                                    <div class="avatar avatar-online"><img src="<?= htmlspecialchars($iconeEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" /></div>
+                                                </div>
+                                                <div class="flex-grow-1"><span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario) ?></span></div>
+                                            </div>
+                                        </a></li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-user me-2"></i><span class="align-middle">My Profile</span></a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Settings</span></a></li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
+                                    <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
                 </nav>
+                <!-- /Navbar -->
 
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
@@ -367,6 +440,7 @@ $DANFE_BASE = './danfe_nfce.php';
                                                     $statusLower = strtolower($status);
                                                     $temDanfe = !empty($chave) && ($statusLower === 'autorizada' || $statusLower === 'autorizado' || $statusLower === '100' || $statusLower === 'aprovada');
 
+                                                    // link do danfe: sempre com venda_id; inclui chave se existir
                                                     $urlDanfe = $DANFE_BASE . '?id=' . urlencode($idSelecionado) . '&venda_id=' . (int)$it['venda_id'];
                                                     if (!empty($chave)) $urlDanfe .= '&chave=' . urlencode($chave);
                                                 ?>
@@ -394,7 +468,8 @@ $DANFE_BASE = './danfe_nfce.php';
                                                                     data-bs-target="#modalDanfe"
                                                                     data-url="<?= htmlspecialchars($urlDanfe) ?>"
                                                                     data-chave="<?= htmlspecialchars($chave) ?>"
-                                                                    data-venda="<?= (int)$it['venda_id'] ?>">
+                                                                    data-venda="<?= (int)$it['venda_id'] ?>"
+                                                                    data-empresa="<?= htmlspecialchars($idSelecionado) ?>">
                                                                     Ver DANFE
                                                                 </button>
                                                             <?php else: ?>
@@ -517,8 +592,7 @@ $DANFE_BASE = './danfe_nfce.php';
                                         <div class="mt-2">Carregando DANFE…</div>
                                     </div>
                                 </div>
-                                <!-- IMPORTANTE: carregamos por SRC direto (sem srcdoc) -->
-                                <iframe id="danfeFrame" src="about:blank" title="DANFE NFC-e" style="border:0; width:100%; height:70vh" referrerpolicy="no-referrer"></iframe>
+                                <iframe id="danfeFrame" src="about:blank" title="DANFE NFC-e" style="border:0; width:100%; height:70vh" loading="lazy" referrerpolicy="no-referrer"></iframe>
                             </div>
                             <div class="modal-footer">
                                 <small class="text-muted me-auto" id="danfeInfo"></small>
@@ -542,7 +616,7 @@ $DANFE_BASE = './danfe_nfce.php';
     <script src="../../assets/js/main.js"></script>
 
     <script>
-        /* ==== Modal DANFE com carregamento direto no iframe.src ==== */
+        /* ==== Modal DANFE: prefetch + srcdoc (rápido) com fallbacks ==== */
         (function() {
             const danfeModal = document.getElementById('modalDanfe');
             const danfeFrame = document.getElementById('danfeFrame');
@@ -550,64 +624,124 @@ $DANFE_BASE = './danfe_nfce.php';
             const danfeInfo = document.getElementById('danfeInfo');
             const btnNovaGuia = document.getElementById('btnAbrirNovaGuia');
 
-            // Garante limpeza a cada abertura
+            const danfeCache = new Map(); // url -> html
+            const MAX_PREFETCH = 4;
+
+            function baseDirOf(url) {
+                try {
+                    const u = new URL(url, window.location.href);
+                    u.pathname = u.pathname.split('/').slice(0, -1).join('/') + '/';
+                    u.search = '';
+                    u.hash = '';
+                    return u.toString();
+                } catch {
+                    return window.location.origin + '/';
+                }
+            }
+
+            function wrapWithBase(html, baseHref) {
+                const baseTag = `<base href="${baseHref}">`;
+                if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, m => m + baseTag);
+                return `<!doctype html><html><head>${baseTag}</head><body>${html}</body></html>`;
+            }
+
+            async function prefetch(urls) {
+                const list = urls.slice(0, MAX_PREFETCH).filter(Boolean);
+                for (const u of list) {
+                    if (danfeCache.has(u)) continue;
+                    try {
+                        const r = await fetch(u, {
+                            credentials: 'same-origin',
+                            cache: 'reload'
+                        });
+                        if (!r.ok) continue;
+                        const txt = await r.text();
+                        danfeCache.set(u, txt);
+                    } catch (_) {
+                        /* ignora */ }
+                }
+            }
+
+            // Pré-coleta de links para prefetch
+            (function collectAndPrefetch() {
+                const btns = Array.from(document.querySelectorAll('.ver-danfe[data-url]'));
+                const urls = btns.map(b => b.getAttribute('data-url')).filter(Boolean);
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(() => prefetch(urls), {
+                        timeout: 1000
+                    });
+                } else {
+                    setTimeout(() => prefetch(urls), 250);
+                }
+            })();
+
             danfeModal.addEventListener('show.bs.modal', function(ev) {
                 const btn = ev.relatedTarget;
                 if (!btn) return;
 
-                const urlBase = btn.getAttribute('data-url') || '';
+                const url = btn.getAttribute('data-url') || '';
                 const chave = btn.getAttribute('data-chave') || '';
                 const venda = btn.getAttribute('data-venda') || '';
+                const base = baseDirOf(url);
 
-                // cache-buster p/ evitar html antigo
-                const url = urlBase + (urlBase.includes('?') ? '&' : '?') + '_=' + Date.now();
-
-                // UI
                 danfeLoader.style.display = 'flex';
                 danfeInfo.textContent = `Chave: ${chave ? chave.replace(/(\d{4})/g,'$1 ').trim() : '—'} • Venda #${venda}`;
                 btnNovaGuia.style.display = 'inline-block';
-                btnNovaGuia.onclick = () => window.open(urlBase, '_blank', 'noopener,noreferrer');
+                btnNovaGuia.onclick = () => window.open(url, '_blank', 'noopener,noreferrer');
 
-                // Limpa src anterior e registra handlers
-                try {
-                    danfeFrame.src = 'about:blank';
-                } catch (_) {}
-
-                const onLoad = () => {
-                    danfeLoader.style.display = 'none';
-                    danfeFrame.removeEventListener('load', onLoad);
-                    danfeFrame.removeEventListener('error', onError);
-                };
-                const onError = () => {
-                    danfeLoader.style.display = 'none';
-                    danfeInfo.textContent += ' • (Falha ao carregar no iframe — abra em nova guia)';
-                    danfeFrame.removeEventListener('load', onLoad);
-                    danfeFrame.removeEventListener('error', onError);
-                };
-
-                danfeFrame.addEventListener('load', onLoad, {
-                    once: false
-                });
-                danfeFrame.addEventListener('error', onError, {
-                    once: false
-                });
-
-                // Carrega de fato
-                danfeFrame.src = url;
-
-                // Fallback de segurança: se em 4s não disparar load, ofereça abrir em nova guia
-                setTimeout(function() {
-                    if (danfeLoader.style.display !== 'none') {
-                        danfeLoader.style.display = 'none';
-                        danfeInfo.textContent += ' • (Carregamento lento — tente abrir em nova guia)';
+                const fallbackToSrc = () => {
+                    try {
+                        danfeFrame.removeAttribute('srcdoc');
+                        danfeFrame.src = url;
+                    } catch (_) {
+                        // último recurso: abrir em nova guia e fechar modal
+                        window.open(url, '_blank', 'noopener,noreferrer');
                     }
-                }, 4000);
+                };
+
+                // Se há cache do HTML, injeta via srcdoc (instantâneo)
+                if (danfeCache.has(url)) {
+                    try {
+                        const html = danfeCache.get(url);
+                        danfeFrame.src = 'about:blank';
+                        danfeFrame.srcdoc = wrapWithBase(html, base);
+                        setTimeout(() => danfeLoader.style.display = 'none', 60);
+                        return;
+                    } catch (_) {
+                        fallbackToSrc();
+                        return;
+                    }
+                }
+
+                // Senão: tenta pré-carregar e injetar; se falhar, usa src normal
+                (async () => {
+                    try {
+                        const r = await fetch(url, {
+                            credentials: 'same-origin'
+                        });
+                        if (r.ok) {
+                            const txt = await r.text();
+                            danfeCache.set(url, txt);
+                            danfeFrame.src = 'about:blank';
+                            danfeFrame.srcdoc = wrapWithBase(txt, base);
+                            setTimeout(() => danfeLoader.style.display = 'none', 60);
+                        } else {
+                            fallbackToSrc();
+                        }
+                    } catch (_) {
+                        fallbackToSrc();
+                    }
+                })();
+            });
+
+            danfeFrame.addEventListener('load', function() {
+                // Quando usamos src normal, esconda o loader após render
+                setTimeout(() => danfeLoader.style.display = 'none', 120);
             });
 
             danfeModal.addEventListener('hidden.bs.modal', function() {
-                try {
-                    danfeFrame.src = 'about:blank';
-                } catch (_) {}
+                danfeFrame.src = 'about:blank';
+                danfeFrame.removeAttribute('srcdoc');
                 danfeLoader.style.display = 'flex';
                 danfeInfo.textContent = '';
                 btnNovaGuia.style.display = 'none';
