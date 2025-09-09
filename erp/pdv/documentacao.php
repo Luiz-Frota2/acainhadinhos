@@ -669,7 +669,7 @@ if ($pfxPath) {
                                         <li>Testar visualização: <code>visualizarNFCe.php</code></li>
                                         <li>Visualizar XML real: <code>danfe_nfce.php?id=...&amp;venda_id=...&amp;chave=...</code></li>
                                     </ol>
-                                    <a class="btn btn-outline-secondary btn-sm" href="visualizarNFCe.php?id=<?= urlencode($idSelecionado) ?>" target="_blank">
+                                    <a class="btn btn-outline-secondary btn-sm mb-3" href="visualizarNFCe.php?id=<?= urlencode($idSelecionado) ?>" target="_blank">
                                         <i class="fa-solid fa-eye me-1"></i> Abrir Modelo agora
                                     </a>
                                 </div>
