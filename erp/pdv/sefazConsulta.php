@@ -442,7 +442,7 @@ function statusBadgeClass($cStat): string
                         <form class="card-body" method="get" action="">
                             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
                             <div class="row g-3 align-items-end">
-                                <div class="col-md-6">
+                                <div class="col-md-5">
                                     <label class="form-label">Chave da NFC-e (44 dígitos ou parcial)</label>
                                     <input type="text" name="q" value="<?= htmlspecialchars($q) ?>" class="form-control" placeholder="Ex.: 3519... ou parte da chave">
                                 </div>
@@ -458,7 +458,7 @@ function statusBadgeClass($cStat): string
                                         <option value="100" <?= $pp === 100 ? 'selected' : ''; ?>>100</option>
                                     </select>
                                 </div>
-                                <div class="col-md-1 d-grid">
+                                <div class="col-md-2 d-grid">
                                     <button class="btn btn-primary" type="submit"><i class="bx bx-search me-1"></i> Buscar</button>
                                 </div>
                             </div>
