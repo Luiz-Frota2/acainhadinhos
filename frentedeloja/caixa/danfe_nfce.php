@@ -11,7 +11,7 @@ header('Content-Type: text/html; charset=utf-8');
 // ajuda no carregamento em revisitas durante a sessão
 header('Cache-Control: private, max-age=60');
 
-require_once __DIR__ . '/../assets/php/conexao.php';
+require_once __DIR__ . '/../../assets/php/conexao.php';
 
 $empresaId = isset($_GET['id']) ? trim((string)$_GET['id']) : (string)($_SESSION['empresa_id'] ?? '');
 $vendaId   = isset($_GET['venda_id']) ? (int)$_GET['venda_id'] : (int)($_SESSION['venda_id'] ?? 0);
