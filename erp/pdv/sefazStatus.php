@@ -690,7 +690,7 @@ if ($pfxPath) {
                                     <?php endif; ?>
                                 </div>
                                 <div class="card-footer">
-                                    <a href="documentacao.php" class="btn btn-outline-secondary btn-sm">Documentação</a>
+                                    <a href="documentacao.php?id=<?php echo urlencode($idSelecionado); ?>" class="btn btn-outline-secondary btn-sm">Documentação</a>
                                 </div>
                             </div>
                         </div>
