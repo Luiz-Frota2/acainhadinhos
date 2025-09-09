@@ -9,127 +9,124 @@ $idSelecionado = $_GET['id'] ?? '';
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) ||
-  !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
-  !isset($_SESSION['usuario_cpf']) // Verifica se o CPF está na sessão
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
+    !isset($_SESSION['usuario_cpf']) // Verifica se o CPF está na sessão
 ) {
-  header("Location: ../index.php?id=$idSelecionado");
-  exit;
+    header("Location: ../index.php?id=$idSelecionado");
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-$nomeUsuario = 'Usuário';
-$tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
-$usuario_cpf = $_SESSION['usuario_cpf']; // Recupera o CPF da sessão
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
+/** Helpers **/
+function soDigitos(string $v): string
+{
+    return preg_replace('/\D+/', '', $v) ?? '';
+}
+function formatarMoeda($valor)
+{
+    return 'R$ ' . number_format((float)$valor, 2, ',', '.');
+}
+
+$nomeUsuario        = 'Usuário';
+$tipoUsuario        = 'Comum';
+$usuario_id         = (int)$_SESSION['usuario_id'];
+$usuario_cpf_masc   = (string)$_SESSION['usuario_cpf']; // Pode vir com pontuação
+$cpfUsuario         = soDigitos($usuario_cpf_masc);     // Só dígitos para comparar
+$tipoUsuarioSessao  = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
-  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de contas_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de funcionarios_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+    if ($tipoUsuarioSessao === 'Admin') {
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
-  // Para principal, verifica se é admin ou se pertence à mesma empresa
-  if ($_SESSION['tipo_empresa'] !== 'principal' && 
-      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
-    echo "<script>
+    if (
+        $_SESSION['tipo_empresa'] !== 'principal' &&
+        !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+    ) {
+        echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-    exit;
-  }
-  $id = 1;
+        exit;
+    }
+    $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $idUnidade = str_replace('unidade_', '', $idSelecionado);
-  
-  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
-                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-  
-  if (!$acessoPermitido) {
-    echo "<script>
+    $idUnidade = str_replace('unidade_', '', $idSelecionado);
+    $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+        ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+    if (!$acessoPermitido) {
+        echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-    exit;
-  }
-  $id = $idUnidade;
+        exit;
+    }
+    $id = $idUnidade;
 } else {
-  echo "<script>
+    echo "<script>
         alert('Empresa não identificada!');
         window.location.href = '../index.php?id=$idSelecionado';
     </script>";
-  exit;
+    exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
+// ✅ Buscar imagem da empresa para usar como favicon (opcional)
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-  // Não mostra erro para o usuário para não quebrar a página
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
 }
 
-// ✅ Função para buscar o nome do funcionário pelo CPF
+// ✅ Função para buscar o nome do funcionário pelo CPF (opcional)
 function obterNomeFuncionario($pdo, $cpf)
 {
-  try {
-    $stmt = $pdo->prepare("SELECT nome, cpf FROM funcionarios_acesso WHERE cpf = :cpf");
-    $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
-    $stmt->execute();
-    $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($funcionario && (!empty($funcionario['nome']) || !empty($funcionario['cpf']))) {
-      return $funcionario['nome'];
-    } else {
-      return 'Funcionário não identificado';
+    try {
+        $stmt = $pdo->prepare("SELECT usuario AS nome FROM funcionarios_acesso WHERE REPLACE(REPLACE(REPLACE(REPLACE(cpf,'.',''),'-',''),'/',''),' ','') = :cpf LIMIT 1");
+        $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
+        $stmt->execute();
+        $funcionario = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $funcionario['nome'] ?? 'Funcionário não identificado';
+    } catch (PDOException $e) {
+        return 'Erro ao buscar nome';
     }
-  } catch (PDOException $e) {
-    return 'Erro ao buscar nome';
-  }
 }
 
-// ✅ Aplica a função se for funcionário
-if (!empty($usuario_cpf)) {
-  $nomeFuncionario = obterNomeFuncionario($pdo, $usuario_cpf);
-}
+// ✅ Nome do funcionário (se desejar exibir)
+$nomeFuncionario = !empty($cpfUsuario) ? obterNomeFuncionario($pdo, $cpfUsuario) : $nomeUsuario;
 
 // ✅ Processar filtros de data
 $filtroData = $_GET['filtro'] ?? 'mes_atual';
@@ -139,155 +136,178 @@ $dataFinal = '';
 switch ($filtroData) {
     case 'mes_atual':
         $dataInicial = date('Y-m-01');
-        $dataFinal = date('Y-m-t');
+        $dataFinal   = date('Y-m-t');
         break;
     case '3_meses':
         $dataInicial = date('Y-m-01', strtotime('-2 months'));
-        $dataFinal = date('Y-m-t');
+        $dataFinal   = date('Y-m-t');
         break;
     case 'personalizado':
-        $dataInicial = $_GET['de'] ?? date('Y-m-01');
-        $dataFinal = $_GET['ate'] ?? date('Y-m-t');
+        $dataInicial = $_GET['de']  ?? date('Y-m-01');
+        $dataFinal   = $_GET['ate'] ?? date('Y-m-t');
         break;
     default:
         $dataInicial = date('Y-m-01');
-        $dataFinal = date('Y-m-t');
+        $dataFinal   = date('Y-m-t');
 }
 
-// ✅ Consulta para obter resumo de vendas
+// ========================== CONSULTAS PRINCIPAIS ==========================
+// Observação: usamos REPLACE() para comparar CPF sem máscara no banco.
+// Fallback: se não houver CPF, usamos o nome do responsável.
 try {
-    // Total de vendas
+    // Total de vendas + quantidade
     $stmtVendas = $pdo->prepare("
-        SELECT 
-            COUNT(*) as quantidade_vendas,
-            SUM(valor_total) as valor_total
+      SELECT 
+          COUNT(*)                        AS quantidade_vendas,
+          COALESCE(SUM(valor_total), 0)  AS valor_total
         FROM vendas
-        WHERE empresa_id = :empresa_id
-        AND cpf_responsavel = :cpf_responsavel
-        AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
-    ");
-    $stmtVendas->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmtVendas->bindParam(':cpf_responsavel', $cpfUsuario, PDO::PARAM_STR);
-    $stmtVendas->bindParam(':data_inicial', $dataInicial, PDO::PARAM_STR);
-    $stmtVendas->bindParam(':data_final', $dataFinal, PDO::PARAM_STR);
-    $stmtVendas->execute();
-    $resumoVendas = $stmtVendas->fetch(PDO::FETCH_ASSOC);
+       WHERE empresa_id = :empresa_id
+         AND (
+              (:cpf <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(cpf_responsavel, '.', ''), '-', ''), '/', ''), ' ', '') = :cpf)
+           OR (:cpf = ''  AND responsavel = :responsavel)
+         )
+         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
+  ");
+    $stmtVendas->execute([
+        ':empresa_id'   => $idSelecionado,
+        ':cpf'          => $cpfUsuario,
+        ':responsavel'  => $nomeUsuario,
+        ':data_inicial' => $dataInicial,
+        ':data_final'   => $dataFinal,
+    ]);
+    $resumoVendas = $stmtVendas->fetch(PDO::FETCH_ASSOC) ?: ['quantidade_vendas' => 0, 'valor_total' => 0];
 
-    // Sangrias e Suprimentos
+    // Sangrias e Suprimentos (aberturas)
     $stmtMovimentos = $pdo->prepare("
-        SELECT 
-            SUM(valor_sangrias) as valor_sangrias,
-            SUM(valor_suprimentos) as valor_suprimentos
+      SELECT 
+          COALESCE(SUM(valor_sangrias), 0)     AS valor_sangrias,
+          COALESCE(SUM(valor_suprimentos), 0)  AS valor_suprimentos
         FROM aberturas
-        WHERE empresa_id = :empresa_id
-        AND cpf_responsavel = :cpf_responsavel
-        AND DATE(abertura_datetime) BETWEEN :data_inicial AND :data_final
-    ");
-    $stmtMovimentos->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmtMovimentos->bindParam(':cpf_responsavel', $cpfUsuario, PDO::PARAM_STR);
-    $stmtMovimentos->bindParam(':data_inicial', $dataInicial, PDO::PARAM_STR);
-    $stmtMovimentos->bindParam(':data_final', $dataFinal, PDO::PARAM_STR);
-    $stmtMovimentos->execute();
-    $movimentos = $stmtMovimentos->fetch(PDO::FETCH_ASSOC);
+       WHERE empresa_id = :empresa_id
+         AND (
+              (:cpf <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(cpf_responsavel, '.', ''), '-', ''), '/', ''), ' ', '') = :cpf)
+           OR (:cpf = ''  AND responsavel = :responsavel)
+         )
+         AND DATE(abertura_datetime) BETWEEN :data_inicial AND :data_final
+  ");
+    $stmtMovimentos->execute([
+        ':empresa_id'   => $idSelecionado,
+        ':cpf'          => $cpfUsuario,
+        ':responsavel'  => $nomeUsuario,
+        ':data_inicial' => $dataInicial,
+        ':data_final'   => $dataFinal,
+    ]);
+    $movimentos = $stmtMovimentos->fetch(PDO::FETCH_ASSOC) ?: ['valor_sangrias' => 0, 'valor_suprimentos' => 0];
 
     // Formas de pagamento
     $stmtPagamentos = $pdo->prepare("
-        SELECT 
-            forma_pagamento,
-            COUNT(*) as quantidade,
-            SUM(valor_total) as valor_total
+      SELECT 
+          forma_pagamento,
+          COUNT(*)                       AS quantidade,
+          COALESCE(SUM(valor_total), 0)  AS valor_total
         FROM vendas
-        WHERE empresa_id = :empresa_id
-        AND cpf_responsavel = :cpf_responsavel
-        AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
-        GROUP BY forma_pagamento
-    ");
-    $stmtPagamentos->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmtPagamentos->bindParam(':cpf_responsavel', $cpfUsuario, PDO::PARAM_STR);
-    $stmtPagamentos->bindParam(':data_inicial', $dataInicial, PDO::PARAM_STR);
-    $stmtPagamentos->bindParam(':data_final', $dataFinal, PDO::PARAM_STR);
-    $stmtPagamentos->execute();
-    $formasPagamento = $stmtPagamentos->fetchAll(PDO::FETCH_ASSOC);
+       WHERE empresa_id = :empresa_id
+         AND (
+              (:cpf <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(cpf_responsavel, '.', ''), '-', ''), '/', ''), ' ', '') = :cpf)
+           OR (:cpf = ''  AND responsavel = :responsavel)
+         )
+         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
+       GROUP BY forma_pagamento
+       ORDER BY forma_pagamento
+  ");
+    $stmtPagamentos->execute([
+        ':empresa_id'   => $idSelecionado,
+        ':cpf'          => $cpfUsuario,
+        ':responsavel'  => $nomeUsuario,
+        ':data_inicial' => $dataInicial,
+        ':data_final'   => $dataFinal,
+    ]);
+    $formasPagamento = $stmtPagamentos->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // Vendas por dia
+    // Vendas por dia (para gráficos)
     $stmtVendasDia = $pdo->prepare("
-        SELECT 
-            DATE(data_venda) as data,
-            COUNT(*) as quantidade,
-            SUM(valor_total) as valor_total,
-            DAYNAME(data_venda) as dia_semana
+      SELECT 
+          DATE(data_venda)                         AS data,
+          COUNT(*)                                 AS quantidade,
+          COALESCE(SUM(valor_total), 0)            AS valor_total,
+          DAYNAME(data_venda)                      AS dia_semana
         FROM vendas
-        WHERE empresa_id = :empresa_id
-        AND cpf_responsavel = :cpf_responsavel
-        AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
-        GROUP BY DATE(data_venda)
-        ORDER BY DATE(data_venda)
-    ");
-    $stmtVendasDia->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmtVendasDia->bindParam(':cpf_responsavel', $cpfUsuario, PDO::PARAM_STR);
-    $stmtVendasDia->bindParam(':data_inicial', $dataInicial, PDO::PARAM_STR);
-    $stmtVendasDia->bindParam(':data_final', $dataFinal, PDO::PARAM_STR);
-    $stmtVendasDia->execute();
-    $vendasPorDia = $stmtVendasDia->fetchAll(PDO::FETCH_ASSOC);
+       WHERE empresa_id = :empresa_id
+         AND (
+              (:cpf <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(cpf_responsavel, '.', ''), '-', ''), '/', ''), ' ', '') = :cpf)
+           OR (:cpf = ''  AND responsavel = :responsavel)
+         )
+         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
+       GROUP BY DATE(data_venda)
+       ORDER BY DATE(data_venda)
+  ");
+    $stmtVendasDia->execute([
+        ':empresa_id'   => $idSelecionado,
+        ':cpf'          => $cpfUsuario,
+        ':responsavel'  => $nomeUsuario,
+        ':data_inicial' => $dataInicial,
+        ':data_final'   => $dataFinal,
+    ]);
+    $vendasPorDia = $stmtVendasDia->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     // Formas de pagamento por dia da semana
     $stmtPagamentosDiaSemana = $pdo->prepare("
-        SELECT 
-            DAYNAME(data_venda) as dia_semana,
-            forma_pagamento,
-            COUNT(*) as quantidade,
-            SUM(valor_total) as valor_total
+      SELECT 
+          DAYNAME(data_venda)                      AS dia_semana,
+          forma_pagamento,
+          COUNT(*)                                 AS quantidade,
+          COALESCE(SUM(valor_total), 0)            AS valor_total
         FROM vendas
-        WHERE empresa_id = :empresa_id
-        AND cpf_responsavel = :cpf_responsavel
-        AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
-        GROUP BY DAYNAME(data_venda), forma_pagamento
-        ORDER BY FIELD(DAYNAME(data_venda), 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday')
-    ");
-    $stmtPagamentosDiaSemana->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmtPagamentosDiaSemana->bindParam(':cpf_responsavel', $cpfUsuario, PDO::PARAM_STR);
-    $stmtPagamentosDiaSemana->bindParam(':data_inicial', $dataInicial, PDO::PARAM_STR);
-    $stmtPagamentosDiaSemana->bindParam(':data_final', $dataFinal, PDO::PARAM_STR);
-    $stmtPagamentosDiaSemana->execute();
-    $pagamentosPorDiaSemana = $stmtPagamentosDiaSemana->fetchAll(PDO::FETCH_ASSOC);
+       WHERE empresa_id = :empresa_id
+         AND (
+              (:cpf <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(cpf_responsavel, '.', ''), '-', ''), '/', ''), ' ', '') = :cpf)
+           OR (:cpf = ''  AND responsavel = :responsavel)
+         )
+         AND DATE(data_venda) BETWEEN :data_inicial AND :data_final
+       GROUP BY DAYNAME(data_venda), forma_pagamento
+       ORDER BY FIELD(DAYNAME(data_venda), 'Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday')
+  ");
+    $stmtPagamentosDiaSemana->execute([
+        ':empresa_id'   => $idSelecionado,
+        ':cpf'          => $cpfUsuario,
+        ':responsavel'  => $nomeUsuario,
+        ':data_inicial' => $dataInicial,
+        ':data_final'   => $dataFinal,
+    ]);
+    $pagamentosPorDiaSemana = $stmtPagamentosDiaSemana->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    // Organizar dados por dia da semana
-    $dadosPorDiaSemana = [];
-    foreach ($pagamentosPorDiaSemana as $pagamento) {
-        $diaSemana = strtolower($pagamento['dia_semana']);
-        $dadosPorDiaSemana[$diaSemana][] = [
-            'forma' => $pagamento['forma_pagamento'],
-            'valor' => (float) $pagamento['valor_total']
-        ];
-    }
-
-    // Aberturas de caixa
+    // Aberturas de caixa (lista)
     $stmtAberturas = $pdo->prepare("
-        SELECT 
-            id,
-            responsavel,
-            numero_caixa,
-            valor_abertura,
-            valor_total,
-            valor_sangrias,
-            valor_suprimentos,
-            valor_liquido,
-            abertura_datetime,
-            fechamento_datetime,
-            quantidade_vendas,
-            status
+      SELECT 
+          id,
+          responsavel,
+          numero_caixa,
+          COALESCE(valor_abertura,0)     AS valor_abertura,
+          COALESCE(valor_total,0)        AS valor_total,
+          COALESCE(valor_sangrias,0)     AS valor_sangrias,
+          COALESCE(valor_suprimentos,0)  AS valor_suprimentos,
+          COALESCE(valor_liquido,0)      AS valor_liquido,
+          abertura_datetime,
+          fechamento_datetime,
+          COALESCE(quantidade_vendas,0)  AS quantidade_vendas,
+          status
         FROM aberturas
-        WHERE empresa_id = :empresa_id
-        AND cpf_responsavel = :cpf_responsavel
-        AND DATE(abertura_datetime) BETWEEN :data_inicial AND :data_final
-        ORDER BY abertura_datetime DESC
-    ");
-    $stmtAberturas->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmtAberturas->bindParam(':cpf_responsavel', $cpfUsuario, PDO::PARAM_STR);
-    $stmtAberturas->bindParam(':data_inicial', $dataInicial, PDO::PARAM_STR);
-    $stmtAberturas->bindParam(':data_final', $dataFinal, PDO::PARAM_STR);
-    $stmtAberturas->execute();
-    $aberturas = $stmtAberturas->fetchAll(PDO::FETCH_ASSOC);
+       WHERE empresa_id = :empresa_id
+         AND (
+              (:cpf <> '' AND REPLACE(REPLACE(REPLACE(REPLACE(cpf_responsavel, '.', ''), '-', ''), '/', ''), ' ', '') = :cpf)
+           OR (:cpf = ''  AND responsavel = :responsavel)
+         )
+         AND DATE(abertura_datetime) BETWEEN :data_inicial AND :data_final
+       ORDER BY abertura_datetime DESC
+  ");
+    $stmtAberturas->execute([
+        ':empresa_id'   => $idSelecionado,
+        ':cpf'          => $cpfUsuario,
+        ':responsavel'  => $nomeUsuario,
+        ':data_inicial' => $dataInicial,
+        ':data_final'   => $dataFinal,
+    ]);
+    $aberturas = $stmtAberturas->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar dados: " . addslashes($e->getMessage()) . "');</script>";
     $resumoVendas = ['quantidade_vendas' => 0, 'valor_total' => 0];
@@ -295,74 +315,57 @@ try {
     $formasPagamento = [];
     $vendasPorDia = [];
     $aberturas = [];
-    $dadosPorDiaSemana = [];
+    $pagamentosPorDiaSemana = [];
 }
 
-// Calcular valores para os cards
-$totalVendas = $resumoVendas['valor_total'] ?? 0;
-$valorLiquido = ($resumoVendas['valor_total'] ?? 0) + ($movimentos['valor_suprimentos'] ?? 0) - ($movimentos['valor_sangrias'] ?? 0);
-$quantidadeVendas = $resumoVendas['quantidade_vendas'] ?? 0;
-$ticketMedio = $quantidadeVendas > 0 ? $totalVendas / $quantidadeVendas : 0;
+// ===================== Pré-processamento para os gráficos =====================
+$totalVendas       = (float)($resumoVendas['valor_total'] ?? 0);
+$quantidadeVendas  = (int)  ($resumoVendas['quantidade_vendas'] ?? 0);
+$ticketMedio       = $quantidadeVendas > 0 ? $totalVendas / $quantidadeVendas : 0.0;
+$valorSupr         = (float)($movimentos['valor_suprimentos'] ?? 0);
+$valorSang         = (float)($movimentos['valor_sangrias'] ?? 0);
+$valorLiquido      = $totalVendas + $valorSupr - $valorSang;
 
-// Pré-processamento dos dados
-foreach ($vendasPorDia as &$venda) {
-    // Formatar a data no PHP antes de enviar para a view
-    $venda['data_formatada'] = date('d/m', strtotime($venda['data']));
-
-    // Garantir que os tipos numéricos estão corretos
-    $venda['valor_total'] = (float) $venda['valor_total'];
-    $venda['quantidade'] = (int) $venda['quantidade'];
-}
-unset($venda); // Quebra a referência
-
-// Preparar dados para gráficos
-$dadosGraficoLinha = [];
-$dadosGraficoBarras = [];
+// Vendas por dia
 $labelsDias = [];
 $valoresDias = [];
 $quantidadesDias = [];
-
 foreach ($vendasPorDia as $venda) {
-    $labelsDias[] = $venda['data_formatada'];
-    $valoresDias[] = $venda['valor_total'];
-    $quantidadesDias[] = $venda['quantidade'];
-
-    $dadosGraficoLinha[] = [
-        'data' => $venda['data'],
-        'valor' => $venda['valor_total']
-    ];
-
-    $dadosGraficoBarras[] = [
-        'data' => $venda['data'],
-        'quantidade' => $venda['quantidade']
-    ];
+    $labelsDias[]      = date('d/m', strtotime($venda['data']));
+    $valoresDias[]     = (float)$venda['valor_total'];
+    $quantidadesDias[] = (int)$venda['quantidade'];
 }
 
+// Pizza de formas de pagamento (total período)
 $dadosGraficoPizza = [];
 foreach ($formasPagamento as $pagamento) {
     $dadosGraficoPizza[] = [
         'forma' => $pagamento['forma_pagamento'],
-        'valor' => (float) $pagamento['valor_total']
+        'valor' => (float)$pagamento['valor_total']
     ];
 }
 
-// Mapear dias da semana em português
-$diasSemana = [
-    'sunday' => 'Domingo',
-    'monday' => 'Segunda-feira',
-    'tuesday' => 'Terça-feira',
-    'wednesday' => 'Quarta-feira',
-    'thursday' => 'Quinta-feira',
-    'friday' => 'Sexta-feira',
-    'saturday' => 'Sábado'
-];
-
-// Função para formatar moeda
-function formatarMoeda($valor)
-{
-    return 'R$ ' . number_format($valor, 2, ',', '.');
+// Por dia da semana (para o segundo card de pizza)
+$dadosPorDiaSemana = [];
+foreach ($pagamentosPorDiaSemana as $pag) {
+    $dia = strtolower($pag['dia_semana']); // sunday..saturday
+    if (!isset($dadosPorDiaSemana[$dia])) $dadosPorDiaSemana[$dia] = [];
+    $dadosPorDiaSemana[$dia][] = [
+        'forma' => $pag['forma_pagamento'],
+        'valor' => (float)$pag['valor_total']
+    ];
 }
 
+// Mapeamento de dias em português (uso no front)
+$diasSemana = [
+    'sunday'    => 'Domingo',
+    'monday'    => 'Segunda-feira',
+    'tuesday'   => 'Terça-feira',
+    'wednesday' => 'Quarta-feira',
+    'thursday'  => 'Quinta-feira',
+    'friday'    => 'Sexta-feira',
+    'saturday'  => 'Sábado'
+];
 
 ?>
 
@@ -629,8 +632,7 @@ function formatarMoeda($valor)
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/chart-success.png" alt="Total Vendas"
-                                        class="mb-2" style="width:32px;">
+                                    <img src="../../assets/img/icons/unicons/chart-success.png" alt="Total Vendas" class="mb-2" style="width:32px;">
                                     <div class="fw-semibold">Total de Vendas</div>
                                     <h4 class="mb-1"><?= formatarMoeda($totalVendas) ?></h4>
                                     <small class="text-muted"><?= $quantidadeVendas ?> vendas realizadas</small>
@@ -642,13 +644,12 @@ function formatarMoeda($valor)
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Valor Líquido"
-                                        class="mb-2" style="width:32px;">
+                                    <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Valor Líquido" class="mb-2" style="width:32px;">
                                     <div class="fw-semibold">Valor Líquido</div>
                                     <h4 class="mb-1"><?= formatarMoeda($valorLiquido) ?></h4>
                                     <small class="text-muted">
-                                        <?= formatarMoeda($movimentos['valor_suprimentos'] ?? 0) ?> suprimentos -
-                                        <?= formatarMoeda($movimentos['valor_sangrias'] ?? 0) ?> sangrias
+                                        <?= formatarMoeda($valorSupr) ?> suprimentos -
+                                        <?= formatarMoeda($valorSang) ?> sangrias
                                     </small>
                                 </div>
                             </div>
@@ -658,8 +659,7 @@ function formatarMoeda($valor)
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Ticket Médio"
-                                        class="mb-2" style="width:32px;">
+                                    <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Ticket Médio" class="mb-2" style="width:32px;">
                                     <div class="fw-semibold">Ticket Médio</div>
                                     <h4 class="mb-1"><?= formatarMoeda($ticketMedio) ?></h4>
                                     <small class="text-muted">Média por venda</small>
@@ -692,28 +692,25 @@ function formatarMoeda($valor)
                                             <tbody>
                                                 <?php if (empty($aberturas)): ?>
                                                     <tr>
-                                                        <td colspan="9" class="text-center py-4">Nenhuma abertura de caixa
-                                                            encontrada no período selecionado</td>
+                                                        <td colspan="9" class="text-center py-4">Nenhuma abertura de caixa encontrada no período selecionado</td>
                                                     </tr>
                                                 <?php else: ?>
                                                     <?php foreach ($aberturas as $abertura): ?>
                                                         <tr>
-                                                            <td><?= date('d/m/Y', strtotime($abertura['abertura_datetime'])) ?>
-                                                            </td>
-                                                            <td><?= $abertura['quantidade_vendas'] ?></td>
+                                                            <td><?= htmlspecialchars(date('d/m/Y', strtotime($abertura['abertura_datetime']))) ?></td>
+                                                            <td><?= (int)$abertura['quantidade_vendas'] ?></td>
                                                             <td><?= formatarMoeda($abertura['valor_abertura']) ?></td>
                                                             <td><?= formatarMoeda($abertura['valor_total']) ?></td>
                                                             <td><?= formatarMoeda($abertura['valor_sangrias']) ?></td>
                                                             <td><?= formatarMoeda($abertura['valor_suprimentos']) ?></td>
                                                             <td><?= formatarMoeda($abertura['valor_liquido']) ?></td>
                                                             <td>
-                                                                <span
-                                                                    class="badge <?= $abertura['status'] === 'aberto' ? 'bg-success' : 'bg-danger' ?>">
-                                                                    <?= ucfirst($abertura['status']) ?>
+                                                                <span class="badge <?= $abertura['status'] === 'aberto' ? 'bg-success' : 'bg-danger' ?>">
+                                                                    <?= htmlspecialchars(ucfirst($abertura['status'])) ?>
                                                                 </span>
                                                             </td>
                                                             <td>
-                                                                <a href="./detalheVendas.php?id=<?= urlencode($idSelecionado); ?>&chave=<?= htmlspecialchars($abertura['id']) ?>"
+                                                                <a href="./detalheVendas.php?id=<?= urlencode($idSelecionado); ?>&chave=<?= htmlspecialchars((string)$abertura['id']) ?>"
                                                                     class="btn btn-sm btn-outline-primary" title="Ver detalhes">
                                                                     <i class="bx bx-show-alt"></i>
                                                                 </a>
@@ -736,8 +733,7 @@ function formatarMoeda($valor)
                             <div class="col-12 col-md-8 mb-4">
                                 <div class="card h-100 shadow-sm">
                                     <h5 class="card-header">Evolução das Vendas
-                                        (<?= date('d/m/Y', strtotime($dataInicial)) ?> a
-                                        <?= date('d/m/Y', strtotime($dataFinal)) ?>)
+                                        (<?= date('d/m/Y', strtotime($dataInicial)) ?> a <?= date('d/m/Y', strtotime($dataFinal)) ?>)
                                     </h5>
                                     <div class="card-body">
                                         <div id="evolucaoDiariaChart" style="min-height: 350px;"></div>
@@ -751,21 +747,13 @@ function formatarMoeda($valor)
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5 class="mb-0">Composição de Pagamento</h5>
                                         <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                                                type="button" id="relatorioPagamentosDropdown" data-bs-toggle="dropdown"
-                                                aria-expanded="false">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="relatorioPagamentosDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                                 Filtro
                                             </button>
-                                            <ul class="dropdown-menu dropdown-menu-end"
-                                                aria-labelledby="relatorioPagamentosDropdown">
-                                                <li><a class="dropdown-item"
-                                                        href="?id=<?= $idSelecionado ?>&filtro=mes_atual">Este mês</a>
-                                                </li>
-                                                <li><a class="dropdown-item"
-                                                        href="?id=<?= $idSelecionado ?>&filtro=3_meses">Últimos 3
-                                                        meses</a></li>
-                                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal"
-                                                        data-bs-target="#modalPersonalizar">Personalizar</a></li>
+                                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="relatorioPagamentosDropdown">
+                                                <li><a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro=mes_atual">Este mês</a></li>
+                                                <li><a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro=3_meses">Últimos 3 meses</a></li>
+                                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalPersonalizar">Personalizar</a></li>
                                             </ul>
                                         </div>
                                     </div>
@@ -777,34 +765,28 @@ function formatarMoeda($valor)
                         </div>
 
                         <!-- Modal de Personalização de Período -->
-                        <div class="modal fade" id="modalPersonalizar" tabindex="-1"
-                            aria-labelledby="modalPersonalizarLabel" aria-hidden="true">
+                        <div class="modal fade" id="modalPersonalizar" tabindex="-1" aria-labelledby="modalPersonalizarLabel" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
                                 <form method="GET" class="modal-content">
-                                    <input type="hidden" name="id" value="<?= $idSelecionado ?>">
+                                    <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
                                     <input type="hidden" name="filtro" value="personalizado">
                                     <div class="modal-header">
-                                        <h5 class="modal-title" id="modalPersonalizarLabel">Selecionar Período
-                                            Personalizado</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                            aria-label="Fechar"></button>
+                                        <h5 class="modal-title" id="modalPersonalizarLabel">Selecionar Período Personalizado</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                     </div>
                                     <div class="modal-body">
                                         <div class="mb-3">
                                             <label for="dataInicialModal" class="form-label">Data Inicial</label>
-                                            <input type="date" class="form-control" id="dataInicialModal" name="de"
-                                                required value="<?= $dataInicial ?>">
+                                            <input type="date" class="form-control" id="dataInicialModal" name="de" required value="<?= htmlspecialchars($dataInicial) ?>">
                                         </div>
                                         <div class="mb-3">
                                             <label for="dataFinalModal" class="form-label">Data Final</label>
-                                            <input type="date" class="form-control" id="dataFinalModal" name="ate"
-                                                required value="<?= $dataFinal ?>">
+                                            <input type="date" class="form-control" id="dataFinalModal" name="ate" required value="<?= htmlspecialchars($dataFinal) ?>">
                                         </div>
                                     </div>
                                     <div class="modal-footer">
                                         <button type="submit" class="btn btn-primary">Filtrar</button>
-                                        <button type="button" class="btn btn-secondary"
-                                            data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                                     </div>
                                 </form>
                             </div>
@@ -817,51 +799,31 @@ function formatarMoeda($valor)
                                     <div class="card-header d-flex align-items-center justify-content-between">
                                         <h5 class="card-title m-0">Volume de Vendas por Dia</h5>
                                         <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                                                type="button" id="dropdownDiasSemana" data-bs-toggle="dropdown"
-                                                aria-expanded="false">
-                                                <?php
-                                                $diaSelecionado = $_GET['dia_semana'] ?? 'todos';
-                                                $nomesDias = [
-                                                    'todos' => 'Todos os Dias',
-                                                    'sunday' => 'Domingo',
-                                                    'monday' => 'Segunda-Feira',
-                                                    'tuesday' => 'Terça-Feira',
-                                                    'wednesday' => 'Quarta-Feira',
-                                                    'thursday' => 'Quinta-Feira',
-                                                    'friday' => 'Sexta-Feira',
-                                                    'saturday' => 'Sábado'
-                                                ];
-                                                echo $nomesDias[$diaSelecionado] ?? 'Selecione o dia';
-                                                ?>
+                                            <?php
+                                            $diaSelecionado = $_GET['dia_semana'] ?? 'todos';
+                                            $nomesDias = [
+                                                'todos'    => 'Todos os Dias',
+                                                'sunday'   => 'Domingo',
+                                                'monday'   => 'Segunda-Feira',
+                                                'tuesday'  => 'Terça-Feira',
+                                                'wednesday' => 'Quarta-Feira',
+                                                'thursday' => 'Quinta-Feira',
+                                                'friday'   => 'Sexta-Feira',
+                                                'saturday' => 'Sábado'
+                                            ];
+                                            ?>
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="dropdownDiasSemana" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <?= $nomesDias[$diaSelecionado] ?? 'Selecione o dia' ?>
                                             </button>
-                                            <ul class="dropdown-menu dropdown-menu-end"
-                                                aria-labelledby="dropdownDiasSemana">
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'todos') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=todos&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Todos
-                                                        os Dias</a>
-                                                </li>
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'monday') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=monday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Segunda-Feira</a>
-                                                </li>
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'tuesday') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=tuesday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Terça-Feira</a>
-                                                </li>
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'wednesday') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=wednesday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Quarta-Feira</a>
-                                                </li>
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'thursday') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=thursday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Quinta-Feira</a>
-                                                </li>
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'friday') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=friday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Sexta-Feira</a>
-                                                </li>
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'saturday') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=saturday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Sábado</a>
-                                                </li>
-                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'sunday') ? 'active' : '' ?>"
-                                                        href="?id=<?= $idSelecionado ?>&dia_semana=sunday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Domingo</a>
-                                                </li>
+                                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownDiasSemana">
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'todos') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=todos&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Todos os Dias</a></li>
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'monday') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=monday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Segunda-Feira</a></li>
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'tuesday') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=tuesday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Terça-Feira</a></li>
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'wednesday') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=wednesday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Quarta-Feira</a></li>
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'thursday') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=thursday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Quinta-Feira</a></li>
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'friday') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=friday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Sexta-Feira</a></li>
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'saturday') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=saturday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Sábado</a></li>
+                                                <li><a class="dropdown-item <?= ($diaSelecionado === 'sunday') ? 'active' : '' ?>" href="?id=<?= $idSelecionado ?>&dia_semana=sunday&de=<?= $dataInicial ?>&ate=<?= $dataFinal ?>">Domingo</a></li>
                                             </ul>
                                         </div>
                                     </div>
@@ -876,8 +838,7 @@ function formatarMoeda($valor)
                                         <h5 class="card-title m-0">Formas de Pagamento por Dia</h5>
                                     </div>
                                     <div class="card-body flex-grow-1">
-                                        <div id="graficoPizzaPagamentoNoCard" style="height: 300px; max-width: 100%;">
-                                        </div>
+                                        <div id="graficoPizzaPagamentoNoCard" style="height: 300px; max-width: 100%;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -891,61 +852,19 @@ function formatarMoeda($valor)
                 <!-- Scripts para os gráficos -->
                 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
                 <script>
-                    document.addEventListener('DOMContentLoaded', function () {
+                    document.addEventListener('DOMContentLoaded', function() {
                         const dadosGraficoPizza = <?= json_encode($dadosGraficoPizza) ?>;
                         const dadosPorDiaSemana = <?= json_encode($dadosPorDiaSemana) ?>;
-                        const diasSemana = <?= json_encode($diasSemana) ?>;
+                        const labelsDias = <?= json_encode($labelsDias) ?>;
+                        const valoresDias = <?= json_encode($valoresDias) ?>;
+                        const quantidadesDias = <?= json_encode($quantidadesDias) ?>;
                         const diaSelecionado = '<?= $_GET['dia_semana'] ?? 'todos' ?>';
-
-                        // Mapeamento de dias em inglês para português
-                        const diasTraducao = {
-                            'sunday': 'Domingo',
-                            'monday': 'Segunda-feira',
-                            'tuesday': 'Terça-feira',
-                            'wednesday': 'Quarta-feira',
-                            'thursday': 'Quinta-feira',
-                            'friday': 'Sexta-feira',
-                            'saturday': 'Sábado',
-                            'todos': 'Todos os Dias'
-                        };
-
-                        // Função para filtrar vendas por dia da semana
-                        function filtrarVendasPorDia(dia) {
-                            if (dia === 'todos') {
-                                // Consolida todas as formas de pagamento de todos os dias
-                                const formasPagamento = {};
-                                <?php foreach ($formasPagamento as $pagamento): ?>
-                                    formasPagamento['<?= $pagamento['forma_pagamento'] ?>'] = <?= (float) $pagamento['valor_total'] ?>;
-                                <?php endforeach; ?>
-
-                                return {
-                                    labels: <?= json_encode($labelsDias) ?>,
-                                    valores: <?= json_encode($valoresDias) ?>,
-                                    quantidades: <?= json_encode($quantidadesDias) ?>,
-                                    formasPagamento: Object.entries(formasPagamento).map(([forma, valor]) => ({ forma, valor }))
-                                };
-                            }
-
-                            // Filtra por dia específico
-                            const vendasFiltradas = <?= json_encode($vendasPorDia) ?>.filter(venda => {
-                                const diaVenda = venda.dia_semana.toLowerCase();
-                                return diaVenda === dia;
-                            });
-
-                            // Retorna os dados filtrados
-                            return {
-                                labels: vendasFiltradas.map(venda => venda.data_formatada),
-                                valores: vendasFiltradas.map(venda => parseFloat(venda.valor_total)),
-                                quantidades: vendasFiltradas.map(venda => parseInt(venda.quantidade)),
-                                formasPagamento: dadosPorDiaSemana[dia] || []
-                            };
-                        }
 
                         // Gráfico de Linha - Evolução Diária
                         const optionsLinha = {
                             series: [{
                                 name: 'Valor de Vendas',
-                                data: <?= json_encode($valoresDias) ?>
+                                data: valoresDias
                             }],
                             chart: {
                                 height: 350,
@@ -966,18 +885,18 @@ function formatarMoeda($valor)
                             },
                             colors: ['#7367F0'],
                             xaxis: {
-                                categories: <?= json_encode($labelsDias) ?>
+                                categories: labelsDias
                             },
                             yaxis: {
                                 labels: {
-                                    formatter: val => 'R$ ' + val.toLocaleString('pt-BR', {
+                                    formatter: val => 'R$ ' + Number(val).toLocaleString('pt-BR', {
                                         minimumFractionDigits: 2
                                     })
                                 }
                             },
                             tooltip: {
                                 y: {
-                                    formatter: val => 'R$ ' + val.toLocaleString('pt-BR', {
+                                    formatter: val => 'R$ ' + Number(val).toLocaleString('pt-BR', {
                                         minimumFractionDigits: 2
                                     })
                                 }
@@ -987,17 +906,16 @@ function formatarMoeda($valor)
                                 options: {
                                     chart: {
                                         height: 300
-                                    },
+                                    }
                                 }
                             }]
                         };
                         const chartLinha = new ApexCharts(document.querySelector("#evolucaoDiariaChart"), optionsLinha);
                         chartLinha.render();
 
-                        // Gráfico de Pizza - Formas de Pagamento
+                        // Gráfico de Pizza - Composição de Pagamento (total período)
                         const labelsPizza = dadosGraficoPizza.map(item => item.forma);
                         const valoresPizza = dadosGraficoPizza.map(item => item.valor);
-
                         const optionsPizza = {
                             series: valoresPizza,
                             chart: {
@@ -1008,58 +926,85 @@ function formatarMoeda($valor)
                             colors: ['#7367F0', '#28C76F', '#EA5455', '#FF9F43', '#00CFE8'],
                             tooltip: {
                                 y: {
-                                    formatter: val => 'R$ ' + val.toLocaleString('pt-BR', {
+                                    formatter: val => 'R$ ' + Number(val).toLocaleString('pt-BR', {
                                         minimumFractionDigits: 2
                                     })
                                 }
                             },
                             responsive: [{
-                                breakpoint: 768,
-                                options: {
-                                    chart: {
-                                        height: 280
-                                    },
-                                    legend: {
-                                        position: 'bottom'
+                                    breakpoint: 768,
+                                    options: {
+                                        chart: {
+                                            height: 280
+                                        },
+                                        legend: {
+                                            position: 'bottom'
+                                        }
+                                    }
+                                },
+                                {
+                                    breakpoint: 480,
+                                    options: {
+                                        chart: {
+                                            height: 250
+                                        },
+                                        legend: {
+                                            position: 'bottom'
+                                        }
                                     }
                                 }
-                            }, {
-                                breakpoint: 480,
-                                options: {
-                                    chart: {
-                                        height: 250
-                                    },
-                                    legend: {
-                                        position: 'bottom'
-                                    }
-                                }
-                            }]
+                            ]
                         };
                         const chartPizza = new ApexCharts(document.querySelector("#graficoPizzaPagamento"), optionsPizza);
                         chartPizza.render();
 
-                        // Inicializar gráficos de barras e pizza por dia
+                        // ========= Gráfico de Barras + Pizza por DIA SELECIONADO =========
                         let chartBarras = null;
                         let chartPizzaDia = null;
 
-                        function atualizarGraficosPorDia(dia) {
-                            const vendasFiltradas = filtrarVendasPorDia(dia);
+                        function filtrarPorDia(dia) {
+                            if (dia === 'todos') {
+                                return {
+                                    labels: labelsDias,
+                                    valores: valoresDias,
+                                    quantidades: quantidadesDias,
+                                    formasPagamento: dadosGraficoPizza // usa o total do período
+                                };
+                            }
+                            // filtra por dia específico
+                            const mapData = <?= json_encode($vendasPorDia) ?>;
+                            const filtradas = mapData.filter(v => v.dia_semana && v.dia_semana.toLowerCase() === dia);
+                            return {
+                                labels: filtradas.map(v => {
+                                    const d = new Date(v.data);
+                                    const dd = String(d.getDate()).padStart(2, '0');
+                                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                                    return dd + '/' + mm;
+                                }),
+                                valores: filtradas.map(v => Number(v.valor_total || 0)),
+                                quantidades: filtradas.map(v => Number(v.quantidade || 0)),
+                                formasPagamento: (dadosPorDiaSemana[dia] || [])
+                            };
+                        }
 
-                            // Atualiza gráfico de barras
+                        function atualizarGraficosPorDia(dia) {
+                            const f = filtrarPorDia(dia);
+
+                            // Barras
                             if (chartBarras) {
                                 chartBarras.updateOptions({
                                     xaxis: {
-                                        categories: vendasFiltradas.labels
+                                        categories: f.labels
                                     },
                                     series: [{
-                                        data: vendasFiltradas.quantidades
+                                        data: f.quantidades
                                     }]
                                 });
                             } else {
                                 const optionsBarras = {
                                     series: [{
                                         name: 'Quantidade de Vendas',
-                                        data: vendasFiltradas.quantidades
+                                        data: f.quantidades
                                     }],
                                     chart: {
                                         type: 'bar',
@@ -1079,7 +1024,7 @@ function formatarMoeda($valor)
                                     },
                                     colors: ['#28C76F'],
                                     xaxis: {
-                                        categories: vendasFiltradas.labels
+                                        categories: f.labels
                                     },
                                     yaxis: {
                                         title: {
@@ -1099,14 +1044,12 @@ function formatarMoeda($valor)
                                 chartBarras.render();
                             }
 
-                            // Atualiza gráfico de pizza por dia
+                            // Pizza por dia
                             const containerPizza = document.querySelector("#graficoPizzaPagamentoNoCard");
-                            containerPizza.innerHTML = '<div></div>'; // Limpa o container
+                            containerPizza.innerHTML = '<div></div>'; // limpa
 
-                            const dadosPizza = dia === 'todos' ? vendasFiltradas.formasPagamento : dadosPorDiaSemana[dia] || [];
-
-                            if (dadosPizza.length === 0) {
-                                containerPizza.innerHTML = `<div class="text-center py-4 text-muted">Nenhum dado disponível para ${diasTraducao[dia] || 'o período selecionado'}</div>`;
+                            if (!f.formasPagamento || f.formasPagamento.length === 0) {
+                                containerPizza.innerHTML = `<div class="text-center py-4 text-muted">Nenhum dado disponível para o período selecionado</div>`;
                                 if (chartPizzaDia) {
                                     chartPizzaDia.destroy();
                                     chartPizzaDia = null;
@@ -1115,22 +1058,22 @@ function formatarMoeda($valor)
                             }
 
                             const optionsPizzaDia = {
-                                series: dadosPizza.map(item => item.valor),
+                                series: f.formasPagamento.map(item => Number(item.valor || 0)),
                                 chart: {
                                     type: 'pie',
                                     height: 300
                                 },
-                                labels: dadosPizza.map(item => item.forma),
+                                labels: f.formasPagamento.map(item => item.forma),
                                 colors: ['#7367F0', '#28C76F', '#EA5455', '#FF9F43', '#00CFE8'],
                                 tooltip: {
                                     y: {
-                                        formatter: val => 'R$ ' + val.toLocaleString('pt-BR', {
+                                        formatter: val => 'R$ ' + Number(val).toLocaleString('pt-BR', {
                                             minimumFractionDigits: 2
                                         })
                                     }
                                 },
                                 title: {
-                                    text: dia === 'todos' ? 'Todas as Formas de Pagamento' : diasTraducao[dia],
+                                    text: (dia === 'todos' ? 'Todas as Formas de Pagamento' : dia),
                                     align: 'center',
                                     style: {
                                         fontSize: '16px',
@@ -1147,24 +1090,9 @@ function formatarMoeda($valor)
                             }
                         }
 
-                        // Inicializar com o dia selecionado ou 'todos'
                         atualizarGraficosPorDia(diaSelecionado);
 
-                        // Event listeners para filtros de dia
-                        document.querySelectorAll('[data-filtro-dia]').forEach(btn => {
-                            btn.addEventListener('click', function () {
-                                const dia = this.getAttribute('data-filtro-dia');
-                                atualizarGraficosPorDia(dia);
-
-                                // Atualizar classe ativa
-                                document.querySelectorAll('[data-filtro-dia]').forEach(el => {
-                                    el.classList.remove('active');
-                                });
-                                this.classList.add('active');
-                            });
-                        });
-
-                        // Opcional: atualizar gráficos ao redimensionar a janela
+                        // Responsividade
                         window.addEventListener('resize', () => {
                             chartLinha && chartLinha.resize();
                             chartPizza && chartPizza.resize();
