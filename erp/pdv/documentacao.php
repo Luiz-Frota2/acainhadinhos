@@ -314,16 +314,20 @@ if ($pfxPath) {
                         <ul class="menu-sub">
                             <li class="menu-item"><a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>NFC-e</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Status</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item active"><a href="./documentacao.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Documentação</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Consulta</div>
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
 
@@ -336,10 +340,12 @@ if ($pfxPath) {
                         <ul class="menu-sub">
                             <li class="menu-item"><a href="./caixasAberto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Caixas Aberto</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./caixasFechado.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Caixas Fechado</div>
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
 
@@ -352,13 +358,16 @@ if ($pfxPath) {
                         <ul class="menu-sub">
                             <li class="menu-item"><a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Adicionados</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Baixo</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Alto</div>
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
 
@@ -382,25 +391,64 @@ if ($pfxPath) {
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>RH</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i>
                             <div>Finanças</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
                             <div>Delivery</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div>Empresa</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i>
                             <div>Estoque</div>
-                        </a></li>
+                        </a>
+                    </li>
+                    <?php
+                    $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+                    $idLogado = $_SESSION['empresa_id'] ?? '';
+
+                    // Se for matriz (principal), mostrar links para filial, franquia e unidade
+                    if ($tipoLogado === 'principal') {
+                    ?>
+                        <li class="menu-item">
+                            <a href="../filial/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-building"></i>
+                                <div data-i18n="Authentications">Filial</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-store"></i>
+                                <div data-i18n="Authentications">Franquias</div>
+                            </a>
+                        </li>
+                    <?php
+                    } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+                        // Se for filial, franquia ou unidade, mostra link para matriz
+                    ?>
+                        <li class="menu-item">
+                            <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-cog"></i>
+                                <div data-i18n="Authentications">Matriz</div>
+                            </a>
+                        </li>
+                    <?php
+                    }
+                    ?>
                     <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>Usuários</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
                             <div>Suporte</div>
-                        </a></li>
+                        </a>
+                    </li>
                 </ul>
             </aside>
             <!-- / Menu -->

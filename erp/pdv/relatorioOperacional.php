@@ -207,7 +207,6 @@ try {
       return sprintf("%02d:00", $h);
     }, range(0, 23));
     $valoresGrafico = $horasDia;
-
   } elseif ($filtro_periodo === 'semana') {
     $tituloGrafico = 'Vendas por Dia - Esta Semana';
     $sqlGrafico = "SELECT DATE(data_venda) as data, DAYNAME(data_venda) as dia_semana, SUM(valor_total) as total 
@@ -239,7 +238,6 @@ try {
       $categoriasGrafico[] = $diasSemana[$item['dia_semana']] ?? $item['dia_semana'];
       $valoresGrafico[] = (float) $item['total'];
     }
-
   } elseif ($filtro_periodo === 'mes') {
     $tituloGrafico = 'Vendas por Dia - Este Mês';
     $sqlGrafico = "SELECT DATE(data_venda) as data, DAY(data_venda) as dia, SUM(valor_total) as total 
@@ -264,7 +262,6 @@ try {
 
     $categoriasGrafico = range(1, $diasNoMes);
     $valoresGrafico = array_values($diasMes);
-
   } elseif ($filtro_periodo === 'ano') {
     $tituloGrafico = 'Vendas por Mês - Este Ano';
     $sqlGrafico = "SELECT MONTH(data_venda) as mes, SUM(valor_total) as total 
@@ -302,7 +299,6 @@ try {
 
     $categoriasGrafico = array_values($meses);
     $valoresGrafico = array_values($mesesAno);
-
   } elseif ($filtro_periodo === 'personalizar' && !empty($data_inicio) && !empty($data_fim)) {
     $tituloGrafico = 'Vendas no Período Selecionado';
 
@@ -350,7 +346,6 @@ try {
         $categoriasGrafico[] = $dateObj->format('d/m');
         $valoresGrafico[] = $valor;
       }
-
     } elseif ($diasDiferenca <= 31) {
       $sqlGrafico = "SELECT DATE(data_venda) as data, SUM(valor_total) as total 
                     FROM vendas
@@ -374,7 +369,6 @@ try {
         $categoriasGrafico[] = $dateObj->format('d/m');
         $valoresGrafico[] = (float) $item['total'];
       }
-
     } elseif ($diasDiferenca <= 365) {
       $sqlGrafico = "SELECT MONTH(data_venda) as mes, SUM(valor_total) as total 
                     FROM vendas
@@ -412,7 +406,6 @@ try {
         $categoriasGrafico[] = $meses[$item['mes']] ?? $item['mes'];
         $valoresGrafico[] = (float) $item['total'];
       }
-
     } else {
       $tituloGrafico = 'Vendas por Trimestre - Período Selecionado';
       $sqlGrafico = "SELECT 
@@ -440,7 +433,6 @@ try {
         $valoresGrafico[] = (float) $item['total'];
       }
     }
-
   } else {
     // Padrão: últimos 7 dias
     $tituloGrafico = 'Vendas nos Últimos 7 Dias';
@@ -484,7 +476,6 @@ try {
       $valoresGrafico[] = (float) $item['total'];
     }
   }
-
 } catch (PDOException $e) {
   error_log("Erro ao buscar dados operacionais: " . $e->getMessage());
   $tituloGrafico = 'Vendas';
@@ -598,8 +589,8 @@ $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./sefazSAT.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">SAT</div>
+                <a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Status</div>
                 </a>
               </li>
               <li class="menu-item">
@@ -709,19 +700,37 @@ $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados
             </a>
           </li>
           <?php
-          $isFilial = str_starts_with($idSelecionado, 'filial_');
-          $link = $isFilial
-            ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-            : '../filial/index.php?id=principal_1';
-          $titulo = $isFilial ? 'Matriz' : 'Filial';
-          ?>
+          $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+          $idLogado = $_SESSION['empresa_id'] ?? '';
 
-          <li class="menu-item">
-            <a href="<?= $link ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-cog"></i>
-              <div data-i18n="Authentications"><?= $titulo ?></div>
-            </a>
-          </li>
+          // Se for matriz (principal), mostrar links para filial, franquia e unidade
+          if ($tipoLogado === 'principal') {
+          ?>
+            <li class="menu-item">
+              <a href="../filial/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-building"></i>
+                <div data-i18n="Authentications">Filial</div>
+              </a>
+            </li>
+            <li class="menu-item">
+              <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-store"></i>
+                <div data-i18n="Authentications">Franquias</div>
+              </a>
+            </li>
+          <?php
+          } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+            // Se for filial, franquia ou unidade, mostra link para matriz
+          ?>
+            <li class="menu-item">
+              <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                <i class="menu-icon tf-icons bx bx-cog"></i>
+                <div data-i18n="Authentications">Matriz</div>
+              </a>
+            </li>
+          <?php
+          }
+          ?>
           <li class="menu-item">
             <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-group"></i>
@@ -939,11 +948,11 @@ $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados
           </div>
 
           <script>
-            document.addEventListener('DOMContentLoaded', function () {
+            document.addEventListener('DOMContentLoaded', function() {
               var modalPersonalizar = new bootstrap.Modal(document.getElementById('modalPersonalizar'));
 
               // Ao mudar o select, se for personalizar, abre modal, senão faz submit normal
-              document.getElementById('filtro_periodo').addEventListener('change', function (e) {
+              document.getElementById('filtro_periodo').addEventListener('change', function(e) {
                 if (this.value === 'personalizar') {
                   e.preventDefault();
                   modalPersonalizar.show();
@@ -953,7 +962,7 @@ $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados
               });
 
               // Validar datas antes de submeter
-              document.getElementById('form-personalizar').addEventListener('submit', function (e) {
+              document.getElementById('form-personalizar').addEventListener('submit', function(e) {
                 var dataInicio = document.getElementById('data_inicio').value;
                 var dataFim = document.getElementById('data_fim').value;
 
@@ -1005,8 +1014,11 @@ $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados
                 },
                 yaxis: {
                   labels: {
-                    formatter: function (value) {
-                      return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    formatter: function(value) {
+                      return 'R$ ' + value.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      });
                     }
                   }
                 },
@@ -1025,8 +1037,11 @@ $listaProdutos = !empty($produtosFormatados) ? implode(', ', $produtosFormatados
                 },
                 tooltip: {
                   y: {
-                    formatter: function (value) {
-                      return 'R$ ' + value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    formatter: function(value) {
+                      return 'R$ ' + value.toLocaleString('pt-BR', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      });
                     }
                   }
                 }

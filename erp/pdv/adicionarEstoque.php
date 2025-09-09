@@ -184,8 +184,8 @@ try {
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./sefazSAT.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Basic">SAT</div>
+                                <a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Basic">Status</div>
                                 </a>
                             </li>
                             <li class="menu-item">
