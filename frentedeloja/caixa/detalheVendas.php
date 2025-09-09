@@ -210,7 +210,10 @@ if (!empty($produtosVendas)) {
 }
 $dtTitulo = $dataRelatorio ? date('d/m/Y', strtotime($dataRelatorio)) : '—';
 
-// ======================== SAÍDA (HTML) ============================
+// ======================== URL DANFE (iframe) ======================
+// Ajuste o caminho se seu danfe_nfce.php estiver em outra pasta.
+$DANFE_BASE = './danfe_nfce.php';
+
 ?>
 
 <!DOCTYPE html>
@@ -539,7 +542,10 @@ $dtTitulo = $dataRelatorio ? date('d/m/Y', strtotime($dataRelatorio)) : '—';
                     <div class="row">
                         <div class="col-lg-12 mb-4 order-0">
                             <div class="card">
-                                <h5 class="card-header">Itens Vendidos</h5>
+                                <h5 class="card-header d-flex align-items-center justify-content-between">
+                                    <span>Itens Vendidos</span>
+                                    <a class="btn btn-secondary btn-sm" href="./relatorioVendas.php?id=<?= urlencode($idSelecionado) ?>">← Voltar ao Resumo</a>
+                                </h5>
                                 <div class="table-responsive text-nowrap">
                                     <table class="table table-hover align-middle">
                                         <thead class="table-light">
@@ -554,18 +560,20 @@ $dtTitulo = $dataRelatorio ? date('d/m/Y', strtotime($dataRelatorio)) : '—';
                                                 <th>Forma pgto.</th>
                                                 <th>Data/Hora</th>
                                                 <th>NFC-e</th>
+                                                <th>Ações</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <?php if (empty($produtosVendas)): ?>
                                                 <tr>
-                                                    <td colspan="10" class="text-center py-4">Nenhum item vendido encontrado para este caixa.</td>
+                                                    <td colspan="11" class="text-center py-4">Nenhum item vendido encontrado para este caixa.</td>
                                                 </tr>
                                             <?php else: ?>
                                                 <?php foreach ($produtosVendas as $it):
                                                     $dt = new DateTime($it['data_venda']);
                                                     $status = $it['status_nfce'] ?: '—';
                                                     $chave  = $it['chave_nfce'] ?: '';
+                                                    $temDanfe = !empty($chave) && in_array(strtolower($status), ['autorizada', '100', 'autorizado', 'aprovada'], true);
                                                 ?>
                                                     <tr>
                                                         <td>#<?= (int)$it['venda_id'] ?></td>
@@ -577,13 +585,33 @@ $dtTitulo = $dataRelatorio ? date('d/m/Y', strtotime($dataRelatorio)) : '—';
                                                         <td><?= moeda($it['item_total']) ?></td>
                                                         <td><?= htmlspecialchars($it['forma_pagamento']) ?></td>
                                                         <td><?= $dt->format('d/m/Y H:i') ?></td>
-                                                        <td title="<?= htmlspecialchars($chave) ?>"><?= htmlspecialchars($status) ?></td>
+                                                        <td title="<?= htmlspecialchars($chave) ?>">
+                                                            <span class="badge <?= $temDanfe ? 'bg-success' : 'bg-secondary' ?>">
+                                                                <?= $temDanfe ? 'Autorizada' : htmlspecialchars($status) ?>
+                                                            </span>
+                                                        </td>
+                                                        <td>
+                                                            <?php if ($temDanfe): ?>
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-outline-primary btn-sm ver-danfe"
+                                                                    data-bs-toggle="modal"
+                                                                    data-bs-target="#modalDanfe"
+                                                                    data-chave="<?= htmlspecialchars($chave) ?>"
+                                                                    data-venda="<?= (int)$it['venda_id'] ?>"
+                                                                    data-empresa="<?= htmlspecialchars($idSelecionado) ?>">
+                                                                    Ver DANFE
+                                                                </button>
+                                                            <?php else: ?>
+                                                                <button type="button" class="btn btn-outline-secondary btn-sm" disabled>Sem DANFE</button>
+                                                            <?php endif; ?>
+                                                        </td>
                                                     </tr>
                                                 <?php endforeach; ?>
                                                 <tr>
                                                     <td colspan="6" class="text-end fw-bold">Total Geral de Vendas (Caixa)</td>
                                                     <td class="fw-bold"><?= moeda($totalVendas) ?></td>
-                                                    <td colspan="3"></td>
+                                                    <td colspan="4"></td>
                                                 </tr>
                                             <?php endif; ?>
                                         </tbody>
@@ -679,15 +707,93 @@ $dtTitulo = $dataRelatorio ? date('d/m/Y', strtotime($dataRelatorio)) : '—';
                         </div>
                     </div>
 
-                    <!-- Botão Voltar -->
-                    <div class="mt-3">
-                        <a class="btn btn-secondary" href="./relatorioVendas.php?id=<?= urlencode($idSelecionado) ?>">
-                            ← Voltar ao Resumo
-                        </a>
-                    </div>
-
                 </div>
                 <!-- /Content wrapper -->
+
+                <!-- MODAL DANFE -->
+                <div class="modal fade" id="modalDanfe" tabindex="-1" aria-labelledby="modalDanfeLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-fullscreen-lg-down modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalDanfeLabel">DANFE NFC-e</h5>
+                                <button type="button" class="btn btn-sm btn-outline-primary me-2" id="btnAbrirNovaGuia" style="display:none">Abrir em nova guia</button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body p-0" style="min-height:70vh; position:relative">
+                                <div id="danfeLoader" class="d-flex align-items-center justify-content-center w-100 h-100" style="position:absolute; inset:0; background:#fff;">
+                                    <div class="text-center">
+                                        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                                        <div class="mt-2">Carregando DANFE…</div>
+                                    </div>
+                                </div>
+                                <iframe id="danfeFrame" src="about:blank" title="DANFE NFC-e" style="border:0; width:100%; height:70vh" loading="lazy"></iframe>
+                            </div>
+                            <div class="modal-footer">
+                                <small class="text-muted me-auto" id="danfeInfo"></small>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    (function() {
+                        const danfeModal = document.getElementById('modalDanfe');
+                        const danfeFrame = document.getElementById('danfeFrame');
+                        const danfeLoader = document.getElementById('danfeLoader');
+                        const danfeInfo = document.getElementById('danfeInfo');
+                        const btnNovaGuia = document.getElementById('btnAbrirNovaGuia');
+                        const DANFE_BASE = <?= json_encode($DANFE_BASE) ?>; // ./danfe_nfce.php
+
+                        // Ao abrir a modal (Bootstrap 5)
+                        danfeModal.addEventListener('show.bs.modal', function(ev) {
+                            const btn = ev.relatedTarget;
+                            if (!btn) return;
+
+                            const chave = btn.getAttribute('data-chave') || '';
+                            const venda = btn.getAttribute('data-venda') || '';
+                            const empresa = btn.getAttribute('data-empresa') || '';
+
+                            // Monta URL do DANFE (altere se seu danfe_nfce.php precisar de outro caminho)
+                            const url = `${DANFE_BASE}?id=${encodeURIComponent(empresa)}&venda_id=${encodeURIComponent(venda)}&chave=${encodeURIComponent(chave)}`;
+
+                            danfeLoader.style.display = 'flex';
+                            danfeInfo.textContent = `Chave: ${chave ? chave.replace(/(\d{4})/g,'$1 ').trim() : '—'} • Venda #${venda}`;
+                            btnNovaGuia.style.display = 'inline-block';
+                            btnNovaGuia.onclick = () => window.open(url, '_blank');
+
+                            // Carrega no iframe
+                            danfeFrame.src = 'about:blank';
+                            setTimeout(() => {
+                                danfeFrame.src = url;
+                            }, 50); // pequena pausa para forçar reload
+                        });
+
+                        // Quando o iframe terminar de carregar
+                        danfeFrame.addEventListener('load', function() {
+                            // Remover loader após breve atraso (evita piscar)
+                            setTimeout(() => {
+                                danfeLoader.style.display = 'none';
+                            }, 150);
+                        });
+
+                        // Ao fechar, limpar iframe para liberar memória
+                        danfeModal.addEventListener('hidden.bs.modal', function() {
+                            danfeFrame.src = 'about:blank';
+                            danfeLoader.style.display = 'flex';
+                            danfeInfo.textContent = '';
+                            btnNovaGuia.style.display = 'none';
+                            btnNovaGuia.onclick = null;
+                        });
+
+                        // Delegação de evento para botões "Ver DANFE" (se quiser reforçar)
+                        document.addEventListener('click', function(e) {
+                            const t = e.target.closest('.ver-danfe');
+                            if (!t) return;
+                            // nada aqui; o próprio data-bs-toggle abre a modal
+                        });
+                    })();
+                </script>
 
                 <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
                 <script src="../../assets/vendor/libs/popper/popper.js"></script>
