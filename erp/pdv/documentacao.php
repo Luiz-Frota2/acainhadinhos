@@ -466,106 +466,6 @@ if ($pfxPath) {
                         <span class="fw-light" style="color:#696cff!important;"><a href="#">PDV</a></span> / Documentação NFC-e
                     </h4>
 
-                    <!-- ======= 3 Cards de topo ======= -->
-                    <div class="row">
-                        <!-- Card de Status da Integração -->
-                        <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card h-100">
-                                <div class="card-header d-flex align-items-center justify-content-between">
-                                    <h5 class="card-title m-0 me-2">Status NFC-e</h5>
-                                    <span class="badge <?= ($tpAmb && $cnpjExibe && $razao && $pfxPath && $csc && $idToken) ? 'bg-label-primary' : 'bg-label-danger'; ?>">
-                                        <?= ($tpAmb && $cnpjExibe && $razao && $pfxPath && $csc && $idToken) ? 'Configurado' : 'Não Configurado'; ?>
-                                    </span>
-                                </div>
-                                <div class="card-body">
-                                    <ul class="list-unstyled mb-0">
-                                        <li class="mb-3">
-                                            <span class="fw-medium me-2">Certificado Digital:</span>
-                                            <span class="badge <?= $certificadoClass; ?>"><?= $certificadoStatus; ?></span>
-                                            <?php if (!empty($pfxPath)): ?>
-                                                <div style="font-size:12px;color:#666;word-break:break-all;margin-top:4px">
-                                                    Caminho: <?= htmlspecialchars(absPath($pfxPath)); ?>
-                                                </div>
-                                            <?php endif; ?>
-                                        </li>
-                                        <li class="mb-3">
-                                            <span class="fw-medium me-2">Ambiente:</span>
-                                            <span class="badge <?= $ambienteClass; ?>"><?= $ambienteStatus; ?></span>
-                                        </li>
-                                        <li class="mb-3"><span class="fw-medium me-2">CNPJ:</span> <span><?= $configNFCe['cnpj']; ?></span></li>
-                                        <li class="mb-3"><span class="fw-medium me-2">Razão Social:</span> <span><?= htmlspecialchars($configNFCe['razao_social']); ?></span></li>
-                                        <li class="mb-3"><span class="fw-medium me-2">CSC / ID Token:</span> <span><?= ($csc ? '***' : '--'); ?> / <?= htmlspecialchars($idTokenExibe); ?></span></li>
-                                        <li class="mb-3">
-                                            <span class="fw-medium me-2">Fonte:</span>
-                                            <span class="badge bg-label-secondary">
-                                                <?= is_file($cfgFilePath) ? 'Arquivo de Configuração' : 'Banco de Dados'; ?>
-                                            </span>
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div class="card-footer">
-                                    <a href="adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="btn btn-primary btn-sm">
-                                        <?= ($tpAmb && $cnpjExibe && $razao && $csc && $idToken) ? 'Editar Configuração' : 'Configurar NFC-e'; ?>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card de Últimas Notas -->
-                        <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card h-100">
-                                <div class="card-header">
-                                    <h5 class="card-title m-0 me-2">Últimas NFC-e</h5>
-                                </div>
-                                <div class="card-body">
-                                    <?php if ($tpAmb && $cnpjExibe && $razao && $pfxPath && $csc && $idToken): ?>
-                                        <div class="alert alert-info">Integração configurada com sucesso!</div>
-                                        <!-- TODO: listar últimas NFC-e emitidas -->
-                                    <?php else: ?>
-                                        <div class="alert alert-warning">
-                                            A integração com NFC-e não está totalmente configurada. Clique em “Configurar NFC-e”.
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="card-footer d-flex gap-2">
-                                    <a href="visualizarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="btn btn-outline-primary btn-sm" target="_blank">
-                                        Visualizar NFC-e (Modelo)
-                                    </a>
-                                    <a href="danfe_nfce.php?id=<?= urlencode($idSelecionado); ?>" class="btn btn-outline-secondary btn-sm" target="_blank" title="Abrir DANFE (requer XML)">
-                                        Abrir DANFE
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card de Ajuda -->
-                        <div class="col-md-6 col-lg-4 mb-4">
-                            <div class="card h-100">
-                                <div class="card-header">
-                                    <h5 class="card-title m-0 me-2">Ajuda</h5>
-                                </div>
-                                <div class="card-body">
-                                    <p>Para configurar a NFC-e, você precisará:</p>
-                                    <ol>
-                                        <li>Certificado digital A1 válido (.pfx) em <code>../../assets/img/certificado/</code></li>
-                                        <li>Dados cadastrais da empresa (CNPJ, Razão Social, IE, endereço, município IBGE)</li>
-                                        <li>CSC e ID Token (SEFAZ) — o ID Token deve ter 6 dígitos</li>
-                                    </ol>
-                                    <?php if (!is_file($cfgFilePath)): ?>
-                                        <div class="alert alert-secondary" style="font-size:13px">
-                                            Dica: crie/ajuste <code><?= htmlspecialchars($cfgFilePath); ?></code> para centralizar a configuração.
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="card-footer">
-                                    <a href="documentacao.php?id=<?= urlencode($idSelecionado); ?>" class="btn btn-outline-secondary btn-sm">Documentação</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- /Cards de topo -->
-
-                    <!-- ======= Conteúdo da Documentação ======= -->
                     <div class="row mt-1">
                         <!-- TOC -->
                         <div class="col-lg-3">
@@ -627,12 +527,13 @@ if ($pfxPath) {
                                     </ul>
                                     <p>Permissões recomendadas (Linux):</p>
                                     <pre class="code"><code># Pasta de XML
-chmod 755 ../../nfce
-# Pasta de certificado
-chmod 750 ../../assets/img/certificado
-# Dono do arquivo do certificado (ex.: www-data)
-chown www-data:www-data ../../assets/img/certificado/seu_certificado.pfx
-</code></pre>
+                                        chmod 755 ../../nfce
+                                        # Pasta de certificado
+                                        chmod 750 ../../assets/img/certificado
+                                        # Dono do arquivo do certificado (ex.: www-data)
+                                        chown www-data:www-data ../../assets/img/certificado/seu_certificado.pfx
+                                        </code>
+                                    </pre>
                                 </div>
                             </div>
 
@@ -644,20 +545,21 @@ chown www-data:www-data ../../assets/img/certificado/seu_certificado.pfx
                                 <div class="card-body">
                                     <p><b>Opção A — via arquivo</b> (<code>frentedeloja/caixa/config.php</code>):</p>
                                     <pre class="code"><code>&lt;?php
-/* Ambiente: 1=Produção, 2=Homologação */
-define('TP_AMB', 2);
+                                        /* Ambiente: 1=Produção, 2=Homologação */
+                                        define('TP_AMB', 2);
 
-/* Empresa */
-define('EMIT_CNPJ', '12345678000195');
-define('EMIT_XNOME', 'MINHA EMPRESA LTDA');
+                                        /* Empresa */
+                                        define('EMIT_CNPJ', '12345678000195');
+                                        define('EMIT_XNOME', 'MINHA EMPRESA LTDA');
 
-/* CSC e Token (ID_TOKEN com 6 dígitos) */
-define('CSC', 'SEU_CSC_AQUI');
-define('ID_TOKEN', '000001');
+                                        /* CSC e Token (ID_TOKEN com 6 dígitos) */
+                                        define('CSC', 'SEU_CSC_AQUI');
+                                        define('ID_TOKEN', '000001');
 
-/* Certificado A1 (.pfx) */
-define('PFX_PATH', __DIR__ . '/../../assets/img/certificado/seu_certificado.pfx');
-define('PFX_PASSWORD', 'sua_senha_forte');</code></pre>
+                                        /* Certificado A1 (.pfx) */
+                                        define('PFX_PATH', __DIR__ . '/../../assets/img/certificado/seu_certificado.pfx');
+                                        define('PFX_PASSWORD', 'sua_senha_forte');</code>
+                                    </pre>
 
                                     <p class="mt-3"><b>Opção B — via banco</b> (tabela <code>integracao_nfce</code>): campos típicos:</p>
                                     <ul>
@@ -693,14 +595,15 @@ define('PFX_PASSWORD', 'sua_senha_forte');</code></pre>
                                 <div class="card-body">
                                     <p>Para visualizar <b>um XML autorizado</b> como DANFE (HTML):</p>
                                     <pre class="code"><code>danfe_nfce.php?id=&lt;empresa_id&gt;&amp;venda_id=123&amp;chave=44DIGITOS
-# ou, se tiver o arquivo exato:
-danfe_nfce.php?id=&lt;empresa_id&gt;&amp;arq=procNFCe_44DIGITOS.xml
-</code></pre>
+                                        # ou, se tiver o arquivo exato:
+                                        danfe_nfce.php?id=&lt;empresa_id&gt;&amp;arq=procNFCe_44DIGITOS.xml
+                                        </code></pre>
                                     <p>O script procura o XML em <code>../../nfce/</code> (prioritário) e fallbacks.</p>
                                     <p>Para só ver o <b>modelo</b> (sem XML):</p>
                                     <pre class="code"><code>visualizarNFCe.php?id=<?= htmlspecialchars($idSelecionado) ?>
-# parâmetros opcionais: fantasia, razao, cnpj, serie, nnf, valor, tpag, qrcode
-</code></pre>
+                                        # parâmetros opcionais: fantasia, razao, cnpj, serie, nnf, valor, tpag, qrcode
+                                        </code>
+                                    </pre>
                                 </div>
                             </div>
 
@@ -712,15 +615,15 @@ danfe_nfce.php?id=&lt;empresa_id&gt;&amp;arq=procNFCe_44DIGITOS.xml
                                 <div class="card-body">
                                     <p>Exemplos de botões:</p>
                                     <pre class="code"><code>&lt;a class="btn btn-outline-primary btn-sm"
-   href="visualizarNFCe.php?id=&lt;?= urlencode($idSelecionado) ?&gt;" target="_blank"&gt;
-   Visualizar NFC-e (Modelo)
-&lt;/a&gt;
+                                        href="visualizarNFCe.php?id=&lt;?= urlencode($idSelecionado) ?&gt;" target="_blank"&gt;
+                                        Visualizar NFC-e (Modelo)
+                                        &lt;/a&gt;
 
-&lt;a class="btn btn-primary btn-sm"
-   href="danfe_nfce.php?id=&lt;?= urlencode($idSelecionado) ?&gt;&amp;venda_id=&lt;?= 123 ?&gt;&amp;chave=&lt;?= urlencode('44...') ?&gt;"
-   target="_blank"&gt;
-   Ver DANFE (XML)
-&lt;/a&gt;</code></pre>
+                                        &lt;a class="btn btn-primary btn-sm"
+                                        href="danfe_nfce.php?id=&lt;?= urlencode($idSelecionado) ?&gt;&amp;venda_id=&lt;?= 123 ?&gt;&amp;chave=&lt;?= urlencode('44...') ?&gt;"
+                                        target="_blank"&gt;
+                                        Ver DANFE (XML)
+                                        &lt;/a&gt;</code></pre>
                                     <p>Nos relatórios/listagens, monte a URL conforme a venda e a chave da NFC-e.</p>
                                 </div>
                             </div>
