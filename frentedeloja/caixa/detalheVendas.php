@@ -285,7 +285,7 @@ $DANFE_BASE = './danfe_nfce.php';
                             <li class="menu-item"><a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Resumo de Vendas</div>
                                 </a></li>
-                            <li class="menu-item active"><a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                            <li class="menu-item active"><a href="#" class="menu-link">
                                     <div>Detalhes da Venda</div>
                                 </a></li>
                         </ul>
