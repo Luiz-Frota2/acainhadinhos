@@ -397,9 +397,6 @@ $DANFE_BASE = './danfe_nfce.php';
                         <span class="text-muted fw-light"><a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado) ?>">Relatório</a> / </span>
                         Detalhes de Vendas — <?= htmlspecialchars($dtTitulo) ?>
                     </h4>
-                    <h5 class="fw-semibold mt-2 mb-4 text-muted">
-                        Empresa: <span class="text-primary"><?= htmlspecialchars($idSelecionado) ?></span> • Caixa: <span class="text-primary">#<?= (int)$idCaixa ?></span>
-                    </h5>
 
                     <!-- Cards -->
                     <div class="row mb-4">

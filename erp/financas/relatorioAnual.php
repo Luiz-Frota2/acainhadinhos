@@ -8,19 +8,19 @@ session_start();
 $idSelecionado = $_GET['id'] ?? '';
 
 if (!$idSelecionado) {
-  header("Location: .././login.php");
-  exit;
+    header("Location: .././login.php");
+    exit;
 }
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=" . urlencode($idSelecionado));
-  exit;
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -32,21 +32,21 @@ $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -55,21 +55,21 @@ $idEmpresaSession = $_SESSION['empresa_id'];
 $tipoSession = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
-  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
-  echo "<script>
+    echo "<script>
           alert('Acesso negado!');
           window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
         </script>";
-  exit;
+    exit;
 }
 
 
@@ -116,44 +116,51 @@ date_default_timezone_set('America/Manaus');
 $empresa_id = $idSelecionado;
 $ano = isset($_GET['ano']) ? (int)$_GET['ano'] : (int)date('Y');
 
-function fmtBR($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
-function nomeMes($m){
-    $nomes = [1=>'Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function fmtBR($v)
+{
+    return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
+function nomeMes($m)
+{
+    $nomes = [1 => 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     return $nomes[(int)$m] ?? (string)$m;
 }
 
 $dadosAnuais = [];
-$entradasAno = 0.0; $saidasAno = 0.0; $saldoAno = 0.0;
+$entradasAno = 0.0;
+$saidasAno = 0.0;
+$saldoAno = 0.0;
 
-for ($m=1; $m<=12; $m++) {
+for ($m = 1; $m <= 12; $m++) {
     $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) AS total, COUNT(*) AS qtd
                          FROM vendas WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
-    $st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$m]);
-    $v = $st->fetch(PDO::FETCH_ASSOC) ?: ['total'=>0,'qtd'=>0];
-    $tv = (float)$v['total']; $qv = (int)$v['qtd'];
+    $st->execute([':e' => $empresa_id, ':a' => $ano, ':m' => $m]);
+    $v = $st->fetch(PDO::FETCH_ASSOC) ?: ['total' => 0, 'qtd' => 0];
+    $tv = (float)$v['total'];
+    $qv = (int)$v['qtd'];
 
     $st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos 
                          WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
-    $st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$m]);
+    $st->execute([':e' => $empresa_id, ':a' => $ano, ':m' => $m]);
     $ts = (float)($st->fetchColumn() ?: 0);
 
     $st = $pdo->prepare("SELECT COALESCE(SUM(valor),0) FROM sangrias 
                          WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
-    $st->execute([':e'=>$empresa_id, ':a'=>$ano, ':m'=>$m]);
+    $st->execute([':e' => $empresa_id, ':a' => $ano, ':m' => $m]);
     $tg = (float)($st->fetchColumn() ?: 0);
 
     $entr = $tv + $ts;
     $said = $tg;
     $lucro = $entr - $said;
-    $ticket = $qv>0 ? $tv/$qv : 0;
+    $ticket = $qv > 0 ? $tv / $qv : 0;
 
     $dadosAnuais[$m] = [
-      'mes' => $m,
-      'entradas' => $entr,
-      'saidas'   => $said,
-      'lucro'    => $lucro,
-      'vendas'   => $qv,
-      'ticket'   => $ticket,
+        'mes' => $m,
+        'entradas' => $entr,
+        'saidas'   => $said,
+        'lucro'    => $lucro,
+        'vendas'   => $qv,
+        'ticket'   => $ticket,
     ];
 
     $entradasAno += $entr;
@@ -161,15 +168,15 @@ for ($m=1; $m<=12; $m++) {
     $saldoAno    += $lucro;
 }
 
-$mediaMensal = $entradasAno/12.0;
+$mediaMensal = $entradasAno / 12.0;
 
 // Endpoint de download CSV (sem alterar layout)
-if (isset($_GET['download']) && $_GET['download']=='1') {
+if (isset($_GET['download']) && $_GET['download'] == '1') {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="relatorio-anual.csv"');
     echo "\xEF\xBB\xBF"; // BOM
     echo "Mês;Entradas;Saídas;Lucro;Vendas;Ticket Médio\n";
-    for ($m=1; $m<=12; $m++) {
+    for ($m = 1; $m <= 12; $m++) {
         $d = $dadosAnuais[$m];
         echo implode(";", [
             nomeMes($m),
@@ -186,93 +193,116 @@ if (isset($_GET['download']) && $_GET['download']=='1') {
 <?php
 // === Agregados/rodapé e destaques do ano (dinâmicos) ===
 $__meses = $dadosAnuais;
-$__total_vendas_ano = array_sum(array_map(fn($d)=> (int)($d['vendas']??0), $__meses));
-$__media_entr_ano   = count($__meses)>0 ? array_sum(array_map(fn($d)=> (float)($d['entradas']??0), $__meses)) / 12 : 0.0;
-$__media_said_ano   = count($__meses)>0 ? array_sum(array_map(fn($d)=> (float)($d['saidas']??0),   $__meses)) / 12 : 0.0;
-$__media_lucro_ano  = count($__meses)>0 ? array_sum(array_map(fn($d)=> (float)($d['lucro']??0),    $__meses)) / 12 : 0.0;
-$__ticket_medio_ano = $__total_vendas_ano>0 ? (array_sum(array_map(fn($d)=> (float)($d['entradas']??0), $__meses)) / $__total_vendas_ano) : 0.0;
+$__total_vendas_ano = array_sum(array_map(fn($d) => (int)($d['vendas'] ?? 0), $__meses));
+$__media_entr_ano   = count($__meses) > 0 ? array_sum(array_map(fn($d) => (float)($d['entradas'] ?? 0), $__meses)) / 12 : 0.0;
+$__media_said_ano   = count($__meses) > 0 ? array_sum(array_map(fn($d) => (float)($d['saidas'] ?? 0),   $__meses)) / 12 : 0.0;
+$__media_lucro_ano  = count($__meses) > 0 ? array_sum(array_map(fn($d) => (float)($d['lucro'] ?? 0),    $__meses)) / 12 : 0.0;
+$__ticket_medio_ano = $__total_vendas_ano > 0 ? (array_sum(array_map(fn($d) => (float)($d['entradas'] ?? 0), $__meses)) / $__total_vendas_ano) : 0.0;
 
 $__jan = $dadosAnuais[1]['entradas'] ?? 0.0;
 $__dez = $dadosAnuais[12]['entradas'] ?? 0.0;
-$__crescimento = ($__jan>0) ? (($__dez - $__jan)/$__jan)*100.0 : 0.0;
+$__crescimento = ($__jan > 0) ? (($__dez - $__jan) / $__jan) * 100.0 : 0.0;
 
 // Destaques: maior entrada, maior lucro, maior ticket
-$__max_entr = 0.0; $__max_entr_mes = 1;
-$__max_lucro= 0.0; $__max_lucro_mes= 1;
-$__max_ticket=0.0; $__max_ticket_mes=1;
-for ($mm=1; $mm<=12; $mm++){
-  $d = $dadosAnuais[$mm];
-  if (($d['entradas']??0) > $__max_entr){ $__max_entr = (float)$d['entradas']; $__max_entr_mes=$mm; }
-  if (($d['lucro']??0)    > $__max_lucro){ $__max_lucro = (float)$d['lucro']; $__max_lucro_mes=$mm; }
-  if (($d['ticket']??0)   > $__max_ticket){ $__max_ticket = (float)$d['ticket']; $__max_ticket_mes=$mm; }
+$__max_entr = 0.0;
+$__max_entr_mes = 1;
+$__max_lucro = 0.0;
+$__max_lucro_mes = 1;
+$__max_ticket = 0.0;
+$__max_ticket_mes = 1;
+for ($mm = 1; $mm <= 12; $mm++) {
+    $d = $dadosAnuais[$mm];
+    if (($d['entradas'] ?? 0) > $__max_entr) {
+        $__max_entr = (float)$d['entradas'];
+        $__max_entr_mes = $mm;
+    }
+    if (($d['lucro'] ?? 0)    > $__max_lucro) {
+        $__max_lucro = (float)$d['lucro'];
+        $__max_lucro_mes = $mm;
+    }
+    if (($d['ticket'] ?? 0)   > $__max_ticket) {
+        $__max_ticket = (float)$d['ticket'];
+        $__max_ticket_mes = $mm;
+    }
 }
 // ===== Cálculos adicionais dinâmicos (não altera layout) =====
-$__total_lucro_ano = array_sum(array_map(fn($d)=> (float)($d['lucro']??0), $__meses));
+$__total_lucro_ano = array_sum(array_map(fn($d) => (float)($d['lucro'] ?? 0), $__meses));
 // Vendas por mês (para "Mês com Mais Vendas")
-$__max_vendas = 0; $__max_vendas_mes = 1;
-for ($mm=1; $mm<=12; $mm++){
-  $qv = (int)($__meses[$mm]['vendas'] ?? 0);
-  if ($qv > $__max_vendas){ $__max_vendas = $qv; $__max_vendas_mes = $mm; }
+$__max_vendas = 0;
+$__max_vendas_mes = 1;
+for ($mm = 1; $mm <= 12; $mm++) {
+    $qv = (int)($__meses[$mm]['vendas'] ?? 0);
+    if ($qv > $__max_vendas) {
+        $__max_vendas = $qv;
+        $__max_vendas_mes = $mm;
+    }
 }
 $__media_vendas_mensal = $__total_vendas_ano > 0 ? ($__total_vendas_ano / 12.0) : 0.0;
-$__pct_acima_media_vendas = ($__media_vendas_mensal>0) ? (($__max_vendas - $__media_vendas_mensal)/$__media_vendas_mensal)*100.0 : 0.0;
+$__pct_acima_media_vendas = ($__media_vendas_mensal > 0) ? (($__max_vendas - $__media_vendas_mensal) / $__media_vendas_mensal) * 100.0 : 0.0;
 
 // Ano anterior para YOY (lucro)
 $__ano_anterior = (int)($ano ?? date('Y')) - 1;
 $__lucro_ano_anterior = 0.0;
-for ($mm=1; $mm<=12; $mm++){
-  // receita e custos aproximados via mesmas fontes do ano atual
-  $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) AS total FROM vendas WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
-  $st->execute([':e'=>$empresa_id, ':a'=>$__ano_anterior, ':m'=>$mm]);
-  $tv_prev = (float)($st->fetchColumn() ?: 0);
-  $st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
-  $st->execute([':e'=>$empresa_id, ':a'=>$__ano_anterior, ':m'=>$mm]);
-  $ts_prev = (float)($st->fetchColumn() ?: 0);
-  $st = $pdo->prepare("SELECT COALESCE(SUM(valor),0) FROM sangrias WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
-  $st->execute([':e'=>$empresa_id, ':a'=>$__ano_anterior, ':m'=>$mm]);
-  $tg_prev = (float)($st->fetchColumn() ?: 0);
-  $__lucro_ano_anterior += ($tv_prev + $ts_prev) - $tg_prev;
+for ($mm = 1; $mm <= 12; $mm++) {
+    // receita e custos aproximados via mesmas fontes do ano atual
+    $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) AS total FROM vendas WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
+    $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
+    $tv_prev = (float)($st->fetchColumn() ?: 0);
+    $st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+    $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
+    $ts_prev = (float)($st->fetchColumn() ?: 0);
+    $st = $pdo->prepare("SELECT COALESCE(SUM(valor),0) FROM sangrias WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+    $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
+    $tg_prev = (float)($st->fetchColumn() ?: 0);
+    $__lucro_ano_anterior += ($tv_prev + $ts_prev) - $tg_prev;
 }
-$__crescimento_lucro_yoy_pct = ($__lucro_ano_anterior>0) ? (($__total_lucro_ano - $__lucro_ano_anterior)/$__lucro_ano_anterior)*100.0 : 0.0;
+$__crescimento_lucro_yoy_pct = ($__lucro_ano_anterior > 0) ? (($__total_lucro_ano - $__lucro_ano_anterior) / $__lucro_ano_anterior) * 100.0 : 0.0;
 
 // Trimestres (receita e YOY)
-function somaTri($arr, $startMes, $endMes, $key){
-  $s = 0.0;
-  for ($i=$startMes; $i<=$endMes; $i++){ $s += (float)($arr[$i][$key] ?? 0); }
-  return $s;
+function somaTri($arr, $startMes, $endMes, $key)
+{
+    $s = 0.0;
+    for ($i = $startMes; $i <= $endMes; $i++) {
+        $s += (float)($arr[$i][$key] ?? 0);
+    }
+    return $s;
 }
 $__tri1_receita = somaTri($__meses, 1, 3, 'entradas');
 $__tri2_receita = somaTri($__meses, 4, 6, 'entradas');
 // ano anterior trimestres
-$__tri1_prev = 0.0; $__tri2_prev = 0.0;
-for ($mm=1; $mm<=6; $mm++){
-  $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) AS total FROM vendas WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
-  $st->execute([':e'=>$empresa_id, ':a'=>$__ano_anterior, ':m'=>$mm]);
-  $tvp = (float)($st->fetchColumn() ?: 0);
-  $st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
-  $st->execute([':e'=>$empresa_id, ':a'=>$__ano_anterior, ':m'=>$mm]);
-  $tsp = (float)($st->fetchColumn() ?: 0);
-  $st = $pdo->prepare("SELECT COALESCE(SUM(valor),0) FROM sangrias WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
-  $st->execute([':e'=>$empresa_id, ':a'=>$__ano_anterior, ':m'=>$mm]);
-  $tgp = (float)($st->fetchColumn() ?: 0);
-  $val = ($tvp + $tsp) - $tgp; // receita líquida (entradas - saídas)
-  if ($mm<=3) $__tri1_prev += $val; else $__tri2_prev += $val;
+$__tri1_prev = 0.0;
+$__tri2_prev = 0.0;
+for ($mm = 1; $mm <= 6; $mm++) {
+    $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) AS total FROM vendas WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
+    $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
+    $tvp = (float)($st->fetchColumn() ?: 0);
+    $st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+    $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
+    $tsp = (float)($st->fetchColumn() ?: 0);
+    $st = $pdo->prepare("SELECT COALESCE(SUM(valor),0) FROM sangrias WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m");
+    $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
+    $tgp = (float)($st->fetchColumn() ?: 0);
+    $val = ($tvp + $tsp) - $tgp; // receita líquida (entradas - saídas)
+    if ($mm <= 3) $__tri1_prev += $val;
+    else $__tri2_prev += $val;
 }
-$__tri1_cres_pct = ($__tri1_prev>0) ? (($__tri1_receita - $__tri1_prev)/$__tri1_prev)*100.0 : 0.0;
-$__tri2_cres_pct = ($__tri2_prev>0) ? (($__tri2_receita - $__tri2_prev)/$__tri2_prev)*100.0 : 0.0;
+$__tri1_cres_pct = ($__tri1_prev > 0) ? (($__tri1_receita - $__tri1_prev) / $__tri1_prev) * 100.0 : 0.0;
+$__tri2_cres_pct = ($__tri2_prev > 0) ? (($__tri2_receita - $__tri2_prev) / $__tri2_prev) * 100.0 : 0.0;
 
 // Projeção anual com base nos meses já decorridos do ano analisado
 $__ultimo_mes_com_dados = 0;
 $__soma_receita_ate_agora = 0.0;
-for ($mm=1; $mm<=12; $mm++){
-  $val = (float)($__meses[$mm]['entradas'] ?? 0.0);
-  if ($val>0){ $__ultimo_mes_com_dados = $mm; }
-  $__soma_receita_ate_agora += $val;
+for ($mm = 1; $mm <= 12; $mm++) {
+    $val = (float)($__meses[$mm]['entradas'] ?? 0.0);
+    if ($val > 0) {
+        $__ultimo_mes_com_dados = $mm;
+    }
+    $__soma_receita_ate_agora += $val;
 }
 $__meses_decorridos = max($__ultimo_mes_com_dados, (($ano == (int)date('Y')) ? (int)date('n') : 12));
-$__media_ate_agora = ($__meses_decorridos>0) ? ($__soma_receita_ate_agora / $__meses_decorridos) : 0.0;
+$__media_ate_agora = ($__meses_decorridos > 0) ? ($__soma_receita_ate_agora / $__meses_decorridos) : 0.0;
 $__projecao_anual_receita = $__media_ate_agora * 12.0;
-$__projecao_crescimento_pct = ($__soma_receita_ate_agora>0) ? (($__projecao_anual_receita - $__soma_receita_ate_agora)/$__soma_receita_ate_agora)*100.0 : 0.0;
+$__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0) ? (($__projecao_anual_receita - $__soma_receita_ate_agora) / $__soma_receita_ate_agora) * 100.0 : 0.0;
 
 ?>
 <!DOCTYPE html>
@@ -505,10 +535,8 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora>0) ? (($__projecao_anua
                         <h4 class="fw-bold mb-0"><span class="text-muted fw-light">Financeiro /</span> Relatório Anual</h4>
                         <div>
                             <div class="input-group input-group-sm w-auto">
-                                <select class="form-select"><?php for($y=(int)date("Y"); $y>=date("Y")-4; $y--): ?><option value="<?=$y?>" <?= $y==$ano?"selected":"" ?>><?=$y?></option><?php endfor; ?>
-                                    <option>2025</option>
-                                    <option>2024</option>
-                                    <option>2023</option>
+                                <select class="form-select"><?php for ($y = (int)date("Y"); $y >= date("Y") - 4; $y--): ?><option value="<?= $y ?>" <?= $y == $ano ? "selected" : "" ?>><?= $y ?></option><?php endfor; ?>
+
                                 </select>
                                 <button class="btn btn-outline-primary" type="button">
                                     <i class="bx bx-filter"></i> Filtrar
@@ -527,7 +555,7 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora>0) ? (($__projecao_anua
                                             <small class="text-muted d-block">Entradas Anuais</small>
                                             <h6 class="mb-0"><?= fmtBR($entradasAno) ?></h6>
                                         </div>
-                                        <span class="badge bg-label-success"><?= number_format($__pct_acima_media_vendas,1,',','.') ?>% acima da média</span>
+                                        <span class="badge bg-label-success"><?= number_format($__pct_acima_media_vendas, 1, ',', '.') ?>% acima da média</span>
                                     </div>
                                 </div>
                             </div>
@@ -553,7 +581,7 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora>0) ? (($__projecao_anua
                                             <small class="text-muted d-block">Lucro Anual</small>
                                             <h6 class="mb-0"><?= fmtBR($__total_lucro_ano) ?></h6>
                                         </div>
-                                        <span class="badge bg-label-success"><?= ($__crescimento_lucro_yoy_pct>=0?'+':'') . number_format($__crescimento_lucro_yoy_pct,1,',','.') . '%' ?></span>
+                                        <span class="badge bg-label-success"><?= ($__crescimento_lucro_yoy_pct >= 0 ? '+' : '') . number_format($__crescimento_lucro_yoy_pct, 1, ',', '.') . '%' ?></span>
                                     </div>
                                 </div>
                             </div>
@@ -600,36 +628,38 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora>0) ? (($__projecao_anua
                                     </tr>
                                 </thead>
                                 <tbody>
-<?php $temDados = array_sum(array_map(fn($d)=> (int)($d['vendas']??0), $dadosAnuais))>0;
-if (!$temDados): ?>
-<tr><td colspan="7" class="text-center text-muted">Nenhuma venda encontrada</td></tr>
-<?php endif; ?>
-<?php $prev = 0.0;
-for ($m=1; $m<=12; $m++): 
-    $d = $dadosAnuais[$m];
-    $cres = ($m==1 || $prev<=0) ? 0 : (($d['entradas'] - $prev)/$prev)*100.0;
-    $prev = $d['entradas'];
-?>
-    <tr>
-        <td><strong><?= nomeMes($m) ?></strong></td>
-        <td class="text-end"><?= fmtBR($d['entradas']) ?></td>
-        <td class="text-end"><?= fmtBR($d['saidas']) ?></td>
-        <td class="text-end <?= ($d['lucro']>=0?'text-success':'text-danger') ?>"><?= fmtBR($d['lucro']) ?></td>
-        <td class="text-end"><?= (int)$d['vendas'] ?></td>
-        <td class="text-end"><?= fmtBR($d['ticket']) ?></td>
-        <td class="text-end"><?= number_format($cres, 2, ',', '.') ?>%</td>
-    </tr>
-<?php endfor; ?>
-</tbody>
+                                    <?php $temDados = array_sum(array_map(fn($d) => (int)($d['vendas'] ?? 0), $dadosAnuais)) > 0;
+                                    if (!$temDados): ?>
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted">Nenhuma venda encontrada</td>
+                                        </tr>
+                                    <?php endif; ?>
+                                    <?php $prev = 0.0;
+                                    for ($m = 1; $m <= 12; $m++):
+                                        $d = $dadosAnuais[$m];
+                                        $cres = ($m == 1 || $prev <= 0) ? 0 : (($d['entradas'] - $prev) / $prev) * 100.0;
+                                        $prev = $d['entradas'];
+                                    ?>
+                                        <tr>
+                                            <td><strong><?= nomeMes($m) ?></strong></td>
+                                            <td class="text-end"><?= fmtBR($d['entradas']) ?></td>
+                                            <td class="text-end"><?= fmtBR($d['saidas']) ?></td>
+                                            <td class="text-end <?= ($d['lucro'] >= 0 ? 'text-success' : 'text-danger') ?>"><?= fmtBR($d['lucro']) ?></td>
+                                            <td class="text-end"><?= (int)$d['vendas'] ?></td>
+                                            <td class="text-end"><?= fmtBR($d['ticket']) ?></td>
+                                            <td class="text-end"><?= number_format($cres, 2, ',', '.') ?>%</td>
+                                        </tr>
+                                    <?php endfor; ?>
+                                </tbody>
                                 <tfoot class="table-light">
                                     <tr>
                                         <th>Média/Total</th>
                                         <th class="text-end"><?= fmtBR($__media_entr_ano) ?></th>
                                         <th class="text-end"><?= fmtBR($__media_said_ano) ?></th>
-                                        <th class="text-end <?= ($__media_lucro_ano>=0?'text-success':'text-danger') ?>"><?= fmtBR($__media_lucro_ano) ?></th>
+                                        <th class="text-end <?= ($__media_lucro_ano >= 0 ? 'text-success' : 'text-danger') ?>"><?= fmtBR($__media_lucro_ano) ?></th>
                                         <th class="text-end"><?= (int)$__total_vendas_ano ?></th>
                                         <th class="text-end"><?= fmtBR($__ticket_medio_ano) ?></th>
-                                        <th class="text-end <?= ($__crescimento>=0?'text-success':'text-danger') ?>"><?= number_format($__crescimento, 1, ",", "") ?>%</th>
+                                        <th class="text-end <?= ($__crescimento >= 0 ? 'text-success' : 'text-danger') ?>"><?= number_format($__crescimento, 1, ",", "") ?>%</th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -660,7 +690,7 @@ for ($m=1; $m<=12; $m++):
                                                     <h6 class="mb-1">Mês com Mais Vendas</h6>
                                                     <small class="text-muted"><?= nomeMes($__max_vendas_mes) ?> - <?= (int)$__max_vendas ?> vendas</small>
                                                 </div>
-                                                <span class="badge bg-primary"><?= number_format($__pct_acima_media_vendas,1,',','.') ?>% acima da média</span>
+                                                <span class="badge bg-primary"><?= number_format($__pct_acima_media_vendas, 1, ',', '.') ?>% acima da média</span>
                                             </div>
                                         </div>
                                         <div class="list-group-item list-group-item-action p-3">
@@ -691,7 +721,7 @@ for ($m=1; $m<=12; $m++):
                                                 </div>
                                                 <div>
                                                     <span class="fw-semibold"><?= fmtBR($__max_entr) ?></span>
-                                                    <small class="text-success ms-2"><?= ($__tri1_cres_pct>=0?'+':'') . number_format($__tri1_cres_pct,1,',','.') . '%' ?></small>
+                                                    <small class="text-success ms-2"><?= ($__tri1_cres_pct >= 0 ? '+' : '') . number_format($__tri1_cres_pct, 1, ',', '.') . '%' ?></small>
                                                 </div>
                                             </div>
                                         </div>
@@ -703,7 +733,7 @@ for ($m=1; $m<=12; $m++):
                                                 </div>
                                                 <div>
                                                     <span class="fw-semibold"><?= fmtBR($__max_lucro) ?></span>
-                                                    <small class="text-success ms-2"><?= ($__tri2_cres_pct>=0?'+':'') . number_format($__tri2_cres_pct,1,',','.') . '%' ?></small>
+                                                    <small class="text-success ms-2"><?= ($__tri2_cres_pct >= 0 ? '+' : '') . number_format($__tri2_cres_pct, 1, ',', '.') . '%' ?></small>
                                                 </div>
                                             </div>
                                         </div>
@@ -774,95 +804,112 @@ for ($m=1; $m<=12; $m++):
                     new bootstrap.Modal(document.getElementById('deleteContaModal')).show();
                 }
             </script>
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  // Botões download/print no card "Desempenho Mensal"
-  var area = Array.from(document.querySelectorAll('.card')).find(c => {
-    var h = c.querySelector('.card-header h5, .card-header h4'); 
-    return h && h.textContent.trim().toLowerCase() === 'desempenho mensal';
-  });
-  if (area){
-    var btnDown = area.querySelector('.bx-download');
-    if (btnDown){
-      var btn = btnDown.closest('button, a');
-      if (btn) btn.addEventListener('click', function(e){
-        e.preventDefault();
-        var q = new URLSearchParams(window.location.search);
-        q.set('download','1');
-        window.location.href = window.location.pathname + '?' + q.toString();
-      });
-    }
-    var btnPrint = area.querySelector('.bx-printer');
-    if (btnPrint){
-      var btn = btnPrint.closest('button, a');
-      if (btn) btn.addEventListener('click', function(e){
-        e.preventDefault();
-        var table = area.querySelector('table');
-        if (!table){ window.print(); return; }
-        var w = window.open('', '_blank');
-        w.document.write('<html><head><title>Imprimir</title>');
-        w.document.write('<meta charset="utf-8" />');
-        w.document.write('</head><body>');
-        w.document.write('<h3>Desempenho Mensal</h3>');
-        w.document.write(table.outerHTML);
-        w.document.write('</body></html>');
-        w.document.close();
-        w.focus();
-        w.print();
-        w.close();
-      });
-    }
-  }
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Botões download/print no card "Desempenho Mensal"
+                    var area = Array.from(document.querySelectorAll('.card')).find(c => {
+                        var h = c.querySelector('.card-header h5, .card-header h4');
+                        return h && h.textContent.trim().toLowerCase() === 'desempenho mensal';
+                    });
+                    if (area) {
+                        var btnDown = area.querySelector('.bx-download');
+                        if (btnDown) {
+                            var btn = btnDown.closest('button, a');
+                            if (btn) btn.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                var q = new URLSearchParams(window.location.search);
+                                q.set('download', '1');
+                                window.location.href = window.location.pathname + '?' + q.toString();
+                            });
+                        }
+                        var btnPrint = area.querySelector('.bx-printer');
+                        if (btnPrint) {
+                            var btn = btnPrint.closest('button, a');
+                            if (btn) btn.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                var table = area.querySelector('table');
+                                if (!table) {
+                                    window.print();
+                                    return;
+                                }
+                                var w = window.open('', '_blank');
+                                w.document.write('<html><head><title>Imprimir</title>');
+                                w.document.write('<meta charset="utf-8" />');
+                                w.document.write('</head><body>');
+                                w.document.write('<h3>Desempenho Mensal</h3>');
+                                w.document.write(table.outerHTML);
+                                w.document.write('</body></html>');
+                                w.document.close();
+                                w.focus();
+                                w.print();
+                                w.close();
+                            });
+                        }
+                    }
 
-  // Filtrar por Ano (input-group topo)
-  var toolbar = document.querySelector('.input-group.input-group-sm.w-auto');
-  if (toolbar){
-    var sel = toolbar.querySelector('select.form-select');
-    var btn = toolbar.querySelector('button.btn');
-    if (sel && btn){
-      btn.addEventListener('click', function(){
-        var ano = sel.value || new Date().getFullYear();
-        var q = new URLSearchParams(window.location.search);
-        q.set('ano', ano);
-        window.location.href = window.location.pathname + '?' + q.toString();
-      });
-    }
-  }
-});
-</script>
+                    // Filtrar por Ano (input-group topo)
+                    var toolbar = document.querySelector('.input-group.input-group-sm.w-auto');
+                    if (toolbar) {
+                        var sel = toolbar.querySelector('select.form-select');
+                        var btn = toolbar.querySelector('button.btn');
+                        if (sel && btn) {
+                            btn.addEventListener('click', function() {
+                                var ano = sel.value || new Date().getFullYear();
+                                var q = new URLSearchParams(window.location.search);
+                                q.set('ano', ano);
+                                window.location.href = window.location.pathname + '?' + q.toString();
+                            });
+                        }
+                    }
+                });
+            </script>
 
-<script>
-(function(){
-  function ensureHtml2Canvas(){
-    return new Promise(function(res, rej){
-      if (window.html2canvas) return res(window.html2canvas);
-      var s = document.createElement('script');
-      s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
-      s.onload = function(){ res(window.html2canvas); };
-      s.onerror = function(){ rej(new Error('Falha ao carregar html2canvas')); };
-      document.head.appendChild(s);
-    });
-  }
-  document.addEventListener('click', async function(e){
-    const icon = e.target.closest('.bx-printer');
-    if (!icon) return;
-    const btn = icon.closest('button, a');
-    if (!btn) return;
-    const card = btn.closest('.card');
-    const table = card ? card.querySelector('table') : null;
-    if (!table) return;
-    e.preventDefault();
-    try{
-      await ensureHtml2Canvas();
-      const canvas = await html2canvas(table, {scale:2, useCORS:true});
-      const dataUrl = canvas.toDataURL('image/png');
-      const w = window.open('', '_blank');
-      w.document.write('<html><head><title>Impressão</title><meta charset="utf-8"></head><body style="margin:0">');
-      w.document.write('<img src="'+dataUrl+'" style="width:100%;display:block"/>');
-      w.document.write('</body></html>');
-      w.document.close(); w.focus(); w.print();
-    }catch(err){ console.error(err); window.print(); }
-  });
-})();
-</script>
-</body></html>
+            <script>
+                (function() {
+                    function ensureHtml2Canvas() {
+                        return new Promise(function(res, rej) {
+                            if (window.html2canvas) return res(window.html2canvas);
+                            var s = document.createElement('script');
+                            s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+                            s.onload = function() {
+                                res(window.html2canvas);
+                            };
+                            s.onerror = function() {
+                                rej(new Error('Falha ao carregar html2canvas'));
+                            };
+                            document.head.appendChild(s);
+                        });
+                    }
+                    document.addEventListener('click', async function(e) {
+                        const icon = e.target.closest('.bx-printer');
+                        if (!icon) return;
+                        const btn = icon.closest('button, a');
+                        if (!btn) return;
+                        const card = btn.closest('.card');
+                        const table = card ? card.querySelector('table') : null;
+                        if (!table) return;
+                        e.preventDefault();
+                        try {
+                            await ensureHtml2Canvas();
+                            const canvas = await html2canvas(table, {
+                                scale: 2,
+                                useCORS: true
+                            });
+                            const dataUrl = canvas.toDataURL('image/png');
+                            const w = window.open('', '_blank');
+                            w.document.write('<html><head><title>Impressão</title><meta charset="utf-8"></head><body style="margin:0">');
+                            w.document.write('<img src="' + dataUrl + '" style="width:100%;display:block"/>');
+                            w.document.write('</body></html>');
+                            w.document.close();
+                            w.focus();
+                            w.print();
+                        } catch (err) {
+                            console.error(err);
+                            window.print();
+                        }
+                    });
+                })();
+            </script>
+</body>
+
+</html>

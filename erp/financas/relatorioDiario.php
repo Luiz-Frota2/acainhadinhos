@@ -12,7 +12,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
     $empresa_id = $idSelecionado ?? ($_GET['id'] ?? '');
     $idCaixa = (int)($_GET['id_caixa'] ?? 0);
     if ($idCaixa <= 0 || empty($empresa_id)) {
-        echo json_encode(['ok' => false, 'msg' => 'Parâmetros inválidos']); exit;
+        echo json_encode(['ok' => false, 'msg' => 'Parâmetros inválidos']);
+        exit;
     }
     try {
         $st = $pdo->prepare("SELECT id, empresa_id, responsavel, abertura_datetime,
@@ -21,7 +22,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
                              WHERE id = :id AND empresa_id = :eid");
         $st->execute([':id' => $idCaixa, ':eid' => $empresa_id]);
         $ab = $st->fetch(PDO::FETCH_ASSOC);
-        if (!$ab) { 
+        if (!$ab) {
             // Fallback: tentar por data + responsável quando id_caixa não veio
             $resp = $_GET['resp'] ?? '';
             $data = $_GET['data'] ?? '';
@@ -34,26 +35,31 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
                                         AND responsavel = :resp
                                       ORDER BY abertura_datetime DESC
                                       LIMIT 1");
-                $st2->execute([':eid'=>$empresa_id, ':dt'=>$data, ':resp'=>$resp]);
+                $st2->execute([':eid' => $empresa_id, ':dt' => $data, ':resp' => $resp]);
                 $ab = $st2->fetch(PDO::FETCH_ASSOC);
             }
-            if (!$ab) { echo json_encode(['ok'=>false,'msg'=>'Caixa não encontrado']); exit; }
+            if (!$ab) {
+                echo json_encode(['ok' => false, 'msg' => 'Caixa não encontrado']);
+                exit;
+            }
         }
-        $ini = $ab['abertura_datetime']; $fim = $ab['fechamento_datetime'];
-        $try = function(array $sqls) use ($pdo, $empresa_id, $ini, $fim) {
+        $ini = $ab['abertura_datetime'];
+        $fim = $ab['fechamento_datetime'];
+        $try = function (array $sqls) use ($pdo, $empresa_id, $ini, $fim) {
             foreach ($sqls as $sql) {
                 try {
                     $st = $pdo->prepare($sql);
-                    $st->execute([':eid'=>$empresa_id, ':ini'=>$ini, ':fim'=>$fim]);
+                    $st->execute([':eid' => $empresa_id, ':ini' => $ini, ':fim' => $fim]);
                     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
                     if (is_array($rows)) return $rows;
-                } catch (Throwable $e) {}
+                } catch (Throwable $e) {
+                }
             }
             return [];
         };
         $sqlItens = [
 
-"SELECT vi.id,
+            "SELECT vi.id,
         vi.venda_id,
         COALESCE(vi.nome_produto, p.nome, p.descricao, CONCAT('Produto #', vi.produto_id)) AS produto,
         COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
@@ -63,7 +69,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
  LEFT JOIN produtos_peca p ON p.id = vi.produto_id
  WHERE v.empresa_id = :eid AND COALESCE(v.data_venda, v.created_at) BETWEEN :ini AND :fim
  ORDER BY datahora ASC",
-"SELECT iv.id, iv.venda_id,
+            "SELECT iv.id, iv.venda_id,
         COALESCE(iv.nome_produto, p.nome, p.descricao, CONCAT('Produto #', iv.produto_id)) AS produto,
         COALESCE(iv.total, iv.valor_total, iv.valor, (iv.preco*iv.quantidade), (iv.preco_unitario*iv.quantidade)) AS valor,
         COALESCE(iv.created_at, v.data_venda, v.created_at) AS datahora
@@ -72,7 +78,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
  LEFT JOIN produtos p ON p.id = iv.produto_id
  WHERE v.empresa_id = :eid AND COALESCE(v.data_venda, v.created_at) BETWEEN :ini AND :fim
  ORDER BY datahora ASC",
-"SELECT vi.id,
+            "SELECT vi.id,
         vi.venda_id,
         COALESCE(vi.nome_produto, p.nome, p.descricao, CONCAT('Produto #', vi.produto_id)) AS produto,
         COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
@@ -82,7 +88,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
  LEFT JOIN produtos_peca p ON p.id = vi.produto_id
  WHERE v.empresa_id = :eid AND v.data_venda BETWEEN :ini AND :fim
  ORDER BY datahora ASC",
-"SELECT iv.id, iv.venda_id,
+            "SELECT iv.id, iv.venda_id,
         COALESCE(iv.nome_produto, p.nome, p.descricao, CONCAT('Produto #', iv.produto_id)) AS produto,
         COALESCE(iv.total, iv.valor_total, iv.valor, (iv.preco*iv.quantidade), (iv.preco_unitario*iv.quantidade)) AS valor,
         COALESCE(iv.created_at, v.data_venda) AS datahora
@@ -91,7 +97,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
  LEFT JOIN produtos p ON p.id = iv.produto_id
  WHERE v.empresa_id = :eid AND v.data_venda BETWEEN :ini AND :fim
  ORDER BY datahora ASC",
-"SELECT vi.id, vi.venda_id,
+            "SELECT vi.id, vi.venda_id,
         COALESCE(vi.nome_produto, p.nome, p.descricao, CONCAT('Produto #', vi.produto_id)) AS produto,
         COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
         COALESCE(vi.created_at, v.data_venda) AS datahora
@@ -100,7 +106,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
  LEFT JOIN produtos p ON p.id = vi.produto_id
  WHERE v.empresa_id = :eid AND v.data_venda BETWEEN :ini AND :fim
  ORDER BY datahora ASC",
-"SELECT vi.id, vi.venda_id,
+            "SELECT vi.id, vi.venda_id,
         COALESCE(vi.nome_produto, CONCAT('Produto #', vi.produto_id)) AS produto,
         COALESCE(vi.total, vi.valor_total, vi.valor, (vi.preco*vi.quantidade), (vi.preco_unitario*vi.quantidade)) AS valor,
         COALESCE(vi.created_at, v.data_venda) AS datahora
@@ -112,7 +118,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
         $itens = $try($sqlItens);
 
         $sqlSupr = [
-"SELECT id, COALESCE(valor, valor_suprimento) AS valor, data_registro AS datahora
+            "SELECT id, COALESCE(valor, valor_suprimento) AS valor, data_registro AS datahora
  FROM suprimentos
  WHERE empresa_id = :eid AND data_registro BETWEEN :ini AND :fim
  ORDER BY datahora ASC"
@@ -120,16 +126,16 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
         $supr = $try($sqlSupr);
 
         $sqlSang = [
-"SELECT id, valor, data_registro AS datahora
+            "SELECT id, valor, data_registro AS datahora
  FROM sangrias
  WHERE empresa_id = :eid AND data_registro BETWEEN :ini AND :fim
  ORDER BY datahora ASC"
         ];
         $sang = $try($sqlSang);
 
-        $totV = array_sum(array_map(fn($r)=> (float)($r['valor']??0), $itens));
-        $totS = array_sum(array_map(fn($r)=> (float)($r['valor']??0), $sang));
-        $totU = array_sum(array_map(fn($r)=> (float)($r['valor']??0), $supr));
+        $totV = array_sum(array_map(fn($r) => (float)($r['valor'] ?? 0), $itens));
+        $totS = array_sum(array_map(fn($r) => (float)($r['valor'] ?? 0), $sang));
+        $totU = array_sum(array_map(fn($r) => (float)($r['valor'] ?? 0), $supr));
 
         echo json_encode([
             'ok' => true,
@@ -142,29 +148,29 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens_caixa') {
             'itens' => $itens,
             'sangrias' => $sang,
             'suprimentos' => $supr,
-            'totais' => ['vendas'=>$totV, 'sangrias'=>$totS, 'suprimentos'=>$totU]
-        ], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+            'totais' => ['vendas' => $totV, 'sangrias' => $totS, 'suprimentos' => $totU]
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     } catch (Throwable $e) {
-        echo json_encode(['ok'=>false,'msg'=>'Erro ao carregar itens']); 
+        echo json_encode(['ok' => false, 'msg' => 'Erro ao carregar itens']);
     }
     exit;
 }
 
 
 if (!$idSelecionado) {
-  header("Location: .././login.php");
-  exit;
+    header("Location: .././login.php");
+    exit;
 }
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=" . urlencode($idSelecionado));
-  exit;
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -176,21 +182,21 @@ $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -199,21 +205,21 @@ $idEmpresaSession = $_SESSION['empresa_id'];
 $tipoSession = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
-  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
-  echo "<script>
+    echo "<script>
           alert('Acesso negado!');
           window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
         </script>";
-  exit;
+    exit;
 }
 
 
@@ -263,7 +269,8 @@ $empresa_id = $idSelecionado;
  * Lista de caixas (aberturas) de HOJE. Se não houver aberturas, retorna um consolidado do dia.
  * Saídas/Entradas/Saldo 100% pelo banco.
  */
-function obterResumoDiarioLista(PDO $pdo, string $empresa_id): array {
+function obterResumoDiarioLista(PDO $pdo, string $empresa_id): array
+{
     $hoje = date('Y-m-d');
     // Buscar aberturas de hoje
     $sql = "SELECT id, responsavel, status, abertura_datetime, fechamento_datetime,
@@ -273,7 +280,7 @@ function obterResumoDiarioLista(PDO $pdo, string $empresa_id): array {
               AND DATE(abertura_datetime) = :hoje
             ORDER BY abertura_datetime DESC";
     $st = $pdo->prepare($sql);
-    $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+    $st->execute([':eid' => $empresa_id, ':hoje' => $hoje]);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
     $itens = [];
@@ -298,17 +305,17 @@ function obterResumoDiarioLista(PDO $pdo, string $empresa_id): array {
         // Consolidado do dia (sem aberturas)
         // Vendas do dia
         $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0) FROM vendas WHERE empresa_id=:eid AND DATE(data_venda)=:hoje");
-        $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+        $st->execute([':eid' => $empresa_id, ':hoje' => $hoje]);
         $vendasDia = (float)($st->fetchColumn() ?: 0);
 
         // Suprimentos do dia
         $st = $pdo->prepare("SELECT COALESCE(SUM(valor_suprimento),0) FROM suprimentos WHERE empresa_id=:eid AND DATE(data_registro)=:hoje");
-        $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+        $st->execute([':eid' => $empresa_id, ':hoje' => $hoje]);
         $suprDia = (float)($st->fetchColumn() ?: 0);
 
         // Sangrias do dia
         $st = $pdo->prepare("SELECT COALESCE(SUM(valor),0) FROM sangrias WHERE empresa_id=:eid AND DATE(data_registro)=:hoje");
-        $st->execute([':eid'=>$empresa_id, ':hoje'=>$hoje]);
+        $st->execute([':eid' => $empresa_id, ':hoje' => $hoje]);
         $sangDia = (float)($st->fetchColumn() ?: 0);
 
         $entradas = $vendasDia + $suprDia;
@@ -329,11 +336,237 @@ function obterResumoDiarioLista(PDO $pdo, string $empresa_id): array {
     return $itens;
 }
 
-function fmtBR($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
+function fmtBR($v)
+{
+    return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
 
 // Prepara dados JSON para o JS popular o card 'Resumo Diário' (sem mudar o HTML base)
 $__listaResumoHoje = obterResumoDiarioLista($pdo, $empresa_id);
-$__listaResumoHoje_json = htmlspecialchars(json_encode($__listaResumoHoje, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
+$__listaResumoHoje_json = htmlspecialchars(json_encode($__listaResumoHoje, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
+
+try {
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Erro na conexão: " . $e->getMessage());
+}
+
+// Verificar se o ID da empresa foi fornecido
+$empresa_id = $_GET['id'] ?? '';
+if (empty($empresa_id)) {
+    die("<div class='alert alert-danger'>ID da empresa não fornecido na URL</div>");
+}
+
+/**
+ * Calcula as entradas do dia (vendas + suprimentos)
+ */
+function calcularEntradasDia($pdo, $empresa_id)
+{
+    $hoje = date('Y-m-d');
+
+    // Total de vendas do dia
+    $sqlVendas = "SELECT SUM(valor_total) as total_vendas FROM vendas 
+                 WHERE DATE(data_venda) = :hoje AND empresa_id = :empresa_id";
+    $stmtVendas = $pdo->prepare($sqlVendas);
+    $stmtVendas->bindParam(':hoje', $hoje);
+    $stmtVendas->bindParam(':empresa_id', $empresa_id);
+    $stmtVendas->execute();
+    $vendas = $stmtVendas->fetch(PDO::FETCH_ASSOC);
+    $totalVendas = $vendas['total_vendas'] ?? 0;
+
+    // Total de suprimentos do dia
+    $sqlSuprimentos = "SELECT SUM(valor_suprimento) as total_suprimentos FROM suprimentos 
+                      WHERE DATE(data_registro) = :hoje AND empresa_id = :empresa_id";
+    $stmtSuprimentos = $pdo->prepare($sqlSuprimentos);
+    $stmtSuprimentos->bindParam(':hoje', $hoje);
+    $stmtSuprimentos->bindParam(':empresa_id', $empresa_id);
+    $stmtSuprimentos->execute();
+    $suprimentos = $stmtSuprimentos->fetch(PDO::FETCH_ASSOC);
+    $totalSuprimentos = $suprimentos['total_suprimentos'] ?? 0;
+
+    // Total de entradas
+    $totalEntradas = $totalVendas + $totalSuprimentos;
+
+    return [
+        'total_entradas' => $totalEntradas,
+        'total_vendas' => $totalVendas,
+        'total_suprimentos' => $totalSuprimentos
+    ];
+}
+
+/**
+ * Calcula as saídas do dia (apenas sangrias, sem despesas)
+ */
+function calcularSaidasDia($pdo, $empresa_id)
+{
+    $hoje = date('Y-m-d');
+
+    // Total de sangrias do dia
+    $sqlSangrias = "SELECT SUM(valor) as total_sangrias FROM sangrias 
+                   WHERE DATE(data_registro) = :hoje AND empresa_id = :empresa_id";
+    $stmtSangrias = $pdo->prepare($sqlSangrias);
+    $stmtSangrias->bindParam(':hoje', $hoje);
+    $stmtSangrias->bindParam(':empresa_id', $empresa_id);
+    $stmtSangrias->execute();
+    $sangrias = $stmtSangrias->fetch(PDO::FETCH_ASSOC);
+    $totalSangrias = $sangrias['total_sangrias'] ?? 0;
+
+    // Total de saídas (apenas sangrias)
+    $totalSaidas = $totalSangrias;
+
+    return [
+        'total_saidas' => $totalSaidas,
+        'total_sangrias' => $totalSangrias,
+        'total_despesas' => 0 // Definido como 0 pois não há tabela de despesas
+    ];
+}
+
+/**
+ * Calcula o saldo em caixa
+ */
+function calcularSaldoCaixa($pdo, $empresa_id)
+{
+    // Verifica se há caixa aberto
+    $sqlCaixa = "SELECT * FROM aberturas 
+                                    WHERE empresa_id = :empresa_id AND status = 'aberto' 
+                                    ORDER BY abertura_datetime DESC LIMIT 1";
+    $stmtCaixa = $pdo->prepare($sqlCaixa);
+    $stmtCaixa->bindParam(':empresa_id', $empresa_id);
+    $stmtCaixa->execute();
+    $caixa = $stmtCaixa->fetch(PDO::FETCH_ASSOC);
+
+    if ($caixa) {
+        return [
+            'saldo_caixa' => $caixa['valor_liquido'],
+            'valor_meta' => 1500.00,
+            'percentual_meta' => ($caixa['valor_liquido'] / 1500) * 100
+        ];
+    }
+
+    return [
+        'saldo_caixa' => 0,
+        'valor_meta' => 1500.00,
+        'percentual_meta' => 0
+    ];
+}
+
+/**
+ * Obtém o resumo diário para a tabela (sem despesas)
+ */
+function obterResumoDiario($pdo, $empresa_id, $limit = 10, $offset = 0)
+{
+    $sql = "SELECT 
+                                a.id AS id_caixa,
+                                DATE(a.abertura_datetime)    AS data,
+                                a.valor_total                 AS entrada,
+                                a.valor_sangrias              AS saida,
+                                a.valor_liquido               AS saldo,
+                                a.responsavel                 AS responsavel,
+                                a.status                      AS status,
+                                a.abertura_datetime           AS abertura_datetime,
+                                a.fechamento_datetime         AS fechamento_datetime
+                            FROM aberturas a
+                            WHERE a.empresa_id = :empresa_id
+                            ORDER BY a.abertura_datetime DESC
+                            LIMIT :limit OFFSET :offset";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':empresa_id', $empresa_id);
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+
+/**
+ * Obtém as últimas movimentações (sem despesas)
+ */
+function obterUltimasMovimentacoes($pdo, $empresa_id, $limit = 5)
+{
+    // Vendas
+    $sqlVendas = "SELECT 
+                                'Venda' as tipo,
+                                CONCAT('Venda #', id) as descricao,
+                                valor_total as valor,
+                                data_venda as data,
+                                'success' as classe_cor
+                            FROM vendas
+                            WHERE empresa_id = :empresa_id
+                            ORDER BY data_venda DESC
+                            LIMIT :limit";
+
+    // Suprimentos
+    $sqlSuprimentos = "SELECT 
+                            'Suprimento' as tipo,
+                            'Suprimento' as descricao,
+                            valor_suprimento as valor,
+                            data_registro as data,
+                            'primary' as classe_cor
+                            FROM suprimentos
+                            WHERE empresa_id = :empresa_id
+                            ORDER BY data_registro DESC
+                            LIMIT :limit";
+
+    // Sangrias
+    $sqlSangrias = "SELECT 
+                       'Sangria' as tipo,
+                       'Sangria' as descricao,
+                       valor as valor,
+                       data_registro as data,
+                       'danger' as classe_cor
+                        FROM sangrias
+                        WHERE empresa_id = :empresa_id
+                        ORDER BY data_registro DESC
+                        LIMIT :limit";
+
+    // Executa todas as consultas (apenas vendas, suprimentos e sangrias)
+    $movimentacoes = [];
+
+    foreach (['Vendas', 'Suprimentos', 'Sangrias'] as $tipo) {
+        $sqlVar = "sql$tipo";
+        $stmt = $pdo->prepare($$sqlVar);
+        $stmt->bindParam(':empresa_id', $empresa_id);
+        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+        $stmt->execute();
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $movimentacoes[] = $row;
+        }
+    }
+
+    // Ordena por data decrescente
+    usort($movimentacoes, function ($a, $b) {
+        return strtotime($b['data']) - strtotime($a['data']);
+    });
+
+    // Retorna apenas o número limite
+    return array_slice($movimentacoes, 0, $limit);
+}
+
+/**
+ * Formata valores monetários
+ */
+function formatarMoeda($valor)
+{
+    return 'R$ ' . number_format($valor, 2, ',', '.');
+}
+
+/**
+ * Formata porcentagem
+ */
+function formatarPorcentagem($valor)
+{
+    return number_format($valor, 0) . '%';
+}
+
+// Calcula os dados
+$entradas = calcularEntradasDia($pdo, $empresa_id);
+$saidas = calcularSaidasDia($pdo, $empresa_id);
+$saldo = calcularSaldoCaixa($pdo, $empresa_id);
+$resumoDiario = obterResumoDiario($pdo, $empresa_id);
+$ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
+
 ?>
 
 
@@ -622,369 +855,145 @@ $__listaResumoHoje_json = htmlspecialchars(json_encode($__listaResumoHoje, JSON_
                         <h4 class="fw-bold mb-0"><span class="text-muted fw-light">Financeiro /</span> Relatório Diário</h4>
                     </div>
 
-                    <!-- RESUMO -->
-                 <?php
-// Conexão com o banco de dados (ajuste conforme sua configuração)
-$host = 'localhost';
-$dbname = 'u920914488_ERP';
-$username = 'u920914488_ERP';
-$password = 'N8r=$&Wrs$';
-
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Erro na conexão: " . $e->getMessage());
-}
-
-// Verificar se o ID da empresa foi fornecido
-$empresa_id = $_GET['id'] ?? '';
-if (empty($empresa_id)) {
-    die("<div class='alert alert-danger'>ID da empresa não fornecido na URL</div>");
-}
-
-/**
- * Calcula as entradas do dia (vendas + suprimentos)
- */
-function calcularEntradasDia($pdo, $empresa_id) {
-    $hoje = date('Y-m-d');
-    
-    // Total de vendas do dia
-    $sqlVendas = "SELECT SUM(valor_total) as total_vendas FROM vendas 
-                 WHERE DATE(data_venda) = :hoje AND empresa_id = :empresa_id";
-    $stmtVendas = $pdo->prepare($sqlVendas);
-    $stmtVendas->bindParam(':hoje', $hoje);
-    $stmtVendas->bindParam(':empresa_id', $empresa_id);
-    $stmtVendas->execute();
-    $vendas = $stmtVendas->fetch(PDO::FETCH_ASSOC);
-    $totalVendas = $vendas['total_vendas'] ?? 0;
-    
-    // Total de suprimentos do dia
-    $sqlSuprimentos = "SELECT SUM(valor_suprimento) as total_suprimentos FROM suprimentos 
-                      WHERE DATE(data_registro) = :hoje AND empresa_id = :empresa_id";
-    $stmtSuprimentos = $pdo->prepare($sqlSuprimentos);
-    $stmtSuprimentos->bindParam(':hoje', $hoje);
-    $stmtSuprimentos->bindParam(':empresa_id', $empresa_id);
-    $stmtSuprimentos->execute();
-    $suprimentos = $stmtSuprimentos->fetch(PDO::FETCH_ASSOC);
-    $totalSuprimentos = $suprimentos['total_suprimentos'] ?? 0;
-    
-    // Total de entradas
-    $totalEntradas = $totalVendas + $totalSuprimentos;
-    
-    return [
-        'total_entradas' => $totalEntradas,
-        'total_vendas' => $totalVendas,
-        'total_suprimentos' => $totalSuprimentos
-    ];
-}
-
-/**
- * Calcula as saídas do dia (apenas sangrias, sem despesas)
- */
-function calcularSaidasDia($pdo, $empresa_id) {
-    $hoje = date('Y-m-d');
-    
-    // Total de sangrias do dia
-    $sqlSangrias = "SELECT SUM(valor) as total_sangrias FROM sangrias 
-                   WHERE DATE(data_registro) = :hoje AND empresa_id = :empresa_id";
-    $stmtSangrias = $pdo->prepare($sqlSangrias);
-    $stmtSangrias->bindParam(':hoje', $hoje);
-    $stmtSangrias->bindParam(':empresa_id', $empresa_id);
-    $stmtSangrias->execute();
-    $sangrias = $stmtSangrias->fetch(PDO::FETCH_ASSOC);
-    $totalSangrias = $sangrias['total_sangrias'] ?? 0;
-    
-    // Total de saídas (apenas sangrias)
-    $totalSaidas = $totalSangrias;
-    
-    return [
-        'total_saidas' => $totalSaidas,
-        'total_sangrias' => $totalSangrias,
-        'total_despesas' => 0 // Definido como 0 pois não há tabela de despesas
-    ];
-}
-
-/**
- * Calcula o saldo em caixa
- */
-function calcularSaldoCaixa($pdo, $empresa_id) {
-    // Verifica se há caixa aberto
-    $sqlCaixa = "SELECT * FROM aberturas 
-                WHERE empresa_id = :empresa_id AND status = 'aberto' 
-                ORDER BY abertura_datetime DESC LIMIT 1";
-    $stmtCaixa = $pdo->prepare($sqlCaixa);
-    $stmtCaixa->bindParam(':empresa_id', $empresa_id);
-    $stmtCaixa->execute();
-    $caixa = $stmtCaixa->fetch(PDO::FETCH_ASSOC);
-    
-    if ($caixa) {
-        return [
-            'saldo_caixa' => $caixa['valor_liquido'],
-            'valor_meta' => 1500.00,
-            'percentual_meta' => ($caixa['valor_liquido'] / 1500) * 100
-        ];
-    }
-    
-    return [
-        'saldo_caixa' => 0,
-        'valor_meta' => 1500.00,
-        'percentual_meta' => 0
-    ];
-}
-
-/**
- * Obtém o resumo diário para a tabela (sem despesas)
- */
-function obterResumoDiario($pdo, $empresa_id, $limit = 10, $offset = 0) {
-    $sql = "SELECT 
-                a.id AS id_caixa,
-                DATE(a.abertura_datetime)    AS data,
-                a.valor_total                 AS entrada,
-                a.valor_sangrias              AS saida,
-                a.valor_liquido               AS saldo,
-                a.responsavel                 AS responsavel,
-                a.status                      AS status,
-                a.abertura_datetime           AS abertura_datetime,
-                a.fechamento_datetime         AS fechamento_datetime
-            FROM aberturas a
-            WHERE a.empresa_id = :empresa_id
-            ORDER BY a.abertura_datetime DESC
-            LIMIT :limit OFFSET :offset";
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':empresa_id', $empresa_id);
-    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-
-/**
- * Obtém as últimas movimentações (sem despesas)
- */
-function obterUltimasMovimentacoes($pdo, $empresa_id, $limit = 5) {
-    // Vendas
-    $sqlVendas = "SELECT 
-                    'Venda' as tipo,
-                    CONCAT('Venda #', id) as descricao,
-                    valor_total as valor,
-                    data_venda as data,
-                    'success' as classe_cor
-                 FROM vendas
-                 WHERE empresa_id = :empresa_id
-                 ORDER BY data_venda DESC
-                 LIMIT :limit";
-    
-    // Suprimentos
-    $sqlSuprimentos = "SELECT 
-                          'Suprimento' as tipo,
-                          'Suprimento' as descricao,
-                          valor_suprimento as valor,
-                          data_registro as data,
-                          'primary' as classe_cor
-                       FROM suprimentos
-                       WHERE empresa_id = :empresa_id
-                       ORDER BY data_registro DESC
-                       LIMIT :limit";
-    
-    // Sangrias
-    $sqlSangrias = "SELECT 
-                       'Sangria' as tipo,
-                       'Sangria' as descricao,
-                       valor as valor,
-                       data_registro as data,
-                       'danger' as classe_cor
-                    FROM sangrias
-                    WHERE empresa_id = :empresa_id
-                    ORDER BY data_registro DESC
-                    LIMIT :limit";
-    
-    // Executa todas as consultas (apenas vendas, suprimentos e sangrias)
-    $movimentacoes = [];
-    
-    foreach (['Vendas', 'Suprimentos', 'Sangrias'] as $tipo) {
-        $sqlVar = "sql$tipo";
-        $stmt = $pdo->prepare($$sqlVar);
-        $stmt->bindParam(':empresa_id', $empresa_id);
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->execute();
-        
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $movimentacoes[] = $row;
-        }
-    }
-    
-    // Ordena por data decrescente
-    usort($movimentacoes, function($a, $b) {
-        return strtotime($b['data']) - strtotime($a['data']);
-    });
-    
-    // Retorna apenas o número limite
-    return array_slice($movimentacoes, 0, $limit);
-}
-
-/**
- * Formata valores monetários
- */
-function formatarMoeda($valor) {
-    return 'R$ ' . number_format($valor, 2, ',', '.');
-}
-
-/**
- * Formata porcentagem
- */
-function formatarPorcentagem($valor) {
-    return number_format($valor, 0) . '%';
-}
-
-// Calcula os dados
-$entradas = calcularEntradasDia($pdo, $empresa_id);
-$saidas = calcularSaidasDia($pdo, $empresa_id);
-$saldo = calcularSaldoCaixa($pdo, $empresa_id);
-$resumoDiario = obterResumoDiario($pdo, $empresa_id);
-$ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
-?>
-
-<!-- HTML com os dados dinâmicos -->
-<div class="row mb-4">
-    <div class="col-md-4 mb-3">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <div class="fw-semibold">Entradas do Dia</div>
-                <h4 class="mb-1"><?= formatarMoeda($entradas['total_entradas']) ?></h4>
-                <small class="text-success fw-semibold">+12% vs ontem</small>
-                <div class="mt-3">
-                    <span class="badge bg-label-primary">Vendas: <?= formatarMoeda($entradas['total_vendas']) ?></span>
-                    <span class="badge bg-label-secondary ms-1">Suprimentos: <?= formatarMoeda($entradas['total_suprimentos']) ?></span>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-3">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <div class="fw-semibold">Saídas do Dia</div>
-                <h4 class="mb-1"><?= formatarMoeda($saidas['total_saidas']) ?></h4>
-                <small class="text-danger fw-semibold">+5% vs ontem</small>
-                <div class="mt-3">
-                    <span class="badge bg-label-danger">Sangrias: <?= formatarMoeda($saidas['total_sangrias']) ?></span>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-3">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <div class="fw-semibold">Saldo em Caixa</div>
-                <h4 class="mb-1"><?= formatarMoeda($saldo['saldo_caixa']) ?></h4>
-                <small class="text-success fw-semibold">+7% vs ontem</small>
-                <div class="mt-3">
-                    <span class="badge bg-label-info">Meta: <?= formatarMoeda($saldo['valor_meta']) ?></span>
-                    <span class="badge bg-label-success ms-1"><?= formatarPorcentagem($saldo['percentual_meta']) ?> da meta</span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- TABELA E DETALHES -->
-<div class="row">
-    <div class="col-md-8 mb-3">
-        <div class="card">
-            <div class="card-header text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Resumo Diário</h5>
-            </div>
-            <div class="table-responsive text-nowrap">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Data</th>
-                            <th>Entrada</th>
-                            <th>Saída</th>
-                            <th>Saldo</th>
-                            <th>Responsável</th>
-                            <th>Status</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($resumoDiario as $registro): ?>
-                        <tr>
-                            <td><strong><?= date('d/m/Y', strtotime($registro['data'])) ?></strong></td>
-                            <td><?= formatarMoeda($registro['entrada']) ?></td>
-                            <td><?= formatarMoeda($registro['saida']) ?></td>
-                            <td><strong><?= formatarMoeda($registro['saldo']) ?></strong></td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar avatar-xs me-2">
-                                        <span class="avatar-initial rounded-circle bg-label-primary">
-                                            <?= substr($registro['responsavel'], 0, 1) ?>
-                                        </span>
+                    <!-- HTML com os dados dinâmicos -->
+                    <div class="row mb-4">
+                        <div class="col-md-4 mb-3">
+                            <div class="card text-center h-100">
+                                <div class="card-body">
+                                    <div class="fw-semibold">Entradas do Dia</div>
+                                    <h4 class="mb-1"><?= formatarMoeda($entradas['total_entradas']) ?></h4>
+                                    <small class="text-success fw-semibold">+12% vs ontem</small>
+                                    <div class="mt-3">
+                                        <span class="badge bg-label-primary">Vendas: <?= formatarMoeda($entradas['total_vendas']) ?></span>
+                                        <span class="badge bg-label-secondary ms-1">Suprimentos: <?= formatarMoeda($entradas['total_suprimentos']) ?></span>
                                     </div>
-                                    <?= $registro['responsavel'] ?>
                                 </div>
-                            </td>
-                            <td>
-                                <span class="badge bg-<?= $registro['status'] == 'fechado' ? 'success' : 'warning' ?>">
-                                    <?= ucfirst($registro['status']) ?>
-                                </span>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-icon">
-                                    <i class="bx bx-printer"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer d-flex justify-content-between">
-                <div class="text-muted">Mostrando 1 a <?= count($resumoDiario) ?> de <?= count($resumoDiario) ?> registros</div>
-                <nav aria-label="Page navigation">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item disabled">
-                            <a class="page-link" href="#" tabindex="-1">Anterior</a>
-                        </li>
-                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                        <li class="page-item">
-                            <a class="page-link" href="#">Próxima</a>
-                        </li>
-                    </ul>
-                </nav>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mb-3">
-        <div class="card h-100">
-            <div class="card-header">
-                <h5 class="mb-0">Últimas Movimentações</h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="list-group list-group-flush">
-                    <?php foreach ($ultimasMovimentacoes as $movimentacao): ?>
-                    <div class="list-group-item list-group-item-action">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <h6 class="mb-1"><?= $movimentacao['descricao'] ?></h6>
-                                <small class="text-muted"><?= date('d/m - H:i', strtotime($movimentacao['data'])) ?></small>
                             </div>
-                            <span class="text-<?= $movimentacao['classe_cor'] ?>">
-                                <?= ($movimentacao['tipo'] == 'Sangria') ? '-' : '+' ?>
-                                <?= formatarMoeda($movimentacao['valor']) ?>
-                            </span>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card text-center h-100">
+                                <div class="card-body">
+                                    <div class="fw-semibold">Saídas do Dia</div>
+                                    <h4 class="mb-1"><?= formatarMoeda($saidas['total_saidas']) ?></h4>
+                                    <small class="text-danger fw-semibold">+5% vs ontem</small>
+                                    <div class="mt-3">
+                                        <span class="badge bg-label-danger">Sangrias: <?= formatarMoeda($saidas['total_sangrias']) ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card text-center h-100">
+                                <div class="card-body">
+                                    <div class="fw-semibold">Saldo em Caixa</div>
+                                    <h4 class="mb-1"><?= formatarMoeda($saldo['saldo_caixa']) ?></h4>
+                                    <small class="text-success fw-semibold">+7% vs ontem</small>
+                                    <div class="mt-3">
+                                        <span class="badge bg-label-info">Meta: <?= formatarMoeda($saldo['valor_meta']) ?></span>
+                                        <span class="badge bg-label-success ms-1"><?= formatarPorcentagem($saldo['percentual_meta']) ?> da meta</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <?php endforeach; ?>
+
+                    <!-- TABELA E DETALHES -->
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <div class="card">
+                                <div class="card-header text-white d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">Resumo Diário</h5>
+                                </div>
+                                <div class="table-responsive text-nowrap">
+                                    <table class="table table-hover mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Data</th>
+                                                <th>Entrada</th>
+                                                <th>Saída</th>
+                                                <th>Saldo</th>
+                                                <th>Responsável</th>
+                                                <th>Status</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($resumoDiario as $registro): ?>
+                                                <tr>
+                                                    <td><strong><?= date('d/m/Y', strtotime($registro['data'])) ?></strong></td>
+                                                    <td><?= formatarMoeda($registro['entrada']) ?></td>
+                                                    <td><?= formatarMoeda($registro['saida']) ?></td>
+                                                    <td><strong><?= formatarMoeda($registro['saldo']) ?></strong></td>
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="avatar avatar-xs me-2">
+                                                                <span class="avatar-initial rounded-circle bg-label-primary">
+                                                                    <?= substr($registro['responsavel'], 0, 1) ?>
+                                                                </span>
+                                                            </div>
+                                                            <?= $registro['responsavel'] ?>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-<?= $registro['status'] == 'fechado' ? 'success' : 'warning' ?>">
+                                                            <?= ucfirst($registro['status']) ?>
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-icon">
+                                                            <i class="bx bx-printer"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="card-footer d-flex justify-content-between">
+                                    <div class="text-muted">Mostrando 1 a <?= count($resumoDiario) ?> de <?= count($resumoDiario) ?> registros</div>
+                                    <nav aria-label="Page navigation">
+                                        <ul class="pagination pagination-sm mb-0">
+                                            <li class="page-item disabled">
+                                                <a class="page-link" href="#" tabindex="-1">Anterior</a>
+                                            </li>
+                                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                            <li class="page-item">
+                                                <a class="page-link" href="#">Próxima</a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Últimas Movimentações</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="list-group list-group-flush">
+                                        <?php foreach ($ultimasMovimentacoes as $movimentacao): ?>
+                                            <div class="list-group-item list-group-item-action">
+                                                <div class="d-flex justify-content-between">
+                                                    <div>
+                                                        <h6 class="mb-1"><?= $movimentacao['descricao'] ?></h6>
+                                                        <small class="text-muted"><?= date('d/m - H:i', strtotime($movimentacao['data'])) ?></small>
+                                                    </div>
+                                                    <span class="text-<?= $movimentacao['classe_cor'] ?>">
+                                                        <?= ($movimentacao['tipo'] == 'Sangria') ? '-' : '+' ?>
+                                                        <?= formatarMoeda($movimentacao['valor']) ?>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-            </div>
-           
+
             </div>
 
             <!-- Scripts para os gráficos (usando Chart.js) -->
@@ -996,275 +1005,355 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/js/main.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function(){
-  try {
-    var dados = JSON.parse('<?php echo $__listaResumoHoje_json ?? "[]"; ?>') || [];
-    // Procura um card com título "Resumo Diário"
-    var cards = document.querySelectorAll('.card');
-    var alvo = null;
-    for (var i=0;i<cards.length;i++){
-      var h = cards[i].querySelector('.card-header h5, .card-header h4, .card-header h6');
-      if (h && h.textContent.trim().toLowerCase() === 'resumo diário'){
-        alvo = cards[i];
-        break;
-      }
-    }
-    if (!alvo) return; // se não existir, não quebramos layout
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                var dados = JSON.parse('<?php echo $__listaResumoHoje_json ?? "[]"; ?>') || [];
+                // Procura um card com título "Resumo Diário"
+                var cards = document.querySelectorAll('.card');
+                var alvo = null;
+                for (var i = 0; i < cards.length; i++) {
+                    var h = cards[i].querySelector('.card-header h5, .card-header h4, .card-header h6');
+                    if (h && h.textContent.trim().toLowerCase() === 'resumo diário') {
+                        alvo = cards[i];
+                        break;
+                    }
+                }
+                if (!alvo) return; // se não existir, não quebramos layout
 
-    // Área onde vamos renderizar a lista (mantendo o card)
-    var body = alvo.querySelector('.card-body');
-    if (!body){
-      body = document.createElement('div');
-      body.className = 'card-body';
-      alvo.appendChild(body);
-    }
-    // Render em LISTA (sem mudar o card)
-    var ul = document.createElement('ul');
-    ul.className = 'list-group list-group-flush';
+                // Área onde vamos renderizar a lista (mantendo o card)
+                var body = alvo.querySelector('.card-body');
+                if (!body) {
+                    body = document.createElement('div');
+                    body.className = 'card-body';
+                    alvo.appendChild(body);
+                }
+                // Render em LISTA (sem mudar o card)
+                var ul = document.createElement('ul');
+                ul.className = 'list-group list-group-flush';
 
-    // Cabeçalho (como item da lista)
-    var head = document.createElement('li');
-    head.className = 'list-group-item p-2 small fw-semibold text-muted';
-    head.innerHTML = '<div class="row">'+
-        '<div class="col-2">Data</div>'+
-        '<div class="col-2 text-end">Entrada</div>'+
-        '<div class="col-2 text-end">Saída</div>'+
-        '<div class="col-2 text-end">Saldo</div>'+
-        '<div class="col-2">Responsável</div>'+
-        '<div class="col-2">Status</div>'+
-      '</div>';
-    ul.appendChild(head);
+                // Cabeçalho (como item da lista)
+                var head = document.createElement('li');
+                head.className = 'list-group-item p-2 small fw-semibold text-muted';
+                head.innerHTML = '<div class="row">' +
+                    '<div class="col-2">Data</div>' +
+                    '<div class="col-2 text-end">Entrada</div>' +
+                    '<div class="col-2 text-end">Saída</div>' +
+                    '<div class="col-2 text-end">Saldo</div>' +
+                    '<div class="col-2">Responsável</div>' +
+                    '<div class="col-2">Status</div>' +
+                    '</div>';
+                ul.appendChild(head);
 
-    dados.forEach(function(it){
-      var li = document.createElement('li');
-      li.className = 'list-group-item p-2';
-      var saldoClass = (parseFloat(it.saldo||0) >= 0) ? 'text-success' : 'text-danger';
-      li.innerHTML = '<div class="row align-items-center">'+
-        '<div class="col-2"><span>'+ (it.data||'') +'</span></div>'+
-        '<div class="col-2 text-end"><span>'+ (new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.entradas||0)) +'</span></div>'+
-        '<div class="col-2 text-end"><span>'+ (new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.saidas||0)) +'</span></div>'+
-        '<div class="col-2 text-end"><span class="'+saldoClass+'">'+ (new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(it.saldo||0)) +'</span></div>'+
-        '<div class="col-2"><span>'+ (it.responsavel||"") +'</span></div>'+
-        '<div class="col-2 d-flex align-items-center justify-content-between">'+
-           '<span>'+ (it.status||"") +'</span>'+
-           '<div class="btn-group btn-group-sm">'+
-              '<button type="button" class="btn btn-outline-secondary" title="Imprimir" onclick="window.print()"><i class="bx bx-printer"></i></button>'+
-              '<button type="button" class="btn btn-outline-secondary" title="Baixar CSV" onclick="(function(){downloadCSV([it])})()"><i class="bx bx-download"></i></button>'+
-           '</div>'+
-        '</div>'+
-      '</div>';
-      // guardar item para o botão CSV
-      li.it = it;
-      ul.appendChild(li);
-    });
+                dados.forEach(function(it) {
+                    var li = document.createElement('li');
+                    li.className = 'list-group-item p-2';
+                    var saldoClass = (parseFloat(it.saldo || 0) >= 0) ? 'text-success' : 'text-danger';
+                    li.innerHTML = '<div class="row align-items-center">' +
+                        '<div class="col-2"><span>' + (it.data || '') + '</span></div>' +
+                        '<div class="col-2 text-end"><span>' + (new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL"
+                        }).format(it.entradas || 0)) + '</span></div>' +
+                        '<div class="col-2 text-end"><span>' + (new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL"
+                        }).format(it.saidas || 0)) + '</span></div>' +
+                        '<div class="col-2 text-end"><span class="' + saldoClass + '">' + (new Intl.NumberFormat("pt-BR", {
+                            style: "currency",
+                            currency: "BRL"
+                        }).format(it.saldo || 0)) + '</span></div>' +
+                        '<div class="col-2"><span>' + (it.responsavel || "") + '</span></div>' +
+                        '<div class="col-2 d-flex align-items-center justify-content-between">' +
+                        '<span>' + (it.status || "") + '</span>' +
+                        '<div class="btn-group btn-group-sm">' +
+                        '<button type="button" class="btn btn-outline-secondary" title="Imprimir" onclick="window.print()"><i class="bx bx-printer"></i></button>' +
+                        '<button type="button" class="btn btn-outline-secondary" title="Baixar CSV" onclick="(function(){downloadCSV([it])})()"><i class="bx bx-download"></i></button>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                    // guardar item para o botão CSV
+                    li.it = it;
+                    ul.appendChild(li);
+                });
 
-    // Função para baixar 1 linha (ou várias) como CSV
-    window.downloadCSV = function(list){
-      try{
-        var arr = list || dados;
-        var csv = 'Data;Entrada;Saída;Saldo;Responsável;Status\n';
-        arr.forEach(function(x){
-          csv += [
-            (x.data||''),
-            (x.entradas||0).toString().replace('.',','),
-            (x.saidas||0).toString().replace('.',','),
-            (x.saldo||0).toString().replace('.',','),
-            (x.responsavel||''),
-            (x.status||'')
-          ].join(';') + '\n';
+                // Função para baixar 1 linha (ou várias) como CSV
+                window.downloadCSV = function(list) {
+                    try {
+                        var arr = list || dados;
+                        var csv = 'Data;Entrada;Saída;Saldo;Responsável;Status\n';
+                        arr.forEach(function(x) {
+                            csv += [
+                                (x.data || ''),
+                                (x.entradas || 0).toString().replace('.', ','),
+                                (x.saidas || 0).toString().replace('.', ','),
+                                (x.saldo || 0).toString().replace('.', ','),
+                                (x.responsavel || ''),
+                                (x.status || '')
+                            ].join(';') + '\n';
+                        });
+                        var blob = new Blob(['\ufeff' + csv], {
+                            type: 'text/csv;charset=utf-8;'
+                        });
+                        var link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.download = 'resumo-diario.csv';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                };
+
+                body.innerHTML = '';
+                body.appendChild(ul);
+            } catch (e) {
+                console.warn('Resumo Diário não pôde ser renderizado:', e);
+            }
         });
-        var blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
-        var link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'resumo-diario.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }catch(e){ console.error(e); }
-    };
+    </script>
 
-    body.innerHTML = '';
-    body.appendChild(ul);
-  } catch(e){
-    console.warn('Resumo Diário não pôde ser renderizado:', e);
-  }
-});
-</script>
+    <!-- Modal Itens do Caixa -->
+    <div class="modal fade" id="modalItensCaixa" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        Itens vendidos — <span id="mic-resp"></span>
+                        <small class="text-muted d-block" id="mic-periodo"></small>
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="mic-print">
+                        <i class="bx bx-printer"></i> Imprimir
+                    </button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="mic-conteudo">
+                        <h6 class="mb-2">Itens de venda</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped" id="mic-tb-itens">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Produto</th>
+                                        <th class="text-end">Valor</th>
+                                        <th>Data/Hora</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="2" class="text-end">Total</th>
+                                        <th class="text-end" id="mic-tot-vendas">R$ 0,00</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
 
-<!-- Modal Itens do Caixa -->
-<div class="modal fade" id="modalItensCaixa" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">
-          Itens vendidos — <span id="mic-resp"></span>
-          <small class="text-muted d-block" id="mic-periodo"></small>
-        </h5>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="mic-print">
-          <i class="bx bx-printer"></i> Imprimir
-        </button>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-      </div>
-      <div class="modal-body">
-        <div id="mic-conteudo">
-          <h6 class="mb-2">Itens de venda</h6>
-          <div class="table-responsive">
-            <table class="table table-sm table-striped" id="mic-tb-itens">
-              <thead class="table-light">
-                <tr>
-                  <th>#</th><th>Produto</th><th class="text-end">Valor</th><th>Data/Hora</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-              <tfoot><tr><th colspan="2" class="text-end">Total</th><th class="text-end" id="mic-tot-vendas">R$ 0,00</th><th></th></tr></tfoot>
-            </table>
-          </div>
-
-          <div class="row g-3 mt-3">
-            <div class="col-md-6">
-              <h6 class="mb-2">Suprimentos</h6>
-              <table class="table table-sm table-striped" id="mic-tb-supr">
-                <thead class="table-light"><tr><th>#</th><th class="text-end">Valor</th><th>Data/Hora</th></tr></thead>
-                <tbody></tbody>
-                <tfoot><tr><th class="text-end" colspan="1">Total</th><th class="text-end" id="mic-tot-supr">R$ 0,00</th><th></th></tr></tfoot>
-              </table>
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-6">
+                                <h6 class="mb-2">Suprimentos</h6>
+                                <table class="table table-sm table-striped" id="mic-tb-supr">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th class="text-end">Valor</th>
+                                            <th>Data/Hora</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th class="text-end" colspan="1">Total</th>
+                                            <th class="text-end" id="mic-tot-supr">R$ 0,00</th>
+                                            <th></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="mb-2">Sangrias</h6>
+                                <table class="table table-sm table-striped" id="mic-tb-sang">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th class="text-end">Valor</th>
+                                            <th>Data/Hora</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <th class="text-end" colspan="1">Total</th>
+                                            <th class="text-end" id="mic-tot-sang">R$ 0,00</th>
+                                            <th></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <small class="me-auto text-muted">Dica: use a coluna “Ações” do Resumo Diário.</small>
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
             </div>
-            <div class="col-md-6">
-              <h6 class="mb-2">Sangrias</h6>
-              <table class="table table-sm table-striped" id="mic-tb-sang">
-                <thead class="table-light"><tr><th>#</th><th class="text-end">Valor</th><th>Data/Hora</th></tr></thead>
-                <tbody></tbody>
-                <tfoot><tr><th class="text-end" colspan="1">Total</th><th class="text-end" id="mic-tot-sang">R$ 0,00</th><th></th></tr></tfoot>
-              </table>
-            </div>
-          </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <small class="me-auto text-muted">Dica: use a coluna “Ações” do Resumo Diário.</small>
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-      </div>
     </div>
-  </div>
-</div>
-<script>
-(function(){
-  // Empresa atual (mantém seu filtro original via ?id=)
-  var EMPRESA_ID = <?php echo json_encode($idSelecionado ?? ($_GET['id'] ?? ''), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES); ?>;
+    <script>
+        (function() {
+            // Empresa atual (mantém seu filtro original via ?id=)
+            var EMPRESA_ID = <?php echo json_encode($idSelecionado ?? ($_GET['id'] ?? ''), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>;
 
-  function ensureHtml2Canvas(){
-    return new Promise(function(res, rej){
-      if (window.html2canvas) return res(window.html2canvas);
-      var s = document.createElement('script');
-      s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
-      s.onload = function(){ res(window.html2canvas); };
-      s.onerror = function(){ rej(new Error('Falha ao carregar html2canvas')); };
-      document.head.appendChild(s);
-    });
-  }
+            function ensureHtml2Canvas() {
+                return new Promise(function(res, rej) {
+                    if (window.html2canvas) return res(window.html2canvas);
+                    var s = document.createElement('script');
+                    s.src = "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js";
+                    s.onload = function() {
+                        res(window.html2canvas);
+                    };
+                    s.onerror = function() {
+                        rej(new Error('Falha ao carregar html2canvas'));
+                    };
+                    document.head.appendChild(s);
+                });
+            }
 
-  function br(v){
-    v = parseFloat(v||0);
-    return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-  }
+            function br(v) {
+                v = parseFloat(v || 0);
+                return v.toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                });
+            }
 
-  function fillTable(tbody, rows, render){
-    tbody.innerHTML = '';
-    rows.forEach(function(r, i){
-      var tr = document.createElement('tr');
-      tr.innerHTML = render(r, i+1);
-      tbody.appendChild(tr);
-    });
-  }
+            function fillTable(tbody, rows, render) {
+                tbody.innerHTML = '';
+                rows.forEach(function(r, i) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = render(r, i + 1);
+                    tbody.appendChild(tr);
+                });
+            }
 
-  async function abrirModalItens(idCaixa){
-    try{
-      const url = new URL(window.location.href);
-      url.searchParams.set('ajax','itens_caixa');
-      url.searchParams.set('id_caixa', idCaixa);
-      const resp = btn.getAttribute('data-responsavel')||'';
-      const dataYmd = btn.getAttribute('data-data')||'';
-      if (resp) url.searchParams.set('resp', resp);
-      if (dataYmd) url.searchParams.set('data', dataYmd);
-      if (EMPRESA_ID) url.searchParams.set('id', EMPRESA_ID);
-      const r = await fetch(url.toString(), {cache:'no-store'});
-      const j = await r.json();
-      if (!j.ok) { alert(j.msg||'Não foi possível carregar os itens'); return; }
-      document.getElementById('mic-resp').textContent = 'Responsável: ' + (j.caixa.responsavel||'-');
-      const ini = new Date(j.caixa.inicio); const fim = new Date(j.caixa.fim);
-      document.getElementById('mic-periodo').textContent =
-        'Período: ' + ini.toLocaleString('pt-BR') + ' — ' + fim.toLocaleString('pt-BR');
+            async function abrirModalItens(idCaixa) {
+                try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('ajax', 'itens_caixa');
+                    url.searchParams.set('id_caixa', idCaixa);
+                    const resp = btn.getAttribute('data-responsavel') || '';
+                    const dataYmd = btn.getAttribute('data-data') || '';
+                    if (resp) url.searchParams.set('resp', resp);
+                    if (dataYmd) url.searchParams.set('data', dataYmd);
+                    if (EMPRESA_ID) url.searchParams.set('id', EMPRESA_ID);
+                    const r = await fetch(url.toString(), {
+                        cache: 'no-store'
+                    });
+                    const j = await r.json();
+                    if (!j.ok) {
+                        alert(j.msg || 'Não foi possível carregar os itens');
+                        return;
+                    }
+                    document.getElementById('mic-resp').textContent = 'Responsável: ' + (j.caixa.responsavel || '-');
+                    const ini = new Date(j.caixa.inicio);
+                    const fim = new Date(j.caixa.fim);
+                    document.getElementById('mic-periodo').textContent =
+                        'Período: ' + ini.toLocaleString('pt-BR') + ' — ' + fim.toLocaleString('pt-BR');
 
-      const tbItens = document.querySelector('#mic-tb-itens tbody');
-      fillTable(tbItens, j.itens, (r,i)=>(
-        `<td>${i}</td><td>${(r.produto||'-')}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
-      ));
-      document.getElementById('mic-tot-vendas').textContent = br(j.totais.vendas);
+                    const tbItens = document.querySelector('#mic-tb-itens tbody');
+                    fillTable(tbItens, j.itens, (r, i) => (
+                        `<td>${i}</td><td>${(r.produto||'-')}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
+                    ));
+                    document.getElementById('mic-tot-vendas').textContent = br(j.totais.vendas);
 
-      const tbSupr = document.querySelector('#mic-tb-supr tbody');
-      fillTable(tbSupr, j.suprimentos, (r,i)=>(
-        `<td>${i}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
-      ));
-      document.getElementById('mic-tot-supr').textContent = br(j.totais.suprimentos);
+                    const tbSupr = document.querySelector('#mic-tb-supr tbody');
+                    fillTable(tbSupr, j.suprimentos, (r, i) => (
+                        `<td>${i}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
+                    ));
+                    document.getElementById('mic-tot-supr').textContent = br(j.totais.suprimentos);
 
-      const tbSang = document.querySelector('#mic-tb-sang tbody');
-      fillTable(tbSang, j.sangrias, (r,i)=>(
-        `<td>${i}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
-      ));
-      document.getElementById('mic-tot-sang').textContent = br(j.totais.sangrias);
+                    const tbSang = document.querySelector('#mic-tb-sang tbody');
+                    fillTable(tbSang, j.sangrias, (r, i) => (
+                        `<td>${i}</td><td class="text-end">${br(r.valor)}</td><td>${new Date(r.datahora).toLocaleString('pt-BR')}</td>`
+                    ));
+                    document.getElementById('mic-tot-sang').textContent = br(j.totais.sangrias);
 
-      new bootstrap.Modal(document.getElementById('modalItensCaixa')).show();
-    }catch(e){ console.error(e); alert('Erro ao abrir itens do caixa.'); }
-  }
+                    new bootstrap.Modal(document.getElementById('modalItensCaixa')).show();
+                } catch (e) {
+                    console.error(e);
+                    alert('Erro ao abrir itens do caixa.');
+                }
+            }
 
-  // Delegação do botão Visualizar (classe adicionada no PHP)
-  document.addEventListener('click', function(ev){
-    const btn = ev.target.closest('.btn-visualizar-caixa');
-    if (!btn) return;
-    ev.preventDefault();
-    const id = parseInt(btn.getAttribute('data-id-caixa')||'0',10);
-    if (id>0) abrirModalItens(id);
-  });
+            // Delegação do botão Visualizar (classe adicionada no PHP)
+            document.addEventListener('click', function(ev) {
+                const btn = ev.target.closest('.btn-visualizar-caixa');
+                if (!btn) return;
+                ev.preventDefault();
+                const id = parseInt(btn.getAttribute('data-id-caixa') || '0', 10);
+                if (id > 0) abrirModalItens(id);
+            });
 
-  // Botão Imprimir dentro do Modal
-  document.getElementById('mic-print').addEventListener('click', async function(){
-    try{
-      await ensureHtml2Canvas();
-      const alvo = document.getElementById('mic-tb-itens');
-      const canvas = await html2canvas(alvo, {scale:2, useCORS:true});
-      const dataUrl = canvas.toDataURL('image/png');
-      const w = window.open('', '_blank');
-      w.document.write('<html><head><title>Impressão</title><meta charset="utf-8"></head><body style="margin:0">');
-      w.document.write('<img src=\"'+dataUrl+'\" style=\"width:100%;display:block\"/>');
-      w.document.write('</body></html>');
-      w.document.close(); w.focus(); w.print();
-    }catch(e){ console.error(e); window.print(); }
-  });
+            // Botão Imprimir dentro do Modal
+            document.getElementById('mic-print').addEventListener('click', async function() {
+                try {
+                    await ensureHtml2Canvas();
+                    const alvo = document.getElementById('mic-tb-itens');
+                    const canvas = await html2canvas(alvo, {
+                        scale: 2,
+                        useCORS: true
+                    });
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const w = window.open('', '_blank');
+                    w.document.write('<html><head><title>Impressão</title><meta charset="utf-8"></head><body style="margin:0">');
+                    w.document.write('<img src=\"' + dataUrl + '\" style=\"width:100%;display:block\"/>');
+                    w.document.write('</body></html>');
+                    w.document.close();
+                    w.focus();
+                    w.print();
+                } catch (e) {
+                    console.error(e);
+                    window.print();
+                }
+            });
 
-  // Qualquer ícone de printer dentro da página: imprime a tabela do card correspondente
-  document.addEventListener('click', async function(e){
-    const icon = e.target.closest('.bx-printer');
-    if (!icon) return;
-    const btn = icon.closest('button, a');
-    if (!btn) return;
-    // card root
-    const card = btn.closest('.card');
-    if (!card) return;
-    const table = card.querySelector('table');
-    if (!table) return;
-    e.preventDefault();
-    try{
-      await ensureHtml2Canvas();
-      const canvas = await html2canvas(table, {scale:2, useCORS:true});
-      const dataUrl = canvas.toDataURL('image/png');
-      const w = window.open('', '_blank');
-      w.document.write('<html><head><title>Impressão</title><meta charset=\"utf-8\"></head><body style=\"margin:0\">');
-      w.document.write('<img src=\"'+dataUrl+'\" style=\"width:100%;display:block\"/>');
-      w.document.write('</body></html>');
-      w.document.close(); w.focus(); w.print();
-    }catch(err){ console.error(err); window.print(); }
-  });
-})();
-</script>
-</body></html>
+            // Qualquer ícone de printer dentro da página: imprime a tabela do card correspondente
+            document.addEventListener('click', async function(e) {
+                const icon = e.target.closest('.bx-printer');
+                if (!icon) return;
+                const btn = icon.closest('button, a');
+                if (!btn) return;
+                // card root
+                const card = btn.closest('.card');
+                if (!card) return;
+                const table = card.querySelector('table');
+                if (!table) return;
+                e.preventDefault();
+                try {
+                    await ensureHtml2Canvas();
+                    const canvas = await html2canvas(table, {
+                        scale: 2,
+                        useCORS: true
+                    });
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const w = window.open('', '_blank');
+                    w.document.write('<html><head><title>Impressão</title><meta charset=\"utf-8\"></head><body style=\"margin:0\">');
+                    w.document.write('<img src=\"' + dataUrl + '\" style=\"width:100%;display:block\"/>');
+                    w.document.write('</body></html>');
+                    w.document.close();
+                    w.focus();
+                    w.print();
+                } catch (err) {
+                    console.error(err);
+                    window.print();
+                }
+            });
+        })();
+    </script>
+</body>
+
+</html>
