@@ -80,9 +80,9 @@ if (!$acessoPermitido) {
    LOGO DA EMPRESA
    ============================================================================ */
 try {
-    $sql  = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+    $sql  = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1";
     $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->bindParam(':id', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -125,6 +125,25 @@ function nomeMes($m)
     return $nomes[(int)$m] ?? (string)$m;
 }
 
+/* --- Descobrir coluna correta de valor em sangrias (valor -> valor_sangria -> valor_liquido) --- */
+function tabelaTemColuna(PDO $pdo, string $tabela, string $coluna): bool
+{
+    $sql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t AND COLUMN_NAME = :c";
+    $st  = $pdo->prepare($sql);
+    $st->execute([':t' => $tabela, ':c' => $coluna]);
+    return (int)$st->fetchColumn() > 0;
+}
+$sangriaValorCol = null;
+if (tabelaTemColuna($pdo, 'sangrias', 'valor')) {
+    $sangriaValorCol = 'valor';
+} elseif (tabelaTemColuna($pdo, 'sangrias', 'valor_sangria')) {
+    $sangriaValorCol = 'valor_sangria';
+} elseif (tabelaTemColuna($pdo, 'sangrias', 'valor_liquido')) {
+    // fallback (não é o ideal para “saídas” de sangria, mas garante compatibilidade)
+    $sangriaValorCol = 'valor_liquido';
+}
+
 /* --- Coletas/Agregações --- */
 $dadosAnuais = [];
 $entradasAno = 0.0;
@@ -132,7 +151,7 @@ $saidasAno   = 0.0;
 $saldoAno    = 0.0;
 
 for ($m = 1; $m <= 12; $m++) {
-    // Vendas
+    // Vendas (entradas)
     $st = $pdo->prepare("
         SELECT COALESCE(SUM(valor_total),0) AS total, COUNT(*) AS qtd
         FROM vendas
@@ -152,14 +171,17 @@ for ($m = 1; $m <= 12; $m++) {
     $st->execute([':e' => $empresa_id, ':a' => $ano, ':m' => $m]);
     $ts = (float)($st->fetchColumn() ?: 0);
 
-    // Sangrias (saídas) — usa valor_liquido
-    $st = $pdo->prepare("
-        SELECT COALESCE(SUM(valor_liquido),0)
-        FROM sangrias
-        WHERE empresa_id = :e AND YEAR(data_registro) = :a AND MONTH(data_registro) = :m
-    ");
-    $st->execute([':e' => $empresa_id, ':a' => $ano, ':m' => $m]);
-    $tg = (float)($st->fetchColumn() ?: 0);
+    // Sangrias (saídas) → usa a coluna detectada de valor de sangria (não o saldo!)
+    $tg = 0.0;
+    if ($sangriaValorCol) {
+        $st = $pdo->prepare("
+            SELECT COALESCE(SUM($sangriaValorCol),0)
+            FROM sangrias
+            WHERE empresa_id = :e AND YEAR(data_registro) = :a AND MONTH(data_registro) = :m
+        ");
+        $st->execute([':e' => $empresa_id, ':a' => $ano, ':m' => $m]);
+        $tg = (float)($st->fetchColumn() ?: 0);
+    }
 
     $entr = $tv + $ts;
     $said = $tg;
@@ -256,17 +278,17 @@ for ($mm = 1; $mm <= 12; $mm++) {
         $__max_vendas_mes = $mm;
     }
 }
-$__media_vendas_mensal   = $__total_vendas_ano > 0 ? ($__total_vendas_ano / 12.0) : 0.0;
+$__media_vendas_mensal    = $__total_vendas_ano > 0 ? ($__total_vendas_ano / 12.0) : 0.0;
 $__pct_acima_media_vendas = ($__media_vendas_mensal > 0)
     ? (($__max_vendas - $__media_vendas_mensal) / $__media_vendas_mensal) * 100.0
     : 0.0;
 
-/* -- YoY do lucro (vs ano anterior) -- */
+/* -- YoY do lucro (vs ano anterior), usando a MESMA coluna de sangrias detectada -- */
 $__ano_anterior        = (int)$ano - 1;
 $__lucro_ano_anterior  = 0.0;
 
 for ($mm = 1; $mm <= 12; $mm++) {
-    // mesmas fontes do ano atual
+    // vendas ano anterior
     $st = $pdo->prepare("
         SELECT COALESCE(SUM(valor_total),0)
         FROM vendas
@@ -275,6 +297,7 @@ for ($mm = 1; $mm <= 12; $mm++) {
     $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
     $tv_prev = (float)($st->fetchColumn() ?: 0);
 
+    // suprimentos ano anterior
     $st = $pdo->prepare("
         SELECT COALESCE(SUM(valor_suprimento),0)
         FROM suprimentos
@@ -283,13 +306,17 @@ for ($mm = 1; $mm <= 12; $mm++) {
     $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
     $ts_prev = (float)($st->fetchColumn() ?: 0);
 
-    $st = $pdo->prepare("
-        SELECT COALESCE(SUM(valor_liquido),0)
-        FROM sangrias
-        WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m
-    ");
-    $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
-    $tg_prev = (float)($st->fetchColumn() ?: 0);
+    // sangrias ANO ANTERIOR com a mesma coluna de valor
+    $tg_prev = 0.0;
+    if ($sangriaValorCol) {
+        $st = $pdo->prepare("
+            SELECT COALESCE(SUM($sangriaValorCol),0)
+            FROM sangrias
+            WHERE empresa_id=:e AND YEAR(data_registro)=:a AND MONTH(data_registro)=:m
+        ");
+        $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
+        $tg_prev = (float)($st->fetchColumn() ?: 0);
+    }
 
     $__lucro_ano_anterior += ($tv_prev + $ts_prev) - $tg_prev;
 }
@@ -310,10 +337,11 @@ function somaTri($arr, $startMes, $endMes, $key)
 $__tri1_receita = somaTri($__meses, 1, 3, 'entradas');  // Jan-Mar
 $__tri2_receita = somaTri($__meses, 4, 6, 'entradas');  // Abr-Jun
 
-// Ano anterior (para % de crescimento dos trimestres)
+// Ano anterior (para % de crescimento dos trimestres) — compara ENTRADAS
 $__tri1_prev = 0.0;  // Jan-Mar
 $__tri2_prev = 0.0;  // Abr-Jun
 for ($mm = 1; $mm <= 6; $mm++) {
+    // entradas = vendas + suprimentos (sem sangrias)
     $st = $pdo->prepare("SELECT COALESCE(SUM(valor_total),0)
                          FROM vendas
                          WHERE empresa_id=:e AND YEAR(data_venda)=:a AND MONTH(data_venda)=:m");
@@ -326,9 +354,7 @@ for ($mm = 1; $mm <= 6; $mm++) {
     $st->execute([':e' => $empresa_id, ':a' => $__ano_anterior, ':m' => $mm]);
     $tsp = (float)($st->fetchColumn() ?: 0);
 
-    // aqui só comparamos ENTRADAS (mantendo semântica do card "Trimestre")
     $valEntradasPrev = $tvp + $tsp;
-
     if ($mm <= 3) $__tri1_prev += $valEntradasPrev;
     else          $__tri2_prev += $valEntradasPrev;
 }
@@ -361,24 +387,16 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
     <meta name="description" content="" />
     <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa ?? "../../assets/img/favicon/logo.png") ?>" />
 
-    <!-- Fonts -->
+    <!-- Fonts / Icons / CSS -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
-
-    <!-- Icons -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-
-    <!-- Core CSS -->
     <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
     <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
-
-    <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-    <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
 </head>
@@ -517,7 +535,7 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
                         </div>
                     </div>
 
-                    <!-- CARDS RESUMO (mantido o visual/labels) -->
+                    <!-- CARDS RESUMO -->
                     <div class="row mb-4">
                         <div class="col-md-3 mb-2">
                             <div class="card card-slim h-100">
