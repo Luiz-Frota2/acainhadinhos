@@ -393,7 +393,7 @@ $DANFE_BASE = './danfe_nfce.php';
 
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
+                    <h4 class="fw-bold mb-3">
                         <span class="text-muted fw-light"><a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado) ?>">Relatório</a> / </span>
                         Detalhes de Vendas — <?= htmlspecialchars($dtTitulo) ?>
                     </h4>
