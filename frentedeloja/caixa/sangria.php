@@ -475,14 +475,6 @@ try {
                             <div id="avisoSemCaixa" class="alert alert-danger text-center" style="display: none;">
                                 Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
                             </div>
-                            <div class="text-center">
-                                <a class="btn btn-primary" href="./abrirCaixa.php?id=<?= urlencode($idSelecionado); ?>">
-                                    Abrir Caixa agora
-                                </a>
-                                <a class="btn btn-outline-secondary ms-2" href="./index.php?id=<?= urlencode($idSelecionado); ?>">
-                                    Voltar ao Dashboard
-                                </a>
-                            </div>
 
                             <form
                                 action="../../assets/php/frentedeloja/processarSangria.php?id=<?= urlencode($idSelecionado); ?>"
