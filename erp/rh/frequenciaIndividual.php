@@ -602,7 +602,6 @@ function mesPortugues($mesNumero)
                                                 <th>Ano</th>
                                                 <th>Mês</th>
                                                 <th>Horas Trabalhadas</th>
-                                                <th>Horas Pendentes</th>
                                                 <th>Horas Extras</th>
                                                 <th>Ações</th>
                                             </tr>
@@ -615,7 +614,6 @@ function mesPortugues($mesNumero)
                                                     <td><?= htmlspecialchars($registro['ano']) ?></td>
                                                     <td><?= htmlspecialchars($mesPortugues) ?></td>
                                                     <td><?= secondsToHM($registro['total_segundos']) ?></td>
-                                                    <td><?= secondsToHM($registro['pendentes_segundos']) ?></td>
                                                     <td><?= secondsToHM($registro['extras_segundos']) ?></td>
                                                     <td>
                                                         <a href="listaFrequenciapdf.php?id=<?= urlencode($idSelecionado); ?>&cpf=<?= htmlspecialchars($registro['cpf']) ?>&mes=<?= htmlspecialchars($registro['mes_numero']) ?>&ano=<?= htmlspecialchars($registro['ano']) ?>"

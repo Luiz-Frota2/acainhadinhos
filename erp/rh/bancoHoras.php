@@ -565,7 +565,6 @@ unset($d);
                     <th>Mês</th>
                     <th>Horas Trabalhadas</th>
                     <th>Horas Extras</th>
-                    <th>Horas Pendentes</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
@@ -578,7 +577,6 @@ unset($d);
                       <td><?= $d['mes_ano'] ?></td>
                       <td><?= $d['horas_trabalhadas'] ?></td>
                       <td><?= $d['hora_extra_liquida'] ?></td>
-                      <td><?= $d['horas_pendentes_liquida'] ?></td>
                       <td>
                         <button class="btn btn-primary btn-sm" data-bs-toggle="modal"
                           data-bs-target="#modalUnificado<?= $i ?>">
