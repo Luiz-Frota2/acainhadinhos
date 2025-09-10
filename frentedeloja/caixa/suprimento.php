@@ -480,6 +480,15 @@ try {
                                 Nenhum caixa está aberto. Por favor, abra um caixa para continuar com a venda.
                             </div>
 
+                            <div class="text-center">
+                                <a class="btn btn-primary" href="./abrirCaixa.php?id=<?= urlencode($idSelecionado); ?>">
+                                    Abrir Caixa agora
+                                </a>
+                                <a class="btn btn-outline-secondary ms-2" href="./index.php?id=<?= urlencode($idSelecionado); ?>">
+                                    Voltar ao Dashboard
+                                </a>
+                            </div>
+
                             <form
                                 action="../../assets/php/frentedeloja/processarSuprimento.php?id=<?= urlencode($idSelecionado); ?>"
                                 method="POST" onsubmit="return confirmarSangria();">
