@@ -369,7 +369,7 @@ function h($s)
                     <?php else: ?>
                         <!-- INFO do caixa aberto -->
                         <div class="alert alert-success">
-                            Caixa aberto encontrado. <strong>ID:</strong> <?= (int)$idAbertura ?>.
+                            Caixa aberto encontrado.
                         </div>
 
                         <div class="mb-4">
