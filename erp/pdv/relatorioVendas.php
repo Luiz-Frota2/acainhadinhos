@@ -244,6 +244,8 @@ $mostrar_modal = ($filtro_periodo === 'personalizar' && (empty($data_inicio) || 
   <!-- Vendors CSS -->
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
 
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+
   <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
   <!-- Page CSS -->
@@ -406,7 +408,12 @@ $mostrar_modal = ($filtro_periodo === 'personalizar' && (empty($data_inicio) || 
             <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
-
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
             </a>
           </li>
           <li class="menu-item">
@@ -626,33 +633,35 @@ $mostrar_modal = ($filtro_periodo === 'personalizar' && (empty($data_inicio) || 
                       <div class="row text-center">
                         <div class="col-md-4 mb-3 mb-md-0">
                           <div class="border rounded py-3 bg-light d-flex flex-column align-items-center">
-                            <div class="avatar flex-shrink-0 mb-2">
-                              <img src="../../assets/img/icons/unicons/chart-success.png" alt="Total Vendas"
-                                class="rounded">
+                            <div class="flex-shrink-0 mb-2">
+                              <i class="fa-solid fa-chart-line text-success" style="font-size:32px;"></i>
                             </div>
                             <div class="fs-6 text-muted">Total de Vendas</div>
                             <div class="fs-4 fw-bold text-success"><?= formatarMoeda($valor_total) ?></div>
                           </div>
                         </div>
+
                         <div class="col-md-4 mb-3 mb-md-0">
                           <div class="border rounded py-3 bg-light d-flex flex-column align-items-center">
-                            <div class="avatar flex-shrink-0 mb-2">
-                              <img src="../../assets/img/icons/unicons/wallet.png" alt="Transações" class="rounded">
+                            <div class="flex-shrink-0 mb-2">
+                              <i class="fa-solid fa-wallet" style="font-size:32px;"></i>
                             </div>
                             <div class="fs-6 text-muted">Transações</div>
-                            <div class="fs-4 fw-bold"><?= $total_vendas ?></div>
+                            <div class="fs-4 fw-bold"><?= (int)$total_vendas ?></div>
                           </div>
                         </div>
+
                         <div class="col-md-4">
                           <div class="border rounded py-3 bg-light d-flex flex-column align-items-center">
-                            <div class="avatar flex-shrink-0 mb-2">
-                              <img src="../../assets/img/icons/unicons/chart.png" alt="Média por Venda" class="rounded">
+                            <div class="flex-shrink-0 mb-2">
+                              <i class="fa-solid fa-chart-bar text-primary" style="font-size:32px;"></i>
                             </div>
                             <div class="fs-6 text-muted">Média por Venda</div>
                             <div class="fs-4 fw-bold text-primary"><?= formatarMoeda($media_venda) ?></div>
                           </div>
                         </div>
                       </div>
+
                     </div>
                   </div>
                 </div>

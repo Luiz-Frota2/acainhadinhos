@@ -385,6 +385,34 @@ function statusBadgeClass($cStat): string
                             <div>Estoque</div>
                         </a>
                     </li>
+                    <?php
+                    $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+                    $idLogado = $_SESSION['empresa_id'] ?? '';
+
+                    if ($tipoLogado === 'principal') {
+                    ?>
+                        <li class="menu-item">
+                            <a href="../filial/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-building"></i>
+                                <div data-i18n="Authentications">Filial</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-store"></i>
+                                <div data-i18n="Authentications">Franquias</div>
+                            </a>
+                        </li>
+                    <?php
+                    } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+                    ?>
+                        <li class="menu-item">
+                            <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-cog"></i>
+                                <div data-i18n="Authentications">Matriz</div>
+                            </a>
+                        </li>
+                    <?php } ?>
                     <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>Usuários</div>
                         </a>

@@ -638,6 +638,13 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                     </li>
 
                     <li class="menu-item">
+                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div data-i18n="Authentications">Empresa</div>
+                        </a>
+                    </li>
+
+                    <li class="menu-item">
                         <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Authentications">Estoque</div>
@@ -645,16 +652,37 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                     </li>
 
                     <?php
-                    $isFilial = str_starts_with($idSelecionado, 'filial_');
-                    $link = $isFilial ? '../matriz/index.php?id=' . urlencode($idSelecionado) : '../filial/index.php?id=principal_1';
-                    $titulo = $isFilial ? 'Matriz' : 'Filial';
+                    $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+                    $idLogado = $_SESSION['empresa_id'] ?? '';
+
+                    // Se for matriz (principal), mostrar links para filial, franquia e unidade
+                    if ($tipoLogado === 'principal') {
                     ?>
-                    <li class="menu-item">
-                        <a href="<?= $link ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications"><?= $titulo ?></div>
-                        </a>
-                    </li>
+                        <li class="menu-item">
+                            <a href="../filial/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-building"></i>
+                                <div data-i18n="Authentications">Filial</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-store"></i>
+                                <div data-i18n="Authentications">Franquias</div>
+                            </a>
+                        </li>
+                    <?php
+                    } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+                        // Se for filial, franquia ou unidade, mostra link para matriz
+                    ?>
+                        <li class="menu-item">
+                            <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-cog"></i>
+                                <div data-i18n="Authentications">Matriz</div>
+                            </a>
+                        </li>
+                    <?php
+                    }
+                    ?>
                     <li class="menu-item">
                         <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
