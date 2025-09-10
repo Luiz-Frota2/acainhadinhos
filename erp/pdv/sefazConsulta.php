@@ -295,7 +295,8 @@ function statusBadgeClass($cStat): string
                 <ul class="menu-inner py-1">
                     <li class="menu-item"><a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-home-circle"></i>
                             <div>Dashboard</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">PDV</span></li>
                     <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-file"></i>
@@ -304,13 +305,16 @@ function statusBadgeClass($cStat): string
                         <ul class="menu-sub">
                             <li class="menu-item"><a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>NFC-e</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Status</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item active"><a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Consulta</div>
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li class="menu-item">
@@ -320,10 +324,12 @@ function statusBadgeClass($cStat): string
                         <ul class="menu-sub">
                             <li class="menu-item"><a href="./caixasAberto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Caixas Aberto</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./caixasFechado.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Caixas Fechado</div>
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li class="menu-item"><a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-box"></i>
@@ -332,13 +338,16 @@ function statusBadgeClass($cStat): string
                         <ul class="menu-sub">
                             <li class="menu-item"><a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Adicionados</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Baixo</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Alto</div>
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li class="menu-item"><a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-file"></i>
@@ -347,34 +356,43 @@ function statusBadgeClass($cStat): string
                         <ul class="menu-sub">
                             <li class="menu-item"><a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Operacional</div>
-                                </a></li>
+                                </a>
+                            </li>
                             <li class="menu-item"><a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Vendas</div>
-                                </a></li>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>RH</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i>
                             <div>Finanças</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
                             <div>Delivery</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div>Empresa</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i>
                             <div>Estoque</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>Usuários</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
                             <div>Suporte</div>
-                        </a></li>
+                        </a>
+                    </li>
                 </ul>
             </aside>
             <!-- /Menu -->
@@ -390,8 +408,7 @@ function statusBadgeClass($cStat): string
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
-                                <i class="bx bx-search fs-4 lh-0"></i>
-                                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search..." />
+
                             </div>
                         </div>
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
