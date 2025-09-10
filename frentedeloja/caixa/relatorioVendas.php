@@ -404,6 +404,8 @@ $diasSemana = [
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
 
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
     <!-- Page CSS -->
@@ -631,10 +633,10 @@ $diasSemana = [
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/chart-success.png" alt="Total Vendas" class="mb-2" style="width:32px;">
+                                    <i class="fa-solid fa-chart-line text-success mb-2" style="font-size:32px;"></i>
                                     <div class="fw-semibold">Total de Vendas</div>
                                     <h4 class="mb-1"><?= formatarMoeda($totalVendas) ?></h4>
-                                    <small class="text-muted"><?= $quantidadeVendas ?> vendas realizadas</small>
+                                    <small class="text-muted"><?= (int)$quantidadeVendas ?> vendas realizadas</small>
                                 </div>
                             </div>
                         </div>
@@ -643,7 +645,7 @@ $diasSemana = [
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Valor Líquido" class="mb-2" style="width:32px;">
+                                    <i class="fa-solid fa-coins text-primary mb-2" style="font-size:32px;"></i>
                                     <div class="fw-semibold">Valor Líquido</div>
                                     <h4 class="mb-1"><?= formatarMoeda($valorLiquido) ?></h4>
                                     <small class="text-muted">
@@ -658,7 +660,7 @@ $diasSemana = [
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Ticket Médio" class="mb-2" style="width:32px;">
+                                    <i class="fa-solid fa-ticket-simple text-warning mb-2" style="font-size:32px;"></i>
                                     <div class="fw-semibold">Ticket Médio</div>
                                     <h4 class="mb-1"><?= formatarMoeda($ticketMedio) ?></h4>
                                     <small class="text-muted">Média por venda</small>
@@ -666,6 +668,7 @@ $diasSemana = [
                             </div>
                         </div>
                     </div>
+
 
                     <!-- Tabela de Resumo de Vendas -->
                     <div class="row mb-4">
