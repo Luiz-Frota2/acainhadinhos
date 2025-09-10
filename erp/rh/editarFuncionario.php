@@ -511,8 +511,8 @@ try {
 
                   <form id="formFuncionario" autocomplete="off" action="../../assets/php/rh/atualizarFuncionario.php"
                     method="POST">
-                    <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_id) ?>" />
-                    <input type="hidden" name="id" value="<?= htmlspecialchars($funcionario['id']) ?>" />
+                    <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_id ?? $idSelecionado) ?>" />
+                    <input type="hidden" name="id" value="<?= htmlspecialchars($funcionario['id'] ?? '') ?>" />
 
                     <!-- Etapa 1 - Dados Pessoais -->
                     <div class="step step-1">
