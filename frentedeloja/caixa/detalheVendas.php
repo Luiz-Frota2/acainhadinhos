@@ -403,27 +403,29 @@ $DANFE_BASE = './danfe_nfce.php';
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/chart-success.png" alt="Total Vendas" style="width:32px" class="mb-2">
+                                    <i class="fa-solid fa-chart-line text-success mb-2" style="font-size:32px"></i>
                                     <div class="fw-semibold">Total de Vendas</div>
                                     <h4 class="mb-1"><?= moeda($totalVendas) ?></h4>
                                     <small class="text-muted">Caixa #<?= (int)$idCaixa ?></small>
                                 </div>
                             </div>
                         </div>
+
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Sangrias" style="width:32px" class="mb-2">
+                                    <i class="fa-solid fa-wallet text-info mb-2" style="font-size:32px"></i>
                                     <div class="fw-semibold">Total de Sangrias</div>
                                     <h4 class="mb-1"><?= moeda($totalSangrias) ?></h4>
                                     <small class="text-muted">Saídas de dinheiro</small>
                                 </div>
                             </div>
                         </div>
+
                         <div class="col-md-4 mb-3">
                             <div class="card text-center h-100">
                                 <div class="card-body">
-                                    <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Suprimentos" style="width:32px" class="mb-2">
+                                    <i class="fa-solid fa-hand-holding-dollar text-primary mb-2" style="font-size:32px"></i>
                                     <div class="fw-semibold">Total de Suprimentos</div>
                                     <h4 class="mb-1"><?= moeda($totalSuprimentos) ?></h4>
                                     <small class="text-muted">Entradas no caixa</small>
@@ -431,6 +433,7 @@ $DANFE_BASE = './danfe_nfce.php';
                             </div>
                         </div>
                     </div>
+                    <!-- /Cards -->
 
                     <!-- Tabela: Itens vendidos -->
                     <div class="row">
