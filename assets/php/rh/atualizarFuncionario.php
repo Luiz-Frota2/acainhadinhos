@@ -191,4 +191,3 @@ try {
 } catch (Throwable $e) {
     js_alert_back('Erro inesperado: ' . $e->getMessage());
 }
-?>
