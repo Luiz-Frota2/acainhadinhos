@@ -652,14 +652,14 @@ function h($s)
                                         </select>
                                     </div>
 
-                                    <div class="mb-3 col-md-3">
+                                    <div class="mb-3 col-md-6">
                                         <label for="serie_nfce">Série da NFC-e</label>
                                         <input type="number" class="form-control" name="serie_nfce" id="serie_nfce"
                                             value="<?= h($dados['serie_nfce']) ?>" required min="1" max="999">
                                         <small class="text-muted">Normalmente começa com 1.</small>
                                     </div>
 
-                                    <div class="mb-3 col-md-3">
+                                    <div class="mb-3 col-md-6">
                                         <label for="ultimo_numero_nfce">Último número da NFC-e</label>
                                         <input type="number" class="form-control" name="ultimo_numero_nfce" id="ultimo_numero_nfce"
                                             value="<?= h($dados['ultimo_numero_nfce']) ?>" min="0">
