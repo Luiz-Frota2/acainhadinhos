@@ -56,8 +56,10 @@ try {
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
   // Para principal, verifica se é admin ou se pertence à mesma empresa
-  if ($_SESSION['tipo_empresa'] !== 'principal' && 
-      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
+  if (
+    $_SESSION['tipo_empresa'] !== 'principal' &&
+    !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+  ) {
     echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
@@ -67,11 +69,11 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
   $idUnidade = str_replace('unidade_', '', $idSelecionado);
-  
+
   // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
-                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-  
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
   if (!$acessoPermitido) {
     echo "<script>
             alert('Acesso negado!');
@@ -157,7 +159,7 @@ try {
             // Supondo que $idSelecionado e $nomeUsuario já estejam definidos anteriormente no script
             // Defina $idFuncionario conforme sua lógica (exemplo: da sessão)
             // $idFuncionario = $_SESSION['idFuncionario'] ?? 0;
-            
+
             if (str_starts_with($idSelecionado, 'principal_')) {
               $id = 1;
             } elseif (str_starts_with($idSelecionado, 'filial_')) {
@@ -229,7 +231,7 @@ try {
             </form>
 
             <script>
-              document.addEventListener('DOMContentLoaded', function () {
+              document.addEventListener('DOMContentLoaded', function() {
                 // Função para formatar data/hora local como "YYYY-MM-DD HH:mm:ss"
                 function formatarDataLocal(date) {
                   const pad = num => String(num).padStart(2, '0');
@@ -251,7 +253,7 @@ try {
                 }
 
                 if (form && inputDataRegistro) {
-                  form.addEventListener('submit', function () {
+                  form.addEventListener('submit', function() {
                     inputDataRegistro.value = formatarDataLocal(new Date());
                   });
                 }

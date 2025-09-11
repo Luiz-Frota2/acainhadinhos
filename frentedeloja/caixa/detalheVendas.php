@@ -214,7 +214,9 @@ $DANFE_BASE = './danfe_nfce.php';
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($iconeEmpresa) ?>" />
+    <!-- Favicon da empresa carregado dinamicamente -->
+    <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+
     <title>ERP - PDV</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -306,6 +308,7 @@ $DANFE_BASE = './danfe_nfce.php';
 
             <!-- Page -->
             <div class="layout-page">
+
                 <nav
                     class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
