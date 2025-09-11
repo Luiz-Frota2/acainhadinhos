@@ -216,13 +216,7 @@ try {
                 </a>
               </li>
             </ul>
-            <ul class="menu-sub">
-              <li class="menu-item">
-                <a href="./formaPagamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Formas de Pagamentos </div>
-                </a>
-              </li>
-            </ul>
+
           </li>
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
