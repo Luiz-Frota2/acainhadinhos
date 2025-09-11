@@ -120,8 +120,8 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
-// Observação: vamos montar um caminho seguro. Se no banco já vier um caminho com "/", usamos direto; se for só o nome do arquivo, usamos a pasta padrão.
-$faviconHref = "../../assets/img/empresa/favicon.ico"; // padrão
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
+
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
@@ -129,12 +129,7 @@ try {
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($empresa && !empty($empresa['imagem'])) {
-        $img = (string)$empresa['imagem'];
-        if (strpos($img, '/') !== false) {
-            $faviconHref = $img; // já é um caminho/URL
-        } else {
-            $faviconHref = "../../assets/img/empresa/" . $img;
-        }
+        $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
@@ -208,9 +203,8 @@ try {
 
     <meta name="description" content="" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon"
-        href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+    <!-- Favicon da empresa carregado dinamicamente -->
+    <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -370,7 +364,8 @@ try {
             <div class="layout-page">
                 <!-- Navbar -->
 
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav
+                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -382,7 +377,6 @@ try {
                         <!-- Search -->
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
-
                             </div>
                         </div>
                         <!-- /Search -->
@@ -391,10 +385,9 @@ try {
                             <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
-                                    data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt
+                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                             class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
@@ -404,13 +397,12 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt
+                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <!-- Exibindo o nome e nível do usuário -->
-                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
+                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
                                                 </div>
                                             </div>
                                         </a>
@@ -435,8 +427,7 @@ try {
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span
-                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -444,8 +435,7 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item"
-                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
                                             <span class="align-middle">Sair</span>
                                         </a>
@@ -455,6 +445,7 @@ try {
                             </li>
                             <!--/ User -->
                         </ul>
+
                     </div>
                 </nav>
 

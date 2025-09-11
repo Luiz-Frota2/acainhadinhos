@@ -120,8 +120,8 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
-// Observação: vamos montar um caminho seguro. Se no banco já vier um caminho com "/", usamos direto; se for só o nome do arquivo, usamos a pasta padrão.
-$faviconHref = "../../assets/img/empresa/favicon.ico"; // padrão
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
+
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
@@ -129,12 +129,7 @@ try {
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($empresa && !empty($empresa['imagem'])) {
-        $img = (string)$empresa['imagem'];
-        if (strpos($img, '/') !== false) {
-            $faviconHref = $img; // já é um caminho/URL
-        } else {
-            $faviconHref = "../../assets/img/empresa/" . $img;
-        }
+        $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
@@ -250,8 +245,8 @@ try {
     <title>ERP - PDV</title>
     <meta name="description" content="" />
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?php echo htmlspecialchars($faviconHref, ENT_QUOTES, 'UTF-8'); ?>" />
+    <!-- Favicon da empresa carregado dinamicamente -->
+    <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -396,8 +391,10 @@ try {
 
             <!-- Layout container -->
             <div class="layout-page">
+
                 <!-- Navbar -->
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <nav
+                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -406,16 +403,21 @@ try {
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+                        <!-- Search -->
                         <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center"></div>
+                            <div class="nav-item d-flex align-items-center">
+                            </div>
                         </div>
+                        <!-- /Search -->
 
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -424,11 +426,12 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?php echo htmlspecialchars($nomeUsuario, ENT_QUOTES, 'UTF-8'); ?></span>
+                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario); ?></span>
                                                 </div>
                                             </div>
                                         </a>
@@ -436,8 +439,18 @@ try {
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
-                                    <li><a class="dropdown-item" href="#"><i class="bx bx-user me-2"></i><span class="align-middle">Minha conta</span></a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
+                                    <li>
+                                        <a class="dropdown-item" href="#">
+                                            <i class="bx bx-user me-2"></i>
+                                            <span class="align-middle">Minha conta</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#">
+                                            <i class="bx bx-cog me-2"></i>
+                                            <span class="align-middle">Configurações</span>
+                                        </a>
+                                    </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <span class="d-flex align-items-center align-middle">
@@ -456,10 +469,12 @@ try {
                                             <span class="align-middle">Sair</span>
                                         </a>
                                     </li>
+
                                 </ul>
                             </li>
                             <!--/ User -->
                         </ul>
+
                     </div>
                 </nav>
                 <!-- / Navbar -->
