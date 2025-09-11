@@ -53,52 +53,54 @@ function codigoUfPorUf(string $uf): ?int
 
 try {
     // Recebe os dados do formulário
-    $empresa_id         = $_POST['empresa_id'];
-    $cnpj               = preg_replace('/\D+/', '', $_POST['cnpj'] ?? '');
-    $razao_social       = trim($_POST['razao_social'] ?? '');
-    $nome_fantasia      = trim($_POST['nome_fantasia'] ?? '');
-    $inscricao_estadual = trim($_POST['inscricao_estadual'] ?? '');
+    $empresa_id          = $_POST['empresa_id'];
+    $cnpj                = preg_replace('/\D+/', '', $_POST['cnpj'] ?? '');
+    $razao_social        = trim($_POST['razao_social'] ?? '');
+    $nome_fantasia       = trim($_POST['nome_fantasia'] ?? '');
+    $inscricao_estadual  = trim($_POST['inscricao_estadual'] ?? '');
     $inscricao_municipal = $_POST['inscricao_municipal'] ?? null;
-    $cep                = preg_replace('/\D+/', '', $_POST['cep'] ?? '');
-    $logradouro         = trim($_POST['logradouro'] ?? '');
-    $numero_endereco    = trim($_POST['numero_endereco'] ?? '');
-    $complemento        = $_POST['complemento'] ?? null;
-    $bairro             = trim($_POST['bairro'] ?? '');
-    $cidade             = trim($_POST['cidade'] ?? '');
-    $uf                 = trim($_POST['uf'] ?? '');
-    $codigo_municipio   = trim($_POST['codigo_municipio'] ?? '');
-    $telefone           = trim($_POST['telefone'] ?? '');
-    $senha_certificado  = $_POST['senha_certificado'] ?? null;
+    $cep                 = preg_replace('/\D+/', '', $_POST['cep'] ?? '');
+    $logradouro          = trim($_POST['logradouro'] ?? '');
+    $numero_endereco     = trim($_POST['numero_endereco'] ?? '');
+    $complemento         = $_POST['complemento'] ?? null;
+    $bairro              = trim($_POST['bairro'] ?? '');
+    $cidade              = trim($_POST['cidade'] ?? '');
+    $uf                  = trim($_POST['uf'] ?? '');
+    $codigo_municipio    = trim($_POST['codigo_municipio'] ?? '');
+    $telefone            = trim($_POST['telefone'] ?? '');
 
-    $ambiente           = (int)($_POST['ambiente'] ?? 0);
-    $regime_tributario  = (int)($_POST['regime_tributario'] ?? 0);
-    $serie_nfce         = (int)($_POST['serie_nfce'] ?? 1);
-    $ultimo_numero_nfce = isset($_POST['ultimo_numero_nfce']) && $_POST['ultimo_numero_nfce'] !== ''
+    // IMPORTANTE: senha pode vir vazia para "manter"
+    $senha_certificado_informada = isset($_POST['senha_certificado']) ? trim($_POST['senha_certificado']) : null;
+
+    $ambiente            = (int)($_POST['ambiente'] ?? 0);
+    $regime_tributario   = (int)($_POST['regime_tributario'] ?? 0);
+    $serie_nfce          = (int)($_POST['serie_nfce'] ?? 1);
+    $ultimo_numero_nfce  = isset($_POST['ultimo_numero_nfce']) && $_POST['ultimo_numero_nfce'] !== ''
         ? (int)$_POST['ultimo_numero_nfce'] : 1;
     if ($ultimo_numero_nfce < 0) $ultimo_numero_nfce = 0;
 
-    $csc                = $_POST['csc'] ?? null;
-    $csc_id             = $_POST['csc_id'] ?? null;
+    $csc                 = $_POST['csc'] ?? null;
+    $csc_id              = $_POST['csc_id'] ?? null;
 
-    $tipo_emissao       = (int)($_POST['tipo_emissao'] ?? 1);
-    $finalidade         = (int)($_POST['finalidade'] ?? 1);
-    $ind_pres           = (int)($_POST['ind_pres'] ?? 1);
-    $tipo_impressao     = (int)($_POST['tipo_impressao'] ?? 4);
+    $tipo_emissao        = (int)($_POST['tipo_emissao'] ?? 1);
+    $finalidade          = (int)($_POST['finalidade'] ?? 1);
+    $ind_pres            = (int)($_POST['ind_pres'] ?? 1);
+    $tipo_impressao      = (int)($_POST['tipo_impressao'] ?? 4);
 
     // Validações básicas
     $camposObrigatorios = [
-        'empresa_id'        => $empresa_id,
-        'cnpj'              => $cnpj,
-        'razao_social'      => $razao_social,
-        'codigo_municipio'  => $codigo_municipio,
+        'empresa_id'         => $empresa_id,
+        'cnpj'               => $cnpj,
+        'razao_social'       => $razao_social,
+        'codigo_municipio'   => $codigo_municipio,
         'inscricao_estadual' => $inscricao_estadual,
-        'ambiente'          => $ambiente,
-        'regime_tributario' => $regime_tributario,
-        'tipo_emissao'      => $tipo_emissao,
-        'finalidade'        => $finalidade,
-        'ind_pres'          => $ind_pres,
-        'tipo_impressao'    => $tipo_impressao,
-        'uf'                => $uf
+        'ambiente'           => $ambiente,
+        'regime_tributario'  => $regime_tributario,
+        'tipo_emissao'       => $tipo_emissao,
+        'finalidade'         => $finalidade,
+        'ind_pres'           => $ind_pres,
+        'tipo_impressao'     => $tipo_impressao,
+        'uf'                 => $uf
     ];
 
     foreach ($camposObrigatorios as $campo => $valor) {
@@ -136,7 +138,9 @@ try {
     // Tratamento do certificado digital (opcional)
     $certificado_nome = null;
     $destino = null;
-    if (!empty($_FILES['certificado_digital']['tmp_name'])) {
+    $enviouNovoCertificado = !empty($_FILES['certificado_digital']['tmp_name']);
+
+    if ($enviouNovoCertificado) {
         $certificado = $_FILES['certificado_digital'];
         $extensao = strtolower(pathinfo($certificado['name'], PATHINFO_EXTENSION));
 
@@ -148,8 +152,9 @@ try {
             echo "<script>alert('Certificado muito grande (máx. 5MB)'); history.back();</script>";
             exit;
         }
-        if (empty($senha_certificado)) {
-            echo "<script>alert('Informe a senha do certificado para validar o arquivo.'); history.back();</script>";
+        // Se enviou novo certificado, a senha é obrigatória para validar
+        if ($senha_certificado_informada === null || $senha_certificado_informada === '') {
+            echo "<script>alert('Informe a senha do certificado para validar o novo arquivo.'); history.back();</script>";
             exit;
         }
 
@@ -166,7 +171,7 @@ try {
         try {
             $bin = @file_get_contents($destino);
             if ($bin === false) throw new Exception('Falha ao ler o arquivo');
-            $certificate = Certificate::readPfx($bin, $senha_certificado);
+            $certificate = Certificate::readPfx($bin, $senha_certificado_informada);
             unset($certificate);
         } catch (Exception $e) {
             if (file_exists($destino)) unlink($destino);
@@ -187,6 +192,8 @@ try {
             if (is_file($old_file)) @unlink($old_file);
         }
 
+        // ATENÇÃO: usamos NULLIF(?, '') para tratar string vazia como NULL;
+        // daí COALESCE mantém o valor atual se vier vazio.
         $sql = "UPDATE integracao_nfce SET 
             cnpj = ?, 
             razao_social = ?, 
@@ -204,7 +211,7 @@ try {
             codigo_municipio = ?,
             telefone = ?,
             certificado_digital = COALESCE(?, certificado_digital), 
-            senha_certificado = COALESCE(?, senha_certificado), 
+            senha_certificado   = COALESCE(NULLIF(?, ''), senha_certificado), 
             ambiente = ?, 
             regime_tributario = ?,
             serie_nfce = ?,
@@ -235,8 +242,8 @@ try {
             $codigo_uf,
             $codigo_municipio,
             $telefone,
-            $certificado_nome,
-            $senha_certificado,
+            $certificado_nome,                 // se null -> mantém
+            $senha_certificado_informada,      // se '' -> mantém (graças ao NULLIF)
             $ambiente,
             $regime_tributario,
             $serie_nfce,
@@ -279,8 +286,9 @@ try {
             $codigo_uf,
             $codigo_municipio,
             $telefone,
-            $certificado_nome,
-            $senha_certificado,
+            $certificado_nome,                // pode ser null (se ainda não enviou)
+            // para INSERT, se não houver certificado, a senha pode ficar null também
+            ($enviouNovoCertificado ? $senha_certificado_informada : null),
             $ambiente,
             $regime_tributario,
             $serie_nfce,
