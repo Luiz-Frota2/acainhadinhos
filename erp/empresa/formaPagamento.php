@@ -423,7 +423,7 @@ try {
                                         <!-- /Dinheiro -->
 
                                         <!-- Pix -->
-                                        <form action="../../assets/php/delivery/adicionarFormaPagamento.php" method="POST">
+                                        <form action="../../assets/php/empresa/adicionarFormaPagamento.php" method="POST">
                                             <input type="hidden" name="idSelecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
                                             <div class="col-12 col-md-12 check-card">
                                                 <div class="d-flex align-items-center">
@@ -444,7 +444,7 @@ try {
                                         <!-- /Pix -->
 
                                         <!-- Cartão de Débito -->
-                                        <form action="../../assets/php/delivery/adicionarFormaPagamento.php" method="POST">
+                                        <form action="../../assets/php/empresa/adicionarFormaPagamento.php" method="POST">
                                             <input type="hidden" name="idSelecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
                                             <div class="col-12 col-md-12 check-card">
                                                 <div class="d-flex align-items-center">
@@ -465,7 +465,7 @@ try {
                                         <!-- /Cartão de Débito -->
 
                                         <!-- Cartão de Crédito -->
-                                        <form action="../../assets/php/delivery/adicionarFormaPagamento.php" method="POST">
+                                        <form action="../../assets/php/empresa/adicionarFormaPagamento.php" method="POST">
                                             <input type="hidden" name="idSelecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
                                             <div class="col-12 col-md-12 check-card">
                                                 <div class="d-flex align-items-center">
