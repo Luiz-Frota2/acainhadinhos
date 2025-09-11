@@ -221,7 +221,7 @@ try {
                             </li>
                         </ul>
                     </li>
->
+
                     <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons tf-icons bx bx-trending-up"></i>

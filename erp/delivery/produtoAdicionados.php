@@ -8,19 +8,19 @@ session_start();
 $idSelecionado = $_GET['id'] ?? '';
 
 if (!$idSelecionado) {
-  header("Location: .././login.php");
-  exit;
+    header("Location: .././login.php");
+    exit;
 }
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=" . urlencode($idSelecionado));
-  exit;
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -32,21 +32,21 @@ $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -55,21 +55,21 @@ $idEmpresaSession = $_SESSION['empresa_id'];
 $tipoSession = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
-  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
-  echo "<script>
+    echo "<script>
           alert('Acesso negado!');
           window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
         </script>";
-  exit;
+    exit;
 }
 
 
@@ -158,7 +158,7 @@ if ($usuario_id) {
     <meta name="description" content="" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>"/>
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -333,6 +333,18 @@ if ($usuario_id) {
                         </a>
                     </li>
                     <li class="menu-item">
+                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div data-i18n="Authentications">Empresa</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div data-i18n="Authentications">Empresa</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
                         <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-box"></i>
                             <div data-i18n="Authentications">Estoque</div>
@@ -340,19 +352,37 @@ if ($usuario_id) {
                     </li>
 
                     <?php
-                    $isFilial = str_starts_with($idSelecionado, 'filial_');
-                    $link = $isFilial
-                        ? '../matriz/index.php?id=' . urlencode($idSelecionado)
-                        : '../filial/index.php?id=principal_1';
-                    $titulo = $isFilial ? 'Matriz' : 'Filial';
-                    ?>
+                    $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+                    $idLogado = $_SESSION['empresa_id'] ?? '';
 
-                    <li class="menu-item">
-                        <a href="<?= $link ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-cog"></i>
-                            <div data-i18n="Authentications"><?= $titulo ?></div>
-                        </a>
-                    </li>
+                    // Se for matriz (principal), mostrar links para filial, franquia e unidade
+                    if ($tipoLogado === 'principal') {
+                    ?>
+                        <li class="menu-item">
+                            <a href="../filial/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-building"></i>
+                                <div data-i18n="Authentications">Filial</div>
+                            </a>
+                        </li>
+                        <li class="menu-item">
+                            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-store"></i>
+                                <div data-i18n="Authentications">Franquias</div>
+                            </a>
+                        </li>
+                    <?php
+                    } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+                        // Se for filial, franquia ou unidade, mostra link para matriz
+                    ?>
+                        <li class="menu-item">
+                            <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+                                <i class="menu-icon tf-icons bx bx-cog"></i>
+                                <div data-i18n="Authentications">Matriz</div>
+                            </a>
+                        </li>
+                    <?php
+                    }
+                    ?>
                     <li class="menu-item">
                         <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
@@ -511,7 +541,7 @@ if ($usuario_id) {
                                             $stmtProdutos->execute();
                                             $produtos = $stmtProdutos->fetchAll(PDO::FETCH_ASSOC);
 
-                                            ?>
+                                        ?>
 
                                             <div class="card mt-3">
 
@@ -802,7 +832,8 @@ if ($usuario_id) {
 
                                                                             if (count($opcionais) > 0): ?>
                                                                                 <h6 class="text-center text-primary mt-3">
-                                                                                    <b>Opcionais Simples</b></h6>
+                                                                                    <b>Opcionais Simples</b>
+                                                                                </h6>
                                                                                 <?php foreach ($opcionais as $opcional): ?>
                                                                                     <div
                                                                                         class="d-flex justify-content-between align-items-center border p-3 mb-2 rounded">
@@ -843,7 +874,8 @@ if ($usuario_id) {
 
                                                                             if (count($selecoes) > 0): ?>
                                                                                 <h6 class="text-center text-primary mt-4">
-                                                                                    <b>Seleções de Opcionais</b></h6>
+                                                                                    <b>Seleções de Opcionais</b>
+                                                                                </h6>
                                                                                 <?php foreach ($selecoes as $selecao): ?>
                                                                                     <div
                                                                                         class="container-group border p-3 rounded mb-3">
@@ -1085,7 +1117,7 @@ if ($usuario_id) {
     </div>
 
     <script>
-        document.getElementById("searchProdutos").addEventListener("input", function () {
+        document.getElementById("searchProdutos").addEventListener("input", function() {
             const termo = this.value.toLowerCase();
             const produtos = document.querySelectorAll(".product-card");
             const collapses = document.querySelectorAll('[id^="collapse"]');
