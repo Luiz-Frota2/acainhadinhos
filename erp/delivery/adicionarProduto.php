@@ -1,49 +1,77 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
-require_once '../../assets/php/conexao.php';
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+    header("Location: .././login.php");
+    exit;
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id']) // adiciona verificação do id do usuário
+    !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: ../../erp/login.php?id=$idSelecionado");
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
+    exit;
+}
+
+// ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
+
+// ✅ Buscar nome e tipo do usuário logado
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+
+try {
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
     exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-    if ($_SESSION['tipo_empresa'] !== 'principal' || $_SESSION['empresa_id'] != 1) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../../erp/login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = 1;
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $idFilial = (int) str_replace('filial_', '', $idSelecionado);
-    if ($_SESSION['tipo_empresa'] !== 'filial' || $_SESSION['empresa_id'] != $idFilial) {
-        echo "<script>
-              alert('Acesso negado!');
-              window.location.href = '../../erp/login.php?id=$idSelecionado';
-          </script>";
-        exit;
-    }
-    $id = $idFilial;
-} else {
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
+
+if (!$acessoPermitido) {
     echo "<script>
-          alert('Empresa não identificada!');
-          window.location.href = '../../erp/login.php?id=$idSelecionado';
-      </script>";
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
     exit;
 }
+
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
@@ -80,20 +108,6 @@ try {
 } catch (PDOException $e) {
     $nomeUsuario = 'Erro ao carregar nome';
     $nivelUsuario = 'Erro ao carregar nível';
-}
-
-// Recupera o ID da empresa
-$idSelecionado = $_GET['id'] ?? '';
-
-if (str_starts_with($idSelecionado, 'principal_')) {
-    $id = 1;
-    // lógica para a empresa principal
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $id = (int) str_replace('filial_', '', $idSelecionado);
-    // lógica para a filial
-} else {
-    echo "<script>alert('Empresa não identificada!'); history.back();</script>";
-    exit;
 }
 
 // Recupera o ID da categoria
@@ -200,7 +214,7 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                         </ul>
                         <ul class="menu-sub">
                             <li class="menu-item active">
-                                <a href="./adicionarProduto.htm?id=<?= urlencode($idSelecionado); ?>l"
+                                <a href="#"
                                     class="menu-link">
                                     <div data-i18n="Basic">Adicionar Produto</div>
                                 </a>
@@ -453,8 +467,7 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                                             value="<?php echo htmlspecialchars($id_categoria); ?>" />
 
                                         <!-- Campo oculto para enviar o id da empresa (idSelecionado) -->
-                                        <input type="hidden" name="id_empresa"
-                                            value="<?php echo htmlspecialchars($idSelecionado); ?>" />
+                                        <input type="text" name="id_empresa" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                         <!-- Imagem e Nome da Empresa (Lado a Lado ou Empilhado no Mobile) -->
                                         <div class="d-flex align-items-center mb-4 form-container">

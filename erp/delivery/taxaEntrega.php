@@ -26,10 +26,26 @@ if (
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-// ✅ Buscar nome e tipo do usuário logado
+// ✅ Compat: str_starts_with (PHP < 8)
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle)
+    {
+        return $needle !== '' && strpos((string)$haystack, (string)$needle) === 0;
+    }
+}
+
+// ✅ Helper para escapar HTML
+function h($s)
+{
+    return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+}
+
+// =====================
+//   USUÁRIO LOGADO
+// =====================
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id  = (int)($_SESSION['usuario_id'] ?? 0);
 
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -45,23 +61,21 @@ try {
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar usuário: " . h($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$idEmpresaSession = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
+// ================================
+//   VALIDAÇÃO DO ACESSO
+// ================================
+$acessoPermitido  = false;
+$idEmpresaSession = $_SESSION['empresa_id'] ?? '';
+$tipoSession      = $_SESSION['tipo_empresa'] ?? '';
 
-if (str_starts_with($idSelecionado, 'principal_')) {
+if ($idEmpresaSession === $idSelecionado) {
+    $acessoPermitido = true;
+} elseif (str_starts_with($idSelecionado, 'principal_')) {
     $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
-} elseif (str_starts_with($idSelecionado, 'unidade_')) {
-    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
-} elseif (str_starts_with($idSelecionado, 'franquia_')) {
-    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
@@ -72,90 +86,114 @@ if (!$acessoPermitido) {
     exit;
 }
 
-// ✅ Buscar dados da empresa com base no idSelecionado (usando id_selecionado no banco)
+// =====================
+//   DADOS DA EMPRESA
+// =====================
 try {
-    $sql = "SELECT * FROM sobre_empresa WHERE id_selecionado = :idSelecionado LIMIT 1";
-    $stmt = $pdo->prepare($sql);
+    $stmt = $pdo->prepare("SELECT * FROM sobre_empresa WHERE id_selecionado = :idSelecionado LIMIT 1");
     $stmt->bindParam(':idSelecionado', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // ✅ Variáveis da empresa com valores padrão caso não haja resultado
-    $nome_empresa = $empresa['nome_empresa'] ?? '';
-    $sobre_empresa = $empresa['sobre_empresa'] ?? '';
-    $imagem_empresa = $empresa['imagem'] ?? 'logo.png';
+    $nome_empresa   = $empresa['nome_empresa']   ?? '';
+    $sobre_empresa  = $empresa['sobre_empresa']  ?? '';
+    $imagem_empresa = $empresa['imagem']         ?? 'logo.png';
 
-    // ✅ Caminho da logo para favicon ou exibição
     $logoEmpresa = !empty($empresa['imagem'])
         ? "../../assets/img/empresa/" . $empresa['imagem']
         : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar os dados da empresa: " . $e->getMessage() . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar os dados da empresa: " . h($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-// ✅ Buscar nome e nível do usuário logado
-$nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+// =====================
+//   ID DA ENTREGA
+// =====================
+// 1) Tenta vir via GET (ex.: taxaEntrega.php?id=...&idEntrega=123)
+$id_entrega = isset($_GET['idEntrega']) ? (int)$_GET['idEntrega'] : 0;
 
+// 2) Se não veio, tenta buscar na tabela 'entregas' pela empresa.
+// 3) Se ainda não existir, cria um registro padrão e usa o ID novo.
+try {
+    if ($id_entrega <= 0) {
+        $stmt = $pdo->prepare("SELECT id_entrega FROM entregas WHERE id_empresa = :id_emp LIMIT 1");
+        $stmt->bindValue(':id_emp', $idSelecionado, PDO::PARAM_STR);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row) {
+            $id_entrega = (int)$row['id_entrega'];
+        } else {
+            // Cria registro padrão de entrega para a empresa
+            $ins = $pdo->prepare("INSERT INTO entregas (id_empresa, entrega, tempo_min, tempo_max) VALUES (:id_emp, 0, 0, 0)");
+            $ins->bindValue(':id_emp', $idSelecionado, PDO::PARAM_STR);
+            $ins->execute();
+            $id_entrega = (int)$pdo->lastInsertId();
+        }
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao buscar/criar entrega: " . h($e->getMessage()) . "'); history.back();</script>";
+    exit;
+}
+
+// =====================
+//   NÍVEL DO USUÁRIO (exibição)
+// =====================
+$nivelUsuario = 'Comum';
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
     $stmt->execute();
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
+        $nomeUsuario  = $usuario['usuario'];
         $nivelUsuario = $usuario['nivel'];
     }
 } catch (PDOException $e) {
-    $nomeUsuario = 'Erro ao carregar nome';
+    $nomeUsuario  = 'Erro ao carregar nome';
     $nivelUsuario = 'Erro ao carregar nível';
 }
 
-// ✅ Buscar configurações de entrega
+// =====================
+//   BUSCA CONFIG TAXAS
+// =====================
 $precoTaxaUnica = '';
-$taxa_unica_db = 0;
-$sem_taxa = 0;
-$result = [];
-$taxas = [];
+$taxa_unica_db  = 0;
+$sem_taxa       = 0;
+$result         = [];
+$taxas          = [];
 
-if ($id_entrega > 0) {
-    try {
-        // Consulta entrega_taxas (vinculada à empresa)
-        $sql = "SELECT * FROM entrega_taxas WHERE id_entrega = :id_entrega AND idSelecionado = :idSelecionado LIMIT 1";
-        $stmt = $pdo->prepare($sql);
-        $stmt->bindParam(':id_entrega', $id_entrega, PDO::PARAM_INT);
-        $stmt->bindParam(':idSelecionado', $idSelecionado, PDO::PARAM_STR);  // Usando o idSelecionado
-        $stmt->execute();
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+try {
+    // entrega_taxas (chave: id_entrega + idSelecionado)
+    $sql = "SELECT * FROM entrega_taxas WHERE id_entrega = :id_entrega AND idSelecionado = :idSelecionado LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_entrega', $id_entrega, PDO::PARAM_INT);
+    $stmt->bindParam(':idSelecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($result) {
-            $taxa_unica_db = intval($result['taxa_unica']);
-            $sem_taxa = intval($result['sem_taxa']);
-        }
-
-        // Consulta entrega_taxas_unica (vinculada à empresa)
-        $sqlUnica = "SELECT * FROM entrega_taxas_unica WHERE id_entrega = :id_entrega AND id_selecionado = :idSelecionado";
-        $stmtUnica = $pdo->prepare($sqlUnica);
-        $stmtUnica->bindParam(':id_entrega', $id_entrega, PDO::PARAM_INT);
-        $stmtUnica->bindParam(':idSelecionado', $idSelecionado, PDO::PARAM_STR);  // Usando o idSelecionado
-        $stmtUnica->execute();
-        $taxas = $stmtUnica->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!empty($taxas)) {
-            $precoTaxaUnica = $taxas[0]['valor_taxa'];
-        }
-    } catch (PDOException $e) {
-        echo "<script>alert('Erro ao carregar as taxas: " . addslashes($e->getMessage()) . "');</script>";
+    if ($result) {
+        $taxa_unica_db = (int)$result['taxa_unica'];
+        $sem_taxa      = (int)$result['sem_taxa'];
     }
+
+    // entrega_taxas_unica (chave: id_entrega + id_selecionado)
+    $sqlUnica = "SELECT * FROM entrega_taxas_unica WHERE id_entrega = :id_entrega AND id_selecionado = :idSelecionado";
+    $stmtUnica = $pdo->prepare($sqlUnica);
+    $stmtUnica->bindParam(':id_entrega', $id_entrega, PDO::PARAM_INT);
+    $stmtUnica->bindParam(':idSelecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmtUnica->execute();
+    $taxas = $stmtUnica->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!empty($taxas)) {
+        $precoTaxaUnica = $taxas[0]['valor_taxa'];
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar as taxas: " . addslashes($e->getMessage()) . "');</script>";
 }
 
-
 ?>
-
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/" data-template="vertical-menu-template-free">
@@ -164,70 +202,41 @@ if ($id_entrega > 0) {
     <meta charset="utf-8" />
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-
     <title>ERP - Delivery</title>
-
     <meta name="description" content="" />
-
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
-
-    <!-- Fonts -->
+    <link rel="icon" type="image/x-icon" href="<?= h($logoEmpresa) ?>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
-
-    <!-- Icons. Uncomment required icon fonts -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-
-    <!-- Core CSS -->
     <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
     <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
-
-    <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-    <!-- Page CSS -->
-
-    <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
-
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="../../assets/js/config.js"></script>
 </head>
 
 <body>
-    <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             <!-- Menu -->
-
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
-                            style=" text-transform: capitalize;">Açaínhadinhos</span>
-
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
-
-                    <a href="javascript:void(0);"
-                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
-
                 <div class="menu-inner-shadow"></div>
 
                 <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
@@ -235,9 +244,7 @@ if ($id_entrega > 0) {
                         </a>
                     </li>
 
-                    <!--DELIVERY-->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Delivery</span></li>
-
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons tf-icons bx bx-food-menu"></i>
@@ -245,13 +252,13 @@ if ($id_entrega > 0) {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item ">
-                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
+                                <a href="./produtoAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
                         </ul>
                     </li>
+
                     <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons tf-icons bx bx-cog"></i>
@@ -299,13 +306,11 @@ if ($id_entrega > 0) {
                                 </a>
                             </li>
                         </ul>
-                        <!--END DELIVERY-->
+                    </li>
 
-
-                        <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
-                        <a href="../rh/index.php" class="menu-link ">
+                        <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">RH</div>
                         </a>
@@ -334,13 +339,11 @@ if ($id_entrega > 0) {
                             <div data-i18n="Authentications">Estoque</div>
                         </a>
                     </li>
+
                     <?php
                     $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
-                    $idLogado = $_SESSION['empresa_id'] ?? '';
-
-                    // Se for matriz (principal), mostrar links para filial, franquia e unidade
-                    if ($tipoLogado === 'principal') {
-                    ?>
+                    $idLogado   = $_SESSION['empresa_id'] ?? '';
+                    if ($tipoLogado === 'principal') { ?>
                         <li class="menu-item">
                             <a href="../filial/index.php?id=principal_1" class="menu-link">
                                 <i class="menu-icon tf-icons bx bx-building"></i>
@@ -353,19 +356,15 @@ if ($id_entrega > 0) {
                                 <div data-i18n="Authentications">Franquias</div>
                             </a>
                         </li>
-                    <?php
-                    } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
-                        // Se for filial, franquia ou unidade, mostra link para matriz
-                    ?>
+                    <?php } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) { ?>
                         <li class="menu-item">
                             <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
                                 <i class="menu-icon tf-icons bx bx-cog"></i>
                                 <div data-i18n="Authentications">Matriz</div>
                             </a>
                         </li>
-                    <?php
-                    }
-                    ?>
+                    <?php } ?>
+
                     <li class="menu-item">
                         <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
@@ -378,7 +377,6 @@ if ($id_entrega > 0) {
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
-                    <!--/MISC-->
                 </ul>
             </aside>
             <!-- / Menu -->
@@ -386,9 +384,7 @@ if ($id_entrega > 0) {
             <!-- Layout container -->
             <div class="layout-page">
                 <!-- Navbar -->
-
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
-                    id="layout-navbar">
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
                             <i class="bx bx-menu bx-sm"></i>
@@ -396,19 +392,11 @@ if ($id_entrega > 0) {
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
-
-                        <!-- /Search -->
-
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- Place this tag where you want the button to render. -->
-                            <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
-                                    data-bs-toggle="dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                                            class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= h($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -417,14 +405,12 @@ if ($id_entrega > 0) {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                                                            class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= h($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <!-- Exibindo o nome e nível do usuário -->
-                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                                                    <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                                                    <span class="fw-semibold d-block"><?= h($nomeUsuario); ?></span>
+                                                    <small class="text-muted"><?= h($nivelUsuario); ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -432,25 +418,14 @@ if ($id_entrega > 0) {
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">Minha Conta</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Configurações</span>
-                                        </a>
-                                    </li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <span class="d-flex align-items-center align-middle">
                                                 <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
                                                 <span class="flex-grow-1 align-middle">Billing</span>
-                                                <span
-                                                    class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
+                                                <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                                             </span>
                                         </a>
                                     </li>
@@ -458,90 +433,78 @@ if ($id_entrega > 0) {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item"
-                                            href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-power-off me-2"></i>
-                                            <span class="align-middle">Sair</span>
+                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                            <i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span>
                                         </a>
                                     </li>
                                 </ul>
                             </li>
-                            <!--/ User -->
                         </ul>
                     </div>
                 </nav>
-
                 <!-- / Navbar -->
 
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a
-                                href="./deliveryRetirada.php?id=<?= urlencode($idSelecionado); ?>">Configuração</a>/</span>Taxa
-                        de Entrega</h4>
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light"><a href="./deliveryRetirada.php?id=<?= urlencode($idSelecionado); ?>">Configuração</a>/</span>
+                        Taxa de Entrega
+                    </h4>
 
-                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Selecione as opções de
-                            taxas de entrega</span></h5>
-
+                    <h5 class="fw-bold mt-3 mb-3 custor-font">
+                        <span class="text-muted fw-light">Selecione as opções de taxas de entrega</span>
+                    </h5>
 
                     <div class="row">
                         <div class="col-12">
                             <div class="card mb-4">
                                 <div class="card-body">
                                     <div class="row mb-0 text-md-start">
-
-                                        <form action="../../assets/php/delivery/adicionarTaxas.php" method="POST"
-                                            id="taxaForm">
-                                            <input type="hidden" name="id_entrega" value="<?php echo $id_entrega; ?>">
-                                            <input type="hidden" name="idSelecionado"
-                                                value="<?php echo htmlspecialchars($idSelecionado); ?>">
+                                        <!-- Form switches Sem Taxa / Taxa Única -->
+                                        <form action="../../assets/php/delivery/adicionarTaxas.php" method="POST" id="taxaForm">
+                                            <input type="hidden" name="id_entrega" value="<?= (int)$id_entrega; ?>">
+                                            <input type="hidden" name="idSelecionado" value="<?= h($idSelecionado); ?>">
 
                                             <!-- Sem Taxa -->
                                             <div class="col-12 col-md-12 check-card">
                                                 <div class="d-flex align-items-center">
-                                                    <div>
-                                                        <strong>Sem Taxa</strong>
-                                                    </div>
+                                                    <div><strong>Sem Taxa</strong></div>
                                                     <div class="d-flex align-items-center ms-auto">
-                                                        <strong for="toggleSemTaxa" id="labelSemTaxa" class="me-2">
-                                                            <?php echo isset($result['sem_taxa']) && $result['sem_taxa'] == 1 ? 'Ligado' : 'Desligado'; ?>
+                                                        <strong id="labelSemTaxa" class="me-2">
+                                                            <?= (isset($result['sem_taxa']) && (int)$result['sem_taxa'] === 1) ? 'Ligado' : 'Desligado'; ?>
                                                         </strong>
                                                         <div class="form-check form-switch mt-2">
                                                             <input type="hidden" name="sem_taxa" value="0">
                                                             <input class="form-check-input check w-px-50 h-px-20"
-                                                                type="checkbox" id="toggleSemTaxa" name="sem_taxa"
-                                                                value="1" <?php echo isset($result['sem_taxa']) && $result['sem_taxa'] == 1 ? 'checked' : ''; ?>
+                                                                type="checkbox" id="toggleSemTaxa" name="sem_taxa" value="1"
+                                                                <?= (isset($result['sem_taxa']) && (int)$result['sem_taxa'] === 1) ? 'checked' : ''; ?>
                                                                 onchange="toggleTaxas('sem_taxa')">
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- /Sem Taxa -->
 
                                             <!-- Taxa Única -->
                                             <div class="col-12 col-md-12 check-card mt-2">
                                                 <div class="d-flex align-items-center">
-                                                    <div>
-                                                        <strong>Taxa Única</strong>
-                                                    </div>
+                                                    <div><strong>Taxa Única</strong></div>
                                                     <div class="d-flex align-items-center ms-auto">
-                                                        <strong for="toggleTaxa" id="labelToggleTaxa" class="me-2">
-                                                            <?php echo isset($result['taxa_unica']) && $result['taxa_unica'] == 1 ? 'Ligado' : 'Desligado'; ?>
+                                                        <strong id="labelToggleTaxa" class="me-2">
+                                                            <?= (isset($result['taxa_unica']) && (int)$result['taxa_unica'] === 1) ? 'Ligado' : 'Desligado'; ?>
                                                         </strong>
                                                         <div class="form-check form-switch mt-2">
                                                             <input type="hidden" name="taxa_unica" value="0">
                                                             <input class="form-check-input check w-px-50 h-px-20"
-                                                                type="checkbox" id="toggleTaxa" name="taxa_unica"
-                                                                value="1" <?php echo isset($result['taxa_unica']) && $result['taxa_unica'] == 1 ? 'checked' : ''; ?>
+                                                                type="checkbox" id="toggleTaxa" name="taxa_unica" value="1"
+                                                                <?= (isset($result['taxa_unica']) && (int)$result['taxa_unica'] === 1) ? 'checked' : ''; ?>
                                                                 onchange="toggleTaxas('taxa_unica')">
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- /Taxa Única -->
                                         </form>
 
                                         <script>
-                                            // Função para alternar entre "Sem Taxa" e "Taxa Única"
                                             function toggleTaxas(checkbox) {
                                                 if (checkbox === 'sem_taxa') {
                                                     document.getElementById('toggleTaxa').checked = false;
@@ -549,39 +512,30 @@ if ($id_entrega > 0) {
                                                 if (checkbox === 'taxa_unica') {
                                                     document.getElementById('toggleSemTaxa').checked = false;
                                                 }
-
-                                                // Envia o formulário automaticamente após a alteração
                                                 document.getElementById('taxaForm').submit();
                                             }
                                         </script>
-
                                     </div>
                                 </div>
                             </div>
 
-
-                            <!-- Div de Adicionar Taxa e Lista de Taxas -->
-                            <?php if ($taxa_unica_db == 1): ?>
-                                <!-- O formulário será exibido se taxa_unica na tabela entrega_taxas for igual a 1 -->
+                            <?php if ((int)$taxa_unica_db === 1): ?>
+                                <!-- Form de Taxa Única -->
                                 <form action="../../assets/php/delivery/adicionarTaxaUnica.php" method="POST">
-                                    <input type="hidden" name="id_entrega" value="<?php echo $id_entrega; ?>">
-                                    <input type="hidden" name="idSelecionado"
-                                        value="<?php echo htmlspecialchars($idSelecionado); ?>">
-                                    <!-- Passando idSelecionado -->
+                                    <input type="hidden" name="id_entrega" value="<?= (int)$id_entrega; ?>">
+                                    <input type="hidden" name="idSelecionado" value="<?= h($idSelecionado); ?>">
 
                                     <div class="card mb-0">
                                         <div class="card-body">
                                             <div class="row">
                                                 <div class="col-12 col-md-12">
-                                                    <label class="form-label" for="basic-default-company">Valor da
-                                                        Taxa</label>
+                                                    <label class="form-label">Valor da Taxa</label>
                                                     <div class="input-group input-group-merge mb-3">
                                                         <span class="input-group-text">R$</span>
-                                                        <!-- Se não houver valor, o campo será vazio ou 0 -->
-                                                        <input type="text" name="precoTaxaUnica" id="basic-default-company"
-                                                            class="form-control" placeholder="00"
+                                                        <input type="text" name="precoTaxaUnica" class="form-control"
+                                                            placeholder="00"
                                                             aria-label="Amount (to the nearest dollar)"
-                                                            value="<?php echo $precoTaxaUnica !== '' ? number_format($precoTaxaUnica, 2, ',', '.') : ''; ?>">
+                                                            value="<?= ($precoTaxaUnica !== '' ? number_format((float)$precoTaxaUnica, 2, ',', '.') : ''); ?>">
                                                     </div>
                                                     <button type="submit" class="btn col-12 btn-primary">
                                                         <i class="bx bx-plus"></i> Adicionar Taxa
@@ -592,7 +546,7 @@ if ($id_entrega > 0) {
                                     </div>
                                 </form>
 
-                                <!-- LISTA DE TAXA -->
+                                <!-- LISTA DE TAXAS -->
                                 <h5 class="py-3 mt-2 mb-2 custor-font">
                                     <span class="text-muted fw-light">Lista de Taxa</span>
                                 </h5>
@@ -612,41 +566,32 @@ if ($id_entrega > 0) {
                                                 <?php if (count($taxas) > 0): ?>
                                                     <?php foreach ($taxas as $taxa): ?>
                                                         <tr>
-                                                            <td>R$ <?php echo number_format($taxa['valor_taxa'], 2, ',', '.'); ?>
-                                                            </td>
-                                                            <td><?php echo date('d/m/Y', strtotime($taxa['created_at'])); ?></td>
+                                                            <td>R$ <?= number_format((float)$taxa['valor_taxa'], 2, ',', '.'); ?></td>
+                                                            <td><?= date('d/m/Y', strtotime($taxa['created_at'])); ?></td>
                                                             <td>
-                                                                <!-- Ícone de Excluir com Modal -->
                                                                 <button class="btn btn-link text-danger p-0" title="Excluir"
                                                                     data-bs-toggle="modal"
-                                                                    data-bs-target="#deleteTaxModal_<?php echo $taxa['id']; ?>">
+                                                                    data-bs-target="#deleteTaxModal_<?= (int)$taxa['id']; ?>">
                                                                     <i class="tf-icons bx bx-trash"></i>
                                                                 </button>
 
                                                                 <!-- Modal de Exclusão -->
-                                                                <div class="modal fade"
-                                                                    id="deleteTaxModal_<?php echo $taxa['id']; ?>" tabindex="-1"
-                                                                    aria-labelledby="deleteTaxModalLabel" aria-hidden="true">
+                                                                <div class="modal fade" id="deleteTaxModal_<?= (int)$taxa['id']; ?>" tabindex="-1" aria-labelledby="deleteTaxModalLabel" aria-hidden="true">
                                                                     <div class="modal-dialog">
                                                                         <div class="modal-content">
                                                                             <div class="modal-header">
-                                                                                <h5 class="modal-title" id="deleteTaxModalLabel">
-                                                                                    Excluir Taxa</h5>
-                                                                                <button type="button" class="btn-close"
-                                                                                    data-bs-dismiss="modal"
-                                                                                    aria-label="Close"></button>
+                                                                                <h5 class="modal-title" id="deleteTaxModalLabel">Excluir Taxa</h5>
+                                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                                             </div>
                                                                             <div class="modal-body">
                                                                                 <p>Tem certeza de que deseja excluir esta taxa?</p>
-                                                                                <a href="../../assets/php/delivery/excluirTaxaUnica.php?id_taxa=<?php echo $taxa['id']; ?>&id_entrega=<?php echo $taxa['id_entrega']; ?>&idSelecionado=<?php echo $idSelecionado; ?>"
+                                                                                <a href="../../assets/php/delivery/excluirTaxaUnica.php?id_taxa=<?= (int)$taxa['id']; ?>&id_entrega=<?= (int)$taxa['id_entrega']; ?>&idSelecionado=<?= urlencode($idSelecionado); ?>"
                                                                                     class="btn btn-danger">Excluir</a>
-                                                                                <button type="button" class="btn btn-secondary mx-2"
-                                                                                    data-bs-dismiss="modal">Cancelar</button>
+                                                                                <button type="button" class="btn btn-secondary mx-2" data-bs-dismiss="modal">Cancelar</button>
                                                                             </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <!-- /Modal de Exclusão -->
                                                             </td>
                                                         </tr>
                                                     <?php endforeach; ?>
@@ -659,27 +604,22 @@ if ($id_entrega > 0) {
                                         </table>
                                     </div>
                                 </div>
-                                <!-- /LISTA DE TAXAS -->
-                            <?php else: ?>
                             <?php endif; ?>
 
                         </div>
                     </div>
                 </div>
+                <!-- / Content -->
             </div>
         </div>
     </div>
 
-
     <!-- Core JS -->
-    <!-- build:js assets/vendor/js/core.js -->
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
     <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
 
     <!-- Vendors JS -->
     <script src="../../assets/js/delivery/taxaEntrega.js"></script>
@@ -687,11 +627,7 @@ if ($id_entrega > 0) {
 
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
-
-    <!-- Page JS -->
     <script src="../../assets/js/dashboards-analytics.js"></script>
-
-    <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 

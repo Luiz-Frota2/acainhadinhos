@@ -1,59 +1,86 @@
 <?php
+declare(strict_types=1);
+
+ini_set('display_errors', '1');
+error_reporting(E_ALL);
 
 require_once '../conexao.php';
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+/* Fallback para PHP < 8 */
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle) {
+        return $needle !== '' && strpos($haystack, $needle) === 0;
+    }
+}
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $nomeCategoria = trim($_POST['nomeCategoria'] ?? '');
-    $idSelecionado = $_POST['id'] ?? '';
+    // No formulário, o campo vem como "id"
+    $idSelecionado = trim($_POST['id'] ?? '');
 
     // Validação básica
-    if (empty($nomeCategoria) || empty($idSelecionado)) {
+    if ($nomeCategoria === '' || $idSelecionado === '') {
         echo '<script>alert("Preencha todos os campos!"); history.back();</script>';
         exit;
     }
 
-    // Determina tipo e ID da empresa
+    // Determina tipo e chave da empresa
+    // Agora usamos o slug completo (ex.: "principal_1", "unidade_2", "filial_3", "franquia_7")
+    $empresa_id = $idSelecionado; // gravamos exatamente o slug
     if (str_starts_with($idSelecionado, 'principal_')) {
-        $empresa_id = 1;
         $tipo = 'principal';
     } elseif (str_starts_with($idSelecionado, 'filial_')) {
-        $empresa_id = (int) str_replace('filial_', '', $idSelecionado);
         $tipo = 'filial';
+    } elseif (str_starts_with($idSelecionado, 'unidade_')) {
+        $tipo = 'unidade';
+    } elseif (str_starts_with($idSelecionado, 'franquia_')) {
+        $tipo = 'franquia';
     } else {
         echo "<script>alert('Empresa não identificada!'); history.back();</script>";
         exit;
     }
 
     try {
-        // Verificar se já existe uma categoria com esse nome para a mesma empresa
-        $sqlCheck = "SELECT COUNT(*) FROM adicionarCategoria 
-                     WHERE nome_categoria = :nomeCategoria AND empresa_id = :empresa_id AND tipo = :tipo";
+        // Verificar duplicidade (case-insensitive) por empresa + tipo
+        $sqlCheck = "SELECT COUNT(*) 
+                       FROM adicionarCategoria 
+                      WHERE empresa_id = :empresa_id 
+                        AND tipo = :tipo
+                        AND TRIM(LOWER(nome_categoria)) = TRIM(LOWER(:nomeCategoria))";
         $stmtCheck = $pdo->prepare($sqlCheck);
-        $stmtCheck->bindParam(':nomeCategoria', $nomeCategoria);
-        $stmtCheck->bindParam(':empresa_id', $empresa_id);
-        $stmtCheck->bindParam(':tipo', $tipo);
+        $stmtCheck->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+        $stmtCheck->bindParam(':tipo', $tipo, PDO::PARAM_STR);
+        $stmtCheck->bindParam(':nomeCategoria', $nomeCategoria, PDO::PARAM_STR);
         $stmtCheck->execute();
 
-        $categoriaExistente = $stmtCheck->fetchColumn();
-
-        if ($categoriaExistente > 0) {
+        if ((int)$stmtCheck->fetchColumn() > 0) {
             echo '<script>alert("Já existe uma categoria com esse nome para esta empresa!"); history.back();</script>';
-        } else {
-            // Inserção com empresa
-            $sql = "INSERT INTO adicionarCategoria (nome_categoria, empresa_id, tipo) 
-                    VALUES (:nomeCategoria, :empresa_id, :tipo)";
-            $stmt = $pdo->prepare($sql);
-            $stmt->bindParam(':nomeCategoria', $nomeCategoria);
-            $stmt->bindParam(':empresa_id', $empresa_id);
-            $stmt->bindParam(':tipo', $tipo);
-            $stmt->execute();
-
-            echo "<script>alert('Categoria adicionada com sucesso!'); 
-                  window.location.href = '../../../erp/delivery/produtoAdicionados.php?id={$idSelecionado}';</script>";
+            exit;
         }
 
+        // Inserção
+        $sqlIns = "INSERT INTO adicionarCategoria (nome_categoria, empresa_id, tipo) 
+                   VALUES (:nomeCategoria, :empresa_id, :tipo)";
+        $stmt = $pdo->prepare($sqlIns);
+        $stmt->bindParam(':nomeCategoria', $nomeCategoria, PDO::PARAM_STR);
+        $stmt->bindParam(':empresa_id', $empresa_id, PDO::PARAM_STR);
+        $stmt->bindParam(':tipo', $tipo, PDO::PARAM_STR);
+        $stmt->execute();
+
+        echo "<script>
+                alert('Categoria adicionada com sucesso!');
+                window.location.href = '../../../erp/delivery/produtoAdicionados.php?id=" . rawurlencode($idSelecionado) . "';
+              </script>";
+        exit;
+
     } catch (PDOException $e) {
-        echo "Erro ao adicionar a categoria: " . $e->getMessage();
+        // Log opcional
+        error_log('Erro ao adicionar categoria: ' . $e->getMessage());
+        echo "<script>alert('Erro ao adicionar a categoria: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+        exit;
     }
+} else {
+    echo '<script>alert("Requisição inválida."); history.back();</script>';
+    exit;
 }
 ?>
