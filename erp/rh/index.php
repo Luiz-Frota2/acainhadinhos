@@ -952,7 +952,7 @@ if (empty($setoresChartLabels)) {
                 document.write(new Date().getFullYear());
               </script>
               , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>Lucas Correa</strong>.
+              Desenvolvido por <strong>CodeGeek</strong>.
             </div>
           </div>
         </footer>
