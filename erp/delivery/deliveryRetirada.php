@@ -616,7 +616,7 @@ try {
 
                                         <!-- Campos de tempo -->
                                         <div
-                                            class="col-md-12 mt-3 mb-4 inputemp d-flex flex-wrap gap-2 <?php echo $entrega ? '' : 'hidden'; ?>">
+                                            class="mt-3 mb-4 inputemp d-flex flex-wrap gap-2 <?php echo $entrega ? '' : 'hidden'; ?>">
                                             <div class="flex-fill">
                                                 <label class="form-label">Tempo mínimo entrega (min)</label>
                                                 <input type="number" class="form-control" name="tempo_min"

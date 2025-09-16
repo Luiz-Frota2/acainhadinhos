@@ -29,13 +29,13 @@ if (empty($id_produto)) {
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=" . urlencode($idSelecionado));
-  exit;
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -47,21 +47,21 @@ $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -70,37 +70,37 @@ $idEmpresaSession = $_SESSION['empresa_id'];
 $tipoSession = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
-  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
-  echo "<script>
+    echo "<script>
           alert('Acesso negado!');
           window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
         </script>";
-  exit;
+    exit;
 }
 
 
 // ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
 try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
-  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+    $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  $logoEmpresa = !empty($empresaSobre['imagem'])
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
+    $logoEmpresa = !empty($empresaSobre['imagem'])
+        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+        : "../../assets/img/favicon/logo.png"; // fallback padrão
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
+    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
 }
 
 // ✅ Se chegou até aqui, o acesso está liberado
@@ -111,18 +111,18 @@ $nivelUsuario = 'Comum'; // Valor padrão
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $nivelUsuario = $usuario['nivel'];
+    }
 } catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+    $nomeUsuario = 'Erro ao carregar nome';
+    $nivelUsuario = 'Erro ao carregar nível';
 }
 
 ?>
@@ -470,154 +470,133 @@ try {
                                 </div>
                                 <div class="card-body">
 
-                                    <!-- Formulário de Cadastro de Opcional -->
-                                    <form action="../../assets/php/delivery/cadastrarOpcional.php" method="POST">
-                                        <!-- Campo oculto para passar o id_produto -->
-                                        <input type="hidden" name="id_produto"
-                                            value="<?php echo htmlspecialchars($id_produto); ?>">
+                                    <!-- Formulário de Cadastro de Opcional (Bootstrap-only) -->
+                                    <form action="../../assets/php/delivery/cadastrarOpcional.php" method="POST" novalidate>
+                                        <!-- Hidden: id_produto -->
+                                        <input type="hidden" name="id_produto" value="<?php echo htmlspecialchars($id_produto); ?>">
+                                        <!-- Hidden: idSelecionado -->
+                                        <input type="hidden" name="id_selecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>">
 
-                                        <!-- Campo oculto para passar o idSelecionado -->
-                                        <input type="hidden" name="id_selecionado"
-                                            value="<?php echo htmlspecialchars($idSelecionado); ?>">
-
-                                        <p class="fw-bold">Selecione o tipo de opcional:</p>
-                                        <div class="d-flex gap-3">
-                                            <div class="form-check none-boxshadow">
+                                        <p class="fw-bold mb-2">Selecione o tipo de opcional:</p>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            <div class="form-check">
                                                 <input type="radio" class="form-check-input" name="tipoOpcional"
                                                     id="opcionalSimples" value="opcionalSimples" checked
                                                     onclick="alternarOpcional()">
-                                                <label class="form-check-label" for="opcionalSimples">Opcional
-                                                    Simples</label>
+                                                <label class="form-check-label" for="opcionalSimples">Opcional Simples</label>
                                             </div>
-                                            <div class="form-check none-boxshadow">
+                                            <div class="form-check">
                                                 <input type="radio" class="form-check-input" name="tipoOpcional"
                                                     id="selecaoOpcoes" value="selecaoOpcoes"
                                                     onclick="alternarOpcional()">
-                                                <label class="form-check-label" for="selecaoOpcoes">Seleção de
-                                                    Opções</label>
+                                                <label class="form-check-label" for="selecaoOpcoes">Seleção de Opções</label>
                                             </div>
                                         </div>
 
-                                        <!-- Seção para Opcional Simples -->
+                                        <!-- Opcional Simples -->
                                         <div id="OpcionalSimples" class="mt-4">
-                                            <div class="row">
-                                                <div class="col-9">
+                                            <div class="row g-3">
+                                                <div class="col-12 col-md-9">
                                                     <label for="txtNomeSimples" class="form-label"><b>Nome:</b></label>
-                                                    <input id="txtNomeSimples" type="text" name="txtNomeSimples"
-                                                        class="form-control" placeholder="Ex: Bacon">
+                                                    <input id="txtNomeSimples" type="text" name="txtNomeSimples" class="form-control" placeholder="Ex: Bacon">
                                                 </div>
-                                                <div class="col-3">
-                                                    <label for="txtPrecoSimples" class="form-label"><b>Preço
-                                                            (R$):</b></label>
-                                                    <input id="txtPrecoSimples" type="text" name="txtPrecoSimples"
-                                                        class="form-control" placeholder="0,00">
+                                                <div class="col-12 col-md-3">
+                                                    <label for="txtPrecoSimples" class="form-label"><b>Preço (R$):</b></label>
+                                                    <input id="txtPrecoSimples" type="text" name="txtPrecoSimples" class="form-control" placeholder="0,00">
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- Seção para Seleção de Opções -->
-                                        <div id="SelecaoOpcoes" class="mt-4" style="display: none;">
-                                            <label for="txtTituloSecao" class="form-label"><b>Título da
-                                                    seção:</b></label>
-                                            <input id="txtTituloSecao" type="text" name="txtTituloSecao"
-                                                class="form-control" placeholder="Ex: Deseja borda recheada?">
+                                        <!-- Seleção de Opções -->
+                                        <div id="SelecaoOpcoes" class="mt-4 d-none">
+                                            <div class="mb-3">
+                                                <label for="txtTituloSecao" class="form-label"><b>Título da seção:</b></label>
+                                                <input id="txtTituloSecao" type="text" name="txtTituloSecao" class="form-control" placeholder="Ex: Deseja borda recheada?">
+                                            </div>
 
-                                            <div class="row mt-3">
-                                                <div class="col-6">
-                                                    <label for="txtMinimoOpcao"
-                                                        class="form-label"><b>Mínimo:</b></label>
-                                                    <input id="txtMinimoOpcao" type="number" name="txtMinimoOpcao"
-                                                        min="0" class="form-control" placeholder="0">
+                                            <div class="row g-3">
+                                                <div class="col-12 col-sm-6">
+                                                    <label for="txtMinimoOpcao" class="form-label"><b>Mínimo:</b></label>
+                                                    <input id="txtMinimoOpcao" type="number" name="txtMinimoOpcao" min="0" class="form-control" placeholder="0">
                                                 </div>
-                                                <div class="col-6">
-                                                    <label for="txtMaximoOpcao"
-                                                        class="form-label"><b>Máximo:</b></label>
-                                                    <input id="txtMaximoOpcao" type="number" name="txtMaximoOpcao"
-                                                        min="1" class="form-control" placeholder="0">
+                                                <div class="col-12 col-sm-6">
+                                                    <label for="txtMaximoOpcao" class="form-label"><b>Máximo:</b></label>
+                                                    <input id="txtMaximoOpcao" type="number" name="txtMaximoOpcao" min="1" class="form-control" placeholder="0">
                                                 </div>
                                             </div>
 
                                             <div class="mt-3">
                                                 <label class="form-label"><b>Informe as opções:</b></label>
-                                                <div id="listaOpcoesSelecao"></div>
-                                                <button type="button" class="btn btn-outline-primary mt-3"
-                                                    onclick="adicionarOpcao()">
+                                                <div id="listaOpcoesSelecao" class="d-grid gap-2"></div>
+                                                <button type="button" class="btn btn-outline-primary mt-3" onclick="adicionarOpcao()">
                                                     <i class="fas fa-plus-circle"></i> Adicionar opção
                                                 </button>
                                             </div>
                                         </div>
 
-                                        <div class="d-flex custom-button mt-4">
-                                            <button type="submit"
-                                                class="btn btn-primary col-12 w-100 col-md-auto">Salvar
-                                                Opcional</button>
+                                        <div class="mt-4">
+                                            <button type="submit" class="btn btn-primary w-100 w-md-auto">Salvar Opcional</button>
                                         </div>
                                     </form>
 
                                     <script>
-                                        // Função para alternar entre as seções de "Opcional Simples" e "Seleção de Opções"
+                                        // Alterna entre "Opcional Simples" e "Seleção de Opções"
                                         function alternarOpcional() {
                                             const opcionalSimples = document.getElementById('OpcionalSimples');
                                             const selecaoOpcoes = document.getElementById('SelecaoOpcoes');
                                             const chkSimples = document.getElementById('opcionalSimples');
 
                                             if (chkSimples.checked) {
-                                                opcionalSimples.style.display = "block";
-                                                selecaoOpcoes.style.display = "none";
+                                                opcionalSimples.classList.remove('d-none');
+                                                selecaoOpcoes.classList.add('d-none');
                                             } else {
-                                                opcionalSimples.style.display = "none";
-                                                selecaoOpcoes.style.display = "block";
+                                                opcionalSimples.classList.add('d-none');
+                                                selecaoOpcoes.classList.remove('d-none');
                                             }
                                         }
 
-                                        // Função para adicionar uma nova opção para "Seleção de Opções"
+                                        // Adiciona uma linha de opção (responsiva com Bootstrap)
                                         function adicionarOpcao() {
-                                            const listaOpcoes = document.getElementById('listaOpcoesSelecao');
+                                            const lista = document.getElementById('listaOpcoesSelecao');
 
-                                            // Cria a estrutura de uma nova linha de opções
-                                            const divRow = document.createElement('div');
-                                            divRow.className = "row mt-2 align-items-end";
+                                            const row = document.createElement('div');
+                                            row.className = 'row g-2 align-items-end';
 
-                                            // Nome da opção
-                                            const divColNome = document.createElement('div');
-                                            divColNome.className = "col-8";
-                                            divColNome.innerHTML = `
-                                                <label class="form-label"><b>Nome:</b></label>
-                                                <input type="text" name="opcaoNome[]" class="form-control" placeholder="Ex: Queijo extra">
-                                                `;
+                                            const colNome = document.createElement('div');
+                                            colNome.className = 'col-12 col-md-8';
+                                            colNome.innerHTML = `
+                                                                    <label class="form-label"><b>Nome:</b></label>
+                                                                    <input type="text" name="opcaoNome[]" class="form-control" placeholder="Ex: Queijo extra">
+                                                                    `;
 
-                                            // Preço da opção
-                                            const divColPreco = document.createElement('div');
-                                            divColPreco.className = "col-3";
-                                            divColPreco.innerHTML = `
-                                                <label class="form-label"><b>Preço (R$):</b></label>
-                                                <input type="text" name="opcaoPreco[]" class="form-control" placeholder="0,00">
-                                                `;
+                                                                                                            const colPreco = document.createElement('div');
+                                                                                                            colPreco.className = 'col-12 col-md-3';
+                                                                                                            colPreco.innerHTML = `
+                                                                    <label class="form-label"><b>Preço (R$):</b></label>
+                                                                    <input type="text" name="opcaoPreco[]" class="form-control" placeholder="0,00">
+                                                                    `;
 
-                                            // Botão para remover a opção
-                                            const divColRemove = document.createElement('div');
-                                            divColRemove.className = "col-1 d-flex align-items-center";
-                                            divColRemove.innerHTML = `
-                                                <button type="button" class="btn btn-danger btn-sm" onclick="removerOpcao(this)">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
-                                                `;
+                                                                                                            const colRemove = document.createElement('div');
+                                                                                                            colRemove.className = 'col-12 col-md-1 d-grid';
+                                                                                                            colRemove.innerHTML = `
+                                                                    <button type="button" class="btn btn-danger" onclick="removerOpcao(this)">
+                                                                        <i class="fas fa-trash-alt"></i>
+                                                                    </button>
+                                                                    `;
 
-                                            // Adiciona as colunas à linha
-                                            divRow.appendChild(divColNome);
-                                            divRow.appendChild(divColPreco);
-                                            divRow.appendChild(divColRemove);
-
-                                            // Adiciona a linha à lista de opções
-                                            listaOpcoes.appendChild(divRow);
+                                            row.appendChild(colNome);
+                                            row.appendChild(colPreco);
+                                            row.appendChild(colRemove);
+                                            lista.appendChild(row);
                                         }
 
-                                        // Função para remover uma opção
+                                        // Remove a linha de opção
                                         function removerOpcao(button) {
                                             const row = button.closest('.row');
-                                            row.remove();
+                                            if (row) row.remove();
                                         }
                                     </script>
+
 
                                 </div>
                             </div>

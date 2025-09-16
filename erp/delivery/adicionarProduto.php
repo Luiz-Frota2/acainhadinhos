@@ -467,7 +467,7 @@ $id_categoria = isset($_GET['id_categoria']) ? $_GET['id_categoria'] : null;
                                             value="<?php echo htmlspecialchars($id_categoria); ?>" />
 
                                         <!-- Campo oculto para enviar o id da empresa (idSelecionado) -->
-                                        <input type="text" name="id_empresa" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                        <input type="hidden" name="id_empresa" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                         <!-- Imagem e Nome da Empresa (Lado a Lado ou Empilhado no Mobile) -->
                                         <div class="d-flex align-items-center mb-4 form-container">

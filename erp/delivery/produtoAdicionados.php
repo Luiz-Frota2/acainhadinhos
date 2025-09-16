@@ -515,7 +515,7 @@ try {
                                                                             value="<?= h($categoria['nome_categoria']); ?>" required>
                                                                     </div>
 
-                                                                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                                                                    <button type="submit" class="btn btn-primary">Salvar</button>
                                                                     <button type="button" class="btn btn-secondary mx-2" data-bs-dismiss="modal">Cancelar</button>
                                                                 </form>
                                                             </div>
