@@ -4,112 +4,122 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
+/* ========= Parâmetros da URL ========= */
 $idSelecionado = $_GET['id'] ?? '';
 
-// ✅ Verifica se a pessoa está logada
+/* ========= Autenticação básica ========= */
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id']) ||
-  !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
+  !isset($_SESSION['nivel'])
 ) {
-  header("Location: ../index.php?id=$idSelecionado");
+  header("Location: ../index.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
-// ✅ Conexão com o banco de dados
-require '../../assets/php/conexao.php';
+require '../../assets/php/conexao.php'; // expõe $pdo
 
-$nomeUsuario = 'Usuário';
-$tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id        = (int)$_SESSION['usuario_id'];
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
+$empresaSessao     = $_SESSION['empresa_id']; // ex: principal_1 ou unidade_5
 
-try {
-  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de contas_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de funcionarios_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
-
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
-} catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
-  exit;
-}
-
-// ✅ Valida o tipo de empresa e o acesso permitido
+/* ========= Regras de acesso por empresa ========= */
 if (str_starts_with($idSelecionado, 'principal_')) {
-  // Para principal, verifica se é admin ou se pertence à mesma empresa
-  if (
-    $_SESSION['tipo_empresa'] !== 'principal' &&
-    !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
-  ) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
+  // só a principal_1 Admin ou quem é da própria principal
+  if ($empresaSessao !== $idSelecionado && !($tipoUsuarioSessao === 'Admin' && $empresaSessao === 'principal_1')) {
+    echo "<script>alert('Acesso negado!'); window.location.href='../index.php?id=" . htmlspecialchars($idSelecionado) . "';</script>";
     exit;
   }
-  $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $idUnidade = str_replace('unidade_', '', $idSelecionado);
-
-  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
-    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-
-  if (!$acessoPermitido) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
+  // deve ser da mesma unidade ou Admin da principal_1
+  if ($empresaSessao !== $idSelecionado && !($tipoUsuarioSessao === 'Admin' && $empresaSessao === 'principal_1')) {
+    echo "<script>alert('Acesso negado!'); window.location.href='../index.php?id=" . htmlspecialchars($idSelecionado) . "';</script>";
     exit;
   }
-  $id = $idUnidade;
 } else {
-  echo "<script>
-        alert('Empresa não identificada!');
-        window.location.href = '../index.php?id=$idSelecionado';
-    </script>";
+  echo "<script>alert('Empresa não identificada!'); window.location.href='../index.php?id=" . htmlspecialchars($idSelecionado) . "';</script>";
   exit;
 }
 
-// ✅ Buscar imagem da empresa para usar como favicon
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
+/* ========= Dados do usuário (nome, nível, CPF) ========= */
+$nomeUsuario = 'Usuário';
+$nivelUsuario = 'Comum';
+$cpfUsuario = null;
+$idFuncionario = $usuario_id;
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
+  if ($tipoUsuarioSessao === 'Admin') {
+    // Admin na contas_acesso
+    $stmt = $pdo->prepare("SELECT id, usuario, nivel, cpf FROM contas_acesso WHERE id = :id LIMIT 1");
+  } else {
+    // Demais usuários na funcionarios_acesso
+    $stmt = $pdo->prepare("SELECT id, usuario, nivel, cpf FROM funcionarios_acesso WHERE id = :id LIMIT 1");
   }
+  $stmt->bindValue(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $u = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  if (!$u) {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '../index.php?id=" . htmlspecialchars($idSelecionado) . "';</script>";
+    exit;
+  }
+
+  $nomeUsuario   = $u['usuario'] ?? 'Usuário';
+  $nivelUsuario  = ucfirst($u['nivel'] ?? 'Comum');
+  $cpfUsuario    = preg_replace('/\D+/', '', (string)($u['cpf'] ?? ''));
+  $idFuncionario = (int)($u['id'] ?? $usuario_id);
 } catch (PDOException $e) {
-  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-  // Não mostra erro para o usuário para não quebrar a página
+  echo "<script>alert('Erro ao carregar dados do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+  exit;
 }
 
+/* ========= Favicon da empresa ========= */
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
+  $stmt->bindValue(':id', $idSelecionado);
+  $stmt->execute();
+  $emp = $stmt->fetch(PDO::FETCH_ASSOC);
+  if ($emp && !empty($emp['imagem'])) {
+    // se já vier caminho pronto, só usa
+    $iconeEmpresa = $emp['imagem'];
+  }
+} catch (PDOException $e) {
+  error_log("Erro ao carregar ícone: " . $e->getMessage());
+}
+
+/* ========= Saldo do caixa aberto (por CPF + empresa) ========= */
+$saldoFinalRaw = null;
+$saldoFormatado = "Sem Saldo";
+
+try {
+  $stmtSaldo = $pdo->prepare("
+    SELECT valor_liquido
+    FROM aberturas
+    WHERE cpf_responsavel = :cpf
+      AND empresa_id = :empresa
+      AND status = 'aberto'
+    ORDER BY id DESC
+    LIMIT 1
+  ");
+  $stmtSaldo->execute([
+    ':cpf'     => $cpfUsuario,
+    ':empresa' => $idSelecionado
+  ]);
+  $row = $stmtSaldo->fetch(PDO::FETCH_ASSOC);
+
+  if ($row && isset($row['valor_liquido'])) {
+    $v = (float)$row['valor_liquido'];
+    $saldoFinalRaw  = number_format($v, 2, '.', '');   // para POST
+    $saldoFormatado = number_format($v, 2, ',', '.');  // para exibição
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao buscar saldo: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+  exit;
+}
 ?>
-
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style customizer-hide" dir="ltr" data-theme="theme-default"
   data-assets-path="../assets/" data-template="vertical-menu-template-free">
@@ -118,24 +128,25 @@ try {
   <meta charset="utf-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
-
-  <title>ERP - PDV</title>
+  <link rel="icon" type="image/x-icon" href="<?=
+                                              htmlspecialchars(
+                                                // se o valor no banco já for relativo ao site, mantenha; senão, prefixe diretórios conforme seu projeto
+                                                (str_starts_with($iconeEmpresa, 'http') || str_starts_with($iconeEmpresa, '/'))
+                                                  ? $iconeEmpresa
+                                                  : ('../../assets/img/empresa/' . ltrim($iconeEmpresa, '/'))
+                                              );
+                                              ?>" />
+  <title>ERP - PDV | Fechamento de Caixa</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
-    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../../assets/vendor/fonts/boxicons.css" />
   <link rel="stylesheet" href="../../../assets/vendor/css/core.css" class="template-customizer-core-css" />
   <link rel="stylesheet" href="../../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
   <link rel="stylesheet" href="../../../assets/css/demo.css" />
   <link rel="stylesheet" href="../../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
   <link rel="stylesheet" href="../../../assets/vendor/css/pages/page-auth.css" />
-
   <script src="../../../assets/vendor/js/helpers.js"></script>
   <script src="../../../assets/js/config.js"></script>
 </head>
@@ -144,85 +155,45 @@ try {
   <div class="container-xxl">
     <div class="authentication-wrapper authentication-basic container-p-y">
       <div class="authentication-inner">
-        <!-- Fechamento de Caixa -->
         <div class="card">
           <div class="card-body">
-            <!-- Logo -->
-            <div class="app-brand justify-content-center">
-              <a href="index.php" class="app-brand-link gap-2">
-                <span class="app-brand-text demo text-body fw-bolder">Fechamento de Caixa</span>
-              </a>
+            <div class="app-brand justify-content-center mb-3">
+              <span class="app-brand-text demo text-body fw-bolder">Fechamento de Caixa</span>
             </div>
-            <!-- /Logo -->
 
-            <?php
-            // Supondo que $idSelecionado e $nomeUsuario já estejam definidos anteriormente no script
-            // Defina $idFuncionario conforme sua lógica (exemplo: da sessão)
-            // $idFuncionario = $_SESSION['idFuncionario'] ?? 0;
+            <!-- Form -->
+            <form action="../../assets/php/frentedeloja/fecharCaixaSubmit.php?id=<?= urlencode($idSelecionado) ?>" method="POST">
+              <input type="hidden" name="empresa_identificador" value="<?= htmlspecialchars($idSelecionado) ?>">
+              <input type="hidden" name="funcionario_id" value="<?= htmlspecialchars((string)$idFuncionario) ?>">
+              <input type="hidden" name="responsavel" value="<?= htmlspecialchars($nomeUsuario) ?>">
+              <input type="hidden" name="cpf_funcionario" value="<?= htmlspecialchars($cpfUsuario) ?>">
+              <input type="hidden" name="data_registro" id="data_registro">
+              <input type="hidden" name="saldo_final" value="<?= htmlspecialchars((string)$saldoFinalRaw) ?>">
 
-            if (str_starts_with($idSelecionado, 'principal_')) {
-              $id = 1;
-            } elseif (str_starts_with($idSelecionado, 'filial_')) {
-              $id = (int) str_replace('filial_', '', $idSelecionado);
-            } else {
-              echo "<script>alert('Empresa não identificada!'); history.back();</script>";
-              exit;
-            }
+              <div class="mb-3">
+                <label class="form-label">Responsável</label>
+                <input type="text" class="form-control" value="<?= htmlspecialchars($nomeUsuario) ?>" readonly>
+              </div>
 
-            $saldoFinal = 0;
-            $responsavel = ucwords($nomeUsuario);
-
-            try {
-              // Busca valor_liquido do caixa aberto mais recente do responsável na empresa
-              $stmtSaldo = $pdo->prepare("
-                                                  SELECT valor_liquido
-                                                  FROM aberturas 
-                                                  WHERE responsavel = :responsavel 
-                                                    AND status = 'aberto'
-                                                    AND empresa_id = :empresa_id
-                                                  ORDER BY id DESC 
-                                                  LIMIT 1
-                                              ");
-              $stmtSaldo->execute([
-                'responsavel' => $responsavel,
-                'empresa_id' => $idSelecionado // ou use $id se quiser enviar o id numérico
-              ]);
-              $saldo = $stmtSaldo->fetch(PDO::FETCH_ASSOC);
-
-              if ($saldo && isset($saldo['valor_liquido'])) {
-                // Formata para exibir com vírgula e ponto para usuário
-                $valorTotal = (float) $saldo['valor_liquido'];
-                $saldoFormatado = number_format($valorTotal, 2, ',', '.');
-                // Valor limpo para enviar no input hidden (usar ponto decimal)
-                $saldoFinal = number_format($valorTotal, 2, '.', '');
-              } else {
-                $saldoFormatado = "Sem Saldo";
-                $saldoFinal = null;
-              }
-            } catch (PDOException $e) {
-              echo "Erro ao buscar saldo: " . $e->getMessage();
-              exit;
-            }
-            ?>
-
-            <!-- Formulário de Fechamento -->
-            <form action="../../assets/php/frentedeloja/fecharCaixaSubmit.php?id=<?= urlencode($idSelecionado); ?>"
-              method="POST">
-              <input type="text" name="empresa_identificador" value="<?= htmlspecialchars($idSelecionado) ?>">
-              <input type="text" name="funcionario_id" value="<?= htmlspecialchars($idFuncionario ?? '') ?>">
-              <input type="text" name="responsavel" value="<?= htmlspecialchars($responsavel) ?>">
-              <input type="text" name="cpf_funcionario" value="<?= htmlspecialchars($cpfUsuario ?? '') ?>">
-              <input type="text" name="data_registro" id="data_registro">
-              <input type="text" name="saldo_final" value="<?= htmlspecialchars($saldoFinal) ?>">
+              <div class="mb-3">
+                <label class="form-label">Empresa</label>
+                <input type="text" class="form-control" value="<?= htmlspecialchars($idSelecionado) ?>" readonly>
+              </div>
 
               <div class="mb-3">
                 <label for="saldo_final_display" class="form-label">Saldo Final</label>
-                <input type="text" class="form-control" id="saldo_final_display"
+                <input type="text" id="saldo_final_display" class="form-control"
                   value="<?= htmlspecialchars($saldoFormatado) ?>" readonly>
               </div>
 
-              <?php if ($saldoFinal === null): ?>
-                <div class="alert alert-warning">Não há caixa aberto para esse responsável.</div>
+              <?php if ($saldoFinalRaw === null || $cpfUsuario === null || $cpfUsuario === ''): ?>
+                <div class="alert alert-warning">
+                  <?php if (!$cpfUsuario): ?>
+                    CPF do responsável não encontrado. Contate o administrador.
+                  <?php else: ?>
+                    Não há caixa aberto para esse responsável.
+                  <?php endif; ?>
+                </div>
               <?php else: ?>
                 <div class="mb-3">
                   <button class="btn btn-primary d-grid w-100" type="submit">Fechar Caixa</button>
@@ -232,44 +203,32 @@ try {
 
             <script>
               document.addEventListener('DOMContentLoaded', function() {
-                // Função para formatar data/hora local como "YYYY-MM-DD HH:mm:ss"
-                function formatarDataLocal(date) {
-                  const pad = num => String(num).padStart(2, '0');
-                  const ano = date.getFullYear();
-                  const mes = pad(date.getMonth() + 1);
-                  const dia = pad(date.getDate());
-                  const horas = pad(date.getHours());
-                  const minutos = pad(date.getMinutes());
-                  const segundos = pad(date.getSeconds());
-                  return `${ano}-${mes}-${dia} ${horas}:${minutos}:${segundos}`;
+                function pad(n) {
+                  return String(n).padStart(2, '0');
                 }
 
-                const inputDataRegistro = document.getElementById('data_registro');
+                function agora() {
+                  const d = new Date();
+                  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+                    ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+                }
+                const input = document.getElementById('data_registro');
                 const form = document.querySelector('form');
-
-                if (inputDataRegistro) {
-                  // Define data atual assim que o DOM carregar
-                  inputDataRegistro.value = formatarDataLocal(new Date());
-                }
-
-                if (form && inputDataRegistro) {
-                  form.addEventListener('submit', function() {
-                    inputDataRegistro.value = formatarDataLocal(new Date());
-                  });
+                if (input) input.value = agora();
+                if (form && input) {
+                  form.addEventListener('submit', () => input.value = agora());
                 }
               });
             </script>
 
             <div class="text-center">
-              <a href="index.php?id=<?= htmlspecialchars($idSelecionado) ?>"
-                class="d-flex align-items-center justify-content-center">
-                <i class="bx bx-chevron-left scaleX-n1-rtl bx-sm"></i>
-                Voltar
+              <a href="index.php?id=<?= htmlspecialchars($idSelecionado) ?>" class="d-flex align-items-center justify-content-center">
+                <i class="bx bx-chevron-left bx-sm"></i> Voltar
               </a>
             </div>
           </div>
         </div>
-        <!-- /Fechamento de Caixa -->
+        <!-- /card -->
       </div>
     </div>
   </div>
