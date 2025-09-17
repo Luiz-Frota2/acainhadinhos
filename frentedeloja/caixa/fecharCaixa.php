@@ -208,7 +208,7 @@ try {
             <!-- Formulário de Fechamento -->
             <form action="../../assets/php/frentedeloja/fecharCaixaSubmit.php?id=<?= urlencode($idSelecionado); ?>"
               method="POST">
-              <input type="hidden" name="empresa_identificador" value="<?= htmlspecialchars($idSelecionado) ?>">
+              <input type="text" name="empresa_identificador" value="<?= htmlspecialchars($idSelecionado) ?>">
               <input type="hidden" name="funcionario_id" value="<?= htmlspecialchars($idFuncionario ?? '') ?>">
               <input type="hidden" name="responsavel" value="<?= htmlspecialchars($responsavel) ?>">
               <input type="hidden" name="cpf_funcionario" value="<?= htmlspecialchars($cpfUsuario ?? '') ?>">
