@@ -164,8 +164,8 @@ try {
             <!-- Form -->
             <form action="../../assets/php/frentedeloja/fecharCaixaSubmit.php?id=<?= urlencode($idSelecionado) ?>" method="POST">
               <input type="hidden" name="empresa_identificador" value="<?= htmlspecialchars($idSelecionado) ?>">
-              <input type="text" name="funcionario_id" value="<?= htmlspecialchars((string)$idFuncionario) ?>">
-              <input type="text" name="responsavel" value="<?= htmlspecialchars($nomeUsuario) ?>">
+              <input type="hidden" name="funcionario_id" value="<?= htmlspecialchars((string)$idFuncionario) ?>">
+              <input type="hidden" name="responsavel" value="<?= htmlspecialchars($nomeUsuario) ?>">
               <input type="hidden" name="cpf_funcionario" value="<?= htmlspecialchars($cpfUsuario) ?>">
               <input type="hidden" name="data_registro" id="data_registro">
               <input type="hidden" name="saldo_final" value="<?= htmlspecialchars((string)$saldoFinalRaw) ?>">
@@ -173,11 +173,6 @@ try {
               <div class="mb-3">
                 <label class="form-label">Responsável</label>
                 <input type="text" class="form-control" value="<?= htmlspecialchars($nomeUsuario) ?>" readonly>
-              </div>
-
-              <div class="mb-3">
-                <label class="form-label">Empresa</label>
-                <input type="text" class="form-control" value="<?= htmlspecialchars($idSelecionado) ?>" readonly>
               </div>
 
               <div class="mb-3">
