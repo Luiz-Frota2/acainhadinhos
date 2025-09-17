@@ -209,11 +209,11 @@ try {
             <form action="../../assets/php/frentedeloja/fecharCaixaSubmit.php?id=<?= urlencode($idSelecionado); ?>"
               method="POST">
               <input type="text" name="empresa_identificador" value="<?= htmlspecialchars($idSelecionado) ?>">
-              <input type="hidden" name="funcionario_id" value="<?= htmlspecialchars($idFuncionario ?? '') ?>">
-              <input type="hidden" name="responsavel" value="<?= htmlspecialchars($responsavel) ?>">
-              <input type="hidden" name="cpf_funcionario" value="<?= htmlspecialchars($cpfUsuario ?? '') ?>">
-              <input type="hidden" name="data_registro" id="data_registro">
-              <input type="hidden" name="saldo_final" value="<?= htmlspecialchars($saldoFinal) ?>">
+              <input type="text" name="funcionario_id" value="<?= htmlspecialchars($idFuncionario ?? '') ?>">
+              <input type="text" name="responsavel" value="<?= htmlspecialchars($responsavel) ?>">
+              <input type="text" name="cpf_funcionario" value="<?= htmlspecialchars($cpfUsuario ?? '') ?>">
+              <input type="text" name="data_registro" id="data_registro">
+              <input type="text" name="saldo_final" value="<?= htmlspecialchars($saldoFinal) ?>">
 
               <div class="mb-3">
                 <label for="saldo_final_display" class="form-label">Saldo Final</label>
