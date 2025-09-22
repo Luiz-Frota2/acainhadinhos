@@ -86,19 +86,16 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 
 // ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
-
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado);
     $stmt->execute();
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if ($empresa && !empty($empresa['imagem'])) {
         $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-    // Não mostra erro para o usuário para não quebrar a página
 }
 
 // ✅ Produtos (estoque) da empresa
@@ -148,8 +145,8 @@ function h($s)
 {
     return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 }
-
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
 
@@ -541,6 +538,59 @@ function h($s)
                                             color: #28a745;
                                             font-size: 1.1em
                                         }
+
+                                        /* 🔎 Lista de sugestões da busca */
+                                        .sugestoes {
+                                            position: absolute;
+                                            top: 100%;
+                                            left: 0;
+                                            right: 0;
+                                            z-index: 2000;
+                                            display: none;
+                                            background: #fff;
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 8px;
+                                            box-shadow: 0 10px 25px rgba(0, 0, 0, .08);
+                                            max-height: 260px;
+                                            overflow: auto
+                                        }
+
+                                        .sugestoes .item {
+                                            padding: 10px 12px;
+                                            cursor: pointer;
+                                            display: flex;
+                                            justify-content: space-between;
+                                            gap: 12px;
+                                            align-items: center
+                                        }
+
+                                        .sugestoes .item:hover,
+                                        .sugestoes .item.ativo {
+                                            background: #f5f7fb
+                                        }
+
+                                        .sugestoes .info {
+                                            display: flex;
+                                            flex-direction: column
+                                        }
+
+                                        .sugestoes .titulo {
+                                            font-weight: 600;
+                                            font-size: .95em
+                                        }
+
+                                        .sugestoes .sub {
+                                            font-size: .82em;
+                                            color: #6b7280
+                                        }
+
+                                        .sugestoes .tag {
+                                            font-size: .78em;
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 999px;
+                                            padding: 2px 8px;
+                                            white-space: nowrap
+                                        }
                                     </style>
 
                                     <!-- Modal de Edição de Quantidade -->
@@ -582,6 +632,13 @@ function h($s)
                                         <label class="form-label">Troco:</label>
                                         <span class="troco-valor" id="trocoValor">R$ 0,00</span>
                                         <input type="hidden" id="troco" name="troco" value="0">
+                                    </div>
+
+                                    <!-- 🔎 Busca por produto (NOME ou CÓDIGO) -->
+                                    <div class="col-md-12 mb-2 position-relative">
+                                        <label class="form-label">Pesquisar produto (nome ou código)</label>
+                                        <input type="text" id="buscaProduto" class="form-control" placeholder="Digite ao menos 2 caracteres...">
+                                        <div id="listaSugestoes" class="sugestoes"></div>
                                     </div>
 
                                     <!-- Categoria -->
@@ -651,6 +708,7 @@ function h($s)
 
                                 <!-- JS do formulário (só carrega quando há caixa aberto) -->
                                 <script>
+                                    // Mapa de categoria -> produtos (já existente)
                                     const produtosPorCategoria = <?php
                                                                     $jsCategorias = [];
                                                                     foreach ($categorias as $categoria => $produtos) {
@@ -674,6 +732,30 @@ function h($s)
                                                                     echo json_encode($jsCategorias, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
                                                                     ?>;
 
+                                    // 🔎 NOVO: array "flat" com todos os produtos (inclui código_produto)
+                                    const todosProdutos = (function() {
+                                        const arr = [];
+                                        <?php foreach ($categorias as $categoria => $produtos): foreach ($produtos as $p): ?>
+                                                arr.push({
+                                                    id: <?= (int)$p['id'] ?>,
+                                                    nome: <?= json_encode($p['nome_produto']) ?>,
+                                                    codigo: <?= json_encode($p['codigo_produto']) ?>,
+                                                    categoria: <?= json_encode($categoria) ?>,
+                                                    preco: <?= json_encode((float)$p['preco_produto']) ?>,
+                                                    quantidade: <?= (int)$p['quantidade_produto'] ?>,
+                                                    ncm: <?= json_encode($p['ncm']) ?>,
+                                                    cest: <?= json_encode($p['cest']) ?>,
+                                                    cfop: <?= json_encode($p['cfop']) ?>,
+                                                    origem: <?= json_encode($p['origem']) ?>,
+                                                    tributacao: <?= json_encode($p['tributacao']) ?>,
+                                                    unidade: <?= json_encode($p['unidade']) ?>,
+                                                    informacoes: <?= json_encode($p['informacoes_adicionais']) ?>
+                                                });
+                                        <?php endforeach;
+                                        endforeach; ?>
+                                        return arr;
+                                    })();
+
                                     const categoriaSelect = document.getElementById('categoriaSelect');
                                     const multiSelect = document.getElementById('multiSelect');
                                     const fixarBtn = document.getElementById('fixarBtn');
@@ -691,8 +773,15 @@ function h($s)
                                     const trocoValor = document.getElementById('trocoValor');
                                     const trocoInput = document.getElementById('troco');
 
+                                    // 🔎 refs da busca
+                                    const buscaInput = document.getElementById('buscaProduto');
+                                    const listaSugestoes = document.getElementById('listaSugestoes');
+
                                     const fixedItems = new Map();
                                     let selectedOption = null;
+
+                                    // Util: normaliza (sem acentos, minúsculo)
+                                    const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
                                     // Forma de pagamento: mostra/oculta troco
                                     formaPagamentoSelect.addEventListener('change', function() {
@@ -709,7 +798,7 @@ function h($s)
                                         fixarBtn.disabled = this.value === "" || !selectedOption;
                                     });
 
-                                    valorRecebidoInput.addEventListener('input', calcularTroco);
+                                    valorRecebidoInput && valorRecebidoInput.addEventListener('input', calcularTroco);
 
                                     function calcularTroco() {
                                         if (formaPagamentoSelect.value !== 'Dinheiro') return;
@@ -755,7 +844,7 @@ function h($s)
                                         });
                                     });
 
-                                    // Seleção de produto
+                                    // Seleção manual no select de produtos
                                     multiSelect.addEventListener('change', () => {
                                         selectedOption = multiSelect.options[multiSelect.selectedIndex];
                                         if (selectedOption && selectedOption.value) {
@@ -850,13 +939,13 @@ function h($s)
                                             const container = document.createElement('div');
                                             container.className = 'col-12 col-md-4';
                                             container.innerHTML = `
-                      <div class="fixed-item">
-                        <div class="fixed-item-content">${item.nome} (${item.quantidade}x)</div>
-                        <div class="fixed-item-actions">
-                          <button class="edit-btn" data-id="${id}" type="button"><i class="bx bx-edit"></i></button>
-                          <button class="remove-btn" data-id="${id}" type="button">×</button>
-                        </div>
-                      </div>`;
+                                                                <div class="fixed-item">
+                                                                    <div class="fixed-item-content">${item.nome} (${item.quantidade}x)</div>
+                                                                    <div class="fixed-item-actions">
+                                                                        <button class="edit-btn" data-id="${id}" type="button"><i class="bx bx-edit"></i></button>
+                                                                        <button class="remove-btn" data-id="${id}" type="button">×</button>
+                                                                    </div>
+                                                                </div>`;
                                             const editBtn = container.querySelector('.edit-btn');
                                             const removeBtn = container.querySelector('.remove-btn');
 
@@ -1015,6 +1104,130 @@ function h($s)
                                         finalizarVendaBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processando...';
 
                                         form.submit();
+                                    });
+
+                                    // ============================
+                                    // 🔎 NOVO: Busca com sugestões
+                                    // ============================
+                                    let idxAtivo = -1; // índice do item ativo (teclado)
+                                    let itensAtuais = []; // último resultado renderizado
+
+                                    const abrirSugestoes = () => {
+                                        listaSugestoes.style.display = 'block';
+                                    };
+                                    const fecharSugestoes = () => {
+                                        listaSugestoes.style.display = 'none';
+                                        listaSugestoes.innerHTML = '';
+                                        idxAtivo = -1;
+                                        itensAtuais = [];
+                                    };
+
+                                    function renderSugestoes(lista) {
+                                        itensAtuais = lista;
+                                        if (!lista.length) {
+                                            fecharSugestoes();
+                                            return;
+                                        }
+                                        const html = lista.map((p, i) => `
+                                                            <div class="item${i===0?' ativo':''}" data-id="${p.id}">
+                                                                <div class="info">
+                                                                    <span class="titulo">${p.nome}</span>
+                                                                    <span class="sub">Cód: ${p.codigo || '-'} • Cat: ${p.categoria || '-'} • Estoque: ${p.quantidade}</span>
+                                                                </div>
+                                                                <span class="tag">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</span>
+                                                            </div>
+                                                        `).join('');
+                                        listaSugestoes.innerHTML = html;
+                                        abrirSugestoes();
+                                        idxAtivo = 0;
+                                    }
+
+                                    function moverAtivo(delta) {
+                                        if (!itensAtuais.length) return;
+                                        const items = listaSugestoes.querySelectorAll('.item');
+                                        items[idxAtivo]?.classList.remove('ativo');
+                                        idxAtivo = (idxAtivo + delta + items.length) % items.length;
+                                        items[idxAtivo]?.classList.add('ativo');
+                                        // scroll into view
+                                        const el = items[idxAtivo];
+                                        const cont = listaSugestoes;
+                                        if (el.offsetTop < cont.scrollTop) cont.scrollTop = el.offsetTop;
+                                        else if (el.offsetTop + el.offsetHeight > cont.scrollTop + cont.clientHeight)
+                                            cont.scrollTop = el.offsetTop - cont.clientHeight + el.offsetHeight;
+                                    }
+
+                                    function selecionarProdutoPorId(id) {
+                                        const prod = todosProdutos.find(p => String(p.id) === String(id));
+                                        if (!prod) return;
+
+                                        // 1) Seleciona a categoria
+                                        categoriaSelect.value = prod.categoria || '';
+                                        categoriaSelect.dispatchEvent(new Event('change'));
+
+                                        // 2) Seleciona o produto no select após carregar a lista
+                                        setTimeout(() => {
+                                            let foundIndex = -1;
+                                            for (let i = 0; i < multiSelect.options.length; i++) {
+                                                if (String(multiSelect.options[i].value) === String(prod.id)) {
+                                                    foundIndex = i;
+                                                    break;
+                                                }
+                                            }
+                                            if (foundIndex >= 0) {
+                                                multiSelect.selectedIndex = foundIndex;
+                                                selectedOption = multiSelect.options[foundIndex];
+                                                quantidadeContainer.style.display = 'block';
+                                                const estoqueDisponivel = parseInt(selectedOption.dataset.estoque);
+                                                quantidadeProdutoInput.max = isFinite(estoqueDisponivel) ? estoqueDisponivel : 999999;
+                                                quantidadeProdutoInput.value = 1;
+                                                fixarBtn.disabled = formaPagamentoSelect.value === "";
+                                                buscaInput.value = prod.nome; // preenche o campo com a seleção
+                                            }
+                                        }, 0);
+
+                                        fecharSugestoes();
+                                    }
+
+                                    // Clique em item da lista
+                                    listaSugestoes.addEventListener('click', (e) => {
+                                        const item = e.target.closest('.item');
+                                        if (!item) return;
+                                        selecionarProdutoPorId(item.dataset.id);
+                                    });
+
+                                    // Eventos do campo de busca
+                                    buscaInput.addEventListener('input', () => {
+                                        const q = norm(buscaInput.value);
+                                        if (q.length < 2) {
+                                            fecharSugestoes();
+                                            return;
+                                        }
+                                        const results = todosProdutos.filter(p =>
+                                            norm(p.nome).includes(q) || norm(p.codigo).includes(q)
+                                        ).slice(0, 20);
+                                        renderSugestoes(results);
+                                    });
+
+                                    buscaInput.addEventListener('keydown', (e) => {
+                                        if (listaSugestoes.style.display !== 'block') return;
+                                        if (e.key === 'ArrowDown') {
+                                            e.preventDefault();
+                                            moverAtivo(1);
+                                        } else if (e.key === 'ArrowUp') {
+                                            e.preventDefault();
+                                            moverAtivo(-1);
+                                        } else if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            const ativo = listaSugestoes.querySelectorAll('.item')[idxAtivo];
+                                            if (ativo) selecionarProdutoPorId(ativo.dataset.id);
+                                        } else if (e.key === 'Escape') {
+                                            fecharSugestoes();
+                                        }
+                                    });
+
+                                    // Fecha ao clicar fora
+                                    document.addEventListener('click', (e) => {
+                                        if (!listaSugestoes.contains(e.target) && e.target !== buscaInput) fecharSugestoes();
                                     });
                                 </script>
                                 <!-- /JS do formulário -->
