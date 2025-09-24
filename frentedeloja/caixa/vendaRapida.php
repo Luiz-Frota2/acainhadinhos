@@ -242,13 +242,12 @@ function h($s)
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item"><a href="../sistemadeponto/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">Sistema de Ponto</div>
-                        </a></li>
-                    <li class="menu-item"><a href="../Delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
-                            <div data-i18n="Basic">Delivery</div>
-                        </a></li>
+                        </a>
+                    </li>
                     <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
                             <div data-i18n="Basic">Suporte</div>
-                        </a></li>
+                        </a>
+                    </li>
                 </ul>
             </aside>
             <!-- / Menu -->
