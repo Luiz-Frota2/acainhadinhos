@@ -180,10 +180,6 @@ try {
               <i class="menu-icon tf-icons bx bx-desktop"></i>
               <div data-i18n="Authentications">PDV</div>
             </a>
-            <a href="./delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Delivery</div>
-            </a>
             <a href="./empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="Authentications">Empresa</div>
