@@ -472,10 +472,6 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
                     <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div data-i18n="Authentications">PDV</div>
                         </a></li>
-                    <li class="menu-item"><a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
-                            <div data-i18n="Authentications">Delivery</div>
-                        </a>
-                    </li>
                     <li class="menu-item">
                         <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
