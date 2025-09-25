@@ -327,9 +327,21 @@ try {
             </a>
           </li>
           <li class="menu-item">
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
+            </a>
+          </li>
+          <li class="menu-item">
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
               <div data-i18n="Authentications">Estoque</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-store"></i>
+              <div data-i18n="Authentications">Franquias</div>
             </a>
           </li>
           <li class="menu-item">
@@ -483,11 +495,11 @@ try {
                           <span class="mx-2">|</span>
 
                           <!-- Editar (abre modal) -->
-<button class="btn btn-link text-primary p-0" title="Editar"
-        data-bs-toggle="modal"
-        data-bs-target="#editarFilialModal_<?php echo $filial['id']; ?>">
-  <i class="tf-icons bx bx-edit"></i>
-</button>
+                          <button class="btn btn-link text-primary p-0" title="Editar"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editarFilialModal_<?php echo $filial['id']; ?>">
+                            <i class="tf-icons bx bx-edit"></i>
+                          </button>
 
                           <span class="mx-2">|</span>
 
@@ -558,15 +570,15 @@ try {
                                     <div class="col-md-3">
                                       <label class="form-label">Tipo</label>
                                       <select name="tipo" class="form-select" required>
-                                        <option value="Franquia" <?= $filial['tipo']==='Franquia'?'selected':''; ?>>Franquia</option>
-                                        <option value="Filial"   <?= $filial['tipo']==='Filial'  ?'selected':''; ?>>Filial</option>
+                                        <option value="Franquia" <?= $filial['tipo'] === 'Franquia' ? 'selected' : ''; ?>>Franquia</option>
+                                        <option value="Filial" <?= $filial['tipo'] === 'Filial'  ? 'selected' : ''; ?>>Filial</option>
                                       </select>
                                     </div>
                                     <div class="col-md-3">
                                       <label class="form-label">Status</label>
                                       <select name="status" class="form-select" required>
-                                        <option value="Ativa"   <?= $filial['status']==='Ativa'  ?'selected':''; ?>>Ativa</option>
-                                        <option value="Inativa" <?= $filial['status']==='Inativa'?'selected':''; ?>>Inativa</option>
+                                        <option value="Ativa" <?= $filial['status'] === 'Ativa'  ? 'selected' : ''; ?>>Ativa</option>
+                                        <option value="Inativa" <?= $filial['status'] === 'Inativa' ? 'selected' : ''; ?>>Inativa</option>
                                       </select>
                                     </div>
                                     <div class="col-md-4">
