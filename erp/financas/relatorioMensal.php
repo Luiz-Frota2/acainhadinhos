@@ -509,11 +509,6 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
                     <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-desktop"></i>
                             <div>PDV</div>
                         </a></li>
-                    <li class="menu-item"><a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
-                            <div>Delivery</div>
-                        </a>
-                    </li>
-
                     <li class="menu-item">
                         <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
