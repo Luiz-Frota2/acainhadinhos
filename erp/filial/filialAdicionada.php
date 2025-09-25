@@ -224,49 +224,49 @@ try {
 
               <!-- Produtos solicitados pelas filiais -->
               <li class="menu-item">
-                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./produtosSolicitadosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a>
               </li>
 
               <!-- Produtos enviados pela matriz -->
               <li class="menu-item">
-                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./produtosEnviadosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Enviados</div>
                 </a>
               </li>
 
               <!-- Transferências em andamento -->
               <li class="menu-item">
-                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./transferenciasPendentesFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Transf. Pendentes</div>
                 </a>
               </li>
 
               <!-- Histórico de transferências -->
               <li class="menu-item">
-                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./historicoTransferenciasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Histórico Transf.</div>
                 </a>
               </li>
 
               <!-- Gestão de Estoque Central -->
               <li class="menu-item">
-                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./estoqueMatrizFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Estoque Matriz</div>
                 </a>
               </li>
 
               <!-- Configurações de Política de Envio -->
               <li class="menu-item">
-                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./politicasEnvioFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Política de Envio</div>
                 </a>
               </li>
 
               <!-- Relatórios e indicadores B2B -->
               <li class="menu-item">
-                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./relatoriosFiliaisB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Relatórios B2B</div>
                 </a>
               </li>
@@ -286,21 +286,16 @@ try {
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="MaisVendidos">Mais Vendidos</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Pedidos">Vendas por Período</div>
                 </a>
               </li>
 
-              <li class="menu-item">
-                <a href="./FinanceiroFilial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Financeiro">Financeiro</div>
-                </a>
-              </li>
             </ul>
           </li>
 
