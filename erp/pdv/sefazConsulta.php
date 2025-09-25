@@ -373,10 +373,6 @@ function statusBadgeClass($cStat): string
                             <div>Finanças</div>
                         </a>
                     </li>
-                    <li class="menu-item"><a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
-                            <div>Delivery</div>
-                        </a>
-                    </li>
                     <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div>Empresa</div>
                         </a>
