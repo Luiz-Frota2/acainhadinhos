@@ -326,12 +326,7 @@ try {
               <div data-i18n="Authentications">PDV</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Delivery</div>
-            </a>
-          </li>
+         
           <li class="menu-item">
             <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-box"></i>
