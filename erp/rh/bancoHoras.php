@@ -400,12 +400,6 @@ unset($d);
             </a>
           </li>
           <li class="menu-item">
-            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Delivery</div>
-            </a>
-          </li>
-          <li class="menu-item">
             <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="Authentications">Empresa</div>

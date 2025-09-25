@@ -211,7 +211,8 @@ $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
             <ul class="menu-sub">
               <li class="menu-item"><a href="./setoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Adicionados</div>
-                </a></li>
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -223,12 +224,14 @@ $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
             <ul class="menu-sub">
               <li class="menu-item"><a href="./funcionarioAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Adicionados</div>
-                </a></li>
+                </a>
+              </li>
             </ul>
             <ul class="menu-sub">
               <li class="menu-item active"><a href="#" class="menu-link">
                   <div><?= $ehEdicao ? 'Editar Funcionário' : 'Adicionar Funcionário' ?></div>
-                </a></li>
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -240,19 +243,24 @@ $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
             <ul class="menu-sub">
               <li class="menu-item"><a href="./escalaAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Escalas Adicionadas</div>
-                </a></li>
+                </a>
+              </li>
               <li class="menu-item"><a href="./adicionarPonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Adicionar Ponto</div>
-                </a></li>
+                </a>
+              </li>
               <li class="menu-item"><a href="./ajustePonto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Ajuste de Ponto</div>
-                </a></li>
+                </a>
+              </li>
               <li class="menu-item"><a href="./ajusteFolga.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Ajuste de Folga</div>
-                </a></li>
+                </a>
+              </li>
               <li class="menu-item"><a href="./atestadosFuncionarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Atestados</div>
-                </a></li>
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -264,16 +272,20 @@ $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
             <ul class="menu-sub">
               <li class="menu-item"><a href="./relatorio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Visualização Geral</div>
-                </a></li>
+                </a>
+              </li>
               <li class="menu-item"><a href="./bancoHoras.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Banco de Horas</div>
-                </a></li>
+                </a>
+              </li>
               <li class="menu-item"><a href="./frequencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Frequência</div>
-                </a></li>
+                </a>
+              </li>
               <li class="menu-item"><a href="./frequenciaGeral.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Frequência Geral</div>
-                </a></li>
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -281,19 +293,23 @@ $dias = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
 
           <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i>
               <div>Finanças</div>
-            </a></li>
+            </a>
+          </li>
+
           <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i>
               <div>PDV</div>
-            </a></li>
-          <li class="menu-item"><a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-cart"></i>
-              <div>Delivery</div>
-            </a></li>
+            </a>
+          </li>
+
           <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div>Empresa</div>
-            </a></li>
+            </a>
+          </li>
+
           <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i>
               <div>Estoque</div>
-            </a></li>
+            </a>
+          </li>
 
           <?php
           $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
