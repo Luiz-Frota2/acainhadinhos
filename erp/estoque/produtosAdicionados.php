@@ -151,8 +151,8 @@ try {
   <!-- Layout wrapper -->
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
-      <!-- Menu -->
 
+      <!-- Menu -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -191,6 +191,17 @@ try {
               <div data-i18n="Basic">Produtos</div>
             </a>
 
+            <ul class="menu-sub">
+              <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
+              <li class="menu-item active">
+                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Produtos Adicionados</div>
+                </a>
+              </li>
+
+            </ul>
+          </li>
+
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-cart"></i>
@@ -203,17 +214,6 @@ try {
                 </a>
               </li>
             </ul>
-          </li>
-
-          <ul class="menu-sub">
-            <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
-            <li class="menu-item active">
-              <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                <div data-i18n="Basic">Produtos Adicionados</div>
-              </a>
-            </li>
-
-          </ul>
           </li>
 
           <!-- Relatórios -->
