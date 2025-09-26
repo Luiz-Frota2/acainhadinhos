@@ -180,7 +180,7 @@ try {
 
           <!-- SEÇÃO ADMINISTRATIVO -->
           <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">PDV</span>
+            <span class="menu-header-text">Estoque</span>
           </li>
 
           <!-- ESTOQUE COM SUBMENU -->
@@ -188,7 +188,7 @@ try {
 
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-box"></i>
-              <div data-i18n="Basic">Estoque</div>
+              <div data-i18n="Basic">Produtos</div>
             </a>
 
             <ul class="menu-sub">
@@ -198,114 +198,103 @@ try {
                   <div data-i18n="Basic">Produtos Adicionados</div>
                 </a>
               </li>
-              <!-- Estoque Baixo -->
-              <li class="menu-item">
-                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Estoque Baixo</div>
-                </a>
-              </li>
-              <!-- Estoque Alto -->
-              <li class="menu-item">
-                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Estoque Alto</div>
-                </a>
-              </li>
+              
             </ul>
           </li>
 
-
-          <!-- SUBMENU: RELATÓRIOS -->
+          <!-- Relatórios -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-file"></i>
-              <div data-i18n="Authentications">Relatórios</div>
+              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+              <div data-i18n="Relatorios">Relatórios</div>
             </a>
             <ul class="menu-sub">
-              <!-- Relatório Operacional: Desempenho de operações -->
               <li class="menu-item">
-                <a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Operacional</div>
+                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="BaixoEstoque">Estoque Alto</div>
                 </a>
               </li>
-              <!-- Relatório de Vendas: Estatísticas e resumo de vendas -->
               <li class="menu-item">
-                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Vendas</div>
+                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                 </a>
               </li>
             </ul>
+          </li>
 
-            <!-- Misc -->
-          <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-          <li class="menu-item">
-            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-group"></i>
-              <div data-i18n="Authentications">RH</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-dollar"></i>
-              <div data-i18n="Authentications">Finanças</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div data-i18n="Authentications">Empresa</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-box"></i>
-              <div data-i18n="Authentications">Estoque</div>
-            </a>
-          </li>
-          <?php
-          $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
-          $idLogado = $_SESSION['empresa_id'] ?? '';
+        </ul>
 
-          // Se for matriz (principal), mostrar links para filial, franquia e unidade
-          if ($tipoLogado === 'principal') {
-          ?>
-            <li class="menu-item">
-              <a href="../filial/index.php?id=principal_1" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-building"></i>
-                <div data-i18n="Authentications">Filial</div>
-              </a>
-            </li>
-            <li class="menu-item">
-              <a href="../franquia/index.php?id=principal_1" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-store"></i>
-                <div data-i18n="Authentications">Franquias</div>
-              </a>
-            </li>
-          <?php
-          } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
-            // Se for filial, franquia ou unidade, mostra link para matriz
-          ?>
-            <li class="menu-item">
-              <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-cog"></i>
-                <div data-i18n="Authentications">Matriz</div>
-              </a>
-            </li>
-          <?php
-          }
-          ?>
+        <!-- Misc -->
+        <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+        <li class="menu-item">
+          <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <i class="menu-icon tf-icons bx bx-group"></i>
+            <div data-i18n="Authentications">RH</div>
+          </a>
+        </li>
+        <li class="menu-item">
+          <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <i class="menu-icon tf-icons bx bx-dollar"></i>
+            <div data-i18n="Authentications">Finanças</div>
+          </a>
+        </li>
+        <li class="menu-item">
+          <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+            <div data-i18n="Authentications">Empresa</div>
+          </a>
+        </li>
+        <li class="menu-item">
+          <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <i class="menu-icon tf-icons bx bx-box"></i>
+            <div data-i18n="Authentications">Estoque</div>
+          </a>
+        </li>
+        <?php
+        $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+        $idLogado = $_SESSION['empresa_id'] ?? '';
+
+        // Se for matriz (principal), mostrar links para filial, franquia e unidade
+        if ($tipoLogado === 'principal') {
+        ?>
           <li class="menu-item">
-            <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-group"></i>
-              <div data-i18n="Authentications">Usuários </div>
+            <a href="../filial/index.php?id=principal_1" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-building"></i>
+              <div data-i18n="Authentications">Filial</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-support"></i>
-              <div data-i18n="Basic">Suporte</div>
+            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-store"></i>
+              <div data-i18n="Authentications">Franquias</div>
             </a>
           </li>
-          <!--/MISC-->
+        <?php
+        } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) {
+          // Se for filial, franquia ou unidade, mostra link para matriz
+        ?>
+          <li class="menu-item">
+            <a href="../matriz/index.php?id=<?= urlencode($idLogado) ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-cog"></i>
+              <div data-i18n="Authentications">Matriz</div>
+            </a>
+          </li>
+        <?php
+        }
+        ?>
+        <li class="menu-item">
+          <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <i class="menu-icon tf-icons bx bx-group"></i>
+            <div data-i18n="Authentications">Usuários </div>
+          </a>
+        </li>
+        <li class="menu-item">
+          <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
+            <i class="menu-icon tf-icons bx bx-support"></i>
+            <div data-i18n="Basic">Suporte</div>
+          </a>
+        </li>
+        <!--/MISC-->
         </ul>
       </aside>
       <!-- / Menu -->
