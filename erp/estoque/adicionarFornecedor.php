@@ -232,6 +232,12 @@ try {
             </a>
           </li>
           <li class="menu-item">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-dollar"></i>
+              <div data-i18n="Authentications">Finanças</div>
+            </a>
+          </li>
+          <li class="menu-item">
             <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-desktop"></i>
               <div data-i18n="Authentications">PDV</div>
