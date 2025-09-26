@@ -445,7 +445,7 @@ $fimTxt = $fim->format('d/m/Y');
             <span class="menu-header-text">Estoque</span>
           </li>
 
-          <li class="menu-item active">
+          <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Fornecedores</div>
