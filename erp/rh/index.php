@@ -702,8 +702,8 @@ $fimTxt = $fim->format('d/m/Y');
                 <div class="d-flex align-items-end row">
                   <div class="col-sm-7">
                     <div class="card-body">
-                      <h5 class="card-title text-primary saudacao" data-setor="PDV"></h5>
-                      <p class="mb-4">Suas configurações do PDV foram atualizadas em seu perfil. Continue
+                      <h5 class="card-title text-primary saudacao" data-setor="Recursos Humanos"></h5>
+                      <p class="mb-4">Suas configurações de Recursos Humanos foram atualizadas em seu perfil. Continue
                         explorando e ajustando-as conforme suas preferências.</p>
 
                     </div>
