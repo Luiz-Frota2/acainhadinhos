@@ -202,108 +202,61 @@ try {
             </a>
           </li>
 
-          <!-- SEÇÃO ADMINISTRATIVO -->
+          <!-- Administração de Filiais -->
           <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">Administrativo</span>
+            <span class="menu-header-text">Estoque</span>
           </li>
 
-          <!-- SUBMENU: SEFAZ -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-file"></i>
-              <div data-i18n="Authentications">SEFAZ</div>
+              <i class="menu-icon tf-icons bx bx-cart"></i>
+              <div data-i18n="Authentications">Fornecedores</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item">
-                <a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">NFC-e</div>
-                </a>
-              </li>
-              <li class="menu-item">
-                <a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Status</div>
-                </a>
-              </li>
-              <li class="menu-item">
-                <a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Consulta</div>
+              <li class="menu-item"><a href="./fornecedoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div>Adicionados</div>
                 </a>
               </li>
             </ul>
           </li>
 
-          <!-- SUBMENU: CAIXA -->
+          <!-- Estoque -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Caixas</div>
+              <i class="menu-icon tf-icons bx bx-package"></i>
+              <div data-i18n="Estoque">Produtos</div>
             </a>
             <ul class="menu-sub">
-              <!-- Caixa Aberto: Visualização de caixas abertos -->
-              <li class="menu-item">
-                <a href="./caixasAberto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Caixas Aberto</div>
-                </a>
-              </li>
-              <!-- Caixa Fechado: Histórico ou controle de caixas encerrados -->
-              <li class="menu-item">
-                <a href="./caixasFechado.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Caixas Fechado</div>
-                </a>
-              </li>
-            </ul>
-          </li>
-          <!-- ESTOQUE COM SUBMENU -->
-          <li class="menu-item active open">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-box"></i>
-              <div data-i18n="Basic">Estoque</div>
-            </a>
-            <ul class="menu-sub">
-              <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
               <li class="menu-item">
                 <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Produtos Adicionados</div>
-                </a>
-              </li>
-              <!-- Estoque Baixo -->
-              <li class="menu-item">
-                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Estoque Baixo</div>
-                </a>
-              </li>
-              <!-- Estoque Alto -->
-              <li class="menu-item active">
-                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Estoque Alto</div>
+                  <div data-i18n="Produtos">Adicionados</div>
                 </a>
               </li>
             </ul>
           </li>
 
-
-          <!-- SUBMENU: RELATÓRIOS -->
-          <li class="menu-item">
+          <!-- Relatórios -->
+          <li class="menu-item open active">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-file"></i>
-              <div data-i18n="Authentications">Relatórios</div>
+              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+              <div data-i18n="Relatorios">Relatórios</div>
             </a>
-            <ul class="menu-sub">
-              <!-- Relatório Operacional: Desempenho de operações -->
-              <li class="menu-item">
-                <a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Operacional</div>
+            <ul class="menu-sub active">
+              <li class="menu-item active">
+                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="BaixoEstoque">Estoque Alto</div>
                 </a>
               </li>
-              <!-- Relatório de Vendas: Estatísticas e resumo de vendas -->
               <li class="menu-item">
-                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Vendas</div>
+                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                 </a>
               </li>
             </ul>
+          </li>
 
-            <!-- Misc -->
+          <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
             <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
