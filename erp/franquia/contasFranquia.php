@@ -362,39 +362,16 @@ try {
         <!-- /Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-         
+          <h4 class="fw-bold mb-0">
+            <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
+            Pagamentos Solicitados
+          </h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font">
             <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das franquias</span>
           </h5>
 
           <!-- Toolbar / Filtros (HTML estático por enquanto) -->
-          <div class="card mb-3">
-            <div class="card-body d-flex flex-wrap toolbar">
-              <select class="form-select me-2">
-                <option value="">Status: Todos</option>
-                <option>Pendente</option>
-                <option>Em Análise</option>
-                <option>Aprovado</option>
-                <option>Recusado</option>
-              </select>
-              <select class="form-select me-2">
-                <option value="">Tipo: Todos</option>
-                <option>Fatura Produtos</option>
-                <option>Serviço Logístico</option>
-                <option>Outros</option>
-              </select>
-              <input type="date" class="form-control me-2" placeholder="De">
-              <input type="date" class="form-control me-2" placeholder="Até">
-              <button class="btn btn-outline-secondary">Aplicar</button>
-              <div class="ms-auto d-flex align-items-center" style="gap:.75rem;">
-                <span class="badge bg-label-warning badge-dot">Pendente</span>
-                <span class="badge bg-label-info badge-dot">Em Análise</span>
-                <span class="badge bg-label-success badge-dot">Aprovado</span>
-                <span class="badge bg-label-danger badge-dot">Recusado</span>
-              </div>
-            </div>
-          </div>
-
+         
           <!-- Tabela (HTML mock) -->
           <div class="card">
             <h5 class="card-header">Lista de Pagamentos Solicitados</h5>
