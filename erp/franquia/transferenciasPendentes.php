@@ -364,9 +364,6 @@ try {
                             <li class="menu-item"><a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a></li>
-                            <li class="menu-item"><a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Política de Envio</div>
-                                </a></li>
                             <li class="menu-item"><a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
                                 </a></li>
