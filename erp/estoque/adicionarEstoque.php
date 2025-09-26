@@ -29,7 +29,7 @@ require '../../assets/php/conexao.php';
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id  = (int)$_SESSION['usuario_id'];
 
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -50,9 +50,9 @@ try {
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$idEmpresaSession = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
+$acessoPermitido   = false;
+$idEmpresaSession  = (string)$_SESSION['empresa_id'];
+$tipoSession       = (string)$_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
     $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
@@ -86,6 +86,18 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
+// ✅ Carregar fornecedores da empresa logada
+$fornecedores = [];
+try {
+    $sf = $pdo->prepare("SELECT id, nome_fornecedor, cnpj_fornecedor 
+                         FROM fornecedores 
+                         WHERE empresa_id = :empresa 
+                         ORDER BY nome_fornecedor");
+    $sf->execute([':empresa' => $idEmpresaSession]);
+    $fornecedores = $sf->fetchAll(PDO::FETCH_ASSOC) ?: [];
+} catch (PDOException $e) {
+    $fornecedores = [];
+}
 ?>
 
 <!DOCTYPE html>
@@ -400,6 +412,28 @@ try {
                                 <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
 
                                 <div class="row">
+                                    <!-- ===== Fornecedor ===== -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                        <label for="fornecedor_id" class="form-label">Fornecedor*</label>
+                                        <select class="form-select" id="fornecedor_id" name="fornecedor_id" required <?php echo empty($fornecedores) ? 'disabled' : ''; ?>>
+                                            <?php if (empty($fornecedores)): ?>
+                                                <option value="">Nenhum fornecedor cadastrado para esta empresa</option>
+                                            <?php else: ?>
+                                                <option value="">Selecione...</option>
+                                                <?php foreach ($fornecedores as $f): ?>
+                                                    <option value="<?php echo (int)$f['id']; ?>">
+                                                        <?php
+                                                        echo htmlspecialchars($f['nome_fornecedor'] . ' — ' . $f['cnpj_fornecedor']);
+                                                        ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </select>
+                                        <?php if (empty($fornecedores)): ?>
+                                            <small class="text-muted">Cadastre um fornecedor primeiro para poder vincular ao produto.</small>
+                                        <?php endif; ?>
+                                    </div>
+
                                     <!-- Dados básicos do produto -->
                                     <div class="mb-3 col-12 col-md-6">
                                         <label for="codigo_produto" class="form-label">Código do Produto (GTIN/EAN)</label>
@@ -503,7 +537,7 @@ try {
                                         </select>
                                     </div>
 
-                                    <!-- Campos adicionados que estavam faltando -->
+                                    <!-- Campos adicionais -->
                                     <div class="mb-3 col-12 col-md-6">
                                         <label for="codigo_barras" class="form-label">Código de Barras</label>
                                         <input type="text" class="form-control" id="codigo_barras" name="codigo_barras"
@@ -554,10 +588,13 @@ try {
                                     </div>
 
                                     <div class="d-flex custom-button">
-                                        <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto">Salvar Produto</button>
+                                        <button type="submit" class="btn btn-primary col-12 w-100 col-md-auto" <?php echo empty($fornecedores) ? 'disabled' : ''; ?>>
+                                            Salvar Produto
+                                        </button>
                                     </div>
                                 </div>
                             </form>
+
                         </div>
                     </div>
 
