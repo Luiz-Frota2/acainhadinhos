@@ -182,7 +182,7 @@ try {
                                     <div data-i18n="Filiais">Adicionadas</div>
                                 </a>
                             </li>
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./franquiasAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Filiais">Adicionar Franquia</div>
                                 </a>
@@ -232,7 +232,7 @@ try {
                             </li>
 
                             <!-- Gestão de Estoque Central -->
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a>
