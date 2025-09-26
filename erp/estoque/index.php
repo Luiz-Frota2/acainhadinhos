@@ -451,7 +451,7 @@ $fimTxt = $fim->format('d/m/Y');
               <div data-i18n="Authentications">Fornecedores</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+              <li class="menu-item"><a href="./fornecedoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
                   class="menu-link">
                   <div>Adicionados</div>
                 </a>
