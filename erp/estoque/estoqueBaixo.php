@@ -274,12 +274,6 @@ try {
               <div data-i18n="Authentications">Empresa</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-box"></i>
-              <div data-i18n="Authentications">Estoque</div>
-            </a>
-          </li>
           <?php
           $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
           $idLogado = $_SESSION['empresa_id'] ?? '';
