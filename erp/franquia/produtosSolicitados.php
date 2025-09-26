@@ -162,14 +162,14 @@ try {
             <ul class="menu-sub">
               <!-- Contas das Filiais -->
               <li class="menu-item">
-                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./contasFraquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a>
               </li>
 
               <!-- Produtos solicitados pelas filiais -->
               <li class="menu-item active">
-                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="#?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a>
               </li>
@@ -371,32 +371,7 @@ try {
           </h5>
 
           <!-- Toolbar / Filtros (HTML estático por enquanto) -->
-          <div class="card mb-3">
-            <div class="card-body d-flex flex-wrap toolbar">
-              <select class="form-select me-2">
-                <option value="">Status: Todos</option>
-                <option>Aguardando</option>
-                <option>Em Separação</option>
-                <option>Enviado</option>
-                <option>Cancelado</option>
-              </select>
-              <select class="form-select me-2">
-                <option value="">Prioridade: Todas</option>
-                <option>Baixa</option>
-                <option>Média</option>
-                <option>Alta</option>
-              </select>
-              <input type="text" class="form-control me-2" placeholder="Buscar por SKU ou Produto">
-              <input type="date" class="form-control me-2" placeholder="De">
-              <input type="date" class="form-control me-2" placeholder="Até">
-              <button class="btn btn-outline-secondary">Aplicar</button>
-              <div class="ms-auto d-flex align-items-center" style="gap:.75rem;">
-                <span class="badge bg-label-danger badge-dot">Alta</span>
-                <span class="badge bg-label-warning badge-dot">Média</span>
-                <span class="badge bg-label-info badge-dot">Baixa</span>
-              </div>
-            </div>
-          </div>
+       
 
           <!-- Tabela (HTML mock) -->
           <div class="card">
