@@ -190,26 +190,6 @@ try {
                                     <div data-i18n="Basic">Adicionar Produto </div>
                                 </a>
                             </li>
-                            <!-- Estoque Baixo -->
-                            <!-- Relatórios -->
-                            <li class="menu-item">
-                                <a href="javascript:void(0);" class="menu-link menu-toggle">
-                                    <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-                                    <div data-i18n="Relatorios">Relatórios</div>
-                                </a>
-                                <ul class="menu-sub">
-                                    <li class="menu-item">
-                                        <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                            <div data-i18n="BaixoEstoque">Estoque Alto</div>
-                                        </a>
-                                    </li>
-                                    <li class="menu-item">
-                                        <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                            <div data-i18n="BaixoEstoque">Estoque Baixo</div>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </li>
                         </ul>
                     </li>
 
@@ -221,17 +201,14 @@ try {
                             <div data-i18n="Authentications">Relatórios</div>
                         </a>
                         <ul class="menu-sub">
-                            <!-- Relatório Operacional: Desempenho de operações -->
                             <li class="menu-item">
-                                <a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div data-i18n="Basic">Operacional</div>
+                                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="BaixoEstoque">Estoque Alto</div>
                                 </a>
                             </li>
-                            <!-- Relatório de Vendas: Estatísticas e resumo de vendas -->
                             <li class="menu-item">
-                                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Basic">Vendas</div>
+                                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="BaixoEstoque">Estoque Baixo</div>
                                 </a>
                             </li>
                         </ul>
