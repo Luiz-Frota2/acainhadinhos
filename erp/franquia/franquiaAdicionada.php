@@ -141,8 +141,7 @@ try {
       <!-- Menu -->
       <?php
 
-      declare(strict_types=1);
-      if (session_status() === PHP_SESSION_NONE) session_start();
+    
 
       // garantir que $idSelecionado exista
       $idSelecionado = $_GET['id'] ?? ($idSelecionado ?? '');
