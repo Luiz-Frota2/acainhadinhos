@@ -448,7 +448,7 @@ try {
                                     </div>
 
                                     <!-- Dados fiscais -->
-                                    <div class="mb-3 col-12 col-md-4">
+                                    <div class="mb-3 col-12 col-md-6">
                                         <label for="ncm_produto" class="form-label">NCM*</label>
                                         <input type="text" class="form-control" id="ncm_produto" name="ncm_produto"
                                             placeholder="Código NCM (8 dígitos)" required />
@@ -489,7 +489,7 @@ try {
                                         </select>
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-4">
+                                    <div class="mb-3 col-12 col-md-6">
                                         <label for="unidade_produto" class="form-label">Unidade*</label>
                                         <select class="form-select" id="unidade_produto" name="unidade_produto" required>
                                             <option value="">Selecione...</option>
