@@ -139,21 +139,204 @@ try {
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
       <!-- Menu -->
-      <?php
 
-    
+      <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+        <div class="app-brand demo">
+          <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-      // garantir que $idSelecionado exista
-      $idSelecionado = $_GET['id'] ?? ($idSelecionado ?? '');
+            <span class="app-brand-text demo menu-text fw-bolder ms-2"
+              style=" text-transform: capitalize;">Açaínhadinhos</span>
 
-      // se quiser exibir o nome da empresa no topo do menu
-      $empresaNome = $_SESSION['empresa_nome'] ?? 'Açaínhadinhos';
+          </a>
 
-      // inclui o menu lateral
-      require_once __DIR__ . '../layout/menu.php';
-      ?>
+          <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+            <i class="bx bx-chevron-left bx-sm align-middle"></i>
+          </a>
+        </div>
 
+        <div class="menu-inner-shadow"></div>
 
+        <ul class="menu-inner py-1">
+          <!-- Dashboard -->
+          <li class="menu-item">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-home-circle"></i>
+              <div data-i18n="Analytics">Dashboard</div>
+            </a>
+          </li>
+
+          <!-- Administração de Filiais -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Administração Franquias</span>
+          </li>
+
+          <!-- Adicionar Filial -->
+          <li class="menu-item active open">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-building"></i>
+              <div data-i18n="Adicionar">Franquias</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item active">
+                <a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Filiais">Adicionadas</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="B2B">B2B - Matriz</div>
+            </a>
+            <ul class="menu-sub">
+              <!-- Contas das Filiais -->
+              <li class="menu-item">
+                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Pagamentos Solic.</div>
+                </a>
+              </li>
+
+              <!-- Produtos solicitados pelas filiais -->
+              <li class="menu-item">
+                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Solicitados</div>
+                </a>
+              </li>
+
+              <!-- Produtos enviados pela matriz -->
+              <li class="menu-item">
+                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Enviados</div>
+                </a>
+              </li>
+
+              <!-- Transferências em andamento -->
+              <li class="menu-item">
+                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Transf. Pendentes</div>
+                </a>
+              </li>
+
+              <!-- Histórico de transferências -->
+              <li class="menu-item">
+                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Histórico Transf.</div>
+                </a>
+              </li>
+
+              <!-- Gestão de Estoque Central -->
+              <li class="menu-item">
+                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Estoque Matriz</div>
+                </a>
+              </li>
+
+              <!-- Configurações de Política de Envio -->
+              <li class="menu-item">
+                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Política de Envio</div>
+                </a>
+              </li>
+
+              <!-- Relatórios e indicadores B2B -->
+              <li class="menu-item">
+                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Relatórios B2B</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Relatórios -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+              <div data-i18n="Relatorios">Relatórios</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Vendas">Vendas por Franquias</div>
+                </a>
+              </li>
+
+              <li class="menu-item">
+                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="MaisVendidos">Mais Vendidos</div>
+                </a>
+              </li>
+
+              <li class="menu-item">
+                <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Pedidos">Vendas por Período</div>
+                </a>
+              </li>
+
+              <li class="menu-item">
+                <a href="./FinanceiroFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Financeiro">Financeiro</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!--END DELIVERY-->
+
+          <!-- Misc -->
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+          <li class="menu-item">
+            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-group"></i>
+              <div data-i18n="Authentications">RH</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-dollar"></i>
+              <div data-i18n="Authentications">Finanças</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-desktop"></i>
+              <div data-i18n="Authentications">PDV</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div data-i18n="Authentications">Empresa</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-box"></i>
+              <div data-i18n="Authentications">Estoque</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../filial/index.php?id=principal_1" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-building"></i>
+              <div data-i18n="Authentications">Filial</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-group"></i>
+              <div data-i18n="Authentications">Usuários </div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-support"></i>
+              <div data-i18n="Basic">Suporte</div>
+            </a>
+          </li>
+          <!--/MISC-->
+        </ul>
+      </aside>
       <!-- / Menu -->
 
       <!-- Layout container -->
