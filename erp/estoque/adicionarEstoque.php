@@ -183,13 +183,6 @@ try {
                         <span class="menu-header-text">Estoque</span>
                     </li>
 
-                    <!-- ESTOQUE COM SUBMENU -->
-                    <li class="menu-item active open">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-box"></i>
-                            <div data-i18n="Basic">Produtos</div>
-                        </a>
-
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-cart"></i>
@@ -204,22 +197,28 @@ try {
                         </ul>
                     </li>
 
-                    <ul class="menu-sub">
-                        <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
-                        <li class="menu-item ">
-                            <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
-                                class="menu-link">
-                                <div data-i18n="Basic">Produtos Adicionados</div>
-                            </a>
-                        </li>
-                        <li class="menu-item active">
-                            <a href="./adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div data-i18n="Basic">Adicionar Produto </div>
-                            </a>
-                        </li>
-                    </ul>
-                    </li>
+                    <!-- ESTOQUE COM SUBMENU -->
+                    <li class="menu-item active open">
 
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-box"></i>
+                            <div data-i18n="Basic">Produtos</div>
+                        </a>
+
+                        <ul class="menu-sub">
+                            <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
+                            <li class="menu-item">
+                                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Basic">Produtos Adicionados</div>
+                                </a>
+                            </li>
+                            <li class="menu-item active">
+                                <a href="./adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Basic">Adicionar Produto </div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
 
                     <!-- SUBMENU: RELATÓRIOS -->
                     <li class="menu-item">
