@@ -394,7 +394,7 @@ try {
           <div class="card">
             <h5 class="card-header">Cadastrar novo Fornecedor</h5>
             <div class="card-body">
-              <form id="addFornecedorForm" action="../../assets/php/financas/adicionarFornecedor.php" method="POST">
+              <form id="addFornecedorForm" action="../../assets/php/estoque/adicionarFornecedor.php" method="POST">
 
                 <!-- Campo oculto para ID da empresa -->
                 <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>" />

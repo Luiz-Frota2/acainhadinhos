@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->execute()) {
             echo '<script>
                 alert("Fornecedor adicionado com sucesso!");
-                window.location.href = "../../../erp/financas/controleFornecedores.php?id=' . urlencode($empresa_id) . '";
+                window.location.href = "../../../erp/estoque/fornecedoresAdicionados.php?id=' . urlencode($empresa_id) . '";
             </script>';
         } else {
             throw new Exception("Erro ao executar a inserção.");
