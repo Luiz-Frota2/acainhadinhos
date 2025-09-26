@@ -349,27 +349,6 @@ if ($pfxPath) {
                         </ul>
                     </li>
 
-                    <!-- Estoque -->
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-box"></i>
-                            <div>Estoque</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item"><a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Produtos Adicionados</div>
-                                </a>
-                            </li>
-                            <li class="menu-item"><a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Estoque Baixo</div>
-                                </a>
-                            </li>
-                            <li class="menu-item"><a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Estoque Alto</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
 
                     <!-- Relatórios -->
                     <li class="menu-item">

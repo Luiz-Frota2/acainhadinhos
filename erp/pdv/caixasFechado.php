@@ -264,34 +264,6 @@ try {
               </li>
             </ul>
           </li>
-          <!-- ESTOQUE COM SUBMENU -->
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-box"></i>
-              <div data-i18n="Basic">Estoque</div>
-            </a>
-            <ul class="menu-sub">
-              <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
-              <li class="menu-item">
-                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Produtos Adicionados</div>
-                </a>
-              </li>
-              <!-- Estoque Baixo -->
-              <li class="menu-item">
-                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Estoque Baixo</div>
-                </a>
-              </li>
-              <!-- Estoque Alto -->
-              <li class="menu-item">
-                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Estoque Alto</div>
-                </a>
-              </li>
-            </ul>
-          </li>
-
 
           <!-- SUBMENU: RELATÓRIOS -->
           <li class="menu-item">
