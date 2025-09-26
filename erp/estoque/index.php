@@ -652,23 +652,24 @@ $fimTxt = $fim->format('d/m/Y');
         <!-- / Navbar -->
 
         <!-- Content -->
-
         <div class="container-xxl flex-grow-1 container-p-y">
+
           <div class="row">
+
             <div class="col-lg-8 mb-4 order-0">
               <div class="card">
                 <div class="d-flex align-items-end row">
                   <div class="col-sm-7">
                     <div class="card-body">
-                      <h5 class="card-title text-primary saudacao" data-setor="Estoque"></h5>
-                      <p class="mb-4">Suas configurações da Administração foram atualizadas em seu perfil. Continue
+                      <h5 class="card-title text-primary saudacao" data-setor="PDV"></h5>
+                      <p class="mb-4">Suas configurações do PDV foram atualizadas em seu perfil. Continue
                         explorando e ajustando-as conforme suas preferências.</p>
 
                     </div>
                   </div>
                   <div class="col-sm-5 text-center text-sm-left">
                     <div class="card-body pb-0 px-0 px-md-4">
-                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="140"
+                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="155"
                         alt="View Badge User" data-app-dark-img="illustrations/man-with-laptop-dark.png"
                         data-app-light-img="illustrations/man-with-laptop-light.png" />
                     </div>
@@ -676,461 +677,236 @@ $fimTxt = $fim->format('d/m/Y');
                 </div>
               </div>
             </div>
+
+            <!-- KPIs PERÍODO -->
             <div class="col-lg-4 col-md-4 order-1">
               <div class="row">
                 <div class="col-lg-6 col-md-12 col-6 mb-4">
-                  <div class="card">
+                  <div class="card h-100">
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/chart-success.png" alt="gráfico de sucesso"
-                            class="rounded" />
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt3" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt3">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
-                          </div>
-                        </div>
+                        <span class="avatar-initial rounded bg-label-info p-2"><i class="bx bx-receipt"></i></span>
                       </div>
-                      <span class="fw-semibold d-block mb-1">Lucro</span>
-                      <h3 class="card-title mb-2">$12.628</h3>
-                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> +72,80%</small>
+                      <span class="fw-semibold d-block mb-1">Vendas (período)</span>
+                      <h3 class="card-title mb-1"><?= (int)$vendasQtd ?></h3>
+                      <small class="text-muted">Ticket médio: <strong><?= moneyBr($ticketMedio) ?></strong></small>
                     </div>
                   </div>
                 </div>
                 <div class="col-lg-6 col-md-12 col-6 mb-4">
-                  <div class="card">
+                  <div class="card h-100">
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/wallet-info.png" alt="Cartão de Crédito"
-                            class="rounded" />
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt6" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt6">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
-                          </div>
-                        </div>
+                        <span class="avatar-initial rounded bg-label-primary p-2"><i class="bx bx-money"></i></span>
                       </div>
-                      <span>Vendas</span>
-                      <h3 class="card-title text-nowrap mb-1">$4.679</h3>
-                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> +28,42%</small>
+                      <span class="fw-semibold d-block mb-1">Total (período)</span>
+                      <h3 class="card-title mb-1"><?= moneyBr($vendasValor) ?></h3>
+                      <small class="text-muted">Troco: <strong><?= moneyBr($vendasTroco) ?></strong></small>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-
-            <!-- Total Revenue -->
-            <div class="col-12 col-lg-8 order-2 order-md-3 order-lg-2 mb-4">
-              <div class="card">
-                <div class="row row-bordered g-0">
-                  <div class="col-md-8">
-                    <h5 class="card-header m-0 me-2 pb-3">Receita Total</h5>
-                    <div id="totalRevenueChart" class="px-2"></div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="card-body">
-                      <div class="text-center">
-                        <div class="dropdown">
-                          <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                            id="growthReportId" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            2025
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="growthReportId">
-                            <a class="dropdown-item" href="javascript:void(0);">2024</a>
-                            <a class="dropdown-item" href="javascript:void(0);">2023</a>
-                            <a class="dropdown-item" href="javascript:void(0);">2022</a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div id="growthChart"></div>
-                    <div class="text-center fw-semibold pt-3 mb-2">62% de Crescimento da Empresa</div>
-
-                    <div class="d-flex px-xxl-4 px-lg-2 p-4 gap-xxl-3 gap-lg-1 gap-3 justify-content-between">
-                      <div class="d-flex">
-                        <div class="me-2">
-                          <span class="badge bg-label-primary p-2"><i class="bx bx-dollar text-primary"></i></span>
-                        </div>
-                        <div class="d-flex flex-column">
-                          <small>2022</small>
-                          <h6 class="mb-0">$32.5k</h6>
-                        </div>
-                      </div>
-                      <div class="d-flex">
-                        <div class="me-2">
-                          <span class="badge bg-label-info p-2"><i class="bx bx-wallet text-info"></i></span>
-                        </div>
-                        <div class="d-flex flex-column">
-                          <small>2021</small>
-                          <h6 class="mb-0">$41.2k</h6>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!--/ Total Revenue -->
-            <div class="col-12 col-md-8 col-lg-4 order-3 order-md-2">
-              <div class="row">
-                <div class="col-6 mb-4">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/paypal.png" alt="Cartão de Crédito"
-                            class="rounded" />
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt4" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt4">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
-                          </div>
-                        </div>
-                      </div>
-                      <span class="d-block mb-1">Pagamentos</span>
-                      <h3 class="card-title text-nowrap mb-2">$2.456</h3>
-                      <small class="text-danger fw-semibold"><i class="bx bx-down-arrow-alt"></i> -14.82%</small>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-6 mb-4">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0">
-                          <img src="../../assets/img/icons/unicons/cc-primary.png" alt="Cartão de Crédito"
-                            class="rounded" />
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt1" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu" aria-labelledby="cardOpt1">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                            <a class="dropdown-item" href="javascript:void(0);">Excluir</a>
-                          </div>
-                        </div>
-                      </div>
-                      <span class="fw-semibold d-block mb-1">Transações</span>
-                      <h3 class="card-title mb-2">$14.857</h3>
-                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i> +28.14%</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="row">
-                <div class="col-12 mb-4">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between flex-sm-row flex-column gap-3">
-                        <div class="d-flex flex-sm-column flex-row align-items-start justify-content-between">
-                          <div class="card-title">
-                            <h5 class="text-nowrap mb-2">Relatório de Perfil</h5>
-                            <span class="badge bg-label-warning rounded-pill">Ano 2021</span>
-                          </div>
-                          <div class="mt-sm-auto">
-                            <small class="text-success text-nowrap fw-semibold"><i class="bx bx-chevron-up"></i>
-                              68.2%</small>
-                            <h3 class="mb-0">$84.686k</h3>
-                          </div>
-                        </div>
-                        <div id="profileReportChart"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <!-- /KPIs -->
           </div>
+
+          <!-- Filtros -->
+          <form class="card mb-4" method="get">
+            <div class="card-body row g-3 align-items-end">
+              <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+              <div class="col-md-3">
+                <label class="form-label">Período</label>
+                <select name="periodo" id="periodo" class="form-select">
+                  <option value="hoje" <?= $periodo === 'hoje' ? 'selected' : ''; ?>>Hoje</option>
+                  <option value="ontem" <?= $periodo === 'ontem' ? 'selected' : ''; ?>>Ontem</option>
+                  <option value="ult7" <?= $periodo === 'ult7' ? 'selected' : ''; ?>>Últimos 7 dias</option>
+                  <option value="mes" <?= $periodo === 'mes' ? 'selected' : ''; ?>>Mês atual</option>
+                  <option value="mes_anterior" <?= $periodo === 'mes_anterior' ? 'selected' : ''; ?>>Mês anterior</option>
+                  <option value="custom" <?= $periodo === 'custom' ? 'selected' : ''; ?>>Personalizado</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Data inicial</label>
+                <input type="date" name="data_ini" id="data_ini" class="form-control"
+                  value="<?= htmlspecialchars($ini->format('Y-m-d')) ?>" <?= $periodo !== 'custom' ? 'disabled' : ''; ?>>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Data final</label>
+                <input type="date" name="data_fim" id="data_fim" class="form-control"
+                  value="<?= htmlspecialchars($fim->format('Y-m-d')) ?>" <?= $periodo !== 'custom' ? 'disabled' : ''; ?>>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Caixa</label>
+                <select name="caixa_id" class="form-select">
+                  <option value="">Todos</option>
+                  <?php foreach ($listaCaixas as $cx): ?>
+                    <option value="<?= (int)$cx['id'] ?>" <?= $caixaId === (int)$cx['id'] ? 'selected' : ''; ?>>
+                      #<?= (int)$cx['numero_caixa'] ?> — <?= htmlspecialchars($cx['responsavel']) ?> (<?= date('d/m H:i', strtotime($cx['abertura_datetime'])) ?>) <?= $cx['status'] === 'aberto' ? '[aberto]' : ''; ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-md-1">
+                <label class="form-label">Forma</label>
+                <input type="text" name="forma_pagamento" class="form-control" placeholder="ex.: PIX"
+                  value="<?= htmlspecialchars($formaPag) ?>">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Status NFC-e</label>
+                <input type="text" name="status_nfce" class="form-control" placeholder="ex.: autorizada"
+                  value="<?= htmlspecialchars($statusNf) ?>">
+              </div>
+              <div class="col-md-12 d-flex gap-2">
+                <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+                <a class="btn btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">Limpar</a>
+              </div>
+            </div>
+          </form>
+
           <div class="row">
-            <!-- Order Statistics -->
-            <div class="col-md-6 col-lg-4 col-xl-4 order-0 mb-4">
+            <!-- Caixa atual -->
+            <div class="col-md-6 col-lg-4 order-0 mb-4">
               <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between pb-0">
                   <div class="card-title mb-0">
-                    <h5 class="m-0 me-2">Estatísticas de Pedidos</h5>
-                    <small class="text-muted">42.82k Vendas Totais</small>
-                  </div>
-                  <div class="dropdown">
-                    <button class="btn p-0" type="button" id="orederStatistics" data-bs-toggle="dropdown"
-                      aria-haspopup="true" aria-expanded="false">
-                      <i class="bx bx-dots-vertical-rounded"></i>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="orederStatistics">
-                      <a class="dropdown-item" href="javascript:void(0);">Selecionar Tudo</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Atualizar</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Compartilhar</a>
-                    </div>
+                    <h5 class="m-0 me-2">Caixa Atual</h5>
+                    <?php if ($caixaAtual): ?>
+                      <small class="text-muted">#<?= (int)$caixaAtual['numero_caixa'] ?> — <?= htmlspecialchars($caixaAtual['responsavel']) ?></small>
+                    <?php else: ?>
+                      <small class="text-muted">Sem caixa aberto</small>
+                    <?php endif; ?>
                   </div>
                 </div>
                 <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="d-flex flex-column align-items-center gap-1">
-                      <h2 class="mb-2">8.258</h2>
-                      <span>Pedidos Totais</span>
-                    </div>
-                    <div id="orderStatisticsChart"></div>
-                  </div>
-                  <ul class="p-0 m-0">
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-primary">
-                          <i class="bx bx-mobile-alt"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Eletrônicos</h6>
-                          <small class="text-muted">Celular, Fones de Ouvido, TV</small>
-                        </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">82.5k</small>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-success">
-                          <i class="bx bx-closet"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Moda</h6>
-                          <small class="text-muted">Camiseta, Calça Jeans, Sapatos</small>
-                        </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">23.8k</small>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-info">
-                          <i class="bx bx-home-alt"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Decoração</h6>
-                          <small class="text-muted">Arte, Jantar</small>
-                        </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">849k</small>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <span class="avatar-initial rounded bg-label-secondary">
-                          <i class="bx bx-football"></i>
-                        </span>
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <h6 class="mb-0">Esportes</h6>
-                          <small class="text-muted">Futebol, Kit de Críquete</small>
-                        </div>
-                        <div class="user-progress">
-                          <small class="fw-semibold">99</small>
-                        </div>
-                      </div>
-                    </li>
-                  </ul>
+                  <?php if ($caixaAtual): ?>
+                    <ul class="list-unstyled mb-0">
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Abertura</span><strong><?= moneyBr($caixaAtual['valor_abertura']) ?></strong>
+                      </li>
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Suprimentos</span><strong class="text-success"><?= moneyBr($caixaAtual['valor_suprimentos']) ?></strong>
+                      </li>
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Sangrias</span><strong class="text-danger"><?= moneyBr($caixaAtual['valor_sangrias']) ?></strong>
+                      </li>
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Qtd Vendas</span><strong><?= (int)$caixaAtual['quantidade_vendas'] ?></strong>
+                      </li>
+                      <hr>
+                      <li class="d-flex justify-content-between">
+                        <span>Saldo (valor_liquido)</span>
+                        <strong><?= moneyBr($caixaAtual['valor_liquido']) ?></strong>
+                      </li>
+                    </ul>
+                  <?php else: ?>
+                    <div class="text-center text-muted py-3">Abra um caixa para começar.</div>
+                  <?php endif; ?>
                 </div>
               </div>
             </div>
-            <!--/ Order Statistics -->
 
-            <!-- Expense Overview -->
+            <!-- Formas pagamento (pizza) -->
             <div class="col-md-6 col-lg-4 order-1 mb-4">
               <div class="card h-100">
                 <div class="card-header">
-                  <ul class="nav nav-pills" role="tablist">
-                    <li class="nav-item">
-                      <button type="button" class="nav-link active" role="tab" data-bs-toggle="tab"
-                        data-bs-target="#navs-tabs-line-card-income" aria-controls="navs-tabs-line-card-income"
-                        aria-selected="true">
-                        Receita
-                      </button>
-                    </li>
-                    <li class="nav-item">
-                      <button type="button" class="nav-link" role="tab">Despesas</button>
-                    </li>
-                    <li class="nav-item">
-                      <button type="button" class="nav-link" role="tab">Lucro</button>
-                    </li>
-                  </ul>
+                  <h5 class="m-0">Formas de Pagamento (Período)</h5>
                 </div>
-                <div class="card-body px-0">
-                  <div class="tab-content p-0">
-                    <div class="tab-pane fade show active" id="navs-tabs-line-card-income" role="tabpanel">
-                      <div class="d-flex p-4 pt-3">
-                        <div class="avatar flex-shrink-0 me-3">
-                          <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" />
-                        </div>
-                        <div>
-                          <small class="text-muted d-block">Saldo Total</small>
-                          <div class="d-flex align-items-center">
-                            <h6 class="mb-0 me-1">$459.10</h6>
-                            <small class="text-success fw-semibold">
-                              <i class="bx bx-chevron-up"></i>
-                              42,9%
-                            </small>
-                          </div>
-                        </div>
-                      </div>
-                      <div id="incomeChart"></div>
-                      <div class="d-flex justify-content-center pt-4 gap-2">
-                        <div class="flex-shrink-0">
-                          <div id="expensesOfWeek"></div>
-                        </div>
-                        <div>
-                          <p class="mb-n1 mt-1">Despesas desta semana</p>
-                          <small class="text-muted">$39 a menos que na semana passada</small>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <div class="card-body">
+                  <div id="pagamentoPie"></div>
+                  <?php if (empty($pagtoLabels)): ?>
+                    <div class="text-center text-muted mt-2">Sem vendas no período</div>
+                  <?php endif; ?>
                 </div>
               </div>
             </div>
-            <!--/ Expense Overview -->
 
-            <!-- Transactions -->
-            <div class="col-md-6 col-lg-4 order-2 mb-4">
+            <!-- Vendas por hora (barras) -->
+            <div class="col-md-12 col-lg-4 order-2 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="m-0">Vendas por Hora (Período)</h5>
+                </div>
+                <div class="card-body">
+                  <div id="vendasHoraChart"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <!-- Top produtos (período) -->
+            <div class="col-md-6 col-lg-6 order-0 mb-4">
               <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                  <h5 class="card-title m-0 me-2">Transações</h5>
-                  <div class="dropdown">
-                    <button class="btn p-0" type="button" id="transactionID" data-bs-toggle="dropdown"
-                      aria-haspopup="true" aria-expanded="false">
-                      <i class="bx bx-dots-vertical-rounded"></i>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="transactionID">
-                      <a class="dropdown-item" href="javascript:void(0);">Últimos 28 dias</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Último mês</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Último ano</a>
-                    </div>
-                  </div>
+                  <h5 class="m-0">Top Produtos (Período)</h5>
+                </div>
+                <div class="card-body">
+                  <div id="topProdutosChart"></div>
+                  <?php if (empty($topProdLabels)): ?>
+                    <div class="text-center text-muted mt-2">Sem itens vendidos no período</div>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+
+            <!-- NFCE status -->
+            <div class="col-md-6 col-lg-6 order-1 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="m-0">NFC-e por Status (Período)</h5>
+                </div>
+                <div class="card-body">
+                  <div id="nfceStatusChart"></div>
+                  <?php if (empty($nfceLabels)): ?>
+                    <div class="text-center text-muted mt-2">Sem cupons no período</div>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <!-- Últimas vendas -->
+            <div class="col-md-12 col-lg-12 order-2 mb-4">
+              <div class="card h-100">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                  <h5 class="m-0 me-2">Últimas Vendas (Período)</h5>
                 </div>
                 <div class="card-body">
                   <ul class="p-0 m-0">
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/paypal.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Paypal</small>
-                          <h6 class="mb-0">Enviar dinheiro</h6>
+                    <?php foreach ($ultimasVendas as $v): ?>
+                      <li class="d-flex mb-3 pb-2 border-bottom">
+                        <div class="avatar flex-shrink-0 me-3">
+                          <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-shopping-bag"></i></span>
                         </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+82.6</h6>
-                          <span class="text-muted">USD</span>
+                        <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
+                          <div class="me-2">
+                            <h6 class="mb-0"><?= moneyBr($v['valor_total']) ?></h6>
+                            <small class="text-muted d-block mb-1">
+                              <?= htmlspecialchars($v['forma_pagamento'] ?: '—') ?> •
+                              <?= date('d/m/Y H:i', strtotime($v['data_venda'])) ?> •
+                              Resp.: <?= htmlspecialchars($v['responsavel']) ?>
+                            </small>
+                          </div>
+                          <div class="user-progress">
+                            <small class="text-muted">#<?= (int)$v['id'] ?></small>
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Carteira</small>
-                          <h6 class="mb-0">Mac'D</h6>
+                      </li>
+                    <?php endforeach; ?>
+                    <?php if (empty($ultimasVendas)): ?>
+                      <li class="d-flex">
+                        <div class="w-100 text-center text-muted py-2">
+                          Sem vendas no período selecionado
                         </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+270.69</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/chart.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Transferência</small>
-                          <h6 class="mb-0">Reembolso</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+637.91</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/cc-success.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Cartão de Crédito</small>
-                          <h6 class="mb-0">Pedido de comida</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">-838.71</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex mb-4 pb-1">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/wallet.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Carteira</small>
-                          <h6 class="mb-0">Starbucks</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">+203.33</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
-                    <li class="d-flex">
-                      <div class="avatar flex-shrink-0 me-3">
-                        <img src="../../assets/img/icons/unicons/cc-warning.png" alt="Usuário" class="rounded" />
-                      </div>
-                      <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                        <div class="me-2">
-                          <small class="text-muted d-block mb-1">Mastercard</small>
-                          <h6 class="mb-0">Pedido de comida</h6>
-                        </div>
-                        <div class="user-progress d-flex align-items-center gap-1">
-                          <h6 class="mb-0">-92.45</h6>
-                          <span class="text-muted">USD</span>
-                        </div>
-                      </div>
-                    </li>
+                      </li>
+                    <?php endif; ?>
                   </ul>
                 </div>
               </div>
             </div>
-            <!--/ Transactions -->
           </div>
+
         </div>
         <!-- / Content -->
 
@@ -1142,8 +918,8 @@ $fimTxt = $fim->format('d/m/Y');
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
-              Desenvolvido por <strong>Lucas Correa</strong>.
+              , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+              Desenvolvido por <strong>CodeGeek</strong>.
             </div>
           </div>
         </footer>
@@ -1176,6 +952,159 @@ $fimTxt = $fim->format('d/m/Y');
 
   <!-- Vendors JS -->
   <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Habilitar/Desabilitar datas quando período = custom
+      const periodoSel = document.getElementById('periodo');
+      const di = document.getElementById('data_ini');
+      const df = document.getElementById('data_fim');
+
+      function toggleDates() {
+        const isCustom = periodoSel.value === 'custom';
+        di.disabled = !isCustom;
+        df.disabled = !isCustom;
+      }
+      if (periodoSel) {
+        periodoSel.addEventListener('change', toggleDates);
+        toggleDates();
+      }
+
+      if (typeof ApexCharts === 'undefined') {
+        console.error('ApexCharts não carregado');
+        return;
+      }
+
+      // Fallback de cores (caso o tema não exponha window.config.colors)
+      const themeColors = (window.config && window.config.colors) ? window.config.colors : {
+        primary: '#3b82f6',
+        success: '#22c55e',
+        warning: '#f59e0b',
+        info: '#06b6d4',
+        danger: '#ef4444'
+      };
+
+      // Pagamento (pizza)
+      const pagamentoPieEl = document.getElementById('pagamentoPie');
+      if (pagamentoPieEl && <?= json_encode(!empty($pagtoLabels)) ?>) {
+        new ApexCharts(pagamentoPieEl, {
+          chart: {
+            type: 'donut',
+            height: 280
+          },
+          labels: <?= json_encode($pagtoLabels, JSON_UNESCAPED_UNICODE) ?>,
+          series: <?= json_encode(array_map('floatval', $pagtoValues)) ?>,
+          colors: [themeColors.primary, themeColors.success, themeColors.warning, themeColors.info, '#8892b0', '#8b5cf6'],
+          legend: {
+            position: 'bottom'
+          },
+          dataLabels: {
+            enabled: true
+          }
+        }).render();
+      }
+
+      // Vendas por hora (barras)
+      const vendasHoraEl = document.getElementById('vendasHoraChart');
+      if (vendasHoraEl) {
+        new ApexCharts(vendasHoraEl, {
+          chart: {
+            type: 'bar',
+            height: 300,
+            toolbar: {
+              show: false
+            }
+          },
+          series: [{
+            name: 'Cupons',
+            data: <?= json_encode(array_map('intval', $vendasPorHora)) ?>
+          }],
+          colors: [themeColors.primary],
+          plotOptions: {
+            bar: {
+              borderRadius: 6,
+              columnWidth: '45%'
+            }
+          },
+          dataLabels: {
+            enabled: false
+          },
+          xaxis: {
+            categories: <?= json_encode($labelsHoras) ?>
+          },
+          yaxis: {
+            title: {
+              text: 'Qtd'
+            },
+            min: 0,
+            forceNiceScale: true
+          },
+          tooltip: {
+            y: {
+              formatter: val => `${val} vendas`
+            }
+          }
+        }).render();
+      }
+
+      // Top produtos (barras horizontais)
+      const topProdutosEl = document.getElementById('topProdutosChart');
+      if (topProdutosEl && <?= json_encode(!empty($topProdLabels)) ?>) {
+        new ApexCharts(topProdutosEl, {
+          chart: {
+            type: 'bar',
+            height: 300,
+            toolbar: {
+              show: false
+            }
+          },
+          series: [{
+            name: 'Qtd',
+            data: <?= json_encode(array_map('intval', $topProdQtd)) ?>
+          }],
+          colors: [themeColors.success],
+          plotOptions: {
+            bar: {
+              horizontal: true,
+              borderRadius: 6,
+              barHeight: '60%'
+            }
+          },
+          dataLabels: {
+            enabled: true
+          },
+          xaxis: {
+            categories: <?= json_encode($topProdLabels, JSON_UNESCAPED_UNICODE) ?>
+          },
+          tooltip: {
+            y: {
+              formatter: val => `${val} un.`
+            }
+          }
+        }).render();
+      }
+
+      // NFCE status (pizza)
+      const nfceStatusEl = document.getElementById('nfceStatusChart');
+      if (nfceStatusEl && <?= json_encode(!empty($nfceLabels)) ?>) {
+        new ApexCharts(nfceStatusEl, {
+          chart: {
+            type: 'donut',
+            height: 280
+          },
+          labels: <?= json_encode($nfceLabels, JSON_UNESCAPED_UNICODE) ?>,
+          series: <?= json_encode(array_map('intval', $nfceValues)) ?>,
+          colors: [themeColors.info, themeColors.success, themeColors.warning, themeColors.danger, '#64748b'],
+          legend: {
+            position: 'bottom'
+          },
+          dataLabels: {
+            enabled: true
+          }
+        }).render();
+      }
+    });
+  </script>
 
   <!-- Main JS -->
   <script src="../../assets/js/main.js"></script>
