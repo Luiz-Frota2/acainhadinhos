@@ -178,6 +178,19 @@ try {
             </a>
           </li>
 
+          <!-- SEÇÃO ADMINISTRATIVO -->
+          <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Estoque</span>
+          </li>
+
+          <!-- ESTOQUE COM SUBMENU -->
+          <li class="menu-item active open">
+
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-box"></i>
+              <div data-i18n="Basic">Produtos</div>
+            </a>
+
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-cart"></i>
@@ -192,28 +205,15 @@ try {
             </ul>
           </li>
 
-          <!-- SEÇÃO ADMINISTRATIVO -->
-          <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">Estoque</span>
-          </li>
+          <ul class="menu-sub">
+            <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
+            <li class="menu-item active">
+              <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <div data-i18n="Basic">Produtos Adicionados</div>
+              </a>
+            </li>
 
-          <!-- ESTOQUE COM SUBMENU -->
-          <li class="menu-item active open">
-
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-box"></i>
-              <div data-i18n="Basic">Produtos</div>
-            </a>
-
-            <ul class="menu-sub">
-              <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
-              <li class="menu-item active">
-                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Produtos Adicionados</div>
-                </a>
-              </li>
-
-            </ul>
+          </ul>
           </li>
 
           <!-- Relatórios -->
