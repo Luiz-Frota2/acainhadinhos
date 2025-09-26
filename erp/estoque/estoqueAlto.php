@@ -426,7 +426,7 @@ try {
         <!-- / Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Produtos
+          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">Estoque</span>/Produtos
             com Estoque Alto</h4>
           <div class="card">
             <h5 class="card-header">Lista de Produtos com Estoque Alto</h5>
