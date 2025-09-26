@@ -189,25 +189,7 @@ try {
                 </a></li>
             </ul>
           </li>
-
-
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Compras</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
-                  <div>Fornecedores</div>
-                </a></li>
-              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
-                  <div>Pedidos</div>
-                </a></li>
-            </ul>
-          </li>
-
+          
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-dollar"></i>
