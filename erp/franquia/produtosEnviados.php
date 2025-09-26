@@ -400,7 +400,7 @@ try {
                     <td>120</td>
                     <td><span class="badge bg-label-danger status-badge">Alta</span></td>
                     <td>25/09/2025</td>
-                    <td><span class="badge bg-label-warning status-badge">Aguardando</span></td>
+                    <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
                     <td>
                       <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Atender</button>
                       <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
@@ -415,7 +415,7 @@ try {
                     <td>40</td>
                     <td><span class="badge bg-label-warning status-badge">Média</span></td>
                     <td>24/09/2025</td>
-                    <td><span class="badge bg-label-info status-badge">Em Separação</span></td>
+                    <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
                     <td>
                       <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
                     </td>
@@ -428,7 +428,7 @@ try {
                     <td>500</td>
                     <td><span class="badge bg-label-info status-badge">Baixa</span></td>
                     <td>20/09/2025</td>
-                    <td><span class="badge bg-label-success status-badge">Enviado</span></td>
+                    <td><span class="badge bg-label-success status-badge">Recebido</span></td>
                     <td>
                       <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
                     </td>
