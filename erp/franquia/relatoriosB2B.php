@@ -196,12 +196,6 @@ try {
                   <div>Estoque Matriz</div>
                 </a>
               </li>
-              <li class="menu-item">
-                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Política de Envio</div>
-                </a>
-              </li>
-
               <!-- ✅ Relatórios B2B (ATIVO) -->
               <li class="menu-item active">
                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
