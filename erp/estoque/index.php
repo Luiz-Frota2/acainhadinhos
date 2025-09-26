@@ -440,6 +440,20 @@ $fimTxt = $fim->format('d/m/Y');
             </a>
           </li>
 
+          <li class="menu-item active open">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-cart"></i>
+              <div data-i18n="Authentications">Fornecedores</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item active"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div>Adicionados</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
           <!-- Administração de Filiais -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Estoque</span>
