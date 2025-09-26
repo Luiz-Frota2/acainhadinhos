@@ -488,22 +488,32 @@ try {
 
                     <!-- Ações rápidas -->
                     <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap gap-2">
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar">
-                                <i class="bx bx-plus-circle me-1"></i> Movimentar estoque
-                            </button>
-                            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir">
-                                <i class="bx bx-right-arrow me-1"></i> Transferir p/ franquia
-                            </button>
-                            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalHistorico">
-                                <i class="bx bx-time-five me-1"></i> Histórico de movimentações
-                            </button>
-
-
-                            <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
-
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-primary w-100">
+                                        <i class="bx bx-plus-circle me-2"></i> Movimentar estoque
+                                    </button>
+                                </div>
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalTransferir">
+                                        <i class="bx bx-right-arrow me-2"></i> Transferir p/ franquia
+                                    </button>
+                                </div>
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalHistorico">
+                                        <i class="bx bx-time-five me-2"></i> Histórico de movimentações
+                                    </button>
+                                </div>
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-outline-dark w-100">
+                                        <i class="bx bx-download me-2"></i> Exportar CSV
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
 
                     <!-- Tabela principal -->
                     <div class="card">
