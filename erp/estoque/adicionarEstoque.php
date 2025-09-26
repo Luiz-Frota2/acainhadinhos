@@ -477,7 +477,7 @@ try {
                                         </select>
                                     </div>
 
-                                    <div class="mb-3 col-12 col-md-4">
+                                    <div class="mb-3 col-12 col-md-6">
                                         <label for="tributacao_produto" class="form-label">Tributação*</label>
                                         <select class="form-select" id="tributacao_produto" name="tributacao_produto" required>
                                             <option value="">Selecione...</option>
