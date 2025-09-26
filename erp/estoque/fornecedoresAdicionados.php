@@ -180,8 +180,7 @@ try {
                         <span class="menu-header-text">Estoque</span>
                     </li>
 
-                    <li class="menu-item open
-                    active">
+                    <li class="menu-item open active">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-cart"></i>
                             <div data-i18n="Authentications">Fornecedores</div>

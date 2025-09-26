@@ -8,19 +8,19 @@ session_start();
 $idSelecionado = $_GET['id'] ?? '';
 
 if (!$idSelecionado) {
-    header("Location: .././login.php");
-    exit;
+  header("Location: .././login.php");
+  exit;
 }
 
 // ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id'])
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id']) ||
+  !isset($_SESSION['tipo_empresa']) ||
+  !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=" . urlencode($idSelecionado));
-    exit;
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -32,21 +32,21 @@ $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $tipoUsuario = ucfirst($usuario['nivel']);
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-        exit;
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  if ($usuario) {
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -55,35 +55,35 @@ $idEmpresaSession = $_SESSION['empresa_id'];
 $tipoSession = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
-    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
-    echo "<script>
+  echo "<script>
           alert('Acesso negado!');
           window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
         </script>";
-    exit;
+  exit;
 }
 
 // ✅ Buscar logo da empresa
 try {
-    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+  $stmt->execute();
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $logoEmpresa = !empty($empresaSobre['imagem'])
-        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png";
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 ?>
@@ -168,63 +168,57 @@ try {
             </a>
           </li>
 
-          <!-- Finanças -->
-          <li class="menu-header small text-uppercase"><span class="menu-header-text">Finanças</span></li>
-          <li class="menu-item ">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-list-check"></i>
-              <div data-i18n="Authentications">Contas</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item "><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Adicionadas</div>
-                </a></li>
-              <li class="menu-item "><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Futuras</div>
-                </a></li>
-              <li class="menu-item"><a href="./contasPagas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Pagas</div>
-                </a></li>
-              <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Pendentes</div>
-                </a></li>
-            </ul>
-          </li>
-
-
-          <li class="menu-item active open">
+          <li class="menu-item open active">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Compras</div>
+              <div data-i18n="Authentications">Fornecedores</div>
             </a>
-            <ul class="menu-sub">
-              <li class="menu-item "><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Fornecedores</div>
-                </a></li>
-              <li class="menu-item active"><a href="./editarFornecedores.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <ul class="menu-sub active">
+              <li class="menu-item"><a href="./fornecedoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div>Adicionados</div>
+                </a>
+              </li>
+              <li class="menu-item active"><a href=""
+                  class="menu-link">
                   <div>Editar Fornecedor</div>
-                </a></li>
-              <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Pedidos</div>
-                </a></li>
+                </a>
+              </li>
             </ul>
           </li>
 
+          <!-- Estoque -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-dollar"></i>
-              <div data-i18n="Authentications">Relatórios</div>
+              <i class="menu-icon tf-icons bx bx-package"></i>
+              <div data-i18n="Estoque">Produtos</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Diário</div>
-                </a></li>
-              <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Mensal</div>
-                </a></li>
-              <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Anual</div>
-                </a></li>
+              <li class="menu-item">
+                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Produtos">Adicionados</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+          <!-- Relatórios -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+              <div data-i18n="Relatorios">Relatórios</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item">
+                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="BaixoEstoque">Estoque Alto</div>
+                </a>
+              </li>
+              <li class="menu-item">
+                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="BaixoEstoque">Estoque Baixo</div>
+                </a>
+              </li>
             </ul>
           </li>
 
@@ -238,6 +232,12 @@ try {
             </a>
           </li>
           <li class="menu-item">
+            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-dollar"></i>
+              <div data-i18n="Authentications">Finanças</div>
+            </a>
+          </li>
+          <li class="menu-item">
             <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-desktop"></i>
               <div data-i18n="Authentications">PDV</div>
@@ -247,13 +247,6 @@ try {
             <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="Authentications">Empresa</div>
-            </a>
-          </li>
-
-          <li class="menu-item">
-            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-box"></i>
-              <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
 
@@ -334,27 +327,25 @@ try {
             <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
-              <!-- Place this tag where you want the button to render. -->
               <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
-                    <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                   <li>
                     <a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="../../assets/img/avatars/1.png" alt class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <!-- Exibindo o nome e nível do usuário -->
-                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                         </div>
                       </div>
                     </a>
@@ -363,7 +354,7 @@ try {
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
+                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-user me-2"></i>
                       <span class="align-middle">Minha Conta</span>
                     </a>
@@ -375,15 +366,6 @@ try {
                     </a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
-                      <span class="d-flex align-items-center align-middle">
-                        <i class="flex-shrink-0 bx bx-credit-card me-2"></i>
-                        <span class="flex-grow-1 align-middle">Billing</span>
-                        <span class="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
-                      </span>
-                    </a>
-                  </li>
-                  <li>
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
@@ -392,11 +374,11 @@ try {
                       <span class="align-middle">Sair</span>
                     </a>
                   </li>
-
                 </ul>
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
 
