@@ -171,7 +171,7 @@ try {
                     </li>
 
                     <!-- Adicionar Filial -->
-                    <li class="menu-item active open">
+                    <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-building"></i>
                             <div data-i18n="Adicionar">Franquias</div>
@@ -190,7 +190,7 @@ try {
                         </ul>
                     </li>
 
-                    <li class="menu-item">
+                    <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div data-i18n="B2B">B2B - Matriz</div>
