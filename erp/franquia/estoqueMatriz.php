@@ -498,10 +498,10 @@ try {
                             <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalHistorico">
                                 <i class="bx bx-time-five me-1"></i> Histórico de movimentações
                             </button>
-                            <div class="ms-auto d-flex flex-wrap gap-2">
+                           
                                
                                 <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
-                            </div>
+                            
                         </div>
                     </div>
 
