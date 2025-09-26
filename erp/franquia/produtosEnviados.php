@@ -169,7 +169,7 @@ try {
 
               <!-- Produtos solicitados pelas filiais -->
               <li class="menu-item">
-                <a href="./produtosSolicitados.php?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a>
               </li>

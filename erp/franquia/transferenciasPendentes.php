@@ -488,36 +488,7 @@ try {
                         <span class="text-muted fw-light">Movimentações a concluir entre Matriz e Franquias</span>
                     </h5>
 
-                    <!-- Toolbar / Filtros -->
-                    <form method="get" class="card mb-3">
-                        <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
-                        <div class="card-body d-flex toolbar">
-                            <select name="status" class="form-select">
-                                <option value="pendentes" <?= $fStatus === 'pendentes' ? 'selected' : ''; ?>>Somente pendentes</option>
-                                <option value="aguardando" <?= $fStatus === 'aguardando' ? 'selected' : ''; ?>>Aguardando</option>
-                                <option value="enviado" <?= $fStatus === 'enviado' ? 'selected' : ''; ?>>Enviado</option>
-                                <option value="em_transito" <?= $fStatus === 'em_transito' ? 'selected' : ''; ?>>Em trânsito</option>
-                                <option value="recebido" <?= $fStatus === 'recebido' ? 'selected' : ''; ?>>Recebido</option>
-                                <option value="cancelado" <?= $fStatus === 'cancelado' ? 'selected' : ''; ?>>Cancelado</option>
-                                <option value="todas" <?= $fStatus === 'todas' ? 'selected' : ''; ?>>Todas</option>
-                            </select>
-
-                            <select name="filial" class="form-select">
-                                <option value="">Todas as filiais</option>
-                                <?php foreach ($filiais as $f): ?>
-                                    <option value="<?= (int)$f['id'] ?>" <?= ((string)$fFilial === (string)$f['id']) ? 'selected' : ''; ?>>
-                                        <?= e($f['nome']) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-
-                            <input type="date" name="data_ini" class="form-control" value="<?= e($fDataIni) ?>" placeholder="Início">
-                            <input type="date" name="data_fim" class="form-control" value="<?= e($fDataFim) ?>" placeholder="Fim">
-                            <input type="text" name="q" class="form-control" value="<?= e($busca) ?>" placeholder="Buscar...">
-                            <button class="btn btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i>Filtrar</button>
-                            <a class="btn btn-outline-secondary" href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-x me-1"></i>Limpar</a>
-                        </div>
-                    </form>
+             
 
                     <!-- Tabela -->
                     <div class="card">
