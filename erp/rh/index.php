@@ -29,7 +29,7 @@ require '../../assets/php/conexao.php';
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id  = (int)$_SESSION['usuario_id'];
 
 try {
   $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -38,21 +38,21 @@ try {
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
   if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
+    $nomeUsuario = $usuario['usuario'] ?? 'Usuário';
+    $tipoUsuario = ucfirst((string)($usuario['nivel'] ?? 'Comum'));
   } else {
     echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$idEmpresaSession = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
+$acessoPermitido   = false;
+$idEmpresaSession  = $_SESSION['empresa_id'];
+$tipoSession       = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
   $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
@@ -79,193 +79,287 @@ try {
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  $logoEmpresa = !empty($empresaSobre['imagem'])
+  $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
     : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
   $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
-// ✅ Buscar dados estatísticos da empresa
-$totalFuncionarios = 0;
-$taxaAbsenteismo = 0;
-$distribuicaoSetores = [];
-$ultimosRegistros = [];
-$horasTrabalhadas = [];
-$bancoHoras = '00:00:00';
-$pontosAdicionados = 0;
-$frequenciaMensal = [];
-$funcionariosAtrasados = [];
+/* ==========================================================
+   FILTROS DE PDV (período, caixa, forma, status NFC-e)
+   ========================================================== */
 
-// Filtros para os últimos registros
-$filtroRegistros = $_GET['filtro_registros'] ?? 'hoje';
+function brToIsoDate($d)
+{
+  // aceita "YYYY-mm-dd" direto; se vier "dd/mm/YYYY", converte
+  if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
+  if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
+    return "{$m[3]}-{$m[2]}-{$m[1]}";
+  }
+  return null;
+}
+
+$periodo   = $_GET['periodo'] ?? 'hoje'; // hoje|ontem|ult7|mes|mes_anterior|custom
+$dataIni   = $_GET['data_ini'] ?? '';
+$dataFim   = $_GET['data_fim'] ?? '';
+$caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
+$formaPag  = $_GET['forma_pagamento'] ?? '';
+$statusNf  = $_GET['status_nfce'] ?? '';
+
+$now = new DateTime('now');
+$ini = new DateTime('today');
+$ini->setTime(0, 0, 0);
+$fim = new DateTime('today');
+$fim->setTime(23, 59, 59);
+
+switch ($periodo) {
+  case 'ontem':
+    $ini = (new DateTime('yesterday'))->setTime(0, 0, 0);
+    $fim = (new DateTime('yesterday'))->setTime(23, 59, 59);
+    break;
+  case 'ult7':
+    $ini = (new DateTime('today'))->modify('-6 days')->setTime(0, 0, 0);
+    $fim = (new DateTime('today'))->setTime(23, 59, 59);
+    break;
+  case 'mes':
+    $ini = (new DateTime('first day of this month'))->setTime(0, 0, 0);
+    $fim = (new DateTime('last day of this month'))->setTime(23, 59, 59);
+    break;
+  case 'mes_anterior':
+    $ini = (new DateTime('first day of last month'))->setTime(0, 0, 0);
+    $fim = (new DateTime('last day of last month'))->setTime(23, 59, 59);
+    break;
+  case 'custom':
+    $isoIni = brToIsoDate($dataIni);
+    $isoFim = brToIsoDate($dataFim);
+    if ($isoIni && $isoFim) {
+      $ini = new DateTime($isoIni . ' 00:00:00');
+      $fim = new DateTime($isoFim . ' 23:59:59');
+    }
+    break;
+  case 'hoje':
+  default:
+    // já setado
+    break;
+}
+
+// — Lista de caixas recentes (últimos 60 dias) para o filtro
+$listaCaixas = [];
+try {
+  $st = $pdo->prepare("
+    SELECT id, numero_caixa, responsavel, abertura_datetime, status
+      FROM aberturas
+     WHERE empresa_id = :empresa_id
+       AND abertura_datetime >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+  ORDER BY abertura_datetime DESC
+  ");
+  $st->execute([':empresa_id' => $idSelecionado]);
+  $listaCaixas = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+}
+
+/* ==========================================================
+   MÉTRICAS PDV (usando os FILTROS)
+   ========================================================== */
+
+$caixaAtual = null; // opcionalmente mostramos info do caixa aberto mais recente
+try {
+  $st = $pdo->prepare("
+    SELECT id, responsavel, numero_caixa, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido,
+           abertura_datetime, fechamento_datetime, quantidade_vendas, status, cpf_responsavel
+      FROM aberturas
+     WHERE empresa_id = :empresa_id
+       AND status = 'aberto'
+  ORDER BY abertura_datetime DESC
+     LIMIT 1
+  ");
+  $st->execute([':empresa_id' => $idSelecionado]);
+  $caixaAtual = $st->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+}
+
+$vendasQtd        = 0;
+$vendasValor      = 0.00;
+$vendasTroco      = 0.00;
+$ticketMedio      = 0.00;
+$pagamentoSeries  = []; // forma_pagamento => total
+$vendasPorHora    = array_fill(0, 24, 0);
+$topProdutos      = [];
+$nfceStatusCont   = [];
+$ultimasVendas    = [];
+
+function bindPeriodo(&$params, DateTime $ini, DateTime $fim)
+{
+  $params[':ini'] = $ini->format('Y-m-d H:i:s');
+  $params[':fim'] = $fim->format('Y-m-d H:i:s');
+}
+
+function mountWhere(string $empresaId, ?int $caixaId, string $forma, string $status, array &$params): string
+{
+  $where = " WHERE empresa_id = :empresa_id AND data_venda BETWEEN :ini AND :fim ";
+  $params[':empresa_id'] = $empresaId;
+  if (!empty($forma)) {
+    $where .= " AND forma_pagamento = :forma_pagamento ";
+    $params[':forma_pagamento'] = $forma;
+  }
+  if (!empty($status)) {
+    $where .= " AND status_nfce = :status_nfce ";
+    $params[':status_nfce'] = $status;
+  }
+  if (!empty($caixaId)) {
+    $where .= " AND id_caixa = :id_caixa ";
+    $params[':id_caixa'] = $caixaId;
+  }
+  return $where;
+}
 
 try {
-  // Total de funcionários ativos
-  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM funcionarios WHERE empresa_id = :empresa_id AND status = 'ativo'");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $result = $stmt->fetch(PDO::FETCH_ASSOC);
-  $totalFuncionarios = $result['total'] ?? 0;
+  // 1) KPIs gerais do período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
 
-  // Taxa de absenteísmo (considerando apenas funcionários ativos)
-  $hoje = date('Y-m-d');
-  if ($totalFuncionarios > 0) {
-    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT f.cpf) as ausentes 
-                          FROM funcionarios f
-                          LEFT JOIN pontos p ON f.cpf = p.cpf AND p.data = :hoje
-                          WHERE f.empresa_id = :empresa_id 
-                          AND f.status = 'ativo'
-                          AND (p.entrada IS NULL OR p.data IS NULL)");
-    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmt->bindParam(':hoje', $hoje, PDO::PARAM_STR);
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    $ausentes = $result['ausentes'] ?? 0;
-    $taxaAbsenteismo = round(($ausentes / $totalFuncionarios) * 100, 2);
+  $sql = "SELECT COUNT(*) AS qtd,
+                 COALESCE(SUM(valor_total),0) AS soma_total,
+                 COALESCE(SUM(troco),0) AS soma_troco
+            FROM vendas
+           $whereV";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $r = $st->fetch(PDO::FETCH_ASSOC);
+  $vendasQtd   = (int)($r['qtd'] ?? 0);
+  $vendasValor = (float)($r['soma_total'] ?? 0.0);
+  $vendasTroco = (float)($r['soma_troco'] ?? 0.0);
+  $ticketMedio = $vendasQtd > 0 ? ($vendasValor / $vendasQtd) : 0.0;
+
+  // 2) Formas de pagamento (pizza)
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT forma_pagamento, COALESCE(SUM(valor_total),0) AS tot
+            FROM vendas
+           $whereV
+        GROUP BY forma_pagamento";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $fp = $row['forma_pagamento'] ?: 'Outros';
+    $pagamentoSeries[$fp] = (float)$row['tot'];
   }
 
-  // Distribuição por setor (apenas funcionários ativos)
-  $stmt = $pdo->prepare("SELECT setor, COUNT(*) as total FROM funcionarios 
-                        WHERE empresa_id = :empresa_id AND status = 'ativo' 
-                        GROUP BY setor");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $distribuicaoSetores = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-  // Últimos registros de ponto com filtros
-  $sqlUltimosRegistros = "SELECT p.nome, p.data, p.entrada, p.saida_final 
-                         FROM pontos p
-                         JOIN funcionarios f ON p.cpf = f.cpf
-                         WHERE p.empresa_id = :empresa_id
-                         AND f.status = 'ativo'";
-
-  switch ($filtroRegistros) {
-    case 'hoje':
-      $sqlUltimosRegistros .= " AND p.data = CURDATE()";
-      break;
-    case 'ontem':
-      $sqlUltimosRegistros .= " AND p.data = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
-      break;
-    case 'semana':
-      $sqlUltimosRegistros .= " AND p.data BETWEEN DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND CURDATE()";
-      break;
-    case 'mes':
-      $sqlUltimosRegistros .= " AND MONTH(p.data) = MONTH(CURDATE()) AND YEAR(p.data) = YEAR(CURDATE())";
-      break;
-    case 'ano':
-      $sqlUltimosRegistros .= " AND YEAR(p.data) = YEAR(CURDATE())";
-      break;
+  // 3) Vendas por hora
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT HOUR(data_venda) AS h, COUNT(*) AS qtd
+            FROM vendas
+           $whereV
+        GROUP BY HOUR(data_venda)";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $h = (int)$row['h'];
+    if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
   }
 
-  $sqlUltimosRegistros .= " ORDER BY p.data DESC, p.entrada DESC LIMIT 5";
+  // 4) Top produtos por quantidade no período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  // aplica também filtros de forma/status/caixa via tabela vendas
+  $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
+  if (!empty($formaPag)) {
+    $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
+    $params[':forma_pagamento'] = $formaPag;
+  }
+  if (!empty($statusNf)) {
+    $whereBase .= " AND v.status_nfce = :status_nfce ";
+    $params[':status_nfce'] = $statusNf;
+  }
+  if (!empty($caixaId)) {
+    $whereBase .= " AND v.id_caixa = :id_caixa ";
+    $params[':id_caixa'] = $caixaId;
+  }
+  $params[':empresa_id'] = $idSelecionado;
 
-  $stmt = $pdo->prepare($sqlUltimosRegistros);
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $ultimosRegistros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $sql = "SELECT iv.produto_nome,
+                 SUM(iv.quantidade) AS qtd,
+                 SUM(iv.quantidade * iv.preco_unitario) AS valor
+            FROM itens_venda iv
+            JOIN vendas v ON v.id = iv.venda_id
+           $whereBase
+        GROUP BY iv.produto_nome
+        ORDER BY qtd DESC
+           LIMIT 5";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
 
-  // Horas trabalhadas nos últimos 12 meses (formato mais preciso)
-  $currentYear = date('Y');
-  for ($i = 1; $i <= 12; $i++) {
-    $stmt = $pdo->prepare("SELECT 
-                          SUM(TIME_TO_SEC(TIMEDIFF(saida_final, entrada))) / 3600 as total_horas
-                          FROM pontos 
-                          WHERE empresa_id = :empresa_id 
-                          AND MONTH(data) = :mes 
-                          AND YEAR(data) = :ano 
-                          AND entrada IS NOT NULL 
-                          AND saida_final IS NOT NULL");
-    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmt->bindParam(':mes', $i, PDO::PARAM_INT);
-    $stmt->bindParam(':ano', $currentYear, PDO::PARAM_INT);
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    $horasTrabalhadas[] = round($result['total_horas'] ?? 0, 2);
+  // 5) NFC-e por status no período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT COALESCE(status_nfce,'sem_status') AS st, COUNT(*) AS qtd
+            FROM vendas
+           $whereV
+        GROUP BY COALESCE(status_nfce,'sem_status')";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $nfceStatusCont[$row['st']] = (int)$row['qtd'];
   }
 
-  // Banco de horas (considerando crédito e débito)
-  $stmt = $pdo->prepare("SELECT 
-                        SEC_TO_TIME(SUM(
-                          TIME_TO_SEC(CASE 
-                            WHEN hora_extra > '00:00:00' THEN hora_extra 
-                            ELSE '-' || hora_extra 
-                          END)
-                        )) as saldo
-                        FROM pontos 
-                        WHERE empresa_id = :empresa_id 
-                        AND YEAR(data) = YEAR(CURDATE())");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $result = $stmt->fetch(PDO::FETCH_ASSOC);
-  $bancoHoras = $result['saldo'] ?? '00:00:00';
-
-  // Pontos adicionados (este ano)
-  $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM pontos 
-                        WHERE empresa_id = :empresa_id 
-                        AND YEAR(data) = YEAR(CURDATE())");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $result = $stmt->fetch(PDO::FETCH_ASSOC);
-  $pontosAdicionados = $result['total'] ?? 0;
-
-  // Frequência mensal (últimos 12 meses)
-  for ($i = 1; $i <= 12; $i++) {
-    $stmt = $pdo->prepare("SELECT COUNT(DISTINCT p.cpf) as total 
-                          FROM pontos p
-                          JOIN funcionarios f ON p.cpf = f.cpf
-                          WHERE p.empresa_id = :empresa_id 
-                          AND MONTH(p.data) = :mes 
-                          AND YEAR(p.data) = :ano
-                          AND f.status = 'ativo'");
-    $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-    $stmt->bindParam(':mes', $i, PDO::PARAM_INT);
-    $stmt->bindParam(':ano', $currentYear, PDO::PARAM_INT);
-    $stmt->execute();
-    $result = $stmt->fetch(PDO::FETCH_ASSOC);
-    $frequenciaMensal[] = $result['total'] ?? 0;
-  }
-
-  // Funcionários atrasados (considerando horário padrão de 8h com 10min de tolerância)
-  $stmt = $pdo->prepare("SELECT p.nome, p.data, p.entrada 
-                        FROM pontos p
-                        JOIN funcionarios f ON p.cpf = f.cpf
-                        WHERE p.empresa_id = :empresa_id 
-                        AND TIME(p.entrada) > '08:10:00' 
-                        AND TIME(p.entrada) < '18:00:00'
-                        AND p.data = CURDATE()
-                        AND f.status = 'ativo'
-                        ORDER BY p.entrada DESC");
-  $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
-  $stmt->execute();
-  $funcionariosAtrasados = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  // 6) Últimas vendas do período (5)
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT id, responsavel, forma_pagamento, valor_total, data_venda
+            FROM vendas
+           $whereV
+        ORDER BY data_venda DESC
+           LIMIT 5";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $ultimasVendas = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  error_log("Erro ao buscar dados estatísticos: " . $e->getMessage());
-  // Define valores padrão em caso de erro
-  $horasTrabalhadas = array_fill(0, 12, 0);
-  $frequenciaMensal = array_fill(0, 12, 0);
+  // mantém valores padrão
 }
 
-// Preparar dados para os gráficos
-$labelsMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dec'];
-
-// Converter banco de horas para formato legível
-$bancoHorasArray = explode(':', $bancoHoras);
-$bancoHorasFormatado = $bancoHorasArray[0] . 'h ' . $bancoHorasArray[1] . 'min';
-
-// Preparar dados para o gráfico de setores
-$setoresChartLabels = [];
-$setoresChartData = [];
-foreach ($distribuicaoSetores as $setor) {
-  $setoresChartLabels[] = $setor['setor'];
-  $setoresChartData[] = $setor['total'];
+// ==== Dados para gráficos/labels
+$labelsHoras = [];
+for ($h = 0; $h < 24; $h++) {
+  $labelsHoras[] = sprintf('%02d:00', $h);
 }
 
-// Valores padrão caso não haja dados
-if (empty($setoresChartLabels)) {
-  $setoresChartLabels = ['Administrativo', 'Operacional', 'Vendas', 'Suporte'];
-  $setoresChartData = [12, 30, 10, 6];
+$pagtoLabels = array_keys($pagamentoSeries);
+$pagtoValues = array_values($pagamentoSeries);
+
+$nfceLabels = array_keys($nfceStatusCont);
+$nfceValues = array_values($nfceStatusCont);
+
+$topProdLabels = [];
+$topProdQtd    = [];
+foreach ($topProdutos as $p) {
+  $topProdLabels[] = $p['produto_nome'];
+  $topProdQtd[]    = (int)$p['qtd'];
 }
+
+// Formatações úteis
+function moneyBr($v)
+{
+  return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
+$periodoLabel = [
+  'hoje' => 'Hoje',
+  'ontem' => 'Ontem',
+  'ult7' => 'Últimos 7 dias',
+  'mes' => 'Mês atual',
+  'mes_anterior' => 'Mês anterior',
+  'custom' => 'Personalizado'
+][$periodo] ?? 'Hoje';
+
+$iniTxt = $ini->format('d/m/Y');
+$fimTxt = $fim->format('d/m/Y');
 
 ?>
 
@@ -600,20 +694,23 @@ if (empty($setoresChartLabels)) {
 
         <!-- Content -->
         <div class="container-xxl flex-grow-1 container-p-y">
+
           <div class="row">
+
             <div class="col-lg-8 mb-4 order-0">
               <div class="card">
                 <div class="d-flex align-items-end row">
                   <div class="col-sm-7">
                     <div class="card-body">
-                      <h5 class="card-title saudacao text-primary" data-setor="RH"></h5>
-                      <p class="mb-4">Bem-vindo ao painel de controle. Aqui você pode acompanhar todas as métricas
-                        importantes da sua empresa.</p>
+                      <h5 class="card-title text-primary saudacao" data-setor="PDV"></h5>
+                      <p class="mb-4">Suas configurações do PDV foram atualizadas em seu perfil. Continue
+                        explorando e ajustando-as conforme suas preferências.</p>
+
                     </div>
                   </div>
                   <div class="col-sm-5 text-center text-sm-left">
                     <div class="card-body pb-0 px-0 px-md-4">
-                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="154"
+                      <img src="../../assets/img/illustrations/man-with-laptop-light.png" height="155"
                         alt="View Badge User" data-app-dark-img="illustrations/man-with-laptop-dark.png"
                         data-app-light-img="illustrations/man-with-laptop-light.png" />
                     </div>
@@ -621,311 +718,227 @@ if (empty($setoresChartLabels)) {
                 </div>
               </div>
             </div>
+
+            <!-- KPIs PERÍODO -->
             <div class="col-lg-4 col-md-4 order-1">
               <div class="row">
-
-                <div class="col-lg-6 col-md-12 col-6 mb-4 d-flex align-items-stretch" height="170">
-                  <div class="card w-100">
+                <div class="col-lg-6 col-md-12 col-6 mb-4">
+                  <div class="card h-100">
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0 me-3">
-                          <span class="avatar-initial rounded bg-label-info">
-                            <i class="bx bx-user"></i>
-                          </span>
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt3" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt3">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                          </div>
-                        </div>
+                        <span class="avatar-initial rounded bg-label-info p-2"><i class="bx bx-receipt"></i></span>
                       </div>
-                      <span class="fw-semibold d-block mb-1">Total de Funcionários</span>
-                      <h3 class="card-title mb-2"><?= $totalFuncionarios ?></h3>
-                      <small class="text-success fw-semibold"><i class="bx bx-up-arrow-alt"></i>
-                        +<?= round($totalFuncionarios * 0.1) ?> novos</small>
+                      <span class="fw-semibold d-block mb-1">Vendas (período)</span>
+                      <h3 class="card-title mb-1"><?= (int)$vendasQtd ?></h3>
+                      <small class="text-muted">Ticket médio: <strong><?= moneyBr($ticketMedio) ?></strong></small>
                     </div>
                   </div>
                 </div>
-
-                <div class="col-lg-6 col-md-12 col-6 mb-4 d-flex align-items-stretch h-100">
-                  <div class="card w-100">
+                <div class="col-lg-6 col-md-12 col-6 mb-4">
+                  <div class="card h-100">
                     <div class="card-body">
                       <div class="card-title d-flex align-items-start justify-content-between">
-                        <div class="avatar flex-shrink-0 me-3">
-                          <span class="avatar-initial rounded bg-label-danger">
-                            <i class="bx bx-time"></i>
-                          </span>
-                        </div>
-                        <div class="dropdown">
-                          <button class="btn p-0" type="button" id="cardOpt6" data-bs-toggle="dropdown"
-                            aria-haspopup="true" aria-expanded="false">
-                            <i class="bx bx-dots-vertical-rounded"></i>
-                          </button>
-                          <div class="dropdown-menu dropdown-menu-end" aria-labelledby="cardOpt6">
-                            <a class="dropdown-item" href="javascript:void(0);">Ver Mais</a>
-                          </div>
-                        </div>
+                        <span class="avatar-initial rounded bg-label-primary p-2"><i class="bx bx-money"></i></span>
                       </div>
-                      <span>Taxa de Absenteísmo</span>
-                      <h3 class="card-title text-nowrap mb-1">+<?= $taxaAbsenteismo ?>%</h3>
-                      <small class="text-danger fw-semibold"><i class="bx bx-up-arrow-alt"></i>
-                        +<?= round($taxaAbsenteismo * 0.1, 2) ?>%</small>
+                      <span class="fw-semibold d-block mb-1">Total (período)</span>
+                      <h3 class="card-title mb-1"><?= moneyBr($vendasValor) ?></h3>
+                      <small class="text-muted">Troco: <strong><?= moneyBr($vendasTroco) ?></strong></small>
                     </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            <!-- Total Revenue -->
-            <div class="col-12 col-lg-8 order-2 order-md-3 order-lg-2 mb-4">
-              <div class="card">
-                <div class="row row-bordered g-0">
-                  <div class="col-md-12">
-                    <h5 class="card-header m-0 me-2 pb-3">Horas Trabalhadas (<?= date('Y') ?>)</h5>
-                    <div id="totalRevenueChart" class="px-2"></div>
                   </div>
                 </div>
               </div>
             </div>
+            <!-- /KPIs -->
+          </div>
 
-            <!--/ Total Revenue -->
-            <div class="col-12 col-md-8 col-lg-4 order-3 order-md-2">
-              <div class="row">
-                <div class="col-12 mb-4">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between flex-sm-row flex-column gap-3">
-                        <div class="d-flex flex-sm-column flex-row align-items-start justify-content-between">
-                          <div class="card-title">
-                            <h5 class="text-nowrap mb-2">Banco de Horas</h5>
-                            <span class="badge bg-label-warning rounded-pill">Ano <?= date('Y') ?></span>
-                          </div>
-                          <div class="mt-sm-auto">
-                            <h3 class="mb-0"><?= $bancoHorasFormatado ?></h3>
-                          </div>
-                        </div>
-                        <div id="bankHoursChart"></div>
-                      </div>
-                    </div>
+          <!-- Filtros -->
+          <form class="card mb-4" method="get">
+            <div class="card-body row g-3 align-items-end">
+              <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+              <div class="col-md-3">
+                <label class="form-label">Período</label>
+                <select name="periodo" id="periodo" class="form-select">
+                  <option value="hoje" <?= $periodo === 'hoje' ? 'selected' : ''; ?>>Hoje</option>
+                  <option value="ontem" <?= $periodo === 'ontem' ? 'selected' : ''; ?>>Ontem</option>
+                  <option value="ult7" <?= $periodo === 'ult7' ? 'selected' : ''; ?>>Últimos 7 dias</option>
+                  <option value="mes" <?= $periodo === 'mes' ? 'selected' : ''; ?>>Mês atual</option>
+                  <option value="mes_anterior" <?= $periodo === 'mes_anterior' ? 'selected' : ''; ?>>Mês anterior</option>
+                  <option value="custom" <?= $periodo === 'custom' ? 'selected' : ''; ?>>Personalizado</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Data inicial</label>
+                <input type="date" name="data_ini" id="data_ini" class="form-control"
+                  value="<?= htmlspecialchars($ini->format('Y-m-d')) ?>" <?= $periodo !== 'custom' ? 'disabled' : ''; ?>>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Data final</label>
+                <input type="date" name="data_fim" id="data_fim" class="form-control"
+                  value="<?= htmlspecialchars($fim->format('Y-m-d')) ?>" <?= $periodo !== 'custom' ? 'disabled' : ''; ?>>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Caixa</label>
+                <select name="caixa_id" class="form-select">
+                  <option value="">Todos</option>
+                  <?php foreach ($listaCaixas as $cx): ?>
+                    <option value="<?= (int)$cx['id'] ?>" <?= $caixaId === (int)$cx['id'] ? 'selected' : ''; ?>>
+                      #<?= (int)$cx['numero_caixa'] ?> — <?= htmlspecialchars($cx['responsavel']) ?> (<?= date('d/m H:i', strtotime($cx['abertura_datetime'])) ?>) <?= $cx['status'] === 'aberto' ? '[aberto]' : ''; ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-md-1">
+                <label class="form-label">Forma</label>
+                <input type="text" name="forma_pagamento" class="form-control" placeholder="ex.: PIX"
+                  value="<?= htmlspecialchars($formaPag) ?>">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Status NFC-e</label>
+                <input type="text" name="status_nfce" class="form-control" placeholder="ex.: autorizada"
+                  value="<?= htmlspecialchars($statusNf) ?>">
+              </div>
+              <div class="col-md-12 d-flex gap-2">
+                <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+                <a class="btn btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">Limpar</a>
+              </div>
+            </div>
+          </form>
+
+          <div class="row">
+            <!-- Caixa atual -->
+            <div class="col-md-6 col-lg-4 order-0 mb-4">
+              <div class="card h-100">
+                <div class="card-header d-flex align-items-center justify-content-between pb-0">
+                  <div class="card-title mb-0">
+                    <h5 class="m-0 me-2">Caixa Atual</h5>
+                    <?php if ($caixaAtual): ?>
+                      <small class="text-muted">#<?= (int)$caixaAtual['numero_caixa'] ?> — <?= htmlspecialchars($caixaAtual['responsavel']) ?></small>
+                    <?php else: ?>
+                      <small class="text-muted">Sem caixa aberto</small>
+                    <?php endif; ?>
                   </div>
                 </div>
+                <div class="card-body">
+                  <?php if ($caixaAtual): ?>
+                    <ul class="list-unstyled mb-0">
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Abertura</span><strong><?= moneyBr($caixaAtual['valor_abertura']) ?></strong>
+                      </li>
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Suprimentos</span><strong class="text-success"><?= moneyBr($caixaAtual['valor_suprimentos']) ?></strong>
+                      </li>
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Sangrias</span><strong class="text-danger"><?= moneyBr($caixaAtual['valor_sangrias']) ?></strong>
+                      </li>
+                      <li class="d-flex justify-content-between mb-2">
+                        <span>Qtd Vendas</span><strong><?= (int)$caixaAtual['quantidade_vendas'] ?></strong>
+                      </li>
+                      <hr>
+                      <li class="d-flex justify-content-between">
+                        <span>Saldo (valor_liquido)</span>
+                        <strong><?= moneyBr($caixaAtual['valor_liquido']) ?></strong>
+                      </li>
+                    </ul>
+                  <?php else: ?>
+                    <div class="text-center text-muted py-3">Abra um caixa para começar.</div>
+                  <?php endif; ?>
+                </div>
               </div>
-              <div class="row">
-                <div class="col-12 mb-4">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between flex-sm-row flex-column gap-3">
-                        <div class="d-flex flex-sm-column flex-row align-items-start justify-content-between">
-                          <div class="card-title">
-                            <h5 class="text-nowrap mb-2">Pontos Registrados</h5>
-                            <span class="badge bg-label-warning rounded-pill">Ano <?= date('Y') ?></span>
-                          </div>
-                          <div class="">
-                            <h3 class="mb-0"><?= $pontosAdicionados ?></h3>
-                          </div>
-                        </div>
-                        <div id="profileReportChart2"></div>
-                      </div>
-                    </div>
-                  </div>
+            </div>
+
+            <!-- Formas pagamento (pizza) -->
+            <div class="col-md-6 col-lg-4 order-1 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="m-0">Formas de Pagamento (Período)</h5>
+                </div>
+                <div class="card-body">
+                  <div id="pagamentoPie"></div>
+                  <?php if (empty($pagtoLabels)): ?>
+                    <div class="text-center text-muted mt-2">Sem vendas no período</div>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+
+            <!-- Vendas por hora (barras) -->
+            <div class="col-md-12 col-lg-4 order-2 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="m-0">Vendas por Hora (Período)</h5>
+                </div>
+                <div class="card-body">
+                  <div id="vendasHoraChart"></div>
                 </div>
               </div>
             </div>
           </div>
+
           <div class="row">
-            <!-- Order Statistics -->
-            <div class="col-md-6 col-lg-4 col-xl-4 order-0 mb-4">
-              <div class="card h-100">
-                <div class="card-header d-flex align-items-center justify-content-between pb-0">
-                  <div class="card-title mb-0">
-                    <h5 class="m-0 me-2">Distribuição por Setor</h5>
-                    <small class="text-muted">Total: <?= $totalFuncionarios ?> funcionários</small>
-                  </div>
-                  <div class="dropdown">
-                    <button class="btn p-0" type="button" id="orederStatistics" data-bs-toggle="dropdown"
-                      aria-haspopup="true" aria-expanded="false">
-                      <i class="bx bx-dots-vertical-rounded"></i>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="orederStatistics">
-                      <a class="dropdown-item" href="javascript:void(0);">Selecionar Tudo</a>
-                      <a class="dropdown-item" href="javascript:void(0);">Atualizar</a>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="d-flex flex-column align-items-center gap-1">
-                      <h2 class="mb-2"><?= $totalFuncionarios ?></h2>
-                      <span>Funcionários Totais</span>
-                    </div>
-                    <div id="orderStatisticsChart"></div>
-                  </div>
-                  <ul class="p-0 m-0">
-                    <?php foreach ($distribuicaoSetores as $index => $setor): ?>
-                      <li class="d-flex mb-4 pb-1">
-                        <div class="avatar flex-shrink-0 me-3">
-                          <span
-                            class="avatar-initial rounded bg-label-<?= ['primary', 'success', 'warning', 'info'][$index % 4] ?>">
-                            <i class="bx bx-<?= ['user', 'store', 'cart', 'support'][$index % 4] ?>"></i>
-                          </span>
-                        </div>
-                        <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                          <div class="me-2">
-                            <h6 class="mb-0"><?= htmlspecialchars($setor['setor']) ?></h6>
-                            <small class="text-muted"><?= $setor['total'] ?> funcionários</small>
-                          </div>
-                          <div class="user-progress">
-                            <small class="fw-semibold"><?= round(($setor['total'] / $totalFuncionarios) * 100) ?>%</small>
-                          </div>
-                        </div>
-                      </li>
-                    <?php endforeach; ?>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <!--/ Order Statistics -->
-
-            <!-- Expense Overview -->
-            <div class="col-md-6 col-lg-4 order-1 mb-4">
-              <div class="card h-100">
-                <div class="card-header">
-                  <ul class="nav nav-pills" role="tablist">
-                    <li class="nav-item">
-                      <button type="button" class="nav-link active" role="tab" data-bs-toggle="tab"
-                        data-bs-target="#navs-tabs-line-card-frequencia" aria-controls="navs-tabs-line-card-frequencia"
-                        aria-selected="true">
-                        Frequências
-                      </button>
-                    </li>
-                    <li class="nav-item">
-                      <button type="button" class="nav-link" role="tab" data-bs-toggle="tab"
-                        data-bs-target="#navs-tabs-line-card-atrasos" aria-controls="navs-tabs-line-card-atrasos">
-                        Atrasos
-                      </button>
-                    </li>
-                  </ul>
-                </div>
-                <div class="card-body px-0">
-                  <div class="tab-content p-0">
-                    <div class="tab-pane fade show active" id="navs-tabs-line-card-frequencia" role="tabpanel">
-                      <div class="d-flex p-4 pt-3">
-                        <div class="avatar flex-shrink-0 me-3">
-                          <span class="avatar-initial rounded bg-label-info">
-                            <i class="bx bx-calendar text-black"></i>
-                          </span>
-                        </div>
-                        <div>
-                          <small class="text-muted d-block">Total Frequência</small>
-                          <div class="d-flex align-items-center">
-                            <h6 class="mb-0 me-1"><?= array_sum($frequenciaMensal) ?></h6>
-                          </div>
-                        </div>
-                      </div>
-                      <div id="incomeChart"></div>
-                    </div>
-                    <div class="tab-pane fade" id="navs-tabs-line-card-atrasos" role="tabpanel">
-                      <div class="d-flex p-4 pt-3">
-                        <div class="avatar flex-shrink-0 me-3">
-                          <span class="avatar-initial rounded bg-label-danger">
-                            <i class="bx bx-time-five text-black"></i>
-                          </span>
-                        </div>
-                        <div>
-                          <small class="text-muted d-block">Atrasos Hoje</small>
-                          <div class="d-flex align-items-center">
-                            <h6 class="mb-0 me-1"><?= count($funcionariosAtrasados) ?></h6>
-                          </div>
-                        </div>
-                      </div>
-                      <ul class="p-0 m-0">
-                        <?php foreach ($funcionariosAtrasados as $index => $atrasado):
-                          $entrada = $atrasado['entrada'] ? date('H:i', strtotime($atrasado['entrada'])) : '--:--';
-                          $bgColors = ['primary', 'success', 'warning', 'info', 'secondary'];
-                        ?>
-                          <li class="d-flex mb-4 pb-1">
-                            <div class="avatar flex-shrink-0 me-3">
-                              <span class="avatar-initial rounded bg-label-<?= $bgColors[$index % count($bgColors)] ?>">
-                                <i class="bx bx-user"></i>
-                              </span>
-                            </div>
-                            <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
-                              <div class="me-2">
-                                <h6 class="mb-0"><?= htmlspecialchars($atrasado['nome']) ?></h6>
-                                <small class="text-muted d-block mb-1">Entrada: <?= $entrada ?></small>
-                              </div>
-                            </div>
-                          </li>
-                        <?php endforeach; ?>
-                        <?php if (empty($funcionariosAtrasados)): ?>
-                          <li class="d-flex mb-4 pb-1">
-                            <div class="w-100 text-center text-muted py-2">
-                              Nenhum atraso registrado hoje
-                            </div>
-                          </li>
-                        <?php endif; ?>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!--/ Expense Overview -->
-
-            <!-- Transactions -->
-            <div class="col-md-6 col-lg-4 order-2 mb-4">
+            <!-- Top produtos (período) -->
+            <div class="col-md-6 col-lg-6 order-0 mb-4">
               <div class="card h-100">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                  <h5 class="card-title m-0 me-2">Últimos Registros</h5>
-                  <div class="dropdown">
-                    <button class="btn p-0" type="button" id="ultimosRegistrosID" data-bs-toggle="dropdown"
-                      aria-haspopup="true" aria-expanded="false">
-                      <i class="bx bx-dots-vertical-rounded"></i>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-end" aria-labelledby="ultimosRegistrosID">
-                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=hoje">Hoje</a>
-                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=ontem">Ontem</a>
-                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=semana">Últimos 7
-                        dias</a>
-                      <a class="dropdown-item" href="?id=<?= $idSelecionado ?>&filtro_registros=ano">Ano</a>
-                    </div>
-                  </div>
+                  <h5 class="m-0">Top Produtos (Período)</h5>
+                </div>
+                <div class="card-body">
+                  <div id="topProdutosChart"></div>
+                  <?php if (empty($topProdLabels)): ?>
+                    <div class="text-center text-muted mt-2">Sem itens vendidos no período</div>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+
+            <!-- NFCE status -->
+            <div class="col-md-6 col-lg-6 order-1 mb-4">
+              <div class="card h-100">
+                <div class="card-header">
+                  <h5 class="m-0">NFC-e por Status (Período)</h5>
+                </div>
+                <div class="card-body">
+                  <div id="nfceStatusChart"></div>
+                  <?php if (empty($nfceLabels)): ?>
+                    <div class="text-center text-muted mt-2">Sem cupons no período</div>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <!-- Últimas vendas -->
+            <div class="col-md-12 col-lg-12 order-2 mb-4">
+              <div class="card h-100">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                  <h5 class="m-0 me-2">Últimas Vendas (Período)</h5>
                 </div>
                 <div class="card-body">
                   <ul class="p-0 m-0">
-                    <?php foreach ($ultimosRegistros as $index => $registro):
-                      $entrada = $registro['entrada'] ? date('H:i', strtotime($registro['entrada'])) : '--:--';
-                      $saida = $registro['saida_final'] ? date('H:i', strtotime($registro['saida_final'])) : '--:--';
-                      $dataFormatada = date('d/m', strtotime($registro['data']));
-                      $bgColors = ['primary', 'success', 'warning', 'info', 'secondary'];
-                    ?>
-                      <li class="d-flex mb-4 pb-1">
+                    <?php foreach ($ultimasVendas as $v): ?>
+                      <li class="d-flex mb-3 pb-2 border-bottom">
                         <div class="avatar flex-shrink-0 me-3">
-                          <span class="avatar-initial rounded bg-label-<?= $bgColors[$index % count($bgColors)] ?>">
-                            <i class="bx bx-user"></i>
-                          </span>
+                          <span class="avatar-initial rounded bg-label-primary"><i class="bx bx-shopping-bag"></i></span>
                         </div>
                         <div class="d-flex w-100 flex-wrap align-items-center justify-content-between gap-2">
                           <div class="me-2">
-                            <h6 class="mb-0"><?= htmlspecialchars($registro['nome']) ?></h6>
-                            <small class="text-muted d-block mb-1">Entrada: <?= $entrada ?> | Saída: <?= $saida ?></small>
+                            <h6 class="mb-0"><?= moneyBr($v['valor_total']) ?></h6>
+                            <small class="text-muted d-block mb-1">
+                              <?= htmlspecialchars($v['forma_pagamento'] ?: '—') ?> •
+                              <?= date('d/m/Y H:i', strtotime($v['data_venda'])) ?> •
+                              Resp.: <?= htmlspecialchars($v['responsavel']) ?>
+                            </small>
                           </div>
-                          <div class="user-progress d-flex align-items-center gap-1">
-                            <span class="text-muted"><?= $dataFormatada ?></span>
+                          <div class="user-progress">
+                            <small class="text-muted">#<?= (int)$v['id'] ?></small>
                           </div>
                         </div>
                       </li>
                     <?php endforeach; ?>
-                    <?php if (empty($ultimosRegistros)): ?>
-                      <li class="d-flex mb-4 pb-1">
+                    <?php if (empty($ultimasVendas)): ?>
+                      <li class="d-flex">
                         <div class="w-100 text-center text-muted py-2">
-                          Nenhum registro encontrado
+                          Sem vendas no período selecionado
                         </div>
                       </li>
                     <?php endif; ?>
@@ -933,8 +946,8 @@ if (empty($setoresChartLabels)) {
                 </div>
               </div>
             </div>
-            <!--/ Transactions -->
           </div>
+
         </div>
         <!-- / Content -->
 
@@ -962,310 +975,15 @@ if (empty($setoresChartLabels)) {
 
   </div>
 
-
   <!-- Overlay -->
   <div class="layout-overlay layout-menu-toggle"></div>
   </div>
+  <!-- / Layout wrapper -->
 
-  <script>
-    // Aguarde o DOM estar totalmente carregado
-    document.addEventListener('DOMContentLoaded', function() {
-      // Verifique se ApexCharts está disponível
-      if (typeof ApexCharts === 'undefined') {
-        console.error('ApexCharts não foi carregado corretamente');
-        return;
-      }
-
-      // Total Revenue Chart - Gráfico de horas trabalhadas
-      const totalRevenueEl = document.getElementById('totalRevenueChart');
-      if (totalRevenueEl) {
-        const totalRevenueChart = new ApexCharts(totalRevenueEl, {
-          series: [{
-            name: 'Horas',
-            data: <?= json_encode($horasTrabalhadas) ?>
-          }],
-          chart: {
-            type: 'bar',
-            height: 350,
-            toolbar: {
-              show: false
-            }
-          },
-          plotOptions: {
-            bar: {
-              borderRadius: 8,
-              columnWidth: '40%'
-            }
-          },
-          dataLabels: {
-            enabled: false
-          },
-          colors: [config.colors.primary],
-          stroke: {
-            width: 2,
-            colors: ['transparent']
-          },
-          grid: {
-            borderColor: '#e0e0e0',
-            strokeDashArray: 4
-          },
-          xaxis: {
-            categories: <?= json_encode($labelsMeses) ?>,
-            axisBorder: {
-              show: false
-            },
-            axisTicks: {
-              show: false
-            }
-          },
-          yaxis: {
-            title: {
-              text: 'Horas'
-            },
-            labels: {
-              formatter: function(val) {
-                return Math.round(val); // Garante números inteiros
-              }
-            }
-          },
-          tooltip: {
-            y: {
-              formatter: function(val) {
-                return val + " horas";
-              }
-            }
-          }
-        });
-        totalRevenueChart.render();
-      }
-
-      // Order Statistics Chart - Gráfico de distribuição por setor
-      const orderStatisticsEl = document.getElementById('orderStatisticsChart');
-      if (orderStatisticsEl) {
-        const orderStatisticsChart = new ApexCharts(orderStatisticsEl, {
-          chart: {
-            type: 'donut',
-            height: 120,
-            width: 130
-          },
-          labels: <?= json_encode($setoresChartLabels) ?>,
-          series: <?= json_encode($setoresChartData) ?>,
-          colors: [
-            config.colors.primary,
-            config.colors.success,
-            config.colors.warning,
-            config.colors.info
-          ],
-          stroke: {
-            width: 0
-          },
-          dataLabels: {
-            enabled: false
-          },
-          legend: {
-            show: false
-          },
-          plotOptions: {
-            pie: {
-              donut: {
-                labels: {
-                  show: true,
-                  name: {
-                    show: false
-                  },
-                  value: {
-                    fontSize: '1.5rem',
-                    fontFamily: 'Public Sans',
-                    color: '#2d3748',
-                    offsetY: 0,
-                    formatter: function(val) {
-                      return val;
-                    }
-                  },
-                  total: {
-                    show: true,
-                    label: 'Total',
-                    color: '#718096',
-                    formatter: function() {
-                      return '<?= $totalFuncionarios ?>';
-                    }
-                  }
-                }
-              }
-            }
-          }
-        });
-        orderStatisticsChart.render();
-      }
-
-      // Income Chart - Gráfico de frequência
-      const incomeChartEl = document.getElementById('incomeChart');
-      if (incomeChartEl) {
-        const incomeChart = new ApexCharts(incomeChartEl, {
-          series: [{
-            name: 'Frequência',
-            data: <?= json_encode($frequenciaMensal) ?>
-          }],
-          chart: {
-            type: 'area',
-            height: 215,
-            sparkline: {
-              enabled: false
-            },
-            toolbar: {
-              show: false
-            }
-          },
-          colors: [config.colors.primary],
-          fill: {
-            type: 'gradient',
-            gradient: {
-              shadeIntensity: 0.6,
-              opacityFrom: 0.4,
-              opacityTo: 0.2,
-              stops: [0, 95, 100]
-            }
-          },
-          stroke: {
-            width: 2,
-            curve: 'smooth'
-          },
-          xaxis: {
-            categories: <?= json_encode($labelsMeses) ?>,
-            axisBorder: {
-              show: false
-            },
-            axisTicks: {
-              show: false
-            }
-          },
-          yaxis: {
-            show: false,
-            min: 0
-          },
-          tooltip: {
-            y: {
-              formatter: function(val) {
-                return val + " registros";
-              }
-            }
-          }
-        });
-        incomeChart.render();
-      }
-
-      // Profile Report Chart 2 - Gráfico de pontos adicionados (linha simples)
-      const profileReportChart2El = document.getElementById('profileReportChart2');
-      if (profileReportChart2El) {
-        const profileReportChart2 = new ApexCharts(profileReportChart2El, {
-          series: [{
-            name: 'Pontos',
-            data: [5, 8, 12, 7, 10, 6, 9]
-          }],
-          chart: {
-            type: 'line',
-            height: 80,
-            sparkline: {
-              enabled: true
-            },
-            toolbar: {
-              show: false
-            }
-          },
-          stroke: {
-            width: 4,
-            curve: 'smooth'
-          },
-          colors: [config.colors.warning],
-          dataLabels: {
-            enabled: false
-          },
-          grid: {
-            show: false
-          },
-          xaxis: {
-            labels: {
-              show: false
-            },
-            axisBorder: {
-              show: false
-            },
-            axisTicks: {
-              show: false
-            }
-          },
-          yaxis: {
-            show: false
-          },
-          tooltip: {
-            y: {
-              formatter: function(val) {
-                return val + " pontos";
-              }
-            }
-          }
-        });
-        profileReportChart2.render();
-      }
-
-      // Bank Hours Chart - Gráfico de banco de horas (linha simples)
-      const bankHoursChartEl = document.getElementById('bankHoursChart');
-      if (bankHoursChartEl) {
-        const bankHoursChart = new ApexCharts(bankHoursChartEl, {
-          series: [{
-            name: 'Banco de Horas',
-            data: [2, 4, 6, 8, 12, 18, 24]
-          }],
-          chart: {
-            type: 'line',
-            height: 80,
-            sparkline: {
-              enabled: true
-            },
-            toolbar: {
-              show: false
-            }
-          },
-          stroke: {
-            width: 4,
-            curve: 'smooth'
-          },
-          colors: [config.colors.info],
-          dataLabels: {
-            enabled: false
-          },
-          grid: {
-            show: false
-          },
-          axis: {
-            labels: {
-              show: false
-            },
-            axisBorder: {
-              show: false
-            },
-            axisTicks: {
-              show: false
-            }
-          },
-          yaxis: {
-            show: false
-          },
-          tooltip: {
-            y: {
-              formatter: function(val) {
-                return val + "h";
-              }
-            }
-          }
-        });
-        bankHoursChart.render();
-      }
-
-    });
-  </script>
-
+  <!-- Core JS -->
+  <!-- build:js assets/vendor/js/core.js -->
   <script src="../../js/saudacao.js"></script>
+  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../../assets/vendor/libs/popper/popper.js"></script>
   <script src="../../assets/vendor/js/bootstrap.js"></script>
   <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
@@ -1276,9 +994,164 @@ if (empty($setoresChartLabels)) {
   <!-- Vendors JS -->
   <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Habilitar/Desabilitar datas quando período = custom
+      const periodoSel = document.getElementById('periodo');
+      const di = document.getElementById('data_ini');
+      const df = document.getElementById('data_fim');
+
+      function toggleDates() {
+        const isCustom = periodoSel.value === 'custom';
+        di.disabled = !isCustom;
+        df.disabled = !isCustom;
+      }
+      if (periodoSel) {
+        periodoSel.addEventListener('change', toggleDates);
+        toggleDates();
+      }
+
+      if (typeof ApexCharts === 'undefined') {
+        console.error('ApexCharts não carregado');
+        return;
+      }
+
+      // Fallback de cores (caso o tema não exponha window.config.colors)
+      const themeColors = (window.config && window.config.colors) ? window.config.colors : {
+        primary: '#3b82f6',
+        success: '#22c55e',
+        warning: '#f59e0b',
+        info: '#06b6d4',
+        danger: '#ef4444'
+      };
+
+      // Pagamento (pizza)
+      const pagamentoPieEl = document.getElementById('pagamentoPie');
+      if (pagamentoPieEl && <?= json_encode(!empty($pagtoLabels)) ?>) {
+        new ApexCharts(pagamentoPieEl, {
+          chart: {
+            type: 'donut',
+            height: 280
+          },
+          labels: <?= json_encode($pagtoLabels, JSON_UNESCAPED_UNICODE) ?>,
+          series: <?= json_encode(array_map('floatval', $pagtoValues)) ?>,
+          colors: [themeColors.primary, themeColors.success, themeColors.warning, themeColors.info, '#8892b0', '#8b5cf6'],
+          legend: {
+            position: 'bottom'
+          },
+          dataLabels: {
+            enabled: true
+          }
+        }).render();
+      }
+
+      // Vendas por hora (barras)
+      const vendasHoraEl = document.getElementById('vendasHoraChart');
+      if (vendasHoraEl) {
+        new ApexCharts(vendasHoraEl, {
+          chart: {
+            type: 'bar',
+            height: 300,
+            toolbar: {
+              show: false
+            }
+          },
+          series: [{
+            name: 'Cupons',
+            data: <?= json_encode(array_map('intval', $vendasPorHora)) ?>
+          }],
+          colors: [themeColors.primary],
+          plotOptions: {
+            bar: {
+              borderRadius: 6,
+              columnWidth: '45%'
+            }
+          },
+          dataLabels: {
+            enabled: false
+          },
+          xaxis: {
+            categories: <?= json_encode($labelsHoras) ?>
+          },
+          yaxis: {
+            title: {
+              text: 'Qtd'
+            },
+            min: 0,
+            forceNiceScale: true
+          },
+          tooltip: {
+            y: {
+              formatter: val => `${val} vendas`
+            }
+          }
+        }).render();
+      }
+
+      // Top produtos (barras horizontais)
+      const topProdutosEl = document.getElementById('topProdutosChart');
+      if (topProdutosEl && <?= json_encode(!empty($topProdLabels)) ?>) {
+        new ApexCharts(topProdutosEl, {
+          chart: {
+            type: 'bar',
+            height: 300,
+            toolbar: {
+              show: false
+            }
+          },
+          series: [{
+            name: 'Qtd',
+            data: <?= json_encode(array_map('intval', $topProdQtd)) ?>
+          }],
+          colors: [themeColors.success],
+          plotOptions: {
+            bar: {
+              horizontal: true,
+              borderRadius: 6,
+              barHeight: '60%'
+            }
+          },
+          dataLabels: {
+            enabled: true
+          },
+          xaxis: {
+            categories: <?= json_encode($topProdLabels, JSON_UNESCAPED_UNICODE) ?>
+          },
+          tooltip: {
+            y: {
+              formatter: val => `${val} un.`
+            }
+          }
+        }).render();
+      }
+
+      // NFCE status (pizza)
+      const nfceStatusEl = document.getElementById('nfceStatusChart');
+      if (nfceStatusEl && <?= json_encode(!empty($nfceLabels)) ?>) {
+        new ApexCharts(nfceStatusEl, {
+          chart: {
+            type: 'donut',
+            height: 280
+          },
+          labels: <?= json_encode($nfceLabels, JSON_UNESCAPED_UNICODE) ?>,
+          series: <?= json_encode(array_map('intval', $nfceValues)) ?>,
+          colors: [themeColors.info, themeColors.success, themeColors.warning, themeColors.danger, '#64748b'],
+          legend: {
+            position: 'bottom'
+          },
+          dataLabels: {
+            enabled: true
+          }
+        }).render();
+      }
+    });
+  </script>
+
   <!-- Main JS -->
   <script src="../../assets/js/main.js"></script>
 
+  <!-- Page JS -->
+  <script src="../../assets/js/dashboards-analytics.js"></script>
 
   <!-- Place this tag in your head or just before your close body tag. -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
