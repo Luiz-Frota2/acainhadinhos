@@ -8,7 +8,7 @@ session_start();
 $idSelecionado = $_GET['id'] ?? '';
 
 if (!$idSelecionado) {
-  header("Location: .././login.php");
+  header("Location: ./login.php");
   exit;
 }
 
@@ -19,17 +19,17 @@ if (
   !isset($_SESSION['tipo_empresa']) ||
   !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  header("Location: ./login.php?id=" . urlencode($idSelecionado));
   exit;
 }
 
 // ✅ Conexão com o banco de dados
-require './assets/php/conexao.php';
+require '../assets/php/conexao.php';
 
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id  = (int)$_SESSION['usuario_id'];
+$usuario_id = $_SESSION['usuario_id'];
 
 try {
   $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -38,21 +38,21 @@ try {
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
   if ($usuario) {
-    $nomeUsuario = $usuario['usuario'] ?? 'Usuário';
-    $tipoUsuario = ucfirst((string)($usuario['nivel'] ?? 'Comum'));
+    $nomeUsuario = $usuario['usuario'];
+    $tipoUsuario = ucfirst($usuario['nivel']);
   } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido   = false;
-$idEmpresaSession  = $_SESSION['empresa_id'];
-$tipoSession       = $_SESSION['tipo_empresa'];
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
   $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
@@ -67,7 +67,7 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 if (!$acessoPermitido) {
   echo "<script>
           alert('Acesso negado!');
-          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+          window.location.href = './login.php?id=" . urlencode($idSelecionado) . "';
         </script>";
   exit;
 }
@@ -79,11 +79,11 @@ try {
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
-    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png";
+  $logoEmpresa = !empty($empresaSobre['imagem'])
+    ? "../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
+  $logoEmpresa = "../assets/img/favicon/logo.png"; // fallback
 }
 
 /* ==========================================================
