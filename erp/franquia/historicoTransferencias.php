@@ -202,7 +202,7 @@ try {
                             </li>
 
                             <!-- Produtos enviados pela matriz -->
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
@@ -216,7 +216,7 @@ try {
                             </li>
 
                             <!-- Histórico de transferências -->
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
