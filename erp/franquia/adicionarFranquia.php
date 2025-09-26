@@ -178,13 +178,13 @@ try {
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./franquiasAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Filiais">Adicionadas</div>
                 </a>
               </li>
               <li class="menu-item active">
                 <a href="./franquiasAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Filiais">Adicionar Franquia</div>
+                  <div data-i18n="Filiais">Adicionar Filial</div>
                 </a>
               </li>
             </ul>
@@ -354,9 +354,6 @@ try {
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
-                <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
-                  aria-label="Search..." />
               </div>
             </div>
             <!-- /Search -->
@@ -450,7 +447,6 @@ try {
                       <select class="form-select" id="tipoUnidade" name="tipoUnidade" required>
                         <option value="">Selecione o tipo</option>
                         <option value="Franquia">Franquia</option>
-                        <option value="Filial">Filial</option>
                       </select>
                     </div>
 
@@ -501,7 +497,7 @@ try {
                   </div>
 
                   <div class="d-flex custom-button">
-                    <button type="submit" class="btn btn-primary w-100">Salvar Filial</button>
+                    <button type="submit" class="btn btn-primary w-100">Salvar Franquia</button>
                   </div>
                 </form>
 

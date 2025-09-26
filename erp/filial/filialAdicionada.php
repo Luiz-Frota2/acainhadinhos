@@ -465,13 +465,14 @@ try {
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                  <?php
-                  require '../../assets/php/conexao.php';
+                    <?php
+                    require '../../assets/php/conexao.php';
 
-                  try {
-                    $stmt = $pdo->query("SELECT * FROM unidades ORDER BY nome");
+                    try {
+                    $stmt = $pdo->prepare("SELECT * FROM unidades WHERE tipo = 'Filial' ORDER BY nome");
+                    $stmt->execute();
                     while ($filial = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                  ?>
+                    ?>
                       <tr>
                         <td><strong><?= htmlspecialchars($filial['nome']) ?></strong></td>
                         <td><?= htmlspecialchars($filial['cnpj']) ?></td>

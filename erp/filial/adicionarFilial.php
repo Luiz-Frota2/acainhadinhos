@@ -72,45 +72,21 @@ if (!$acessoPermitido) {
   exit;
 }
 
-// ✅ Buscar imagem da tabela sobre_empresa com base no idSelecionado
+// ✅ Buscar logo da empresa
 try {
-  $sql = "SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1";
-  $stmt = $pdo->prepare($sql);
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
   $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
   $logoEmpresa = !empty($empresaSobre['imagem'])
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-    : "../../assets/img/favicon/logo.png"; // fallback padrão
+    : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback em caso de erro
-}
-
-// ✅ Se chegou até aqui, o acesso está liberado
-
-// ✅ Buscar nome e nível do usuário logado
-$nomeUsuario = 'Usuário';
-$nivelUsuario = 'Comum'; // Valor padrão
-$usuario_id = $_SESSION['usuario_id'];
-
-try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $nivelUsuario = $usuario['nivel'];
-  }
-} catch (PDOException $e) {
-  $nomeUsuario = 'Erro ao carregar nome';
-  $nivelUsuario = 'Erro ao carregar nível';
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
 ?>
-
 
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -381,36 +357,30 @@ try {
             <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
-                <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
-                  aria-label="Search..." />
               </div>
             </div>
             <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
-              <!-- Place this tag where you want the button to render. -->
               <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
-                    <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt class="w-px-40 h-auto rounded-circle" />
+                    <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                   </div>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                   <li>
                     <a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                           <div class="avatar avatar-online">
-                            <img src="<?= htmlspecialchars($logoEmpresa) ?>" alt
-                              class="w-px-40 h-auto rounded-circle" />
+                            <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                           </div>
                         </div>
                         <div class="flex-grow-1">
-                          <!-- Exibindo o nome e nível do usuário -->
-                          <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                          <small class="text-muted"><?php echo $nivelUsuario; ?></small>
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
                         </div>
                       </div>
                     </a>
@@ -419,7 +389,7 @@ try {
                     <div class="dropdown-divider"></div>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="#">
+                    <a class="dropdown-item" href=".././contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-user me-2"></i>
                       <span class="align-middle">Minha Conta</span>
                     </a>
@@ -427,7 +397,7 @@ try {
                   <li>
                     <a class="dropdown-item" href="#">
                       <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Configurções</span>
+                      <span class="align-middle">Configurações</span>
                     </a>
                   </li>
                   <li>
@@ -439,11 +409,11 @@ try {
                       <span class="align-middle">Sair</span>
                     </a>
                   </li>
-
                 </ul>
               </li>
               <!--/ User -->
             </ul>
+
           </div>
         </nav>
 
@@ -451,7 +421,7 @@ try {
         <!-- / Nav bar -->
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0">
-            <span class="text-muted fw-light"><a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>">Filiais</a> /</span>Adicionar Filial
+            <span class="text-muted fw-light"><a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>">Filial</a> /</span>Adicionar Filial
             <h5 class="fw-bold mt-3 mb-3 custor-font">
               <span class="text-muted fw-light">Adicione as Filiais da empresa</span>
             </h5>
@@ -462,55 +432,64 @@ try {
 
               <div class="card-body">
 
-                <form action="../../assets/php/filial/adicionarFilial.php" method="POST" id="formAdicionarFilial">
+                <form action="../../assets/php/filial/adicionarUnidade.php" method="POST" id="formAdicionarFilial">
+
                   <div class="row">
 
                     <input type="hidden" name="idSelecionado" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                     <div class="mb-3 col-12 col-md-6">
-                      <label for="nomeFilial" class="form-label">Nome da Filial</label>
-                      <input type="text" class="form-control" id="nomeFilial" name="nomeFilial"
-                        placeholder="Ex: Filial São Paulo" required>
+                      <label for="nomeUnidade" class="form-label">Nome da Filial</label>
+                      <input type="text" class="form-control" id="nomeUnidade" name="nomeUnidade"
+                        placeholder="Ex: Franquia São Paulo" required>
+                    </div>
+
+                    <div class="mb-3 col-12 col-md-6">
+                      <label for="tipoUnidade" class="form-label">Tipo</label>
+                      <select class="form-select" id="tipoUnidade" name="tipoUnidade" required>
+                        <option value="">Selecione o tipo</option>
+                        <option value="Filial">Filial</option>
+                      </select>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="cnpj" class="form-label">CNPJ</label>
-                      <input type="text" class="form-control" id="cnpj" name="cnpjFilial"
+                      <input type="text" class="form-control" id="cnpj" name="cnpjUnidade"
                         placeholder="Ex: 45.678.912/0001-00" required>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="telefone" class="form-label">Telefone</label>
-                      <input type="text" class="form-control" id="telefone" name="telefoneFilial"
+                      <input type="text" class="form-control" id="telefone" name="telefoneUnidade"
                         placeholder="Ex: (11) 3123-4567" required>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="email" class="form-label">Email</label>
-                      <input type="email" class="form-control" id="email" name="emailFilial"
+                      <input type="email" class="form-control" id="email" name="emailUnidade"
                         placeholder="Ex: sp@empresaexemplo.com" required>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="responsavel" class="form-label">Responsável</label>
-                      <input type="text" class="form-control" id="responsavel" name="responsavelFilial"
+                      <input type="text" class="form-control" id="responsavel" name="responsavelUnidade"
                         placeholder="Ex: Lucas Andrade" required>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="endereco" class="form-label">Endereço</label>
-                      <input type="text" class="form-control" id="endereco" name="enderecoFilial"
+                      <input type="text" class="form-control" id="endereco" name="enderecoUnidade"
                         placeholder="Ex: Av. Paulista, 1234 - Bela Vista, São Paulo - SP" required>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="dataAbertura" class="form-label">Data de Abertura</label>
-                      <input type="date" class="form-control" id="dataAbertura" name="dataAberturaFilial" required>
+                      <input type="date" class="form-control" id="dataAbertura" name="dataAberturaUnidade" required>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
                       <label for="status" class="form-label">Status</label>
-                      <select class="form-select" id="status" name="statusFilial" required>
+                      <select class="form-select" id="status" name="statusUnidade" required>
                         <option value="">Selecione o status</option>
                         <option value="Ativa">Ativa</option>
                         <option value="Inativa">Inativa</option>

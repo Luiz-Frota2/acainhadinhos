@@ -449,7 +449,6 @@ try {
                   try {
                     $stmt = $pdo->prepare("SELECT * FROM unidades WHERE tipo = 'Franquia' ORDER BY nome");
                     $stmt->execute();
-
                     while ($franquia = $stmt->fetch(PDO::FETCH_ASSOC)) {
                   ?>
                       <tr>
