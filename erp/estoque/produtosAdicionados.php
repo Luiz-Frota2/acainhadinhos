@@ -183,52 +183,6 @@ try {
             <span class="menu-header-text">PDV</span>
           </li>
 
-          <!-- SUBMENU: SEFAZ -->
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-file"></i>
-              <div data-i18n="Authentications">SEFAZ</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item">
-                <a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">NFC-e</div>
-                </a>
-              </li>
-              <li class="menu-item">
-                <a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Status</div>
-                </a>
-              </li>
-              <li class="menu-item">
-                <a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Consulta</div>
-                </a>
-              </li>
-            </ul>
-          </li>
-
-          <!-- SUBMENU: CAIXA -->
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-user"></i>
-              <div data-i18n="Authentications">Caixas</div>
-            </a>
-            <ul class="menu-sub">
-              <!-- Caixa Aberto: Visualização de caixas abertos -->
-              <li class="menu-item">
-                <a href="./caixasAberto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Caixas Aberto</div>
-                </a>
-              </li>
-              <!-- Caixa Fechado: Histórico ou controle de caixas encerrados -->
-              <li class="menu-item">
-                <a href="./caixasFechado.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Basic">Caixas Fechado</div>
-                </a>
-              </li>
-            </ul>
-          </li>
           <!-- ESTOQUE COM SUBMENU -->
           <li class="menu-item active open">
 
