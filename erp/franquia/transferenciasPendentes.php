@@ -488,7 +488,7 @@ try {
                         <span class="text-muted fw-light">Movimentações a concluir entre Matriz e Franquias</span>
                     </h5>
 
-             
+
 
                     <!-- Tabela -->
                     <div class="card">
@@ -508,65 +508,132 @@ try {
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                    <?php if (!$linhas): ?>
-                                        <tr>
-                                            <td colspan="8" class="text-center text-muted">Nenhuma transferência encontrada.</td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($linhas as $r):
-                                            $stKey = $r['status'];
-                                            $st    = $mapStatus[$stKey] ?? ['label' => $stKey, 'class' => 'bg-label-secondary'];
-                                        ?>
-                                            <tr>
-                                                <td><strong><?= e($r['codigo'] ?? ('TR-' . $r['id'])) ?></strong></td>
-                                                <td><?= e($r['filial_nome']) ?></td>
-                                                <td><?= (int)$r['itens_total'] ?></td>
-                                                <td><?= (int)$r['qtd_total'] ?></td>
-                                                <td><?= $r['criado_em'] ? date('d/m/Y H:i', strtotime($r['criado_em'])) : '-' ?></td>
-                                                <td><?= $r['enviado_em'] ? date('d/m/Y H:i', strtotime($r['enviado_em'])) : '-' ?></td>
-                                                <td><span class="badge <?= e($st['class']) ?> status-badge"><?= e($st['label']) ?></span></td>
-                                                <td class="text-end actions">
-                                                    <button
-                                                        class="btn btn-sm btn-outline-secondary"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#modalDetalhes"
-                                                        data-id="<?= (int)$r['id'] ?>"
-                                                        data-codigo="<?= e($r['codigo'] ?? ('TR-' . $r['id'])) ?>"
-                                                        data-filial="<?= e($r['filial_nome']) ?>"
-                                                        data-status="<?= e($st['label']) ?>">
-                                                        Detalhes
-                                                    </button>
 
-                                                    <?php if (in_array($r['status'], ['aguardando', 'enviado'], true)): ?>
-                                                        <form class="d-inline" method="post">
-                                                            <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
-                                                            <input type="hidden" name="transferencia_id" value="<?= (int)$r['id'] ?>">
-                                                            <input type="hidden" name="acao" value="confirmar_envio">
-                                                            <button class="btn btn-sm btn-warning" onclick="return confirm('Confirmar envio desta transferência?')">Confirmar envio</button>
-                                                        </form>
-                                                    <?php endif; ?>
+                                    <!-- Exemplo quando não há registros -->
+                                    <!--
+        <tr>
+          <td colspan="8" class="text-center text-muted">Nenhuma transferência encontrada.</td>
+        </tr>
+        -->
 
-                                                    <?php if (in_array($r['status'], ['enviado', 'em_transito'], true)): ?>
-                                                        <form class="d-inline" method="post">
-                                                            <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
-                                                            <input type="hidden" name="transferencia_id" value="<?= (int)$r['id'] ?>">
-                                                            <input type="hidden" name="acao" value="confirmar_recebimento">
-                                                            <button class="btn btn-sm btn-success" onclick="return confirm('Marcar como recebido?')">Marcar recebido</button>
-                                                        </form>
-                                                    <?php endif; ?>
+                                    <!-- Linha de exemplo 1 -->
+                                    <tr>
+                                        <td><strong>TR-1024</strong></td>
+                                        <td>Franquia Centro</td>
+                                        <td>5</td>
+                                        <td>120</td>
+                                        <td>26/09/2025 09:20</td>
+                                        <td>-</td>
+                                        <td><span class="badge bg-label-secondary status-badge">Aguardando</span></td>
+                                        <td class="text-end actions">
+                                            <button
+                                                class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDetalhes"
+                                                data-id="1024"
+                                                data-codigo="TR-1024"
+                                                data-filial="Franquia Centro"
+                                                data-status="Aguardando">
+                                                Detalhes
+                                            </button>
 
-                                                    <?php if (in_array($r['status'], ['aguardando', 'enviado', 'em_transito'], true)): ?>
-                                                        <form class="d-inline" method="post">
-                                                            <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
-                                                            <input type="hidden" name="transferencia_id" value="<?= (int)$r['id'] ?>">
-                                                            <input type="hidden" name="acao" value="cancelar">
-                                                            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancelar esta transferência?')">Cancelar</button>
-                                                        </form>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
+                                            <form class="d-inline" method="post" action="#">
+                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                                <input type="hidden" name="transferencia_id" value="1024">
+                                                <input type="hidden" name="acao" value="confirmar_envio">
+                                                <button class="btn btn-sm btn-warning">Confirmar envio</button>
+                                            </form>
+
+                                            <form class="d-inline" method="post" action="#">
+                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                                <input type="hidden" name="transferencia_id" value="1024">
+                                                <input type="hidden" name="acao" value="cancelar">
+                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Linha de exemplo 2 -->
+                                    <tr>
+                                        <td><strong>TR-1025</strong></td>
+                                        <td>Franquia Norte</td>
+                                        <td>3</td>
+                                        <td>40</td>
+                                        <td>25/09/2025 15:10</td>
+                                        <td>25/09/2025 18:00</td>
+                                        <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
+                                        <td class="text-end actions">
+                                            <button
+                                                class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDetalhes"
+                                                data-id="1025"
+                                                data-codigo="TR-1025"
+                                                data-filial="Franquia Norte"
+                                                data-status="Enviado">
+                                                Detalhes
+                                            </button>
+
+                                            <form class="d-inline" method="post" action="#">
+                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                                <input type="hidden" name="transferencia_id" value="1025">
+                                                <input type="hidden" name="acao" value="confirmar_envio">
+                                                <button class="btn btn-sm btn-warning">Confirmar envio</button>
+                                            </form>
+
+                                            <form class="d-inline" method="post" action="#">
+                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                                <input type="hidden" name="transferencia_id" value="1025">
+                                                <input type="hidden" name="acao" value="confirmar_recebimento">
+                                                <button class="btn btn-sm btn-success">Marcar recebido</button>
+                                            </form>
+
+                                            <form class="d-inline" method="post" action="#">
+                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                                <input type="hidden" name="transferencia_id" value="1025">
+                                                <input type="hidden" name="acao" value="cancelar">
+                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Linha de exemplo 3 -->
+                                    <tr>
+                                        <td><strong>TR-1026</strong></td>
+                                        <td>Franquia Sul</td>
+                                        <td>2</td>
+                                        <td>500</td>
+                                        <td>20/09/2025 10:00</td>
+                                        <td>21/09/2025 08:30</td>
+                                        <td><span class="badge bg-label-info status-badge">Em trânsito</span></td>
+                                        <td class="text-end actions">
+                                            <button
+                                                class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDetalhes"
+                                                data-id="1026"
+                                                data-codigo="TR-1026"
+                                                data-filial="Franquia Sul"
+                                                data-status="Em trânsito">
+                                                Detalhes
+                                            </button>
+
+                                            <form class="d-inline" method="post" action="#">
+                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                                <input type="hidden" name="transferencia_id" value="1026">
+                                                <input type="hidden" name="acao" value="confirmar_recebimento">
+                                                <button class="btn btn-sm btn-success">Marcar recebido</button>
+                                            </form>
+
+                                            <form class="d-inline" method="post" action="#">
+                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                                <input type="hidden" name="transferencia_id" value="1026">
+                                                <input type="hidden" name="acao" value="cancelar">
+                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+
                                 </tbody>
                             </table>
                         </div>
@@ -621,6 +688,7 @@ try {
                             </div>
                         </div>
                     </div>
+
 
                 </div><!-- /container -->
             </div><!-- /Layout page -->
