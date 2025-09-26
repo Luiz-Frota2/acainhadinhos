@@ -183,6 +183,20 @@ try {
             <span class="menu-header-text">Estoque</span>
           </li>
 
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-cart"></i>
+              <div data-i18n="Authentications">Fornecedores</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item"><a href="./fornecedoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
+                  class="menu-link">
+                  <div>Adicionados</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
           <!-- ESTOQUE COM SUBMENU -->
           <li class="menu-item active open">
 
@@ -199,20 +213,6 @@ try {
                 </a>
               </li>
 
-            </ul>
-          </li>
-
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Fornecedores</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./fornecedoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
-                  class="menu-link">
-                  <div>Adicionados</div>
-                </a>
-              </li>
             </ul>
           </li>
 
