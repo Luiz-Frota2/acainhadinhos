@@ -198,7 +198,7 @@ try {
                   <div data-i18n="Basic">Produtos Adicionados</div>
                 </a>
               </li>
-              
+
             </ul>
           </li>
 
@@ -221,8 +221,6 @@ try {
               </li>
             </ul>
           </li>
-
-        </ul>
 
         <!-- Misc -->
         <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
