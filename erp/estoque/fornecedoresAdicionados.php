@@ -175,69 +175,57 @@ try {
                         </a>
                     </li>
 
-                    <!-- Finanças -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Finanças</span></li>
-                    <li class="menu-item ">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-list-check"></i>
-                            <div data-i18n="Authentications">Contas</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item"><a href="./contasAdicionadas.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Adicionadas</div>
-                                </a></li>
-                            <li class="menu-item"><a href="./contasFuturos.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Futuras</div>
-                                </a></li>
-                            <li class="menu-item"><a href="./contasPagas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Pagas</div>
-                                </a></li>
-                            <li class="menu-item"><a href="./contasPendentes.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Pendentes</div>
-                                </a></li>
-                        </ul>
+                    <!-- Administração de Filiais -->
+                    <li class="menu-header small text-uppercase">
+                        <span class="menu-header-text">Estoque</span>
                     </li>
 
-
-
-                    <li class="menu-item active open">
+                    <li class="menu-item open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-cart"></i>
-                            <div data-i18n="Authentications">Compras</div>
+                            <div data-i18n="Authentications">Fornecedores</div>
                         </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item active"><a href="./controleFornecedores.php?id=<?= urlencode($idSelecionado); ?>"
+                        <ul class="menu-sub active">
+                            <li class="menu-item active"><a href="./fornecedoresAdicionados.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="menu-link">
-                                    <div>Fornecedores</div>
-                                </a></li>
-                            <li class="menu-item"><a href="./gestaoPedidos.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Pedidos</div>
-                                </a></li>
+                                    <div>Adicionados</div>
+                                </a>
+                            </li>
                         </ul>
                     </li>
 
+                    <!-- Estoque -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-dollar"></i>
-                            <div data-i18n="Authentications">Relatórios</div>
+                            <i class="menu-icon tf-icons bx bx-package"></i>
+                            <div data-i18n="Estoque">Produtos</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item"><a href="./relatorioDiario.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Diário</div>
-                                </a></li>
-                            <li class="menu-item"><a href="./relatorioMensal.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Mensal</div>
-                                </a></li>
-                            <li class="menu-item"><a href="./relatorioAnual.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="menu-link">
-                                    <div>Anual</div>
-                                </a></li>
+                            <li class="menu-item">
+                                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Produtos">Adicionados</div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Relatórios -->
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+                            <div data-i18n="Relatorios">Relatórios</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="BaixoEstoque">Estoque Alto</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="BaixoEstoque">Estoque Baixo</div>
+                                </a>
+                            </li>
                         </ul>
                     </li>
 
@@ -248,6 +236,12 @@ try {
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">RH</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-dollar"></i>
+                            <div data-i18n="Authentications">Finanças</div>
                         </a>
                     </li>
                     <li class="menu-item">

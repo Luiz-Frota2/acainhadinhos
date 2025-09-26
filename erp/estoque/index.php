@@ -494,8 +494,6 @@ $fimTxt = $fim->format('d/m/Y');
             </ul>
           </li>
 
-          <!--END DELIVERY-->
-
           <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
