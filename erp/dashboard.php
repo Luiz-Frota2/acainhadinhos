@@ -24,7 +24,7 @@ if (
 }
 
 // ✅ Conexão com o banco de dados
-require '../../assets/php/conexao.php';
+require './assets/php/conexao.php';
 
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
