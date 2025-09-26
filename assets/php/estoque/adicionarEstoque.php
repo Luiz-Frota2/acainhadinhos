@@ -79,7 +79,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($stmt->execute()) {
             echo "<script>
                     alert('Produto adicionado com sucesso');
-                    window.location.href = '../../../erp/pdv/produtosAdicionados.php?id=" . urlencode($empresa_id) . "';
+                    window.location.href = '../../../erp/estoque/produtosAdicionados.php?id=" . urlencode($empresa_id) . "';
                   </script>";
             exit();
         } else {

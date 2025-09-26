@@ -395,7 +395,7 @@ try {
                         <h5 class="card-header">Adicionar Produto</h5>
                         <div class="card-body">
 
-                            <form id="addContaForm" action="../../assets/php/pdv/adicionarEstoque.php" method="POST">
+                            <form id="addContaForm" action="../../assets/php/estoque/adicionarEstoque.php" method="POST">
                                 <!-- Campo oculto para passar o idSelecionado -->
                                 <input type="hidden" name="idSelecionado" value="<?php echo htmlspecialchars($idSelecionado); ?>" />
 
