@@ -86,15 +86,16 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
-// ✅ Buscar produtos apenas da empresa/filial selecionada
 try {
-  $stmt = $pdo->prepare("SELECT * FROM produtos_estoque WHERE empresa_id = :empresa_id ORDER BY data_cadastro DESC");
+  // Consulta para filtrar os produtos pela empresa selecionada
+  $sql = "SELECT * FROM estoque WHERE empresa_id = :empresa_id";
+  $stmt = $pdo->prepare($sql);
   $stmt->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+  $estoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao buscar produtos: " . addslashes($e->getMessage()) . "');</script>";
-  $produtos = [];
+  echo "Erro ao buscar produtos: " . $e->getMessage();
+  exit;
 }
 
 ?>
@@ -108,7 +109,7 @@ try {
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-  <title>ERP - Estoque</title>
+  <title>ERP - PDV</title>
 
   <meta name="description" content="" />
 
@@ -143,6 +144,7 @@ try {
   <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
   <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
   <script src="../../assets/js/config.js"></script>
+
 </head>
 
 <body>
@@ -157,7 +159,6 @@ try {
 
             <span class="app-brand-text demo menu-text fw-bolder ms-2"
               style=" text-transform: capitalize;">Açaínhadinhos</span>
-
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -168,58 +169,119 @@ try {
         <div class="menu-inner-shadow"></div>
 
         <ul class="menu-inner py-1">
-          <!-- Dashboard -->
+
+          <!-- DASHBOARD -->
           <li class="menu-item">
-            <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div data-i18n="Analytics">Dashboard</div>
             </a>
           </li>
 
-          <!-- Administração de Filiais -->
+          <!-- SEÇÃO ADMINISTRATIVO -->
           <li class="menu-header small text-uppercase">
-            <span class="menu-header-text">Estoque</span>
+            <span class="menu-header-text">PDV</span>
           </li>
 
-          <!-- Estoque -->
-          <li class="menu-item active open">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-package"></i>
-              <div data-i18n="Estoque">Produtodos</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item active">
-                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Produtos">Adicionados</div>
-                </a>
-              </li>
-            </ul>
-          </li>
-
-          <!-- Relatórios -->
+          <!-- SUBMENU: SEFAZ -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-              <div data-i18n="Relatorios">Relatórios</div>
+              <i class="menu-icon tf-icons bx bx-file"></i>
+              <div data-i18n="Authentications">SEFAZ</div>
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="BaixoEstoque">Estoque Alto</div>
+                <a href="./adicionarNFCe.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">NFC-e</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="BaixoEstoque">Estoque Baixo</div>
+                <a href="./sefazStatus.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Status</div>
                 </a>
               </li>
-
+              <li class="menu-item">
+                <a href="./sefazConsulta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Consulta</div>
+                </a>
+              </li>
             </ul>
           </li>
 
-          <!--END DELIVERY-->
+          <!-- SUBMENU: CAIXA -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-user"></i>
+              <div data-i18n="Authentications">Caixas</div>
+            </a>
+            <ul class="menu-sub">
+              <!-- Caixa Aberto: Visualização de caixas abertos -->
+              <li class="menu-item">
+                <a href="./caixasAberto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Caixas Aberto</div>
+                </a>
+              </li>
+              <!-- Caixa Fechado: Histórico ou controle de caixas encerrados -->
+              <li class="menu-item">
+                <a href="./caixasFechado.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Caixas Fechado</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+          <!-- ESTOQUE COM SUBMENU -->
+          <li class="menu-item active open">
 
-          <!-- Misc -->
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-box"></i>
+              <div data-i18n="Basic">Estoque</div>
+            </a>
+
+            <ul class="menu-sub">
+              <!-- Produtos Adicionados: Cadastro ou listagem de produtos adicionados -->
+              <li class="menu-item active">
+                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Produtos Adicionados</div>
+                </a>
+              </li>
+              <!-- Estoque Baixo -->
+              <li class="menu-item">
+                <a href="./estoqueBaixo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Estoque Baixo</div>
+                </a>
+              </li>
+              <!-- Estoque Alto -->
+              <li class="menu-item">
+                <a href="./estoqueAlto.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Estoque Alto</div>
+                </a>
+              </li>
+            </ul>
+          </li>
+
+
+          <!-- SUBMENU: RELATÓRIOS -->
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+              <i class="menu-icon tf-icons bx bx-file"></i>
+              <div data-i18n="Authentications">Relatórios</div>
+            </a>
+            <ul class="menu-sub">
+              <!-- Relatório Operacional: Desempenho de operações -->
+              <li class="menu-item">
+                <a href="./relatorioOperacional.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Operacional</div>
+                </a>
+              </li>
+              <!-- Relatório de Vendas: Estatísticas e resumo de vendas -->
+              <li class="menu-item">
+                <a href="./relatorioVendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Basic">Vendas</div>
+                </a>
+              </li>
+            </ul>
+
+            <!-- Misc -->
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
           <li class="menu-item">
             <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -234,21 +296,15 @@ try {
             </a>
           </li>
           <li class="menu-item">
-            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-desktop"></i>
-              <div data-i18n="Authentications">PDV</div>
-            </a>
-          </li>
-          <li class="menu-item">
-            <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-cart"></i>
-              <div data-i18n="Authentications">Delivery</div>
-            </a>
-          </li>
-          <li class="menu-item">
             <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="Authentications">Empresa</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-box"></i>
+              <div data-i18n="Authentications">Estoque</div>
             </a>
           </li>
           <?php
@@ -381,129 +437,177 @@ try {
         </nav>
         <!-- / Navbar -->
 
-        <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Produtos</a>/</span>Adicionados</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize e gerencie os Estoque da
-              empresa</span></h5>
 
-          <!-- Tabela de Produtos da Empresa -->
+        <div class="container-xxl flex-grow-1 container-p-y">
+          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Produtos Adicionados</h4>
+
           <div class="card">
-            <h5 class="card-header">Lista de Produtos</h5>
+            <h5 class="card-header">Lista de Produtos Adicionados</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover">
                 <thead>
                   <tr>
+                    <th>Código</th>
                     <th>Produto</th>
-                    <th>Fornecedor</th>
+                    <th>Categoria</th>
                     <th>Quantidade</th>
-                    <th>Data do Cadastro</th>
+                    <th>Preço Unitário</th>
                     <th>Status</th>
                     <th>Ações</th>
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                  <?php foreach ($produtos as $produto): ?>
+                  <?php foreach ($estoque as $estoques): ?>
                     <tr>
-                      <input type="hidden" value="<?= htmlspecialchars($produto['id']) ?>">
-                      <td><?= htmlspecialchars($produto['nome_produto']) ?></td>
-                      <td><?= htmlspecialchars($produto['fornecedor_produto']) ?></td>
-                      <td><?= htmlspecialchars($produto['quantidade_produto']) ?></td>
-                      <td><?= date('d/m/Y', strtotime($produto['data_cadastro'])) ?></td>
+                      <td><?= htmlspecialchars($estoques['codigo_produto']) ?></td>
+                      <td><?= htmlspecialchars($estoques['nome_produto']) ?></td>
+                      <td><?= htmlspecialchars($estoques['categoria_produto']) ?></td>
+                      <td><?= htmlspecialchars($estoques['quantidade_produto']) ?></td>
+                      <td>R$ <?= number_format($estoques['preco_produto'], 2, ',', '.') ?></td>
                       <td>
-                        <?php if ($produto['status_produto'] == 'estoque_alto'): ?>
-                          <span class="badge bg-success">Estoque Alto</span>
-                        <?php elseif ($produto['status_produto'] == 'estoque_baixo'): ?>
+                        <?php if ($estoques['status_produto'] == 'estoque_alto'): ?>
+                          <span class="badge bg-success me-1">Estoque Alto</span>
+                        <?php elseif ($estoques['status_produto'] == 'estoque_baixo'): ?>
                           <span class="badge bg-danger">Estoque Baixo</span>
+                        <?php elseif ($estoques['status_produto'] == 'ativo'): ?>
+                          <span class="badge bg-primary">Ativo</span>
+                        <?php elseif ($estoques['status_produto'] == 'inativo'): ?>
+                          <span class="badge bg-secondary">Inativo</span>
                         <?php else: ?>
-                          <span class="badge bg-warning">Não identificado</span>
+                          <span class="badge bg-warning">Não definido</span>
                         <?php endif; ?>
                       </td>
                       <td>
-                        <div class="d-flex align-items-center">
-                          <a href="#" data-bs-toggle="modal" data-bs-target="#editProdutoModal_<?= $produto['id'] ?>"
-                            class="text-primary me-2">
+                        <div class="d-flex">
+                          <!-- Botão Editar -->
+                          <a href="#" class="text-primary me-2" data-bs-toggle="modal"
+                            data-bs-target="#editProdutoModal_<?= $estoques['id'] ?>"
+                            title="Editar">
                             <i class="tf-icons bx bx-edit"></i>
                           </a>
 
-                          <span class="mx-1">|</span>
-
-                          <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
-                            data-bs-target="#modalExcluir_<?= $produto['id'] ?>">
+                          <!-- Botão Excluir -->
+                          <a href="#" class="text-danger" data-bs-toggle="modal"
+                            data-bs-target="#deleteEstoqueModal_<?= $estoques['id'] ?>"
+                            title="Excluir">
                             <i class="tf-icons bx bx-trash"></i>
-                          </button>
+                          </a>
                         </div>
 
-                        <!-- Modal de Exclusão de Produto -->
-                        <div class="modal fade" id="modalExcluir_<?= $produto['id'] ?>" tabindex="-1"
-                          aria-labelledby="modalExcluirLabel_<?= $produto['id'] ?>" aria-hidden="true">
+                        <!-- Modal de Excluir Estoque -->
+                        <div class="modal fade" id="deleteEstoqueModal_<?= $estoques['id'] ?>" tabindex="-1"
+                          aria-hidden="true">
                           <div class="modal-dialog">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="modalExcluirLabel_<?= $produto['id'] ?>">Excluir Produto</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                  aria-label="Close"></button>
+                                <h5 class="modal-title">Excluir Produto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                               </div>
                               <div class="modal-body">
-                                <p>Tem certeza de que deseja excluir o produto
-                                  "<?= htmlspecialchars($produto['nome_produto']) ?>"?</p>
-                                <div class="d-flex justify-content-end">
-                                  <button type="button" class="btn btn-secondary me-2"
-                                    data-bs-dismiss="modal">Cancelar</button>
-                                  <a href="../../assets/php/estoque/excluirProduto.php?id=<?= $produto['id'] ?>&empresa_id=<?= $idSelecionado ?>"
-                                    class="btn btn-danger">Sim, excluir</a>
-                                </div>
+                                <p>Tem certeza de que deseja excluir o produto "<?= htmlspecialchars($estoques['nome_produto']) ?>"?</p>
+                              </div>
+                              <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <a href="../../assets/php/pdv/excluirEstoque.php?id=<?= $estoques['id'] ?>&empresa_id=<?= urlencode($idSelecionado) ?>"
+                                  class="btn btn-danger">Excluir</a>
                               </div>
                             </div>
                           </div>
                         </div>
 
                         <!-- Modal de Editar Produto -->
-                        <div class="modal fade" id="editProdutoModal_<?= $produto['id'] ?>" tabindex="-1"
-                          aria-labelledby="editProdutoModalLabel_<?= $produto['id'] ?>" aria-hidden="true">
-                          <div class="modal-dialog">
+                        <div class="modal fade" id="editProdutoModal_<?= $estoques['id'] ?>" tabindex="-1"
+                          aria-hidden="true">
+                          <div class="modal-dialog modal-lg">
                             <div class="modal-content">
                               <div class="modal-header">
-                                <h5 class="modal-title" id="editModalLabel_<?= $produto['id'] ?>">Editar Produto</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                  aria-label="Fechar"></button>
+                                <h5 class="modal-title">Editar Produto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                               </div>
                               <div class="modal-body">
-                                <form action="../../assets/php/estoque/editarProduto.php" method="POST">
-                                  <input type="hidden" name="id" value="<?= htmlspecialchars($produto['id']) ?>">
-                                  <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                <form action="../../assets/php/pdv/editarEstoque.php" method="POST">
+                                  <input type="hidden" name="id" value="<?= htmlspecialchars($estoques['id']) ?>">
+                                  <input type="text" name="empresa_id" value="<?= $idSelecionado ?>">
 
-                                  <div class="mb-3">
-                                    <label for="nome_produto" class="form-label">Nome</label>
-                                    <input type="text" class="form-control" id="nome_produto" name="nome_produto"
-                                      value="<?= htmlspecialchars($produto['nome_produto']) ?>" required>
+                                  <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">Código do Produto (GTIN/EAN)</label>
+                                      <input type="text" class="form-control" name="codigo_produto"
+                                        value="<?= htmlspecialchars($estoques['codigo_produto']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">Nome do Produto*</label>
+                                      <input type="text" class="form-control" name="nome_produto"
+                                        value="<?= htmlspecialchars($estoques['nome_produto']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">NCM*</label>
+                                      <input type="text" class="form-control" name="ncm"
+                                        value="<?= htmlspecialchars($estoques['ncm']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-6 mb-3">
+                                      <label class="form-label">CFOP*</label>
+                                      <input type="text" class="form-control" name="cfop"
+                                        value="<?= htmlspecialchars($estoques['cfop']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Categoria*</label>
+                                      <input type="text" class="form-control" name="categoria_produto"
+                                        value="<?= htmlspecialchars($estoques['categoria_produto']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Quantidade*</label>
+                                      <input type="number" step="0.01" class="form-control" name="quantidade_produto"
+                                        value="<?= htmlspecialchars($estoques['quantidade_produto']) ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Unidade*</label>
+                                      <select class="form-select" name="unidade" required>
+                                        <option value="UN" <?= $estoques['unidade'] === 'UN' ? 'selected' : '' ?>>UN - Unidade</option>
+                                        <option value="KG" <?= $estoques['unidade'] === 'KG' ? 'selected' : '' ?>>KG - Quilograma</option>
+                                        <option value="LT" <?= $estoques['unidade'] === 'LT' ? 'selected' : '' ?>>LT - Litro</option>
+                                        <option value="CX" <?= $estoques['unidade'] === 'CX' ? 'selected' : '' ?>>CX - Caixa</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Preço Unitário (R$)*</label>
+                                      <input type="text" class="form-control money" name="preco_produto"
+                                        value="<?= number_format($estoques['preco_produto'], 2, ',', '.') ?>" required>
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Preço de Custo (R$)</label>
+                                      <input type="text" class="form-control money" name="preco_custo"
+                                        value="<?= isset($estoques['preco_custo']) ? number_format($estoques['preco_custo'], 2, ',', '.') : '' ?>">
+                                    </div>
+
+                                    <div class="col-md-4 mb-3">
+                                      <label class="form-label">Status*</label>
+                                      <select class="form-select" name="status_produto" required>
+                                        <option value="ativo" <?= $estoques['status_produto'] === 'ativo' ? 'selected' : '' ?>>Ativo</option>
+                                        <option value="inativo" <?= $estoques['status_produto'] === 'inativo' ? 'selected' : '' ?>>Inativo</option>
+                                        <option value="estoque_alto" <?= $estoques['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
+                                        <option value="estoque_baixo" <?= $estoques['status_produto'] === 'estoque_baixo' ? 'selected' : '' ?>>Estoque Baixo</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="col-12 mb-3">
+                                      <label class="form-label">Informações Adicionais (NFC-e)</label>
+                                      <textarea class="form-control" name="informacoes_adicionais" rows="2"><?=
+                                                                                                            htmlspecialchars($estoques['informacoes_adicionais'] ?? '') ?></textarea>
+                                    </div>
                                   </div>
 
-                                  <div class="mb-3">
-                                    <label for="fornecedor_produto" class="form-label">Fornecedor</label>
-                                    <input type="text" class="form-control" id="fornecedor_produto"
-                                      name="fornecedor_produto"
-                                      value="<?= htmlspecialchars($produto['fornecedor_produto']) ?>" required>
-                                  </div>
-
-                                  <div class="mb-3">
-                                    <label for="quantidade_produto" class="form-label">Quantidade</label>
-                                    <input type="number" class="form-control" id="quantidade_produto"
-                                      name="quantidade_produto"
-                                      value="<?= htmlspecialchars($produto['quantidade_produto']) ?>" required>
-                                  </div>
-
-                                  <div class="mb-3">
-                                    <label for="status_produto" class="form-label">Status</label>
-                                    <select class="form-select" id="status_produto" name="status_produto" required>
-                                      <option value="estoque_alto" <?= $produto['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
-                                      <option value="estoque_baixo" <?= $produto['status_produto'] === 'estoque_baixo' ? 'selected' : '' ?>>Estoque Baixo</option>
-                                    </select>
-                                  </div>
-
-                                  <div class="d-flex justify-content-between">
-                                    <button type="button" class="btn btn-secondary"
-                                      data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-primary">Salvar</button>
+                                  <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
                                   </div>
                                 </form>
                               </div>
@@ -518,49 +622,51 @@ try {
             </div>
           </div>
 
-          <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-            onclick="window.location.href='adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>';"
+          <div class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
+            onclick="window.location.href='adicionarEstoque.php?id=<?= urlencode($idSelecionado) ?>';"
             style="cursor: pointer;">
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar novo Produto</span>
           </div>
-
         </div>
+        <!-- / Content -->
+
 
       </div>
-      <!-- / Layout wrapper -->
+      <!-- Content wrapper -->
+    </div>
+    <!-- / Layout page -->
 
-      <!-- Core JS -->
-      <!-- build:js assets/vendor/js/core.js -->
-      <script src="../../js/saudacao.js"></script>
-      <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-      <script src="../../assets/vendor/libs/popper/popper.js"></script>
-      <script src="../../assets/vendor/js/bootstrap.js"></script>
-      <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  </div>
 
-      <script src="../../assets/vendor/js/menu.js"></script>
-      <!-- endbuild -->
+  <!-- Overlay -->
 
-      <!-- Vendors JS -->
-      <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+  </div>
+  <!-- / Layout wrapper -->
 
-      <!-- Main JS -->
-      <script src="../../assets/js/main.js"></script>
+  <!-- Core JS -->
+  <!-- build:js assets/vendor/js/core.js -->
+  <script src="../../js/saudacao.js"></script>
+  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="../../assets/vendor/libs/popper/popper.js"></script>
+  <script src="../../assets/vendor/js/bootstrap.js"></script>
+  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 
-      <!-- Page JS -->
-      <script src="../../assets/js/dashboards-analytics.js"></script>
+  <script src="../../assets/vendor/js/menu.js"></script>
+  <!-- endbuild -->
 
-      <!-- Place this tag in your head or just before your close body tag. -->
-      <script async defer src="https://buttons.github.io/buttons.js"></script>
-      <script>
-        function openEditModal() {
-          new bootstrap.Modal(document.getElementById('editContaModal')).show();
-        }
+  <!-- Vendors JS -->
+  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
-        function openDeleteModal() {
-          new bootstrap.Modal(document.getElementById('deleteContaModal')).show();
-        }
-      </script>
+  <!-- Main JS -->
+  <script src="../../assets/js/main.js"></script>
+
+  <!-- Page JS -->
+  <script src="../../assets/js/dashboards-analytics.js"></script>
+
+
+  <!-- Place this tag in your head or just before your close body tag. -->
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 
 </html>

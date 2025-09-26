@@ -360,6 +360,7 @@ $periodoLabel = [
 
 $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
+
 ?>
 
 <!DOCTYPE html>

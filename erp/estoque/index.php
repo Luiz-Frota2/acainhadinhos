@@ -29,7 +29,7 @@ require '../../assets/php/conexao.php';
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id  = (int)$_SESSION['usuario_id'];
 
 try {
   $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -38,21 +38,21 @@ try {
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
   if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
+    $nomeUsuario = $usuario['usuario'] ?? 'Usuário';
+    $tipoUsuario = ucfirst((string)($usuario['nivel'] ?? 'Comum'));
   } else {
     echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
   exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$idEmpresaSession = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
+$acessoPermitido   = false;
+$idEmpresaSession  = $_SESSION['empresa_id'];
+$tipoSession       = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
   $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
@@ -79,12 +79,287 @@ try {
   $stmt->execute();
   $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  $logoEmpresa = !empty($empresaSobre['imagem'])
+  $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
     ? "../../assets/img/empresa/" . $empresaSobre['imagem']
     : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
   $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
+
+/* ==========================================================
+   FILTROS DE PDV (período, caixa, forma, status NFC-e)
+   ========================================================== */
+
+function brToIsoDate($d)
+{
+  // aceita "YYYY-mm-dd" direto; se vier "dd/mm/YYYY", converte
+  if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
+  if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
+    return "{$m[3]}-{$m[2]}-{$m[1]}";
+  }
+  return null;
+}
+
+$periodo   = $_GET['periodo'] ?? 'hoje'; // hoje|ontem|ult7|mes|mes_anterior|custom
+$dataIni   = $_GET['data_ini'] ?? '';
+$dataFim   = $_GET['data_fim'] ?? '';
+$caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
+$formaPag  = $_GET['forma_pagamento'] ?? '';
+$statusNf  = $_GET['status_nfce'] ?? '';
+
+$now = new DateTime('now');
+$ini = new DateTime('today');
+$ini->setTime(0, 0, 0);
+$fim = new DateTime('today');
+$fim->setTime(23, 59, 59);
+
+switch ($periodo) {
+  case 'ontem':
+    $ini = (new DateTime('yesterday'))->setTime(0, 0, 0);
+    $fim = (new DateTime('yesterday'))->setTime(23, 59, 59);
+    break;
+  case 'ult7':
+    $ini = (new DateTime('today'))->modify('-6 days')->setTime(0, 0, 0);
+    $fim = (new DateTime('today'))->setTime(23, 59, 59);
+    break;
+  case 'mes':
+    $ini = (new DateTime('first day of this month'))->setTime(0, 0, 0);
+    $fim = (new DateTime('last day of this month'))->setTime(23, 59, 59);
+    break;
+  case 'mes_anterior':
+    $ini = (new DateTime('first day of last month'))->setTime(0, 0, 0);
+    $fim = (new DateTime('last day of last month'))->setTime(23, 59, 59);
+    break;
+  case 'custom':
+    $isoIni = brToIsoDate($dataIni);
+    $isoFim = brToIsoDate($dataFim);
+    if ($isoIni && $isoFim) {
+      $ini = new DateTime($isoIni . ' 00:00:00');
+      $fim = new DateTime($isoFim . ' 23:59:59');
+    }
+    break;
+  case 'hoje':
+  default:
+    // já setado
+    break;
+}
+
+// — Lista de caixas recentes (últimos 60 dias) para o filtro
+$listaCaixas = [];
+try {
+  $st = $pdo->prepare("
+    SELECT id, numero_caixa, responsavel, abertura_datetime, status
+      FROM aberturas
+     WHERE empresa_id = :empresa_id
+       AND abertura_datetime >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+  ORDER BY abertura_datetime DESC
+  ");
+  $st->execute([':empresa_id' => $idSelecionado]);
+  $listaCaixas = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+}
+
+/* ==========================================================
+   MÉTRICAS PDV (usando os FILTROS)
+   ========================================================== */
+
+$caixaAtual = null; // opcionalmente mostramos info do caixa aberto mais recente
+try {
+  $st = $pdo->prepare("
+    SELECT id, responsavel, numero_caixa, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido,
+           abertura_datetime, fechamento_datetime, quantidade_vendas, status, cpf_responsavel
+      FROM aberturas
+     WHERE empresa_id = :empresa_id
+       AND status = 'aberto'
+  ORDER BY abertura_datetime DESC
+     LIMIT 1
+  ");
+  $st->execute([':empresa_id' => $idSelecionado]);
+  $caixaAtual = $st->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+}
+
+$vendasQtd        = 0;
+$vendasValor      = 0.00;
+$vendasTroco      = 0.00;
+$ticketMedio      = 0.00;
+$pagamentoSeries  = []; // forma_pagamento => total
+$vendasPorHora    = array_fill(0, 24, 0);
+$topProdutos      = [];
+$nfceStatusCont   = [];
+$ultimasVendas    = [];
+
+function bindPeriodo(&$params, DateTime $ini, DateTime $fim)
+{
+  $params[':ini'] = $ini->format('Y-m-d H:i:s');
+  $params[':fim'] = $fim->format('Y-m-d H:i:s');
+}
+
+function mountWhere(string $empresaId, ?int $caixaId, string $forma, string $status, array &$params): string
+{
+  $where = " WHERE empresa_id = :empresa_id AND data_venda BETWEEN :ini AND :fim ";
+  $params[':empresa_id'] = $empresaId;
+  if (!empty($forma)) {
+    $where .= " AND forma_pagamento = :forma_pagamento ";
+    $params[':forma_pagamento'] = $forma;
+  }
+  if (!empty($status)) {
+    $where .= " AND status_nfce = :status_nfce ";
+    $params[':status_nfce'] = $status;
+  }
+  if (!empty($caixaId)) {
+    $where .= " AND id_caixa = :id_caixa ";
+    $params[':id_caixa'] = $caixaId;
+  }
+  return $where;
+}
+
+try {
+  // 1) KPIs gerais do período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+
+  $sql = "SELECT COUNT(*) AS qtd,
+                 COALESCE(SUM(valor_total),0) AS soma_total,
+                 COALESCE(SUM(troco),0) AS soma_troco
+            FROM vendas
+           $whereV";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $r = $st->fetch(PDO::FETCH_ASSOC);
+  $vendasQtd   = (int)($r['qtd'] ?? 0);
+  $vendasValor = (float)($r['soma_total'] ?? 0.0);
+  $vendasTroco = (float)($r['soma_troco'] ?? 0.0);
+  $ticketMedio = $vendasQtd > 0 ? ($vendasValor / $vendasQtd) : 0.0;
+
+  // 2) Formas de pagamento (pizza)
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT forma_pagamento, COALESCE(SUM(valor_total),0) AS tot
+            FROM vendas
+           $whereV
+        GROUP BY forma_pagamento";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $fp = $row['forma_pagamento'] ?: 'Outros';
+    $pagamentoSeries[$fp] = (float)$row['tot'];
+  }
+
+  // 3) Vendas por hora
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT HOUR(data_venda) AS h, COUNT(*) AS qtd
+            FROM vendas
+           $whereV
+        GROUP BY HOUR(data_venda)";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $h = (int)$row['h'];
+    if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
+  }
+
+  // 4) Top produtos por quantidade no período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  // aplica também filtros de forma/status/caixa via tabela vendas
+  $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
+  if (!empty($formaPag)) {
+    $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
+    $params[':forma_pagamento'] = $formaPag;
+  }
+  if (!empty($statusNf)) {
+    $whereBase .= " AND v.status_nfce = :status_nfce ";
+    $params[':status_nfce'] = $statusNf;
+  }
+  if (!empty($caixaId)) {
+    $whereBase .= " AND v.id_caixa = :id_caixa ";
+    $params[':id_caixa'] = $caixaId;
+  }
+  $params[':empresa_id'] = $idSelecionado;
+
+  $sql = "SELECT iv.produto_nome,
+                 SUM(iv.quantidade) AS qtd,
+                 SUM(iv.quantidade * iv.preco_unitario) AS valor
+            FROM itens_venda iv
+            JOIN vendas v ON v.id = iv.venda_id
+           $whereBase
+        GROUP BY iv.produto_nome
+        ORDER BY qtd DESC
+           LIMIT 5";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
+
+  // 5) NFC-e por status no período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT COALESCE(status_nfce,'sem_status') AS st, COUNT(*) AS qtd
+            FROM vendas
+           $whereV
+        GROUP BY COALESCE(status_nfce,'sem_status')";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $nfceStatusCont[$row['st']] = (int)$row['qtd'];
+  }
+
+  // 6) Últimas vendas do período (5)
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT id, responsavel, forma_pagamento, valor_total, data_venda
+            FROM vendas
+           $whereV
+        ORDER BY data_venda DESC
+           LIMIT 5";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $ultimasVendas = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  // mantém valores padrão
+}
+
+// ==== Dados para gráficos/labels
+$labelsHoras = [];
+for ($h = 0; $h < 24; $h++) {
+  $labelsHoras[] = sprintf('%02d:00', $h);
+}
+
+$pagtoLabels = array_keys($pagamentoSeries);
+$pagtoValues = array_values($pagamentoSeries);
+
+$nfceLabels = array_keys($nfceStatusCont);
+$nfceValues = array_values($nfceStatusCont);
+
+$topProdLabels = [];
+$topProdQtd    = [];
+foreach ($topProdutos as $p) {
+  $topProdLabels[] = $p['produto_nome'];
+  $topProdQtd[]    = (int)$p['qtd'];
+}
+
+// Formatações úteis
+function moneyBr($v)
+{
+  return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
+$periodoLabel = [
+  'hoje' => 'Hoje',
+  'ontem' => 'Ontem',
+  'ult7' => 'Últimos 7 dias',
+  'mes' => 'Mês atual',
+  'mes_anterior' => 'Mês anterior',
+  'custom' => 'Personalizado'
+][$periodo] ?? 'Hoje';
+
+$iniTxt = $ini->format('d/m/Y');
+$fimTxt = $fim->format('d/m/Y');
 
 ?>
 
@@ -861,7 +1136,7 @@ try {
               <script>
                 document.write(new Date().getFullYear());
               </script>
-              , <strong>Açaídinhos</strong>. Todos os direitos reservados.
+              , <strong>Açainhadinhos</strong>. Todos os direitos reservados.
               Desenvolvido por <strong>Lucas Correa</strong>.
             </div>
           </div>
