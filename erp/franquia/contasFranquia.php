@@ -140,13 +140,13 @@ try {
           </li>
 
           <!-- Adicionar Filial -->
-          <li class="menu-item active open">
+          <li class="menu-item ">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-building"></i>
               <div data-i18n="Adicionar">Franquias</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item active">
+              <li class="menu-item">
                 <a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Filiais">Adicionadas</div>
                 </a>
@@ -154,14 +154,14 @@ try {
             </ul>
           </li>
 
-          <li class="menu-item">
+          <li class="menu-item ative open">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="B2B">B2B - Matriz</div>
             </a>
             <ul class="menu-sub">
               <!-- Contas das Filiais -->
-              <li class="menu-item">
+              <li class="menu-item active">
                 <a href="#" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a>
