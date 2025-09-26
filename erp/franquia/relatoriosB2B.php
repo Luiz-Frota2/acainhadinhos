@@ -83,7 +83,7 @@ try {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>ERP — Produtos Solicitados</title>
+  <title>ERP — Relatórios B2B</title>
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -97,18 +97,15 @@ try {
   <script src="../../assets/js/config.js"></script>
   <style>
     .table thead th { white-space: nowrap; }
-    .status-badge { font-size: .78rem; }
-    .toolbar { gap: .5rem; }
+    .toolbar { gap:.5rem; }
     .toolbar .form-select, .toolbar .form-control { max-width: 220px; }
-    .badge-dot { display:inline-flex; align-items:center; gap:.4rem; }
-    .badge-dot::before { content:''; width:8px; height:8px; border-radius:50%; background: currentColor; display:inline-block; }
   </style>
 </head>
 <body>
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
 
-      <!-- ====== ASIDE (EXATAMENTE COMO SOLICITADO) ====== -->
+      <!-- ====== ASIDE (EXATAMENTE COMO VOCÊ PADRONIZOU) ====== -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -162,48 +159,45 @@ try {
             <ul class="menu-sub">
               <!-- Contas das Filiais -->
               <li class="menu-item">
-                <a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a>
               </li>
 
-              <!-- Produtos solicitados pelas filiais -->
+              <!-- Produtos solicitados -->
               <li class="menu-item">
-                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"class="menu-link">
+                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a>
               </li>
 
-              <!-- Produtos enviados pela matriz -->
-              <li class="menu-item active">
+              <!-- Produtos enviados -->
+              <li class="menu-item">
                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Enviados</div>
                 </a>
               </li>
 
-              <!-- Transferências em andamento -->
+              <!-- Transferências -->
               <li class="menu-item">
                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Transf. Pendentes</div>
                 </a>
               </li>
-
-              <!-- Histórico de transferências -->
               <li class="menu-item">
                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Histórico Transf.</div>
                 </a>
               </li>
 
-              <!-- Gestão de Estoque Central -->
+              <!-- Estoque & Políticas -->
               <li class="menu-item">
                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Estoque Matriz</div>
                 </a>
               </li>
-
-              <!-- Relatórios e indicadores B2B -->
-              <li class="menu-item">
+              <!-- ✅ Relatórios B2B (ATIVO) -->
+              <li class="menu-item active">
                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Relatórios B2B</div>
                 </a>
@@ -211,7 +205,7 @@ try {
             </ul>
           </li>
 
-          <!-- Relatórios -->
+          <!-- Relatórios (gerais) -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -223,19 +217,16 @@ try {
                   <div data-i18n="Vendas">Vendas por Franquias</div>
                 </a>
               </li>
-
               <li class="menu-item">
                 <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="MaisVendidos">Mais Vendidos</div>
                 </a>
               </li>
-
               <li class="menu-item">
                 <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Pedidos">Vendas por Período</div>
                 </a>
               </li>
-
               <li class="menu-item">
                 <a href="./FinanceiroFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Financeiro">Financeiro</div>
@@ -357,111 +348,256 @@ try {
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0">
             <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
-            Produtos Enviados
+            Relatórios B2B
           </h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font">
-            <span class="text-muted fw-light">Produtos Enviado para as Franquias</span>
+            <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
           </h5>
 
-          <!-- Toolbar / Filtros (HTML estático por enquanto) -->
-       
+          <!-- Filtros (HTML estático por enquanto) -->
+          <div class="card mb-3">
+            <div class="card-body d-flex flex-wrap toolbar">
+              <select class="form-select me-2">
+                <option>Período: Mês Atual</option>
+                <option>Últimos 30 dias</option>
+                <option>Últimos 90 dias</option>
+                <option>Este ano</option>
+              </select>
+              <select class="form-select me-2">
+                <option>Todas as Franquias</option>
+                <option>Franquia Centro</option>
+                <option>Franquia Norte</option>
+                <option>Franquia Sul</option>
+              </select>
+              <button class="btn btn-outline-secondary me-2"><i class="bx bx-filter-alt me-1"></i> Aplicar</button>
+              <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
+                <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
+                <button class="btn btn-outline-dark"><i class="bx bx-printer me-1"></i> Imprimir</button>
+              </div>
+            </div>
+          </div>
 
-          <!-- Tabela (HTML mock) -->
-          <div class="card">
-            <h5 class="card-header">Lista de Produtos Enviadoa</h5>
-            <div class="table-responsive text-nowrap">
-              <table class="table table-hover">
+          <!-- Resumo Mensal -->
+          <div class="card mb-3">
+            <h5 class="card-header">Resumo do Período</h5>
+            <div class="table-responsive">
+              <table class="table table-striped table-hover">
                 <thead>
                   <tr>
-                    <th># Pedido</th>
-                    <th>Franquia</th>
-                    <th>SKU</th>
-                    <th>Produto</th>
-                    <th>Qtd</th>
-                    <th>Prioridade</th>
-                    <th>Enviado em</th>
-                    <th>Status</th>
-                    <th>Ações</th>
+                    <th>Métrica</th>
+                    <th>Valor</th>
+                    <th>Variação</th>
+                    <th>Obs.</th>
                   </tr>
                 </thead>
-                <tbody class="table-border-bottom-0">
+                <tbody>
                   <tr>
-                    <td>PS-3021</td>
-                    <td><strong>Franquia Centro</strong></td>
-                    <td>ACA-500</td>
-                    <td>Polpa Açaí 500g</td>
-                    <td>120</td>
-                    <td><span class="badge bg-label-danger status-badge">Alta</span></td>
-                    <td>25/09/2025</td>
-                    <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                    </td>
+                    <td>Pedidos B2B</td>
+                    <td>184</td>
+                    <td><span class="text-success">+12,3%</span></td>
+                    <td>Alta puxada por Centro</td>
                   </tr>
                   <tr>
-                    <td>PS-3022</td>
-                    <td><strong>Franquia Norte</strong></td>
-                    <td>ACA-1KG</td>
-                    <td>Polpa Açaí 1kg</td>
-                    <td>40</td>
-                    <td><span class="badge bg-label-warning status-badge">Média</span></td>
-                    <td>24/09/2025</td>
-                    <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                    </td>
+                    <td>Itens Solicitados</td>
+                    <td>5.430</td>
+                    <td><span class="text-success">+8,1%</span></td>
+                    <td>SKU ACA-500 liderando</td>
                   </tr>
                   <tr>
-                    <td>PS-3023</td>
-                    <td><strong>Franquia Sul</strong></td>
-                    <td>COPO-300</td>
-                    <td>Copo 300ml</td>
-                    <td>500</td>
-                    <td><span class="badge bg-label-info status-badge">Baixa</span></td>
-                    <td>20/09/2025</td>
-                    <td><span class="badge bg-label-success status-badge">Recebido</span></td>
-                    <td>
-                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                    </td>
+                    <td>Faturamento Estimado</td>
+                    <td>R$ 128.450,00</td>
+                    <td><span class="text-danger">-3,5%</span></td>
+                    <td>Ticket menor no Sul</td>
+                  </tr>
+                  <tr>
+                    <td>Ticket Médio</td>
+                    <td>R$ 698,10</td>
+                    <td><span class="text-danger">-5,2%</span></td>
+                    <td>Mix com mais descartáveis</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Modais mock -->
-          <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-lg">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title">Detalhes do Pedido</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                </div>
-                <div class="modal-body">
-                  <div class="row g-3">
-                    <div class="col-md-6">
-                      <p><strong>Filial:</strong> Franquia Centro</p>
-                      <p><strong>SKU:</strong> ACA-500</p>
-                      <p><strong>Produto:</strong> Polpa Açaí 500g</p>
-                    </div>
-                    <div class="col-md-6">
-                      <p><strong>Qtd:</strong> 120</p>
-                      <p><strong>Prioridade:</strong> Alta</p>
-                      <p><strong>Status:</strong> Aguardando</p>
-                    </div>
-                    <div class="col-12">
-                      <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
-                      <p><strong>Anexos:</strong> <span class="text-muted">—</span></p>
-                    </div>
-                  </div>
-                </div>
-                <div class="modal-footer">
-                  <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                </div>
-              </div>
+          <!-- Vendas por Franquia -->
+          <div class="card mb-3">
+            <h5 class="card-header">Vendas / Pedidos por Franquia</h5>
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Franquia</th>
+                    <th>Pedidos</th>
+                    <th>Itens</th>
+                    <th>Faturamento (R$)</th>
+                    <th>Ticket Médio (R$)</th>
+                    <th>% do Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Franquia Centro</strong></td>
+                    <td>74</td>
+                    <td>2.140</td>
+                    <td>R$ 58.700,00</td>
+                    <td>R$ 793,24</td>
+                    <td>45%</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Franquia Norte</strong></td>
+                    <td>58</td>
+                    <td>1.720</td>
+                    <td>R$ 41.320,00</td>
+                    <td>R$ 712,41</td>
+                    <td>32%</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Franquia Sul</strong></td>
+                    <td>52</td>
+                    <td>1.570</td>
+                    <td>R$ 28.430,00</td>
+                    <td>R$ 546,73</td>
+                    <td>23%</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-       
+
+          <!-- Produtos Mais Solicitados -->
+          <div class="card mb-3">
+            <h5 class="card-header">Produtos Mais Solicitados</h5>
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Produto</th>
+                    <th>Quantidade</th>
+                    <th>Pedidos</th>
+                    <th>Participação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>ACA-500</td>
+                    <td>Polpa Açaí 500g</td>
+                    <td>1.980</td>
+                    <td>96</td>
+                    <td>36%</td>
+                  </tr>
+                  <tr>
+                    <td>ACA-1KG</td>
+                    <td>Polpa Açaí 1kg</td>
+                    <td>1.210</td>
+                    <td>64</td>
+                    <td>22%</td>
+                  </tr>
+                  <tr>
+                    <td>COPO-300</td>
+                    <td>Copo 300ml</td>
+                    <td>1.050</td>
+                    <td>51</td>
+                    <td>19%</td>
+                  </tr>
+                  <tr>
+                    <td>COLH-PP</td>
+                    <td>Colher PP</td>
+                    <td>890</td>
+                    <td>40</td>
+                    <td>16%</td>
+                  </tr>
+                  <tr>
+                    <td>GRAN-200</td>
+                    <td>Granola 200g</td>
+                    <td>300</td>
+                    <td>18</td>
+                    <td>7%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SLA de Atendimento de Pedidos -->
+          <div class="card mb-3">
+            <h5 class="card-header">SLA de Atendimento</h5>
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Faixa de SLA</th>
+                    <th>Pedidos</th>
+                    <th>SLA Médio</th>
+                    <th>Dentro do Prazo</th>
+                    <th>Observações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>0–24h</td>
+                    <td>98</td>
+                    <td>12h</td>
+                    <td>92%</td>
+                    <td>Meta batida</td>
+                  </tr>
+                  <tr>
+                    <td>24–48h</td>
+                    <td>56</td>
+                    <td>31h</td>
+                    <td>78%</td>
+                    <td>Gargalo separação</td>
+                  </tr>
+                  <tr>
+                    <td>> 48h</td>
+                    <td>30</td>
+                    <td>54h</td>
+                    <td>40%</td>
+                    <td>Revisar logística Norte</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Pagamentos x Entregas (resumo simples) -->
+          <div class="card mb-3">
+            <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Métrica</th>
+                    <th>Quantidade</th>
+                    <th>Valor (R$)</th>
+                    <th>Status Principal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Pagamentos Solicitados</td>
+                    <td>62</td>
+                    <td>R$ 72.300,00</td>
+                    <td>Pendente/Análise</td>
+                  </tr>
+                  <tr>
+                    <td>Remessas Enviadas</td>
+                    <td>48</td>
+                    <td>—</td>
+                    <td>Em Trânsito</td>
+                  </tr>
+                  <tr>
+                    <td>Remessas Concluídas</td>
+                    <td>39</td>
+                    <td>—</td>
+                    <td>Entregue</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
         </div><!-- /container -->
       </div><!-- /Layout page -->
