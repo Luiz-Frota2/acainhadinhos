@@ -178,13 +178,13 @@ try {
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./franquiasAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Filiais">Adicionadas</div>
                 </a>
               </li>
               <li class="menu-item active">
                 <a href="./franquiasAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Filiais">Adicionar Filial</div>
+                  <div data-i18n="Filiais">Adicionar Franquia</div>
                 </a>
               </li>
             </ul>
