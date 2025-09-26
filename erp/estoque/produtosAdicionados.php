@@ -380,7 +380,7 @@ try {
 
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">PDV</span>/Produtos Adicionados</h4>
+          <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;">Estoque</span>/Produtos Adicionados</h4>
 
           <div class="card">
             <h5 class="card-header">Lista de Produtos Adicionados</h5>

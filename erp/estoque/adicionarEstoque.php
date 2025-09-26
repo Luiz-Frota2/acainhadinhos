@@ -373,7 +373,7 @@ try {
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold py-3 mb-4"><span class="fw-light" style="color: #696cff !important;"><a
-                                href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>">PDV</a></span>/Adicionar
+                                href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>">Estoque</a></span>/Adicionar
                         Produto</h4>
 
                     <div class="card">
