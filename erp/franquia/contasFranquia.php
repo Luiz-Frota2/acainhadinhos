@@ -85,12 +85,6 @@ try {
 } catch (PDOException $e) {
   $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
-
-// ✅ Abas: define a aba ativa via ?tab= (pagamentos, solicitados, enviados, pendentes, historico, estoque, politica, relatorios)
-$tabsValidas = ['pagamentos','solicitados','enviados','pendentes','historico','estoque','politica','relatorios'];
-$tab = $_GET['tab'] ?? 'pagamentos';
-if (!in_array($tab, $tabsValidas, true)) $tab = 'pagamentos';
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -98,8 +92,8 @@ if (!in_array($tab, $tabsValidas, true)) $tab = 'pagamentos';
   <meta charset="utf-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-  <title>ERP - Franquias (Hub)</title>
-  <meta name="description" content="Gestão B2B de Franquias - Hub único com abas." />
+  <title>ERP - Pagamentos Solicitados</title>
+  <meta name="description" content="Lista de pagamentos solicitados pelas franquias" />
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -114,12 +108,12 @@ if (!in_array($tab, $tabsValidas, true)) $tab = 'pagamentos';
   <script src="../../assets/js/config.js"></script>
 
   <style>
-    .tab-card .card-header { border-bottom: 0; padding-bottom: 0; }
-    .nav-tabs .nav-link { border-radius: .5rem .5rem 0 0; }
     .table thead th { white-space: nowrap; }
     .status-badge { font-size: .78rem; }
-    .add-category{ background: #f5f5f9; border: 1px dashed #c7c7d1; border-radius: 10px; padding: 10px 14px; cursor: pointer;}
-    .table-responsive { overflow-y: hidden; }
+    .toolbar { gap: .5rem; }
+    .toolbar .form-select, .toolbar .form-control { max-width: 220px; }
+    .badge-dot { display:inline-flex; align-items:center; gap:.4rem; }
+    .badge-dot::before { content:''; width:8px; height:8px; border-radius:50%; background: currentColor; display:inline-block; }
   </style>
 </head>
 
@@ -138,7 +132,6 @@ if (!in_array($tab, $tabsValidas, true)) $tab = 'pagamentos';
         </div>
 
         <div class="menu-inner-shadow"></div>
-
         <ul class="menu-inner py-1">
           <li class="menu-item">
             <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
@@ -151,63 +144,68 @@ if (!in_array($tab, $tabsValidas, true)) $tab = 'pagamentos';
             <span class="menu-header-text">Administração Franquias</span>
           </li>
 
-          <!-- 🔥 Tudo em uma única página (esta) -->
+          <!-- 👉 Esta página -->
           <li class="menu-item active open">
-            <a href="./franquiasHub.php?id=<?= urlencode($idSelecionado); ?>&tab=pagamentos" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-building"></i>
-              <div>Franquias (Hub)</div>
+            <a href="./pagamentosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-dollar-circle"></i>
+              <div>Pagamentos Sol.</div>
             </a>
           </li>
 
-          <!-- Demais módulos -->
+          <!-- Outros módulos podem continuar no menu -->
           <li class="menu-item">
-            <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-group"></i>
-              <div>RH</div>
+            <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-package"></i>
+              <div>Produtos Solicitados</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-dollar"></i>
-              <div>Finanças</div>
+            <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-send"></i>
+              <div>Produtos Enviados</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-desktop"></i>
-              <div>PDV</div>
+            <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-transfer"></i>
+              <div>Transf. Pendentes</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
-              <div>Empresa</div>
+            <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-history"></i>
+              <div>Histórico Transf.</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
               <i class="menu-icon tf-icons bx bx-box"></i>
-              <div>Estoque</div>
+              <div>Estoque Matriz</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../filial/index.php?id=principal_1" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-building"></i>
-              <div>Filial</div>
+            <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-cog"></i>
+              <div>Política de Envio</div>
             </a>
           </li>
           <li class="menu-item">
-            <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-              <i class="menu-icon tf-icons bx bx-group"></i>
-              <div>Usuários</div>
+            <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+              <div>Relatórios B2B</div>
             </a>
           </li>
-          <li class="menu-item">
-            <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-support"></i>
-              <div>Suporte</div>
-            </a>
-          </li>
+
+          <!-- Misc -->
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+          <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-group"></i><div>RH</div></a></li>
+          <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-dollar"></i><div>Finanças</div></a></li>
+          <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-desktop"></i><div>PDV</div></a></li>
+          <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-briefcase"></i><div>Empresa</div></a></li>
+          <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-box"></i><div>Estoque</div></a></li>
+          <li class="menu-item"><a href="../filial/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-building"></i><div>Filial</div></a></li>
+          <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-group"></i><div>Usuários</div></a></li>
+          <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i><div>Suporte</div></a></li>
         </ul>
       </aside>
       <!-- /Menu -->
@@ -254,25 +252,10 @@ if (!in_array($tab, $tabsValidas, true)) $tab = 'pagamentos';
                     </a>
                   </li>
                   <li><div class="dropdown-divider"></div></li>
-                  <li>
-                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
-                      <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">Minha Conta</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Configurações</span>
-                    </a>
-                  </li>
+                  <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
+                  <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
                   <li><div class="dropdown-divider"></div></li>
-                  <li>
-                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                      <i class="bx bx-power-off me-2"></i>
-                      <span class="align-middle">Sair</span>
-                    </a>
-                  </li>
+                  <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                 </ul>
               </li>
             </ul>
@@ -284,301 +267,182 @@ if (!in_array($tab, $tabsValidas, true)) $tab = 'pagamentos';
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0">
             <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
-            Hub B2B
+            Pagamentos Solicitados
           </h4>
           <h5 class="fw-bold mt-3 mb-3 custor-font">
-            <span class="text-muted fw-light">Tudo de Franquias em uma única página</span>
+            <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das franquias</span>
           </h5>
 
-          <!-- Abas -->
-          <div class="card tab-card">
-            <div class="card-header pb-0">
-              <ul class="nav nav-tabs card-header-tabs" id="franquiasTabs" role="tablist">
-                <li class="nav-item"><a class="nav-link <?= $tab==='pagamentos'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=pagamentos" role="tab">Pagamentos Solicitados</a></li>
-                <li class="nav-item"><a class="nav-link <?= $tab==='solicitados'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=solicitados" role="tab">Produtos Solicitados</a></li>
-                <li class="nav-item"><a class="nav-link <?= $tab==='enviados'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=enviados" role="tab">Produtos Enviados</a></li>
-                <li class="nav-item"><a class="nav-link <?= $tab==='pendentes'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=pendentes" role="tab">Transf. Pendentes</a></li>
-                <li class="nav-item"><a class="nav-link <?= $tab==='historico'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=historico" role="tab">Histórico Transf.</a></li>
-                <li class="nav-item"><a class="nav-link <?= $tab==='estoque'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=estoque" role="tab">Estoque Matriz</a></li>
-                <li class="nav-item"><a class="nav-link <?= $tab==='politica'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=politica" role="tab">Política de Envio</a></li>
-                <li class="nav-item"><a class="nav-link <?= $tab==='relatorios'?'active':'' ?>" href="?id=<?= urlencode($idSelecionado) ?>&tab=relatorios" role="tab">Relatórios B2B</a></li>
-              </ul>
-            </div>
-
-            <div class="card-body">
-              <?php if ($tab==='pagamentos'): ?>
-                <h5 class="card-title mb-3">Pagamentos Solicitados</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Filial</th>
-                        <th>Solicitante</th>
-                        <th>Tipo</th>
-                        <th>Valor</th>
-                        <th>Vencimento</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody class="table-border-bottom-0">
-                      <tr>
-                        <td>1001</td>
-                        <td><strong>Franquia Centro</strong></td>
-                        <td>João Silva</td>
-                        <td>Fatura Produtos</td>
-                        <td>R$ 1.250,00</td>
-                        <td>10/10/2025</td>
-                        <td><span class="badge bg-label-warning me-1 status-badge">Pendente</span></td>
-                        <td>
-                          <button class="btn btn-sm btn-outline-success">Aprovar</button>
-                          <button class="btn btn-sm btn-outline-danger">Recusar</button>
-                          <button class="btn btn-sm btn-outline-secondary">Detalhes</button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>1002</td>
-                        <td><strong>Franquia Norte</strong></td>
-                        <td>Maria Costa</td>
-                        <td>Serviço Logístico</td>
-                        <td>R$ 320,00</td>
-                        <td>08/10/2025</td>
-                        <td><span class="badge bg-label-info me-1 status-badge">Em Análise</span></td>
-                        <td>
-                          <button class="btn btn-sm btn-outline-success">Aprovar</button>
-                          <button class="btn btn-sm btn-outline-danger">Recusar</button>
-                          <button class="btn btn-sm btn-outline-secondary">Detalhes</button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              <?php elseif ($tab==='solicitados'): ?>
-                <h5 class="card-title mb-3">Produtos Solicitados</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th># Pedido</th>
-                        <th>Filial</th>
-                        <th>SKU</th>
-                        <th>Produto</th>
-                        <th>Qtd</th>
-                        <th>Prioridade</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>PS-3021</td>
-                        <td>Franquia Centro</td>
-                        <td>ACA-500</td>
-                        <td>Polpa Açaí 500g</td>
-                        <td>120</td>
-                        <td><span class="badge bg-label-danger status-badge">Alta</span></td>
-                        <td><span class="badge bg-label-warning status-badge">Aguardando</span></td>
-                        <td><button class="btn btn-sm btn-outline-primary">Atender</button></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              <?php elseif ($tab==='enviados'): ?>
-                <h5 class="card-title mb-3">Produtos Enviados</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th># Remessa</th>
-                        <th>Filial</th>
-                        <th>Itens</th>
-                        <th>Volumes</th>
-                        <th>Transportadora</th>
-                        <th>Envio</th>
-                        <th>Previsão</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>ENV-8891</td>
-                        <td>Franquia Norte</td>
-                        <td>3</td>
-                        <td>8</td>
-                        <td>LogX</td>
-                        <td>24/09/2025</td>
-                        <td>27/09/2025</td>
-                        <td><span class="badge bg-label-info status-badge">Em Trânsito</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              <?php elseif ($tab==='pendentes'): ?>
-                <h5 class="card-title mb-3">Transferências Pendentes</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Origem</th>
-                        <th>Destino</th>
-                        <th>SKU</th>
-                        <th>Produto</th>
-                        <th>Qtd</th>
-                        <th>Solicitado em</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>T-114</td>
-                        <td>Matriz</td>
-                        <td>Franquia Centro</td>
-                        <td>ACA-1KG</td>
-                        <td>Polpa Açaí 1kg</td>
-                        <td>40</td>
-                        <td>22/09/2025</td>
-                        <td>
-                          <button class="btn btn-sm btn-outline-primary">Iniciar</button>
-                          <button class="btn btn-sm btn-outline-secondary">Detalhes</button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              <?php elseif ($tab==='historico'): ?>
-                <h5 class="card-title mb-3">Histórico de Transferências</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Origem</th>
-                        <th>Destino</th>
-                        <th>Itens</th>
-                        <th>Volumes</th>
-                        <th>Saída</th>
-                        <th>Entrega</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>T-100</td>
-                        <td>Matriz</td>
-                        <td>Franquia Norte</td>
-                        <td>5</td>
-                        <td>10</td>
-                        <td>10/09/2025</td>
-                        <td>12/09/2025</td>
-                        <td><span class="badge bg-label-success status-badge">Concluída</span></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              <?php elseif ($tab==='estoque'): ?>
-                <h5 class="card-title mb-3">Estoque Matriz</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>SKU</th>
-                        <th>Produto</th>
-                        <th>Categoria</th>
-                        <th>Qtd Disponível</th>
-                        <th>Qtd Reservada</th>
-                        <th>Ponto de Pedido</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>ACA-500</td>
-                        <td>Polpa Açaí 500g</td>
-                        <td>Insumos</td>
-                        <td>1.240</td>
-                        <td>120</td>
-                        <td>300</td>
-                        <td><button class="btn btn-sm btn-outline-secondary">Detalhes</button></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              <?php elseif ($tab==='politica'): ?>
-                <h5 class="card-title mb-3">Política de Envio</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>Regra</th>
-                        <th>Descrição</th>
-                        <th>Valor/Condição</th>
-                        <th>Ativo</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Frete Grátis</td>
-                        <td>Pedidos acima de R$ 2.000,00</td>
-                        <td>R$ 2.000,00</td>
-                        <td><span class="badge bg-label-success">Sim</span></td>
-                        <td><button class="btn btn-sm btn-outline-primary">Editar</button></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-              <?php elseif ($tab==='relatorios'): ?>
-                <h5 class="card-title mb-3">Relatórios B2B</h5>
-                <div class="table-responsive">
-                  <table class="table table-hover">
-                    <thead>
-                      <tr>
-                        <th>Relatório</th>
-                        <th>Período</th>
-                        <th>Última Geração</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Vendas por Franquia</td>
-                        <td>Set/2025</td>
-                        <td>25/09/2025 16:32</td>
-                        <td><span class="badge bg-label-info">Disponível</span></td>
-                        <td>
-                          <button class="btn btn-sm btn-outline-secondary">Visualizar</button>
-                          <button class="btn btn-sm btn-outline-primary">Exportar</button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              <?php endif; ?>
+          <!-- Toolbar / Filtros (HTML estático por enquanto) -->
+          <div class="card mb-3">
+            <div class="card-body d-flex flex-wrap toolbar">
+              <select class="form-select me-2">
+                <option value="">Status: Todos</option>
+                <option>Pendente</option>
+                <option>Em Análise</option>
+                <option>Aprovado</option>
+                <option>Recusado</option>
+              </select>
+              <select class="form-select me-2">
+                <option value="">Tipo: Todos</option>
+                <option>Fatura Produtos</option>
+                <option>Serviço Logístico</option>
+                <option>Outros</option>
+              </select>
+              <input type="date" class="form-control me-2" placeholder="De">
+              <input type="date" class="form-control me-2" placeholder="Até">
+              <button class="btn btn-outline-secondary">Aplicar</button>
+              <div class="ms-auto d-flex align-items-center" style="gap:.75rem;">
+                <span class="badge bg-label-warning badge-dot">Pendente</span>
+                <span class="badge bg-label-info badge-dot">Em Análise</span>
+                <span class="badge bg-label-success badge-dot">Aprovado</span>
+                <span class="badge bg-label-danger badge-dot">Recusado</span>
+              </div>
             </div>
           </div>
 
-          <!-- CTA opcional -->
-          <div class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-               onclick="location.href='franquiasHub.php?id=<?= urlencode($idSelecionado); ?>&tab=pagamentos';">
-            <i class="tf-icons bx bx-refresh me-2"></i>
-            <span>Recarregar Hub de Franquias</span>
+          <!-- Tabela (HTML mock) -->
+          <div class="card">
+            <h5 class="card-header">Lista de Pagamentos Solicitados</h5>
+            <div class="table-responsive text-nowrap">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Filial</th>
+                    <th>Solicitante</th>
+                    <th>Tipo</th>
+                    <th>Valor</th>
+                    <th>Vencimento</th>
+                    <th>Anexo</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody class="table-border-bottom-0">
+                  <tr>
+                    <td>1001</td>
+                    <td><strong>Franquia Centro</strong></td>
+                    <td>João Silva</td>
+                    <td>Fatura Produtos</td>
+                    <td>R$ 1.250,00</td>
+                    <td>10/10/2025</td>
+                    <td><a href="javascript:void(0)" class="text-primary">NF_1001.pdf</a></td>
+                    <td><span class="badge bg-label-warning me-1 status-badge">Pendente</span></td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAprovar">Aprovar</button>
+                      <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalRecusar">Recusar</button>
+                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>1002</td>
+                    <td><strong>Franquia Norte</strong></td>
+                    <td>Maria Costa</td>
+                    <td>Serviço Logístico</td>
+                    <td>R$ 320,00</td>
+                    <td>08/10/2025</td>
+                    <td><a href="javascript:void(0)" class="text-primary">CTE_2209.pdf</a></td>
+                    <td><span class="badge bg-label-info me-1 status-badge">Em Análise</span></td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalAprovar">Aprovar</button>
+                      <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalRecusar">Recusar</button>
+                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>1003</td>
+                    <td><strong>Franquia Sul</strong></td>
+                    <td>Carlos Lima</td>
+                    <td>Outros</td>
+                    <td>R$ 180,00</td>
+                    <td>06/10/2025</td>
+                    <td><span class="text-muted">—</span></td>
+                    <td><span class="badge bg-label-success me-1 status-badge">Aprovado</span></td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <!-- /container -->
-      </div>
-      <!-- /Layout page -->
-    </div>
-    <!-- /Layout container -->
+
+          <!-- Modais mock -->
+          <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Detalhes da Solicitação</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <p><strong>Filial:</strong> Franquia Centro</p>
+                      <p><strong>Solicitante:</strong> João Silva</p>
+                      <p><strong>Tipo:</strong> Fatura Produtos</p>
+                    </div>
+                    <div class="col-md-6">
+                      <p><strong>Valor:</strong> R$ 1.250,00</p>
+                      <p><strong>Vencimento:</strong> 10/10/2025</p>
+                      <p><strong>Status:</strong> Pendente</p>
+                    </div>
+                    <div class="col-12">
+                      <p><strong>Observações:</strong> Fatura referente ao pedido #PS-3021.</p>
+                      <p><strong>Anexos:</strong> <a href="javascript:void(0)">NF_1001.pdf</a></p>
+                    </div>
+                  </div>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="modalAprovar" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Aprovar Solicitação</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                  Confirmar aprovação deste pagamento?
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                  <!-- Depois trocamos por POST para ação real -->
+                  <button class="btn btn-success">Confirmar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal fade" id="modalRecusar" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Recusar Solicitação</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                  <label class="form-label">Motivo (opcional)</label>
+                  <textarea class="form-control" rows="3" placeholder="Descreva o motivo da recusa..."></textarea>
+                </div>
+                <div class="modal-footer">
+                  <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                  <!-- Depois trocamos por POST para ação real -->
+                  <button class="btn btn-danger">Confirmar Recusa</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /container -->
+      </div><!-- /Layout page -->
+    </div><!-- /Layout container -->
   </div>
 
   <!-- Core JS -->
