@@ -499,7 +499,7 @@ try {
                                 <i class="bx bx-time-five me-1"></i> Histórico de movimentações
                             </button>
                             <div class="ms-auto d-flex flex-wrap gap-2">
-                                <input class="form-control" placeholder="Buscar por SKU, nome, categoria..." style="min-width:260px; max-width:360px;">
+                               
                                 <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
                             </div>
                         </div>
