@@ -180,6 +180,7 @@ CREATE TABLE escalas (
 -- =======================
 CREATE TABLE estoque (
   id                                      INT AUTO_INCREMENT PRIMARY KEY,
+  fornecedor_id                           INT NOT NULL, 
   empresa_id                              VARCHAR(40) NOT NULL,
   codigo_produto                          VARCHAR(100) NOT NULL,
   nome_produto                            VARCHAR(255) NOT NULL,
@@ -202,8 +203,9 @@ CREATE TABLE estoque (
   aliquota_icms                           DECIMAL(5,2) DEFAULT NULL,
   aliquota_pis                            DECIMAL(5,2) DEFAULT NULL,
   aliquota_cofins                         DECIMAL(5,2) DEFAULT NULL,
-  created_at                              TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at                              TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at                              TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP, 
+  updated_at                              TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_estoque_fornecedor_id (fornecedor_id)
 );
 
 -- =======================
