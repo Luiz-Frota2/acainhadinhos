@@ -154,7 +154,7 @@ try {
             </ul>
           </li>
 
-          <li class="menu-item ative open">
+          <li class="menu-item active open">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="B2B">B2B - Matriz</div>
