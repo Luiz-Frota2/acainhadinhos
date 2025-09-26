@@ -413,7 +413,7 @@ try {
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Filial</th>
+                                        <th>Franquia</th>
                                         <th>Itens</th>
                                         <th>Qtd</th>
                                         <th>Criado</th>

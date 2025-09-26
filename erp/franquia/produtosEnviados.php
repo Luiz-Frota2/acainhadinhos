@@ -381,7 +381,7 @@ try {
                 <thead>
                   <tr>
                     <th># Pedido</th>
-                    <th>Filial</th>
+                    <th>Franquia</th>
                     <th>SKU</th>
                     <th>Produto</th>
                     <th>Qtd</th>
