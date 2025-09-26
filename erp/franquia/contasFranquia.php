@@ -362,10 +362,7 @@ try {
         <!-- /Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0">
-            <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
-            Pagamentos Solicitados
-          </h4>
+         
           <h5 class="fw-bold mt-3 mb-3 custor-font">
             <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das franquias</span>
           </h5>
