@@ -483,7 +483,7 @@ try {
                               <div class="modal-body">
                                 <p>Tem certeza de que deseja excluir o produto
                                   "<?php echo htmlspecialchars($estoques['nome_produto']); ?>"?</p>
-                                <a href="../../assets/php/pdv/excluirEstoqueBaixo.php?id=<?php echo $estoques['id']; ?>&empresa_id=<?php echo urlencode($idSelecionado); ?>"
+                                <a href="../../assets/php/estoque/excluirEstoqueBaixo.php?id=<?php echo $estoques['id']; ?>&empresa_id=<?php echo urlencode($idSelecionado); ?>"
                                   class="btn btn-danger">Sim, excluir</a>
                                 <button type="button" class="btn btn-secondary mx-2"
                                   data-bs-dismiss="modal">Cancelar</button>
@@ -506,7 +506,7 @@ try {
                               </div>
 
                               <div class="modal-body">
-                                <form action="../../assets/php/pdv/editarEstoqueBaixo.php" method="POST">
+                                <form action="../../assets/php/estoque/editarEstoqueBaixo.php" method="POST">
                                   <!-- ID do produto -->
                                   <input type="hidden" name="id" value="<?= htmlspecialchars($estoques['id']) ?>">
 
