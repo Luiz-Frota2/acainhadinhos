@@ -369,36 +369,49 @@ try {
                                     </div>
 
                                     <!-- Ações principais -->
-                                    <div class="col-12 col-sm-6 col-lg-3 d-flex justify-content-lg-end justify-content-start gap-2">
-                                        <button class="btn btn-sm btn-primary" type="submit">
-                                            <i class="bx bx-filter-alt me-1"></i> Aplicar
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary" type="reset">
-                                            <i class="bx bx-eraser me-1"></i> Limpar
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <!-- Ações secundárias -->
-                                <div class="d-flex flex-wrap justify-content-lg-end justify-content-start gap-2 mt-2">
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                            <i class="bx bx-download me-1"></i> Exportar
-                                        </button>
-                                        <ul class="dropdown-menu dropdown-menu-end">
-                                            <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
-                                            <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
-                                            <li>
-                                                <hr class="dropdown-divider">
-                                            </li>
-                                            <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
-                                        </ul>
+                                    <!-- Ações primárias -->
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <div class="btn-toolbar justify-content-lg-end justify-content-start w-100" role="toolbar" aria-label="Ações de filtro">
+                                            <div class="btn-group btn-group-sm me-2" role="group" aria-label="Aplicar e limpar">
+                                                <button id="btnAplicar" class="btn btn-primary" type="submit" data-bs-toggle="tooltip" data-bs-title="Aplicar filtros">
+                                                    <i class="bx bx-filter-alt me-1"></i>
+                                                    <span class="align-middle">Aplicar</span>
+                                                </button>
+                                                <button class="btn btn-outline-secondary" type="reset" data-bs-toggle="tooltip" data-bs-title="Limpar seleção">
+                                                    <i class="bx bx-eraser me-1"></i>
+                                                    <span class="align-middle">Limpar</span>
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    <button class="btn btn-sm btn-outline-dark" type="button" onclick="window.print()">
-                                        <i class="bx bx-printer me-1"></i> Imprimir
-                                    </button>
-                                </div>
+                                    <!-- Ações secundárias -->
+                                    <div class="d-flex flex-wrap justify-content-lg-end justify-content-start gap-2 mt-2">
+                                        <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
+                                            <div class="btn-group btn-group-sm me-2" role="group" aria-label="Exportar">
+                                                <button type="button" class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    <i class="bx bx-download me-1"></i>
+                                                    <span class="align-middle">Exportar</span>
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
+                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
+                                                    <li>
+                                                        <hr class="dropdown-divider">
+                                                    </li>
+                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
+                                                </ul>
+                                            </div>
+
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Imprimir">
+                                                <button class="btn btn-outline-dark" type="button" onclick="window.print()" data-bs-toggle="tooltip" data-bs-title="Imprimir página">
+                                                    <i class="bx bx-printer me-1"></i>
+                                                    <span class="align-middle">Imprimir</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                             </form>
                         </div>
                     </div>
@@ -745,7 +758,25 @@ try {
             </div><!-- /Layout page -->
         </div><!-- /Layout container -->
     </div>
+    <script>
+        < script >
+            document.addEventListener('DOMContentLoaded', function() {
+                // tooltips bootstrap
+                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
 
+                // spinner no Aplicar
+                const form = document.querySelector('form[method="get"]');
+                const btnAplicar = document.getElementById('btnAplicar');
+                if (form && btnAplicar) {
+                    form.addEventListener('submit', function() {
+                        btnAplicar.disabled = true;
+                        btnAplicar.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processando...';
+                    });
+                }
+            });
+    </script>
+
+    </script>
     <!-- Core JS -->
     <script src="../../js/saudacao.js"></script>
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
