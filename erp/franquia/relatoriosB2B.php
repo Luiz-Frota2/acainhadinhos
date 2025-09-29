@@ -594,7 +594,8 @@ try {
             </div>
           </div>
 
-        </div><!-- /container -->
+        </div>
+        <!-- /container -->
       </div><!-- /Layout page -->
     </div><!-- /Layout container -->
   </div>
