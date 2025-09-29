@@ -487,14 +487,14 @@ $fimTxt = $fim->format('d/m/Y');
                             </li>
 
                             <!-- Transferências em andamento -->
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
                                 </a>
                             </li>
 
                             <!-- Histórico de transferências -->
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
@@ -504,13 +504,6 @@ $fimTxt = $fim->format('d/m/Y');
                             <li class="menu-item">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
-                                </a>
-                            </li>
-
-                            <!-- Configurações de Política de Envio -->
-                            <li class="menu-item">
-                                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Política de Envio</div>
                                 </a>
                             </li>
 
