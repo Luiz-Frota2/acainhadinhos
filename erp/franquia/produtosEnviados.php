@@ -368,7 +368,7 @@ try {
 
           <!-- Tabela (HTML mock) -->
           <div class="card">
-            <h5 class="card-header">Lista de Produtos Enviadoa</h5>
+            <h5 class="card-header">Lista de Produtos Enviados</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover">
                 <thead>
@@ -463,7 +463,8 @@ try {
           </div>
        
 
-        </div><!-- /container -->
+        </div>
+        <!-- /container -->
       </div><!-- /Layout page -->
     </div><!-- /Layout container -->
   </div>
