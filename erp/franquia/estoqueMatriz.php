@@ -645,7 +645,6 @@ try {
                         </div>
                     </div>
                 </div>
-
                 <!-- ===== Modais ===== -->
 
                 <!-- Modal: Detalhes do Produto -->

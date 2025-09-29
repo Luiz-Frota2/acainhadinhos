@@ -474,49 +474,42 @@ $fimTxt = $fim->format('d/m/Y');
 
                             <!-- Produtos solicitados pelas filiais -->
                             <li class="menu-item active">
-                                <a href="./produtosSolicitadosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
                             </li>
 
                             <!-- Produtos enviados pela matriz -->
                             <li class="menu-item">
-                                <a href="./produtosEnviadosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
                             </li>
 
                             <!-- Transferências em andamento -->
                             <li class="menu-item">
-                                <a href="./transferenciasPendentesFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
                                 </a>
                             </li>
 
                             <!-- Histórico de transferências -->
                             <li class="menu-item">
-                                <a href="./historicoTransferenciasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
                             </li>
 
                             <!-- Gestão de Estoque Central -->
                             <li class="menu-item">
-                                <a href="./estoqueMatrizFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
-                                </a>
-                            </li>
-
-                            <!-- Configurações de Política de Envio -->
-                            <li class="menu-item">
-                                <a href="./politicasEnvioFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Política de Envio</div>
                                 </a>
                             </li>
 
                             <!-- Relatórios e indicadores B2B -->
                             <li class="menu-item">
-                                <a href="./relatoriosFiliaisB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
                                 </a>
                             </li>
@@ -706,7 +699,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <thead>
                                     <tr>
                                         <th># Pedido</th>
-                                        <th>Franquia</th>
+                                        <th>Filial</th>
                                         <th>SKU</th>
                                         <th>Produto</th>
                                         <th>Qtd</th>
@@ -719,7 +712,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <tbody class="table-border-bottom-0">
                                     <tr>
                                         <td>PS-3021</td>
-                                        <td><strong>Franquia Centro</strong></td>
+                                        <td><strong>Filial Centro</strong></td>
                                         <td>ACA-500</td>
                                         <td>Polpa Açaí 500g</td>
                                         <td>120</td>
@@ -734,7 +727,7 @@ $fimTxt = $fim->format('d/m/Y');
                                     </tr>
                                     <tr>
                                         <td>PS-3022</td>
-                                        <td><strong>Franquia Norte</strong></td>
+                                        <td><strong>Filial Norte</strong></td>
                                         <td>ACA-1KG</td>
                                         <td>Polpa Açaí 1kg</td>
                                         <td>40</td>
@@ -747,7 +740,7 @@ $fimTxt = $fim->format('d/m/Y');
                                     </tr>
                                     <tr>
                                         <td>PS-3023</td>
-                                        <td><strong>Franquia Sul</strong></td>
+                                        <td><strong>Filial Sul</strong></td>
                                         <td>COPO-300</td>
                                         <td>Copo 300ml</td>
                                         <td>500</td>
@@ -774,7 +767,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <div class="modal-body">
                                     <div class="row g-3">
                                         <div class="col-md-6">
-                                            <p><strong>Filial:</strong> Franquia Centro</p>
+                                            <p><strong>Filial:</strong> Filial Centro</p>
                                             <p><strong>SKU:</strong> ACA-500</p>
                                             <p><strong>Produto:</strong> Polpa Açaí 500g</p>
                                         </div>
@@ -878,159 +871,6 @@ $fimTxt = $fim->format('d/m/Y');
 
     <!-- Vendors JS -->
     <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Habilitar/Desabilitar datas quando período = custom
-            const periodoSel = document.getElementById('periodo');
-            const di = document.getElementById('data_ini');
-            const df = document.getElementById('data_fim');
-
-            function toggleDates() {
-                const isCustom = periodoSel.value === 'custom';
-                di.disabled = !isCustom;
-                df.disabled = !isCustom;
-            }
-            if (periodoSel) {
-                periodoSel.addEventListener('change', toggleDates);
-                toggleDates();
-            }
-
-            if (typeof ApexCharts === 'undefined') {
-                console.error('ApexCharts não carregado');
-                return;
-            }
-
-            // Fallback de cores (caso o tema não exponha window.config.colors)
-            const themeColors = (window.config && window.config.colors) ? window.config.colors : {
-                primary: '#3b82f6',
-                success: '#22c55e',
-                warning: '#f59e0b',
-                info: '#06b6d4',
-                danger: '#ef4444'
-            };
-
-            // Pagamento (pizza)
-            const pagamentoPieEl = document.getElementById('pagamentoPie');
-            if (pagamentoPieEl && <?= json_encode(!empty($pagtoLabels)) ?>) {
-                new ApexCharts(pagamentoPieEl, {
-                    chart: {
-                        type: 'donut',
-                        height: 280
-                    },
-                    labels: <?= json_encode($pagtoLabels, JSON_UNESCAPED_UNICODE) ?>,
-                    series: <?= json_encode(array_map('floatval', $pagtoValues)) ?>,
-                    colors: [themeColors.primary, themeColors.success, themeColors.warning, themeColors.info, '#8892b0', '#8b5cf6'],
-                    legend: {
-                        position: 'bottom'
-                    },
-                    dataLabels: {
-                        enabled: true
-                    }
-                }).render();
-            }
-
-            // Vendas por hora (barras)
-            const vendasHoraEl = document.getElementById('vendasHoraChart');
-            if (vendasHoraEl) {
-                new ApexCharts(vendasHoraEl, {
-                    chart: {
-                        type: 'bar',
-                        height: 300,
-                        toolbar: {
-                            show: false
-                        }
-                    },
-                    series: [{
-                        name: 'Cupons',
-                        data: <?= json_encode(array_map('intval', $vendasPorHora)) ?>
-                    }],
-                    colors: [themeColors.primary],
-                    plotOptions: {
-                        bar: {
-                            borderRadius: 6,
-                            columnWidth: '45%'
-                        }
-                    },
-                    dataLabels: {
-                        enabled: false
-                    },
-                    xaxis: {
-                        categories: <?= json_encode($labelsHoras) ?>
-                    },
-                    yaxis: {
-                        title: {
-                            text: 'Qtd'
-                        },
-                        min: 0,
-                        forceNiceScale: true
-                    },
-                    tooltip: {
-                        y: {
-                            formatter: val => `${val} vendas`
-                        }
-                    }
-                }).render();
-            }
-
-            // Top produtos (barras horizontais)
-            const topProdutosEl = document.getElementById('topProdutosChart');
-            if (topProdutosEl && <?= json_encode(!empty($topProdLabels)) ?>) {
-                new ApexCharts(topProdutosEl, {
-                    chart: {
-                        type: 'bar',
-                        height: 300,
-                        toolbar: {
-                            show: false
-                        }
-                    },
-                    series: [{
-                        name: 'Qtd',
-                        data: <?= json_encode(array_map('intval', $topProdQtd)) ?>
-                    }],
-                    colors: [themeColors.success],
-                    plotOptions: {
-                        bar: {
-                            horizontal: true,
-                            borderRadius: 6,
-                            barHeight: '60%'
-                        }
-                    },
-                    dataLabels: {
-                        enabled: true
-                    },
-                    xaxis: {
-                        categories: <?= json_encode($topProdLabels, JSON_UNESCAPED_UNICODE) ?>
-                    },
-                    tooltip: {
-                        y: {
-                            formatter: val => `${val} un.`
-                        }
-                    }
-                }).render();
-            }
-
-            // NFCE status (pizza)
-            const nfceStatusEl = document.getElementById('nfceStatusChart');
-            if (nfceStatusEl && <?= json_encode(!empty($nfceLabels)) ?>) {
-                new ApexCharts(nfceStatusEl, {
-                    chart: {
-                        type: 'donut',
-                        height: 280
-                    },
-                    labels: <?= json_encode($nfceLabels, JSON_UNESCAPED_UNICODE) ?>,
-                    series: <?= json_encode(array_map('intval', $nfceValues)) ?>,
-                    colors: [themeColors.info, themeColors.success, themeColors.warning, themeColors.danger, '#64748b'],
-                    legend: {
-                        position: 'bottom'
-                    },
-                    dataLabels: {
-                        enabled: true
-                    }
-                }).render();
-            }
-        });
-    </script>
 
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
