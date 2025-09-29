@@ -474,42 +474,42 @@ $fimTxt = $fim->format('d/m/Y');
 
               <!-- Produtos solicitados pelas filiais -->
               <li class="menu-item">
-                <a href="./produtosSolicitadosFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a>
               </li>
 
               <!-- Produtos enviados pela matriz -->
               <li class="menu-item">
-                <a href="./produtosEnviadosFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Enviados</div>
                 </a>
               </li>
 
               <!-- Transferências em andamento -->
               <li class="menu-item">
-                <a href="./transferenciasPendentesFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Transf. Pendentes</div>
                 </a>
               </li>
 
               <!-- Histórico de transferências -->
               <li class="menu-item">
-                <a href="./historicoTransferenciasFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Histórico Transf.</div>
                 </a>
               </li>
 
               <!-- Gestão de Estoque Central -->
               <li class="menu-item">
-                <a href="./estoqueMatrizFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Estoque Matriz</div>
                 </a>
               </li>
 
               <!-- Relatórios e indicadores B2B -->
               <li class="menu-item">
-                <a href="./relatoriosFranquiasB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Relatórios B2B</div>
                 </a>
               </li>
