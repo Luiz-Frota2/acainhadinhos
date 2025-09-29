@@ -533,11 +533,6 @@ $fimTxt = $fim->format('d/m/Y');
                   <div data-i18n="MaisVendidos">Mais Vendidos</div>
                 </a>
               </li>
-              <li class="menu-item">
-                <a href="./vendasPeriodoFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Pedidos">Vendas por Período</div>
-                </a>
-              </li>
 
             </ul>
           </li>

@@ -382,9 +382,6 @@ try {
                             <li class="menu-item"><a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Mais Vendidos</div>
                                 </a></li>
-                            <li class="menu-item"><a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Vendas por Período</div>
-                                </a></li>
                             <li class="menu-item"><a href="./FinanceiroFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Financeiro</div>
                                 </a></li>
