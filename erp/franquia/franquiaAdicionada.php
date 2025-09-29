@@ -193,7 +193,7 @@ try {
             <ul class="menu-sub">
               <!-- Contas das Filiais -->
               <li class="menu-item">
-                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a>
               </li>
@@ -415,7 +415,7 @@ try {
           <!-- Tabela de Contas da Empresa -->
           <div class="card">
 
-            <h5 class="card-header">Lista de Filiais</h5>
+            <h5 class="card-header">Lista de Franquias</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover">
                 <thead>

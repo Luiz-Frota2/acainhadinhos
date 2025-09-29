@@ -159,7 +159,7 @@ try {
             <ul class="menu-sub">
               <!-- Contas das Filiais -->
               <li class="menu-item">
-                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a>
               </li>

@@ -188,7 +188,7 @@ try {
                             <div>B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                            <li class="menu-item"><a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
                                 </a></li>
                             <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">

@@ -336,7 +336,7 @@ if (!empty($topGeral)) {
                             <div>B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item"><a class="menu-link" href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>">
+                            <li class="menu-item"><a class="menu-link" href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Pagamentos Solic.</div>
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>">
