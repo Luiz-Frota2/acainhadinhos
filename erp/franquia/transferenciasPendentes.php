@@ -482,8 +482,6 @@ try {
                         <span class="text-muted fw-light">Movimentações a concluir entre Matriz e Franquias</span>
                     </h5>
 
-
-
                     <!-- Tabela -->
                     <div class="card">
                         <h5 class="card-header">Lista de Transferências</h5>
@@ -505,10 +503,7 @@ try {
 
                                     <!-- Exemplo quando não há registros -->
                                     <!--
-        <tr>
-          <td colspan="8" class="text-center text-muted">Nenhuma transferência encontrada.</td>
-        </tr>
-        -->
+
 
                                     <!-- Linha de exemplo 1 -->
                                     <tr>
@@ -684,7 +679,8 @@ try {
                     </div>
 
 
-                </div><!-- /container -->
+                </div>
+                <!-- /container -->
             </div><!-- /Layout page -->
         </div><!-- /Layout container -->
     </div>
