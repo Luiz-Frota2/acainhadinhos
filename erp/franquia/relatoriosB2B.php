@@ -97,17 +97,56 @@ try {
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
   <style>
-    .table thead th {
-      white-space: nowrap;
-    }
+    /* ===== Correções mobile ===== */
+    @media (max-width: 576px) {
 
-    .toolbar {
-      gap: .5rem;
-    }
+      /* Tabela: deixa quebrar linha no cabeçalho e compacta */
+      .table thead th {
+        white-space: normal;
+        /* antes: nowrap */
+        font-size: .85rem;
+        line-height: 1.2;
+      }
 
-    .toolbar .form-select,
-    .toolbar .form-control {
-      max-width: 220px;
+      .table th,
+      .table td {
+        padding: .5rem .6rem;
+      }
+
+      /* Garante scroll horizontal caso a tabela ainda estoure */
+      .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Toolbar: quebra em linhas e ocupa 100% */
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        /* mantém o seu gap */
+      }
+
+      .toolbar .form-select,
+      .toolbar .form-control {
+        max-width: 100%;
+        /* antes: 220px */
+        flex: 1 1 220px;
+        /* cresce, mas pode quebrar */
+        min-width: 0;
+        /* evita overflow por conteúdo longo */
+      }
+
+      /* Botões da toolbar mais “tocáveis” */
+      .toolbar .btn,
+      .toolbar .btn-group {
+        flex: 1 1 160px;
+      }
+
+      /* Se tiver grupos de exportação, deixar full-width em colunas */
+      .export-actions .btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
