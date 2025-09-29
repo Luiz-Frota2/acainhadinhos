@@ -410,6 +410,21 @@ $fimTxt = $fim->format('d/m/Y');
 
 </head>
 
+<style>
+    .table thead th {
+        white-space: nowrap;
+    }
+
+    .toolbar {
+        gap: .5rem;
+    }
+
+    .toolbar .form-select,
+    .toolbar .form-control {
+        max-width: 220px;
+    }
+</style>
+
 <body>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
