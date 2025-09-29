@@ -1048,12 +1048,12 @@ $fimTxt = $fim->format('d/m/Y');
                     </div>
                 </div>
 
-                <!-- Modal: Transferir p/ Franquia -->
+                <!-- Modal: Transferir p/ Filial -->
                 <div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-dialog-centered">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title">Transferir para Franquia</h5>
+                                <h5 class="modal-title">Transferir para Filial</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                             </div>
                             <div class="modal-body">
