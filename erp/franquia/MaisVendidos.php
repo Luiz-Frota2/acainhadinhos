@@ -330,7 +330,7 @@ if (!empty($topGeral)) {
                         </ul>
                     </li>
 
-                    <li class="menu-item open">
+                    <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div>B2B - Matriz</div>
@@ -360,7 +360,7 @@ if (!empty($topGeral)) {
                         </ul>
                     </li>
 
-                    <li class="menu-item active">
+                    <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
                             <div>Relatórios</div>

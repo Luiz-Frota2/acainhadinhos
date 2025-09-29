@@ -323,7 +323,7 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
             </ul>
           </li>
 
-          <li class="menu-item open">
+          <li class="menu-item ">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="B2B">B2B - Matriz</div>
@@ -367,7 +367,7 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
             </ul>
           </li>
 
-          <li class="menu-item active">
+          <li class="menu-item active open">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
               <div data-i18n="Relatorios">Relatórios</div>
