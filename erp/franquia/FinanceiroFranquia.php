@@ -97,6 +97,80 @@ try {
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
     <style>
+        /* toolbar mais elegante e compacta */
+        .toolbar-compact {
+            padding: 1rem 1rem 0.75rem;
+        }
+
+        .toolbar-divider {
+            margin: 0.75rem 0;
+            opacity: .15;
+        }
+
+        /* grid dos filtros: 1 col no mobile, 2 no md, 4 no xl */
+        .filters-grid {
+            display: grid;
+            gap: .75rem;
+            grid-template-columns: 1fr;
+            align-items: end;
+        }
+
+        @media (min-width: 576px) {
+            .filters-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 992px) {
+            .filters-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+            }
+        }
+
+        /* ações de filtros coladas à direita quando cabe */
+        .filters-actions {
+            display: flex;
+            gap: .5rem;
+            justify-content: flex-start;
+        }
+
+        @media (min-width: 992px) {
+            .filters-actions {
+                justify-content: flex-end;
+            }
+        }
+
+        /* linha das ações secundárias (exportar/imprimir) */
+        .toolbar-actions {
+            display: flex;
+            gap: .5rem;
+            justify-content: flex-end;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* inputs menores e label menor */
+        .form-select.form-select-sm,
+        .form-control.form-control-sm {
+            padding-top: .5rem;
+            padding-bottom: .5rem;
+        }
+
+        .form-floating>label.small {
+            font-size: .75rem;
+            opacity: .8;
+        }
+
+        /* botão primário mais “presente” */
+        .btn-primary {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+        }
+
+        /* ajuste dos ícones para ficarem centralizados com texto */
+        .btn .bx {
+            vertical-align: -2px;
+        }
+
         .table thead th {
             white-space: nowrap;
         }
@@ -331,39 +405,82 @@ try {
                     <!-- ============================= -->
                     <!-- Filtros                       -->
                     <!-- ============================= -->
+                    <!-- Toolbar / Filtros + Ações -->
                     <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap toolbar">
-                            <form class="d-flex flex-wrap w-100 gap-2" method="get">
+                        <div class="card-body toolbar-compact">
+                            <form class="w-100" method="get">
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                <select class="form-select me-2" name="periodo">
-                                    <option selected>Período: Mês Atual</option>
-                                    <option>Últimos 30 dias</option>
-                                    <option>Últimos 90 dias</option>
-                                    <option>Este ano</option>
-                                </select>
-                                <select class="form-select me-2" name="status">
-                                    <option selected>Status: Todos</option>
-                                    <option>Pagos</option>
-                                    <option>Em Aberto</option>
-                                    <option>Vencidos</option>
-                                </select>
-                                <select class="form-select me-2" name="franquia">
-                                    <option selected>Todas as Franquias</option>
-                                    <option>Franquia Centro</option>
-                                    <option>Franquia Norte</option>
-                                    <option>Franquia Sul</option>
-                                </select>
-                                <button class="btn btn-outline-secondary me-2" type="submit">
-                                    <i class="bx bx-filter-alt me-1"></i> Aplicar
-                                </button>
-                                <div class="ms-auto d-flex gap-2">
-                                    <button class="btn btn-outline-dark" type="button"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
-                                    <button class="btn btn-outline-dark" type="button"><i class="bx bx-download me-1"></i> Exportar CSV</button>
-                                    <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+
+                                <!-- Linha de filtros (grid responsivo) -->
+                                <div class="filters-grid">
+                                    <div class="form-floating">
+                                        <select class="form-select form-select-sm" id="periodo" name="periodo" aria-label="Período">
+                                            <option selected>Período: Mês Atual</option>
+                                            <option>Últimos 30 dias</option>
+                                            <option>Últimos 90 dias</option>
+                                            <option>Este ano</option>
+                                        </select>
+                                        <label for="periodo" class="small">Período</label>
+                                    </div>
+
+                                    <div class="form-floating">
+                                        <select class="form-select form-select-sm" id="status" name="status" aria-label="Status">
+                                            <option selected>Status: Todos</option>
+                                            <option>Pagos</option>
+                                            <option>Em Aberto</option>
+                                            <option>Vencidos</option>
+                                        </select>
+                                        <label for="status" class="small">Status</label>
+                                    </div>
+
+                                    <div class="form-floating">
+                                        <select class="form-select form-select-sm" id="franquia" name="franquia" aria-label="Franquia">
+                                            <option selected>Todas as Franquias</option>
+                                            <option>Franquia Centro</option>
+                                            <option>Franquia Norte</option>
+                                            <option>Franquia Sul</option>
+                                        </select>
+                                        <label for="franquia" class="small">Franquia</label>
+                                    </div>
+
+                                    <!-- Botões de filtro (colam na direita em telas largas) -->
+                                    <div class="filters-actions">
+                                        <button class="btn btn-sm btn-primary" type="submit">
+                                            <i class="bx bx-filter-alt me-1"></i> Aplicar
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="this.closest('form').reset()">
+                                            <i class="bx bx-eraser me-1"></i> Limpar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- divisor sutil -->
+                                <hr class="toolbar-divider">
+
+                                <!-- Ações secundárias: exportar / imprimir -->
+                                <div class="toolbar-actions">
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bx bx-download me-1"></i> Exportar
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
+                                            <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
+                                        </ul>
+                                    </div>
+
+                                    <button class="btn btn-sm btn-outline-dark" type="button" onclick="window.print()">
+                                        <i class="bx bx-printer me-1"></i> Imprimir
+                                    </button>
                                 </div>
                             </form>
                         </div>
                     </div>
+
 
                     <!-- ============================= -->
                     <!-- KPIs principais               -->
