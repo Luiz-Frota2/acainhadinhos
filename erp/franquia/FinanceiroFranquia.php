@@ -759,7 +759,7 @@ try {
         </div><!-- /Layout container -->
     </div>
     <script>
-        < script >
+        
             document.addEventListener('DOMContentLoaded', function() {
                 // tooltips bootstrap
                 document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
@@ -774,7 +774,7 @@ try {
                     });
                 }
             });
-    </script>
+  
 
     </script>
     <!-- Core JS -->
