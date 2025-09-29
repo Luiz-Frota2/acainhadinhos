@@ -366,7 +366,7 @@ if (!empty($topGeral)) {
                             <div>Relatórios</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item"><a class="menu-link" href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>">
+                            <li class="menu-item"><a class="menu-link" href="./VendasFranquias.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Vendas por Franquias</div>
                                 </a></li>
                             <li class="menu-item active"><a class="menu-link" href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>">
