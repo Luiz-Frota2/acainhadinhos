@@ -688,7 +688,7 @@ $fimTxt = $fim->format('d/m/Y');
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
+                        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
                         Estoque Matriz
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
@@ -762,7 +762,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 </div>
                                 <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                                     <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalTransferir">
-                                        <i class="bx bx-right-arrow me-2"></i> Transferir p/ franquia
+                                        <i class="bx bx-right-arrow me-2"></i> Transferir p/ Filial
                                     </button>
                                 </div>
                                 <div class="col-12 col-sm-6 col-md-4 col-lg-3">
@@ -961,7 +961,7 @@ $fimTxt = $fim->format('d/m/Y');
                                     </div>
                                 </div>
                                 <div class="alert alert-info mb-0">
-                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Mov.</strong> para entrada/saída/ajuste ou em <strong>Transf.</strong> para enviar às franquias.
+                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Mov.</strong> para entrada/saída/ajuste ou em <strong>Transf.</strong> para enviar às Filiais.
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -1065,12 +1065,12 @@ $fimTxt = $fim->format('d/m/Y');
                                         </div>
 
                                         <div class="col-12">
-                                            <label class="form-label">Franquia</label>
+                                            <label class="form-label">Filial</label>
                                             <select class="form-select">
-                                                <option>Franquia Centro</option>
-                                                <option>Franquia Norte</option>
-                                                <option>Franquia Sul</option>
-                                                <option>Franquia Leste</option>
+                                                <option>Filial Centro</option>
+                                                <option>Filial Norte</option>
+                                                <option>Filial Sul</option>
+                                                <option>Filial Leste</option>
                                             </select>
                                         </div>
 
@@ -1171,7 +1171,7 @@ $fimTxt = $fim->format('d/m/Y');
                                                 <td>-500</td>
                                                 <td>L2401-12</td>
                                                 <td>TR-1026</td>
-                                                <td>Envio p/ Franquia Sul</td>
+                                                <td>Envio p/ Filial Sul</td>
                                                 <td>rodrigo.alves</td>
                                             </tr>
                                         </tbody>
