@@ -372,7 +372,7 @@ $fimTxt = $fim->format('d/m/Y');
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
 
-  <title>ERP - Franquia</title>
+  <title>ERP - Empresa</title>
 
   <meta name="description" content="" />
 
