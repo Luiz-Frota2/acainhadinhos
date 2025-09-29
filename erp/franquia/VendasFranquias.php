@@ -89,24 +89,24 @@ $franquiaId = isset($_GET['franquia_id']) && $_GET['franquia_id'] !== '' ? (int)
 $hoje = new DateTime('today');
 switch ($periodo) {
   case 'last30':
-    $inicio = (clone $hoje)->modify('-29 days')->setTime(0,0,0);
-    $fim    = (clone $hoje)->setTime(23,59,59);
+    $inicio = (clone $hoje)->modify('-29 days')->setTime(0, 0, 0);
+    $fim    = (clone $hoje)->setTime(23, 59, 59);
     $tituloPeriodo = 'Últimos 30 dias';
     break;
   case 'last90':
-    $inicio = (clone $hoje)->modify('-89 days')->setTime(0,0,0);
-    $fim    = (clone $hoje)->setTime(23,59,59);
+    $inicio = (clone $hoje)->modify('-89 days')->setTime(0, 0, 0);
+    $fim    = (clone $hoje)->setTime(23, 59, 59);
     $tituloPeriodo = 'Últimos 90 dias';
     break;
   case 'year':
-    $inicio = (new DateTime('first day of january ' . $hoje->format('Y')))->setTime(0,0,0);
-    $fim    = (clone $hoje)->setTime(23,59,59);
+    $inicio = (new DateTime('first day of january ' . $hoje->format('Y')))->setTime(0, 0, 0);
+    $fim    = (clone $hoje)->setTime(23, 59, 59);
     $tituloPeriodo = 'Este ano';
     break;
   case 'month_current':
   default:
-    $inicio = (new DateTime('first day of this month'))->setTime(0,0,0);
-    $fim    = (new DateTime('last day of this month'))->setTime(23,59,59);
+    $inicio = (new DateTime('first day of this month'))->setTime(0, 0, 0);
+    $fim    = (new DateTime('last day of this month'))->setTime(23, 59, 59);
     $tituloPeriodo = 'Mês Atual';
     break;
 }
@@ -159,9 +159,9 @@ try {
   ";
   $stmt = $pdo->prepare($sqlTotal);
   $stmt->execute($params);
-  $totais = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['pedidos'=>0,'itens'=>0,'faturamento'=>0.0];
+  $totais = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['pedidos' => 0, 'itens' => 0, 'faturamento' => 0.0];
 } catch (PDOException $e) {
-  $totais = ['pedidos'=>0,'itens'=>0,'faturamento'=>0.0];
+  $totais = ['pedidos' => 0, 'itens' => 0, 'faturamento' => 0.0];
 }
 
 // Por franquia (tabela principal)
@@ -210,8 +210,14 @@ try {
 }
 
 // Helpers de formatação
-function moeda($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
-function inteiro($v){ return number_format((int)$v, 0, ',', '.'); }
+function moeda($v)
+{
+  return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
+function inteiro($v)
+{
+  return number_format((int)$v, 0, ',', '.');
+}
 
 $pedidosTotal = (int)($totais['pedidos'] ?? 0);
 $itensTotal   = (int)($totais['itens'] ?? 0);
@@ -223,6 +229,7 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
@@ -239,15 +246,40 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
   <style>
-    .table thead th { white-space: nowrap; }
-    .toolbar { gap:.5rem; }
-    .toolbar .form-select, .toolbar .form-control { max-width: 220px; }
-    .kpi-card .kpi-label{ font-size:.875rem; color:#667085; }
-    .kpi-card .kpi-value{ font-size:1.4rem; font-weight:700; }
-    .kpi-card .kpi-sub{ font-size:.825rem; color:#818181; }
-    .progress-skinny{ height:8px; }
+    .table thead th {
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      gap: .5rem;
+    }
+
+    .toolbar .form-select,
+    .toolbar .form-control {
+      max-width: 220px;
+    }
+
+    .kpi-card .kpi-label {
+      font-size: .875rem;
+      color: #667085;
+    }
+
+    .kpi-card .kpi-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .kpi-card .kpi-sub {
+      font-size: .825rem;
+      color: #818181;
+    }
+
+    .progress-skinny {
+      height: 8px;
+    }
   </style>
 </head>
+
 <body>
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
@@ -458,10 +490,14 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                       </div>
                     </a>
                   </li>
-                  <li><div class="dropdown-divider"></div></li>
+                  <li>
+                    <div class="dropdown-divider"></div>
+                  </li>
                   <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
                   <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
-                  <li><div class="dropdown-divider"></div></li>
+                  <li>
+                    <div class="dropdown-divider"></div>
+                  </li>
                   <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                 </ul>
               </li>
@@ -485,16 +521,16 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
               <form class="d-flex flex-wrap w-100 gap-2" method="get">
                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
                 <select class="form-select me-2" name="periodo">
-                  <option value="month_current" <?= $periodo==='month_current'?'selected':''; ?>>Período: Mês Atual</option>
-                  <option value="last30" <?= $periodo==='last30'?'selected':''; ?>>Últimos 30 dias</option>
-                  <option value="last90" <?= $periodo==='last90'?'selected':''; ?>>Últimos 90 dias</option>
-                  <option value="year" <?= $periodo==='year'?'selected':''; ?>>Este ano</option>
+                  <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
+                  <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
+                  <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
+                  <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
                 </select>
 
                 <select class="form-select me-2" name="franquia_id">
                   <option value="">Todas as Franquias</option>
-                  <?php foreach($franquias as $f): ?>
-                    <option value="<?= (int)$f['id'] ?>" <?= $franquiaId===(int)$f['id']?'selected':''; ?>>
+                  <?php foreach ($franquias as $f): ?>
+                    <option value="<?= (int)$f['id'] ?>" <?= $franquiaId === (int)$f['id'] ? 'selected' : ''; ?>>
                       <?= htmlspecialchars($f['nome']) ?>
                     </option>
                   <?php endforeach; ?>
@@ -567,56 +603,82 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                   </tr>
                 </thead>
                 <tbody>
-                  <?php if(!$linhasFranq): ?>
-                    <tr><td colspan="6" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
-                  <?php endif; ?>
-
-                  <?php foreach($linhasFranq as $linha): 
-                    $ped = (int)$linha['pedidos'];
-                    $fat = (float)$linha['faturamento'];
-                    $ticket = $ped>0 ? ($fat/$ped) : 0;
-                    $pct = $fat>0 ? ($fat/$baseFaturamento)*100 : 0;
-                  ?>
+                  <!-- Linha 1 -->
                   <tr>
-                    <td><strong><?= htmlspecialchars($linha['franquia']) ?></strong></td>
-                    <td class="text-end"><?= inteiro($ped) ?></td>
-                    <td class="text-end"><?= inteiro($linha['itens']) ?></td>
-                    <td class="text-end"><?= moeda($fat) ?></td>
-                    <td class="text-end"><?= moeda($ticket) ?></td>
+                    <td><strong>Franquia Centro</strong></td>
+                    <td class="text-end">74</td>
+                    <td class="text-end">2.140</td>
+                    <td class="text-end">R$ 58.700,00</td>
+                    <td class="text-end">R$ 793,24</td>
                     <td>
                       <div class="d-flex align-items-center gap-2">
                         <div class="flex-grow-1">
-                          <div class="progress progress-skinny">
-                            <div class="progress-bar" role="progressbar" style="width: <?= number_format($pct,2,'.','') ?>%;" aria-valuenow="<?= number_format($pct,2,'.','') ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                          <div class="progress" style="height:8px;">
+                            <div class="progress-bar" role="progressbar" style="width: 45%;" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100"></div>
                           </div>
                         </div>
-                        <div style="width:58px;" class="text-end">
-                          <?= number_format($pct,1,',','.') ?>%
-                        </div>
+                        <div style="width:58px;" class="text-end">45,0%</div>
                       </div>
                     </td>
                   </tr>
-                  <?php endforeach; ?>
+                  <!-- Linha 2 -->
+                  <tr>
+                    <td><strong>Franquia Norte</strong></td>
+                    <td class="text-end">58</td>
+                    <td class="text-end">1.720</td>
+                    <td class="text-end">R$ 41.320,00</td>
+                    <td class="text-end">R$ 712,41</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="flex-grow-1">
+                          <div class="progress" style="height:8px;">
+                            <div class="progress-bar" role="progressbar" style="width: 32%;" aria-valuenow="32" aria-valuemin="0" aria-valuemax="100"></div>
+                          </div>
+                        </div>
+                        <div style="width:58px;" class="text-end">32,0%</div>
+                      </div>
+                    </td>
+                  </tr>
+                  <!-- Linha 3 -->
+                  <tr>
+                    <td><strong>Franquia Sul</strong></td>
+                    <td class="text-end">52</td>
+                    <td class="text-end">1.570</td>
+                    <td class="text-end">R$ 28.430,00</td>
+                    <td class="text-end">R$ 546,73</td>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="flex-grow-1">
+                          <div class="progress" style="height:8px;">
+                            <div class="progress-bar" role="progressbar" style="width: 23%;" aria-valuenow="23" aria-valuemin="0" aria-valuemax="100"></div>
+                          </div>
+                        </div>
+                        <div style="width:58px;" class="text-end">23,0%</div>
+                      </div>
+                    </td>
+                  </tr>
+                  <!-- Se quiser uma linha de “sem dados”, deixe-a comentada e descomente quando necessário
+        <tr><td colspan="6" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
+        -->
                 </tbody>
-                <?php if($linhasFranq): ?>
                 <tfoot>
                   <tr>
                     <th>Total</th>
-                    <th class="text-end"><?= inteiro($pedidosTotal) ?></th>
-                    <th class="text-end"><?= inteiro($itensTotal) ?></th>
-                    <th class="text-end"><?= moeda($faturTotal) ?></th>
-                    <th class="text-end"><?= moeda($ticketMedio) ?></th>
+                    <th class="text-end">184</th>
+                    <th class="text-end">5.430</th>
+                    <th class="text-end">R$ 128.450,00</th>
+                    <th class="text-end">R$ 698,10</th>
                     <th></th>
                   </tr>
                 </tfoot>
-                <?php endif; ?>
               </table>
             </div>
           </div>
 
+
           <!-- Tabela: Top Produtos no Período -->
           <div class="card mb-3">
-            <h5 class="card-header">Top Produtos no Período <?= $franquiaId ? '(Filtrando franquia selecionada)' : '' ?></h5>
+            <h5 class="card-header">Top Produtos no Período</h5>
             <div class="table-responsive">
               <table class="table table-hover">
                 <thead>
@@ -628,22 +690,44 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                   </tr>
                 </thead>
                 <tbody>
-                  <?php if(!$topProdutos): ?>
-                    <tr><td colspan="4" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
-                  <?php endif; ?>
-
-                  <?php foreach($topProdutos as $p): ?>
-                    <tr>
-                      <td><?= htmlspecialchars($p['sku'] ?? '-') ?></td>
-                      <td><?= htmlspecialchars($p['produto'] ?? '-') ?></td>
-                      <td class="text-end"><?= inteiro($p['qtd'] ?? 0) ?></td>
-                      <td class="text-end"><?= inteiro($p['pedidos'] ?? 0) ?></td>
-                    </tr>
-                  <?php endforeach; ?>
+                  <tr>
+                    <td>ACA-500</td>
+                    <td>Polpa Açaí 500g</td>
+                    <td class="text-end">1.980</td>
+                    <td class="text-end">96</td>
+                  </tr>
+                  <tr>
+                    <td>ACA-1KG</td>
+                    <td>Polpa Açaí 1kg</td>
+                    <td class="text-end">1.210</td>
+                    <td class="text-end">64</td>
+                  </tr>
+                  <tr>
+                    <td>COPO-300</td>
+                    <td>Copo 300ml</td>
+                    <td class="text-end">1.050</td>
+                    <td class="text-end">51</td>
+                  </tr>
+                  <tr>
+                    <td>COLH-PP</td>
+                    <td>Colher PP</td>
+                    <td class="text-end">890</td>
+                    <td class="text-end">40</td>
+                  </tr>
+                  <tr>
+                    <td>GRAN-200</td>
+                    <td>Granola 200g</td>
+                    <td class="text-end">300</td>
+                    <td class="text-end">18</td>
+                  </tr>
+                  <!-- Linha “sem dados”, deixe comentada para uso futuro
+        <tr><td colspan="4" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
+        -->
                 </tbody>
               </table>
             </div>
           </div>
+
 
         </div><!-- /container -->
       </div><!-- /Layout page -->
@@ -660,4 +744,5 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
   <script src="../../assets/js/main.js"></script>
   <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
+
 </html>
