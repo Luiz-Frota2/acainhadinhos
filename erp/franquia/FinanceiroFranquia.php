@@ -370,7 +370,7 @@ try {
 
                                     <!-- Ações principais -->
                                     <!-- Ações primárias -->
-                                    <div class="col-12 col-sm-6 col-lg-3">
+                                    <div class="col-12 col-sm-6 col-lg-3 mr-3">
                                        
                                 
                                         <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
