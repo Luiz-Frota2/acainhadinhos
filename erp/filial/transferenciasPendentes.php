@@ -410,6 +410,49 @@ $fimTxt = $fim->format('d/m/Y');
 
 </head>
 
+<style>
+    .table thead th {
+        white-space: nowrap;
+    }
+
+    .status-badge {
+        font-size: .78rem;
+    }
+
+    .toolbar {
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    .toolbar .form-select,
+    .toolbar .form-control {
+        max-width: 220px;
+    }
+
+    .badge-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+    }
+
+    .badge-dot::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+        display: inline-block;
+    }
+
+    .actions .btn {
+        margin-right: .25rem;
+    }
+
+    .table-responsive {
+        overflow: auto;
+    }
+</style>
+
 <body>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
