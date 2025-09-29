@@ -370,21 +370,7 @@ try {
 
                                     <!-- Ações principais -->
                                     <!-- Ações primárias -->
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <div class="btn-toolbar justify-content-lg-end justify-content-start w-100" role="toolbar" aria-label="Ações de filtro">
-                                            <div class="btn-group btn-group-sm me-2" role="group" aria-label="Aplicar e limpar">
-                                                <button id="btnAplicar" class="btn btn-primary" type="submit" data-bs-toggle="tooltip" data-bs-title="Aplicar filtros">
-                                                    <i class="bx bx-filter-alt me-1"></i>
-                                                    <span class="align-middle">Aplicar</span>
-                                                </button>
-                                                <button class="btn btn-outline-secondary" type="reset" data-bs-toggle="tooltip" data-bs-title="Limpar seleção">
-                                                    <i class="bx bx-eraser me-1"></i>
-                                                    <span class="align-middle">Limpar</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
+                                  
                                     <!-- Ações secundárias -->
                                     <div class="d-flex flex-wrap justify-content-lg-end justify-content-start gap-2 mt-2">
                                         <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
