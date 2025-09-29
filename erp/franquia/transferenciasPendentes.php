@@ -376,7 +376,7 @@ try {
                             <div>Relatórios</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item"><a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                            <li class="menu-item"><a href="./VendasFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Vendas por Franquias</div>
                                 </a></li>
                             <li class="menu-item"><a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">

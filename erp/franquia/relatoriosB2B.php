@@ -213,7 +213,7 @@ try {
             </a>
             <ul class="menu-sub">
               <li class="menu-item">
-                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./VendasFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Vendas">Vendas por Franquias</div>
                 </a>
               </li>
