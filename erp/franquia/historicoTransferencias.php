@@ -418,10 +418,7 @@ try {
                                 <tbody class="table-border-bottom-0">
                                     <!-- Caso não tenha histórico -->
                                     <!--
-        <tr>
-          <td colspan="9" class="text-center text-muted">Nenhuma transferência no histórico.</td>
-        </tr>
-        -->
+
 
                                     <!-- Exemplo: concluída/recebida -->
                                     <tr>
@@ -540,7 +537,7 @@ try {
                                             <p><strong>Código:</strong> <span id="hist-codigo">-</span></p>
                                         </div>
                                         <div class="col-md-3">
-                                            <p><strong>Filial:</strong> <span id="hist-filial">-</span></p>
+                                            <p><strong>Franquia:</strong> <span id="hist-filial">-</span></p>
                                         </div>
                                         <div class="col-md-3">
                                             <p><strong>Status:</strong> <span id="hist-status">-</span></p>
@@ -595,7 +592,8 @@ try {
 
 
 
-                </div><!-- /container -->
+                </div>
+                <!-- /container -->
             </div><!-- /Layout page -->
         </div><!-- /Layout container -->
     </div>
