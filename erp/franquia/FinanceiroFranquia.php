@@ -370,9 +370,9 @@ try {
 
                                     <!-- Ações principais -->
                                     <!-- Ações primárias -->
-                                  
-                                    <!-- Ações secundárias -->
-                                    <div class="d-flex flex-wrap justify-content-lg-end justify-content-start gap-2 mt-2">
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                       
+                                
                                         <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
                                             <div class="btn-group btn-group-sm me-2" role="group" aria-label="Exportar">
                                                 <button type="button" class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
