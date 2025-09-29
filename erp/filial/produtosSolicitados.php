@@ -432,7 +432,7 @@ $fimTxt = $fim->format('d/m/Y');
 
                 <ul class="menu-inner py-1">
                     <!-- Dashboard -->
-                    <li class="menu-item active">
+                    <li class="menu-item">
                         <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
                             <div data-i18n="Analytics">Dashboard</div>
@@ -459,12 +459,12 @@ $fimTxt = $fim->format('d/m/Y');
                         </ul>
                     </li>
 
-                    <li class="menu-item">
+                    <li class="menu-item open active">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
-                        <ul class="menu-sub">
+                        <ul class="menu-sub active">
                             <!-- Contas das Filiais -->
                             <li class="menu-item">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
@@ -473,7 +473,7 @@ $fimTxt = $fim->format('d/m/Y');
                             </li>
 
                             <!-- Produtos solicitados pelas filiais -->
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./produtosSolicitadosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
