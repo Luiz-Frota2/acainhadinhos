@@ -466,7 +466,7 @@ $fimTxt = $fim->format('d/m/Y');
                         </a>
                         <ul class="menu-sub active">
                             <!-- Contas das Filiais -->
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
                                 </a>
@@ -494,7 +494,7 @@ $fimTxt = $fim->format('d/m/Y');
                             </li>
 
                             <!-- Histórico de transferências -->
-                            <li class="menu-item active">
+                            <li class="menu-item">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>

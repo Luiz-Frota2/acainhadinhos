@@ -464,7 +464,7 @@ $fimTxt = $fim->format('d/m/Y');
                             <i class="menu-icon tf-icons bx bx-briefcase"></i>
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
-                        <ul class="menu-sub">
+                        <ul class="menu-sub active">
                             <!-- Contas das Filiais -->
                             <li class="menu-item">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
