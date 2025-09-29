@@ -332,38 +332,77 @@ try {
                     <!-- Filtros                       -->
                     <!-- ============================= -->
                     <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap toolbar">
-                            <form class="d-flex flex-wrap w-100 gap-2" method="get">
+                        <div class="card-body py-2">
+                            <form class="w-100" method="get">
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                <select class="form-select me-2" name="periodo">
-                                    <option selected>Período: Mês Atual</option>
-                                    <option>Últimos 30 dias</option>
-                                    <option>Últimos 90 dias</option>
-                                    <option>Este ano</option>
-                                </select>
-                                <select class="form-select me-2" name="status">
-                                    <option selected>Status: Todos</option>
-                                    <option>Pagos</option>
-                                    <option>Em Aberto</option>
-                                    <option>Vencidos</option>
-                                </select>
-                                <select class="form-select me-2" name="franquia">
-                                    <option selected>Todas as Franquias</option>
-                                    <option>Franquia Centro</option>
-                                    <option>Franquia Norte</option>
-                                    <option>Franquia Sul</option>
-                                </select>
-                                <button class="btn btn-outline-secondary me-2" type="submit">
-                                    <i class="bx bx-filter-alt me-1"></i> Aplicar
-                                </button>
-                                <div class="ms-auto d-flex gap-2">
-                                    <button class="btn btn-outline-dark" type="button"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
-                                    <button class="btn btn-outline-dark" type="button"><i class="bx bx-download me-1"></i> Exportar CSV</button>
-                                    <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+
+                                <div class="row g-2 align-items-end">
+                                    <!-- Filtros -->
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <label for="periodo" class="form-label mb-1">Período</label>
+                                        <select id="periodo" class="form-select form-select-sm" name="periodo">
+                                            <option selected>Período: Mês Atual</option>
+                                            <option>Últimos 30 dias</option>
+                                            <option>Últimos 90 dias</option>
+                                            <option>Este ano</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <label for="status" class="form-label mb-1">Status</label>
+                                        <select id="status" class="form-select form-select-sm" name="status">
+                                            <option selected>Status: Todos</option>
+                                            <option>Pagos</option>
+                                            <option>Em Aberto</option>
+                                            <option>Vencidos</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <label for="franquia" class="form-label mb-1">Franquia</label>
+                                        <select id="franquia" class="form-select form-select-sm" name="franquia">
+                                            <option selected>Todas as Franquias</option>
+                                            <option>Franquia Centro</option>
+                                            <option>Franquia Norte</option>
+                                            <option>Franquia Sul</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Ações principais -->
+                                    <div class="col-12 col-sm-6 col-lg-3 d-flex justify-content-lg-end justify-content-start gap-2">
+                                        <button class="btn btn-sm btn-primary" type="submit">
+                                            <i class="bx bx-filter-alt me-1"></i> Aplicar
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" type="reset">
+                                            <i class="bx bx-eraser me-1"></i> Limpar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Ações secundárias -->
+                                <div class="d-flex flex-wrap justify-content-lg-end justify-content-start gap-2 mt-2">
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="bx bx-download me-1"></i> Exportar
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
+                                            <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
+                                        </ul>
+                                    </div>
+
+                                    <button class="btn btn-sm btn-outline-dark" type="button" onclick="window.print()">
+                                        <i class="bx bx-printer me-1"></i> Imprimir
+                                    </button>
                                 </div>
                             </form>
                         </div>
                     </div>
+
 
                     <!-- ============================= -->
                     <!-- KPIs principais               -->
