@@ -673,7 +673,6 @@ $fimTxt = $fim->format('d/m/Y');
               <!--/ User -->
             </ul>
 
-
           </div>
         </nav>
 
