@@ -507,13 +507,6 @@ $fimTxt = $fim->format('d/m/Y');
                                 </a>
                             </li>
 
-                            <!-- Configurações de Política de Envio -->
-                            <li class="menu-item">
-                                <a href="./politicasEnvio.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Política de Envio</div>
-                                </a>
-                            </li>
-
                             <!-- Relatórios e indicadores B2B -->
                             <li class="menu-item">
                                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
