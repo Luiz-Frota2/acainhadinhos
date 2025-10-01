@@ -80,6 +80,7 @@ try {
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
@@ -96,11 +97,21 @@ try {
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
   <style>
-    .table thead th { white-space: nowrap; }
-    .toolbar { gap:.5rem; }
-    .toolbar .form-select, .toolbar .form-control { max-width: 220px; }
+    .table thead th {
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      gap: .5rem;
+    }
+
+    .toolbar .form-select,
+    .toolbar .form-control {
+      max-width: 220px;
+    }
   </style>
 </head>
+
 <body>
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
@@ -328,10 +339,14 @@ try {
                       </div>
                     </a>
                   </li>
-                  <li><div class="dropdown-divider"></div></li>
+                  <li>
+                    <div class="dropdown-divider"></div>
+                  </li>
                   <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
                   <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
-                  <li><div class="dropdown-divider"></div></li>
+                  <li>
+                    <div class="dropdown-divider"></div>
+                  </li>
                   <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                 </ul>
               </li>
@@ -594,7 +609,8 @@ try {
             </div>
           </div>
 
-        </div><!-- /container -->
+        </div>
+        <!-- /container -->
       </div><!-- /Layout page -->
     </div><!-- /Layout container -->
   </div>
@@ -609,4 +625,5 @@ try {
   <script src="../../assets/js/main.js"></script>
   <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
+
 </html>
