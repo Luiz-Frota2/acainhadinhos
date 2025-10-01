@@ -498,8 +498,13 @@ try {
 
 
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>Pontos por Dia</h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Visualize os Pontos do Funcionário</span></h5>
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light"><a href="#">Sistema de Ponto</a>/</span>
+                        Pontos por Dia
+                    </h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font">
+                        <span class="text-muted fw-light">Visualize os Pontos do Funcionário</span>
+                    </h5>
 
                     <div class="container mt-4">
                         <div class="card mt-3">
@@ -527,11 +532,9 @@ try {
                                                 <td colspan="7" class="text-center">Nenhum ponto registrado para este período</td>
                                             </tr>
                                         <?php else: ?>
-                                            <?php
-                                            $fmt = function ($t) {
+                                            <?php $fmt = function ($t) {
                                                 return $t ? substr($t, 0, 5) : '--:--';
-                                            };
-                                            ?>
+                                            }; ?>
                                             <?php foreach ($pontos as $ponto): ?>
                                                 <?php
                                                 $dataYmd = $ponto['data']; // YYYY-MM-DD
@@ -556,19 +559,19 @@ try {
                                                             data-bs-toggle="modal"
                                                             data-bs-target="#editarPontoModal"
 
-                                                            data-data="<?= htmlspecialchars($dataYmd) ?>" <!-- YYYY-MM-DD -->
-                                                            data-entrada="<?= htmlspecialchars($ponto['entrada'] ?? '') ?>"
-                                                            data-saida_intervalo="<?= htmlspecialchars($ponto['saida_intervalo'] ?? '') ?>"
-                                                            data-retorno_intervalo="<?= htmlspecialchars($ponto['retorno_intervalo'] ?? '') ?>"
-                                                            data-saida_final="<?= htmlspecialchars($ponto['saida_final'] ?? '') ?>"
-                                                            data-carga="<?= htmlspecialchars($cargaHoraria) ?>"
+                                                            data-data="<?= htmlspecialchars($dataYmd, ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-entrada="<?= htmlspecialchars($ponto['entrada'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-saida_intervalo="<?= htmlspecialchars($ponto['saida_intervalo'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-retorno_intervalo="<?= htmlspecialchars($ponto['retorno_intervalo'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-saida_final="<?= htmlspecialchars($ponto['saida_final'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-carga="<?= htmlspecialchars($cargaHoraria ?? '', ENT_QUOTES, 'UTF-8') ?>"
 
-                                                            data-empresa_id="<?= htmlspecialchars($idSelecionado) ?>"
-                                                            data-cpf="<?= htmlspecialchars($cpf) ?>"
-                                                            data-mes="<?= htmlspecialchars((string)$mes) ?>"
-                                                            data-ano="<?= htmlspecialchars((string)$ano) ?>"
-                                                            >
-                                                            <i class="fas fa-edit"></i>
+                                                            data-empresa_id="<?= htmlspecialchars($idSelecionado ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-cpf="<?= htmlspecialchars($cpf ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-mes="<?= htmlspecialchars((string)$mes, ENT_QUOTES, 'UTF-8') ?>"
+                                                            data-ano="<?= htmlspecialchars((string)$ano, ENT_QUOTES, 'UTF-8') ?>"
+                                                            title="Editar ponto" aria-label="Editar ponto">
+                                                            <i class="fas fa-edit" aria-hidden="true"></i>
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -582,7 +585,7 @@ try {
                             <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
-                                        <!-- Aponte para o SEU script de update (o que usa cpf+empresa_id+data) -->
+                                        <!-- Aponte para o SEU script de update -->
                                         <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
                                             <div class="modal-header">
                                                 <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
@@ -611,7 +614,7 @@ try {
                                                     <input type="text" class="form-control" id="editCarga" name="carga" disabled>
                                                 </div>
 
-                                                <!-- Hiddens necessários para o update (preenchidos via JS) -->
+                                                <!-- Hiddens (preenchidos via JS) -->
                                                 <input type="hidden" name="cpf" id="hidCpf" value="">
                                                 <input type="hidden" name="empresa_id" id="hidEmpresaId" value="">
                                                 <input type="hidden" name="data" id="hidData" value=""> <!-- YYYY-MM-DD -->
@@ -638,8 +641,21 @@ try {
                     </div>
                 </div>
 
+                <!-- Botão só-ícone (opcional, cosmético) -->
+                <style>
+                    .btn-edit-ponto {
+                        padding: .25rem .5rem;
+                        line-height: 1;
+                    }
+
+                    .btn-edit-ponto i {
+                        pointer-events: none;
+                    }
+                </style>
+
                 <script>
                     (function() {
+                        // Converte 'HH:MM[:SS]' -> 'HH:MM' para <input type="time">
                         function toTimeInput(t) {
                             if (!t) return '';
                             const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(t);
@@ -674,59 +690,67 @@ try {
                             } else {
                                 total = s - e;
                             }
+
                             const hh = String(Math.max(0, Math.floor(total / 60))).padStart(2, '0');
                             const mm = String(Math.max(0, total % 60)).padStart(2, '0');
                             out.value = `${hh}h ${mm}m`;
                         }
 
-                        // Preenche modal ao clicar em "Editar"
-                        document.querySelectorAll('.btn-edit-ponto').forEach(function(btn) {
-                            btn.addEventListener('click', function() {
-                                const data = btn.dataset.data || ''; // YYYY-MM-DD
-                                const ent = btn.dataset.entrada || '';
-                                const saiI = btn.dataset.saida_intervalo || '';
-                                const retI = btn.dataset.retorno_intervalo || '';
-                                const saiF = btn.dataset.saida_final || '';
-                                const carga = btn.dataset.carga || '';
+                        // Preenche quando o modal ABRE (evento oficial Bootstrap 5)
+                        var modal = document.getElementById('editarPontoModal');
+                        if (modal) {
+                            modal.addEventListener('show.bs.modal', function(event) {
+                                var btn = event.relatedTarget;
+                                if (!btn) return;
 
-                                const empresaId = btn.dataset.empresa_id || '';
-                                const cpf = btn.dataset.cpf || '';
-                                const mes = btn.dataset.mes || '';
-                                const ano = btn.dataset.ano || '';
+                                var data = btn.getAttribute('data-data') || '';
+                                var entrada = btn.getAttribute('data-entrada') || '';
+                                var saidaInt = btn.getAttribute('data-saida_intervalo') || '';
+                                var retInt = btn.getAttribute('data-retorno_intervalo') || '';
+                                var saidaFin = btn.getAttribute('data-saida_final') || '';
+                                var carga = btn.getAttribute('data-carga') || '';
 
-                                // times
-                                document.getElementById('editEntrada').value = toTimeInput(ent);
-                                document.getElementById('editSaidaIntervalo').value = toTimeInput(saiI);
-                                document.getElementById('editRetornoIntervalo').value = toTimeInput(retI);
-                                document.getElementById('editSaidaFinal').value = toTimeInput(saiF);
+                                var empresaId = btn.getAttribute('data-empresa_id') || '';
+                                var cpf = btn.getAttribute('data-cpf') || '';
+                                var mes = btn.getAttribute('data-mes') || '';
+                                var ano = btn.getAttribute('data-ano') || '';
+
+                                // Inputs de tempo
+                                document.getElementById('editEntrada').value = toTimeInput(entrada);
+                                document.getElementById('editSaidaIntervalo').value = toTimeInput(saidaInt);
+                                document.getElementById('editRetornoIntervalo').value = toTimeInput(retInt);
+                                document.getElementById('editSaidaFinal').value = toTimeInput(saidaFin);
                                 document.getElementById('editCarga').value = carga;
 
-                                // hiddens (CRUS)
+                                // Hiddens obrigatórios (CRUS)
                                 document.getElementById('hidCpf').value = cpf;
                                 document.getElementById('hidEmpresaId').value = empresaId;
                                 document.getElementById('hidData').value = data; // YYYY-MM-DD
                                 document.getElementById('hidMes').value = mes;
                                 document.getElementById('hidAno').value = ano;
 
-                                // re-calcular ao mudar
+                                // Recalcular ao editar
                                 ['editEntrada', 'editSaidaIntervalo', 'editRetornoIntervalo', 'editSaidaFinal']
                                 .forEach(id => document.getElementById(id).onchange = calcCarga);
                             });
-                        });
+                        }
 
-                        // Validação: não submeter sem cpf/empresa/data
-                        document.getElementById('formEditarPonto').addEventListener('submit', function(e) {
-                            const cpf = document.getElementById('hidCpf').value.trim();
-                            const emp = document.getElementById('hidEmpresaId').value.trim();
-                            const data = document.getElementById('hidData').value.trim(); // YYYY-MM-DD
-                            if (!cpf || !emp || !data) {
-                                e.preventDefault();
-                                alert('Dados insuficientes: verifique CPF, empresa e data.');
-                                return false;
-                            }
-                        });
+                        // Validação: não envia sem cpf/empresa/data
+                        var form = document.getElementById('formEditarPonto');
+                        if (form) {
+                            form.addEventListener('submit', function(e) {
+                                var cpf = document.getElementById('hidCpf').value.trim();
+                                var emp = document.getElementById('hidEmpresaId').value.trim();
+                                var data = document.getElementById('hidData').value.trim(); // YYYY-MM-DD
+                                if (!cpf || !emp || !data) {
+                                    e.preventDefault();
+                                    alert('Dados insuficientes: verifique CPF, empresa e data.');
+                                }
+                            });
+                        }
                     })();
                 </script>
+
 
 
                 <script>
