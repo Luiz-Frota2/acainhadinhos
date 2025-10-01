@@ -4,7 +4,7 @@ declare(strict_types=1);
 ini_set('display_errors', '1');
 error_reporting(E_ALL);
 
-require_once '../conexao.php'; // garante $pdo
+require_once '../conexao.php'; // Deve definir $pdo (PDO conectado)
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -18,9 +18,11 @@ function normalizeDate(?string $d): ?string {
     if ($d === null || $d === '') return null;
 
     $d = trim($d);
+    // Tenta d/m/Y
     $dt = DateTime::createFromFormat('d/m/Y', $d);
     if ($dt instanceof DateTime) return $dt->format('Y-m-d');
 
+    // Tenta strtotime
     $ts = strtotime($d);
     return $ts ? date('Y-m-d', $ts) : null;
 }
@@ -30,52 +32,51 @@ function normalizeTime(?string $t): ?string {
 
     $t = trim($t);
 
+    // H:i:s
     $dt = DateTime::createFromFormat('H:i:s', $t);
     if ($dt instanceof DateTime) return $dt->format('H:i:s');
 
+    // H:i
     $dt = DateTime::createFromFormat('H:i', $t);
     if ($dt instanceof DateTime) return $dt->format('H:i:s');
 
+    // strtotime
     $ts = strtotime($t);
     return $ts ? date('H:i:s', $ts) : null;
 }
 
 /**
- * Valida e escolhe a URL de retorno, priorizando:
- * 1) POST[return_url]
- * 2) HTTP_REFERER
- * 3) Reconstrução por id/cpf/mes/ano
- * 4) Fallback seguro
+ * Decide a URL de retorno com prioridade:
+ * 1) POST[return_url] (hidden no form),
+ * 2) HTTP_REFERER validado,
+ * 3) Reconstrução por id/cpf/mes/ano,
+ * 4) Fallback seguro.
  */
 function buildReturnUrl(array $post, array $server): string {
-    // Função para validar que é um caminho interno e de preferência em /erp/rh/
     $isAllowedPath = function(string $url): bool {
-        // Não permitir esquemas externos
+        // Proíbe http(s) externo
         if (preg_match('~^(https?:)?//~i', $url)) return false;
-        // Normalizar
         $path = parse_url($url, PHP_URL_PATH) ?? '';
-        // Permitir apenas caminhos internos; de preferência under /erp/rh/
         if ($path === '' || $path[0] !== '/') return false;
-        // Opcionalmente, restrinja ao diretório /erp/rh/
+
+        // Opcional: restringir a /erp/rh/ ou /rh/
         if (strpos($path, '/erp/rh/') !== 0 && strpos($path, '/rh/') !== 0) {
-            // ainda deixamos relativo interno, mas você pode endurecer:
+            // ainda assim permitimos caminho interno; se quiser, descomente para endurecer:
             // return false;
         }
         return true;
     };
 
-    // 1) return_url enviado no POST (recomendado: incluir como hidden no form)
+    // 1) return_url enviado no POST
     if (!empty($post['return_url']) && $isAllowedPath($post['return_url'])) {
         return $post['return_url'];
     }
 
-    // 2) HTTP_REFERER (validado)
+    // 2) HTTP_REFERER (mesma origem / caminho interno)
     if (!empty($server['HTTP_REFERER'])) {
         $ref = $server['HTTP_REFERER'];
-        // Aceitar somente se for mesma origem ou relativo
         $parts = parse_url($ref);
         if ($parts) {
-            // reconstruir caminho + query para evitar origem externa
             $path  = $parts['path']  ?? '/';
             $query = isset($parts['query']) ? '?' . $parts['query'] : '';
             $candidate = $path . $query;
@@ -85,8 +86,8 @@ function buildReturnUrl(array $post, array $server): string {
         }
     }
 
-    // 3) Reconstruir a URL típica: rh/pontosIndividuasDias.php?id=...&cpf=...&mes=...&ano=...
-    $id  = $post['id']  ?? $post['empresa_id'] ?? null; // id pode ser "principal_1" etc.
+    // 3) Reconstrução típica: /erp/rh/pontosIndividuasDias.php?id=...&cpf=...&mes=...&ano=...
+    $id  = $post['id']  ?? $post['empresa_id'] ?? null;
     $cpf = $post['cpf'] ?? null;
     $mes = $post['mes'] ?? null;
     $ano = $post['ano'] ?? null;
@@ -101,7 +102,7 @@ function buildReturnUrl(array $post, array $server): string {
         return "/erp/rh/pontosIndividuasDias.php?{$q}";
     }
 
-    // 4) Fallback seguro (ajuste conforme seu fluxo)
+    // 4) Fallback seguro
     return "/erp/rh/ajustePonto.php";
 }
 
@@ -138,13 +139,14 @@ try {
     $pdo->beginTransaction();
 
     /* =========================
-       Tolerância de 10 min na ENTRADA → zera horas_pendentes
+       Tolerância de 10 min na ENTRADA → zera horas_pendentes = '00:00:00'
        ========================= */
     if ($entrada !== null) {
         $sqlFunc = "SELECT entrada FROM funcionarios WHERE cpf = :cpf AND empresa_id = :empresa_id";
         $stFunc = $pdo->prepare($sqlFunc);
         $stFunc->bindValue(':cpf', $cpf, PDO::PARAM_STR);
-        $stFunc->bindValue(':empresa_id', $empresa_id, is_numeric($empresa_id) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        // empresa_id pode ser string (ex.: 'principal_1'); tratamos como STR
+        $stFunc->bindValue(':empresa_id', $empresa_id, PDO::PARAM_STR);
         $stFunc->execute();
         $func = $stFunc->fetch(PDO::FETCH_ASSOC);
 
@@ -157,12 +159,12 @@ try {
                 $diffMin = abs($t1 - $t2) / 60;
                 if ($diffMin <= 10) {
                     $sqlPend = "UPDATE pontos 
-                                SET horas_pendentes = 0 
+                                SET horas_pendentes = '00:00:00'
                                 WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id";
                     $stPend = $pdo->prepare($sqlPend);
                     $stPend->bindValue(':cpf', $cpf, PDO::PARAM_STR);
                     $stPend->bindValue(':data', $data, PDO::PARAM_STR);
-                    $stPend->bindValue(':empresa_id', $empresa_id, is_numeric($empresa_id) ? PDO::PARAM_INT : PDO::PARAM_STR);
+                    $stPend->bindValue(':empresa_id', $empresa_id, PDO::PARAM_STR);
                     $stPend->execute();
                 }
             }
@@ -182,35 +184,40 @@ try {
     $st = $pdo->prepare($sql);
 
     // Binds com NULL correto
-    if ($entrada === null)           { $st->bindValue(':entrada', null, PDO::PARAM_NULL); }
-    else                             { $st->bindValue(':entrada', $entrada, PDO::PARAM_STR); }
+    ($entrada === null)
+        ? $st->bindValue(':entrada', null, PDO::PARAM_NULL)
+        : $st->bindValue(':entrada', $entrada, PDO::PARAM_STR);
 
-    if ($saida_intervalo === null)   { $st->bindValue(':saida_intervalo', null, PDO::PARAM_NULL); }
-    else                             { $st->bindValue(':saida_intervalo', $saida_intervalo, PDO::PARAM_STR); }
+    ($saida_intervalo === null)
+        ? $st->bindValue(':saida_intervalo', null, PDO::PARAM_NULL)
+        : $st->bindValue(':saida_intervalo', $saida_intervalo, PDO::PARAM_STR);
 
-    if ($retorno_intervalo === null) { $st->bindValue(':retorno_intervalo', null, PDO::PARAM_NULL); }
-    else                             { $st->bindValue(':retorno_intervalo', $retorno_intervalo, PDO::PARAM_STR); }
+    ($retorno_intervalo === null)
+        ? $st->bindValue(':retorno_intervalo', null, PDO::PARAM_NULL)
+        : $st->bindValue(':retorno_intervalo', $retorno_intervalo, PDO::PARAM_STR);
 
-    if ($saida_final === null)       { $st->bindValue(':saida_final', null, PDO::PARAM_NULL); }
-    else                             { $st->bindValue(':saida_final', $saida_final, PDO::PARAM_STR); }
+    ($saida_final === null)
+        ? $st->bindValue(':saida_final', null, PDO::PARAM_NULL)
+        : $st->bindValue(':saida_final', $saida_final, PDO::PARAM_STR);
 
     $st->bindValue(':cpf', $cpf, PDO::PARAM_STR);
     $st->bindValue(':data', $data, PDO::PARAM_STR);
-    $st->bindValue(':empresa_id', $empresa_id, is_numeric($empresa_id) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    $st->bindValue(':empresa_id', $empresa_id, PDO::PARAM_STR);
 
     $st->execute();
     $afetadas = $st->rowCount();
 
+    // Commit antes de checar existência (o SELECT abaixo é leitura)
     $pdo->commit();
 
     $backUrl = buildReturnUrl($_POST, $_SERVER);
 
     if ($afetadas === 0) {
-        // Checa se o registro existe para diferenciar as mensagens
+        // Diferencia "não existe" de "sem mudança"
         $chk = $pdo->prepare("SELECT 1 FROM pontos WHERE cpf = :cpf AND data = :data AND empresa_id = :empresa_id LIMIT 1");
         $chk->bindValue(':cpf', $cpf, PDO::PARAM_STR);
         $chk->bindValue(':data', $data, PDO::PARAM_STR);
-        $chk->bindValue(':empresa_id', $empresa_id, is_numeric($empresa_id) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        $chk->bindValue(':empresa_id', $empresa_id, PDO::PARAM_STR);
         $chk->execute();
         $existe = (bool)$chk->fetchColumn();
 

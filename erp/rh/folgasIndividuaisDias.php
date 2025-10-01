@@ -562,7 +562,7 @@ try {
                                 <div class="modal-dialog">
                                     <div class="modal-content">
                                         <form action="../../assets/php/rh/atualizarFolga.php" method="POST">
-                                            <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI'], ENT_QUOTES, 'UTF-8') ?>">
+                                           <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI'], ENT_QUOTES, 'UTF-8') ?>">
 
                                             <input type="hidden" name="id" id="editarFolgaId">
                                             <input type="hidden" name="cpf" id="editarFolgaCpf">
