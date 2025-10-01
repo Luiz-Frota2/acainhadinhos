@@ -507,6 +507,14 @@ try {
                                 <span class="float-end">Período: <?= str_pad($mes, 2, '0', STR_PAD_LEFT) ?>/<?= $ano ?></span>
                             </h5>
 
+                            <?php
+                            // helper local para exibir HH:MM
+                            $fmt = function ($t) {
+                                return $t ? substr($t, 0, 5) : '--:--';
+                            };
+                            $mesStr = (string)$mes;
+                            $anoStr = (string)$ano;
+                            ?>
                             <div class="table-responsive text-nowrap">
                                 <table class="table table-hover" id="tabelaBancoHoras">
                                     <thead class="table-light">
@@ -526,19 +534,9 @@ try {
                                                 <td colspan="7" class="text-center">Nenhum ponto registrado para este período</td>
                                             </tr>
                                         <?php else: ?>
-                                            <?php
-                                            // util para mostrar HH:MM sem segundos
-                                            $fmt = function ($t) {
-                                                return $t ? substr($t, 0, 5) : '--:--';
-                                            };
-                                            // mês/ano já vindos da URL:
-                                            $mesStr = (string)$mes;
-                                            $anoStr = (string)$ano;
-                                            ?>
                                             <?php foreach ($pontos as $ponto): ?>
                                                 <?php
                                                 $dataYmd = $ponto['data']; // YYYY-MM-DD no banco
-                                                // calcula carga para exibir
                                                 $cargaHoraria = calcularCargaHoraria(
                                                     $ponto['entrada'],
                                                     $ponto['saida_intervalo'],
@@ -571,7 +569,6 @@ try {
                                                             data-cpf="<?= htmlspecialchars($cpf) ?>"
                                                             data-mes="<?= htmlspecialchars($mesStr) ?>"
                                                             data-ano="<?= htmlspecialchars($anoStr) ?>"
-                                                            data-id="<?= htmlspecialchars($idSelecionado) ?>"
                                                             >
                                                             <i class="fas fa-edit"></i>
                                                         </button>
@@ -617,12 +614,11 @@ try {
                                                 </div>
 
                                                 <!-- Hiddens necessários para o update -->
-                                                <input type="hidden" name="cpf" id="hidCpf">
-                                                <input type="hidden" name="empresa_id" id="hidEmpresaId">
-                                                <input type="hidden" name="data" id="hidData"> <!-- YYYY-MM-DD -->
-                                                <input type="hidden" name="mes" id="hidMes">
-                                                <input type="hidden" name="ano" id="hidAno">
-                                                <input type="hidden" name="id" id="hidId"> <!-- para buildReturnUrl -->
+                                                <input type="hidden" name="cpf" id="hidCpf" value="">
+                                                <input type="hidden" name="empresa_id" id="hidEmpresaId" value="">
+                                                <input type="hidden" name="data" id="hidData" value=""> <!-- YYYY-MM-DD -->
+                                                <input type="hidden" name="mes" id="hidMes" value="">
+                                                <input type="hidden" name="ano" id="hidAno" value="">
                                                 <input type="hidden" name="return_url" id="hidReturnUrl" value="<?= htmlspecialchars($_SERVER['REQUEST_URI'], ENT_QUOTES, 'UTF-8') ?>">
                                             </div>
 
@@ -673,12 +669,10 @@ try {
                                         if (saidaI && retI) {
                                             const si = toMin(saidaI),
                                                 ri = toMin(retI);
-                                            if (si !== null && ri !== null) total = (si - e) + (s - ri);
-                                            else total = s - e;
+                                            total = (si ?? e) - e + (s - (ri ?? s));
                                         } else {
                                             total = s - e;
                                         }
-
                                         const hh = String(Math.max(0, Math.floor(total / 60))).padStart(2, '0');
                                         const mm = String(Math.max(0, total % 60)).padStart(2, '0');
                                         out.value = `${hh}h ${mm}m`;
@@ -687,8 +681,7 @@ try {
                                     // Preenche modal ao clicar em "Editar"
                                     document.querySelectorAll('.btn-edit-ponto').forEach(function(btn) {
                                         btn.addEventListener('click', function() {
-                                            // valores vindos do botão
-                                            const data = btn.dataset.data; // YYYY-MM-DD
+                                            const data = btn.dataset.data || ''; // YYYY-MM-DD
                                             const ent = btn.dataset.entrada || '';
                                             const saiI = btn.dataset.saida_intervalo || '';
                                             const retI = btn.dataset.retorno_intervalo || '';
@@ -699,30 +692,42 @@ try {
                                             const cpf = btn.dataset.cpf || '';
                                             const mes = btn.dataset.mes || '';
                                             const ano = btn.dataset.ano || '';
-                                            const idSel = btn.dataset.id || '';
 
-                                            // preenche inputs time
+                                            // times
                                             document.getElementById('editEntrada').value = toTimeInput(ent);
                                             document.getElementById('editSaidaIntervalo').value = toTimeInput(saiI);
                                             document.getElementById('editRetornoIntervalo').value = toTimeInput(retI);
                                             document.getElementById('editSaidaFinal').value = toTimeInput(saiF);
                                             document.getElementById('editCarga').value = carga;
 
-                                            // hiddens para o UPDATE
-                                            document.getElementById('hidCpf').value = cpf; // CRU
-                                            document.getElementById('hidEmpresaId').value = empresaId; // CRU
+                                            // hiddens
+                                            document.getElementById('hidCpf').value = cpf;
+                                            document.getElementById('hidEmpresaId').value = empresaId;
                                             document.getElementById('hidData').value = data; // YYYY-MM-DD
                                             document.getElementById('hidMes').value = mes;
                                             document.getElementById('hidAno').value = ano;
-                                            document.getElementById('hidId').value = idSel;
 
-                                            // recalcula quando mudar qualquer time
+                                            // re-calcular ao mudar
                                             ['editEntrada', 'editSaidaIntervalo', 'editRetornoIntervalo', 'editSaidaFinal']
                                             .forEach(id => document.getElementById(id).onchange = calcCarga);
                                         });
                                     });
+
+                                    // Garantia: não deixa submeter sem CPF/empresa/data
+                                    document.getElementById('formEditarPonto').addEventListener('submit', function(e) {
+                                        const cpf = document.getElementById('hidCpf').value.trim();
+                                        const emp = document.getElementById('hidEmpresaId').value.trim();
+                                        const data = document.getElementById('hidData').value.trim(); // YYYY-MM-DD
+
+                                        if (!cpf || !emp || !data) {
+                                            e.preventDefault();
+                                            alert('Dados insuficientes: verifique CPF, empresa e data.');
+                                            return false;
+                                        }
+                                    });
                                 })();
                             </script>
+
 
 
                             <script>
