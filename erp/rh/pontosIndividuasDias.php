@@ -563,40 +563,49 @@ try {
                             </div>
 
                             <!-- Modal de Edição -->
+                            <!-- Modal de Edição -->
                             <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
+                                        <!-- Aponte para o SEU script de update (o que usa cpf+empresa_id+data) -->
                                         <form id="formEditarPonto" method="post" action="../../assets/php/rh/atualizarAjustePonto.php">
-                                            <input type="hidden" name="ponto_id" id="pontoId">
-                                            <input type="hidden" name="empresa_id" id="empresa_id" value="<?= urlencode($idSelecionado) ?>">
-                                            <input type="hidden" name="cpf" id="cpf" value="<?= urlencode($cpf) ?>">
-                                            <input type="hidden" name="data" id="data" value="<?= date('d/m/Y', strtotime($ponto['data'])) ?>">
                                             <div class="modal-header">
                                                 <h5 class="modal-title" id="editarPontoModalLabel">Editar Ponto</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                             </div>
+
                                             <div class="modal-body">
                                                 <div class="mb-3">
                                                     <label for="editEntrada" class="form-label">Entrada</label>
-                                                    <input type="time" class="form-control" id="editEntrada" name="entrada">
+                                                    <input type="time" class="form-control" id="editEntrada" name="entrada" step="60">
                                                 </div>
                                                 <div class="mb-3">
                                                     <label for="editSaidaIntervalo" class="form-label">Saída Intervalo</label>
-                                                    <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo">
+                                                    <input type="time" class="form-control" id="editSaidaIntervalo" name="saida_intervalo" step="60">
                                                 </div>
                                                 <div class="mb-3">
                                                     <label for="editRetornoIntervalo" class="form-label">Entrada Intervalo</label>
-                                                    <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo">
+                                                    <input type="time" class="form-control" id="editRetornoIntervalo" name="retorno_intervalo" step="60">
                                                 </div>
                                                 <div class="mb-3">
                                                     <label for="editSaidaFinal" class="form-label">Saída</label>
-                                                    <input type="time" class="form-control" id="editSaidaFinal" name="saida_final">
+                                                    <input type="time" class="form-control" id="editSaidaFinal" name="saida_final" step="60">
                                                 </div>
                                                 <div class="mb-3">
                                                     <label for="editCarga" class="form-label">Carga Horária</label>
                                                     <input type="text" class="form-control" id="editCarga" name="carga" disabled>
                                                 </div>
+
+                                                <!-- Hiddens necessários para o update -->
+                                                <input type="hidden" name="cpf" id="hidCpf">
+                                                <input type="hidden" name="empresa_id" id="hidEmpresaId">
+                                                <input type="hidden" name="data" id="hidData"> <!-- YYYY-MM-DD -->
+                                                <input type="hidden" name="mes" id="hidMes">
+                                                <input type="hidden" name="ano" id="hidAno">
+                                                <input type="hidden" name="id" id="hidId"> <!-- para buildReturnUrl -->
+                                                <input type="hidden" name="return_url" id="hidReturnUrl" value="<?= htmlspecialchars($_SERVER['REQUEST_URI'], ENT_QUOTES, 'UTF-8') ?>">
                                             </div>
+
                                             <div class="modal-footer">
                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                                                 <button type="submit" class="btn btn-primary">Salvar Alterações</button>
@@ -605,6 +614,7 @@ try {
                                     </div>
                                 </div>
                             </div>
+
 
                             <div class="d-flex gap-2 m-3">
                                 <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
