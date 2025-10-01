@@ -624,68 +624,87 @@ try {
                         </div>
                     </div>
                 </div>
-
                 <script>
-                    // Função para carregar dados no modal de edição
-                    function carregarDadosModal(id, entrada, saidaIntervalo, retornoIntervalo, saidaFinal, carga) {
-                        document.getElementById('pontoId').value = id;
-                        document.getElementById('editEntrada').value = entrada ? entrada.substring(0, 5) : '';
-                        document.getElementById('editSaidaIntervalo').value = saidaIntervalo ? saidaIntervalo.substring(0, 5) : '';
-                        document.getElementById('editRetornoIntervalo').value = retornoIntervalo ? retornoIntervalo.substring(0, 5) : '';
-                        document.getElementById('editSaidaFinal').value = saidaFinal ? saidaFinal.substring(0, 5) : '';
-                        document.getElementById('editCarga').value = carga;
-                    }
-
-                    // Função para calcular carga horária em tempo real no modal
-                    function calcularCargaModal() {
-                        const entrada = document.getElementById('editEntrada').value;
-                        const saidaIntervalo = document.getElementById('editSaidaIntervalo').value;
-                        const retornoIntervalo = document.getElementById('editRetornoIntervalo').value;
-                        const saidaFinal = document.getElementById('editSaidaFinal').value;
-
-                        if (!entrada || !saidaFinal) {
-                            document.getElementById('editCarga').value = '00h 00m';
-                            return;
+                    (function() {
+                        function toTimeInput(t) {
+                            if (!t) return '';
+                            const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(t);
+                            return m ? (m[1] + ':' + m[2]) : '';
                         }
 
-                        // Converter para minutos
-                        function timeToMinutes(time) {
-                            const [hours, minutes] = time.split(':').map(Number);
-                            return hours * 60 + minutes;
+                        function calcCarga() {
+                            const entrada = document.getElementById('editEntrada').value;
+                            const saidaI = document.getElementById('editSaidaIntervalo').value;
+                            const retI = document.getElementById('editRetornoIntervalo').value;
+                            const saidaF = document.getElementById('editSaidaFinal').value;
+                            const out = document.getElementById('editCarga');
+
+                            function toMin(v) {
+                                if (!v) return null;
+                                const [h, m] = v.split(':').map(Number);
+                                return h * 60 + m;
+                            }
+
+                            const e = toMin(entrada),
+                                s = toMin(saidaF);
+                            if (e === null || s === null) {
+                                out.value = '00h 00m';
+                                return;
+                            }
+
+                            let total = 0;
+                            if (saidaI && retI) {
+                                const si = toMin(saidaI),
+                                    ri = toMin(retI);
+                                if (si !== null && ri !== null) total = (si - e) + (s - ri);
+                                else total = s - e;
+                            } else {
+                                total = s - e;
+                            }
+
+                            const hh = String(Math.max(0, Math.floor(total / 60))).padStart(2, '0');
+                            const mm = String(Math.max(0, total % 60)).padStart(2, '0');
+                            out.value = `${hh}h ${mm}m`;
                         }
 
-                        const entradaMin = timeToMinutes(entrada);
-                        const saidaFinalMin = timeToMinutes(saidaFinal);
+                        document.querySelectorAll('.btn-edit-ponto').forEach(function(btn) {
+                            btn.addEventListener('click', function() {
+                                // valores
+                                const data = btn.dataset.data; // YYYY-MM-DD
+                                const ent = btn.dataset.entrada || '';
+                                const saiI = btn.dataset.saida_intervalo || '';
+                                const retI = btn.dataset.retorno_intervalo || '';
+                                const saiF = btn.dataset.saida_final || '';
+                                const carga = btn.dataset.carga || '';
 
-                        let totalMinutos;
+                                const empresaId = btn.dataset.empresa_id || '';
+                                const cpf = btn.dataset.cpf || '';
+                                const mes = btn.dataset.mes || '';
+                                const ano = btn.dataset.ano || '';
+                                const idSel = btn.dataset.id || '';
 
-                        if (saidaIntervalo && retornoIntervalo) {
-                            const saidaIntervaloMin = timeToMinutes(saidaIntervalo);
-                            const retornoIntervaloMin = timeToMinutes(retornoIntervalo);
+                                // preenche inputs
+                                document.getElementById('editEntrada').value = toTimeInput(ent);
+                                document.getElementById('editSaidaIntervalo').value = toTimeInput(saiI);
+                                document.getElementById('editRetornoIntervalo').value = toTimeInput(retI);
+                                document.getElementById('editSaidaFinal').value = toTimeInput(saiF);
+                                document.getElementById('editCarga').value = carga;
 
-                            // Tempo antes do intervalo
-                            const manha = saidaIntervaloMin - entradaMin;
-                            // Tempo depois do intervalo
-                            const tarde = saidaFinalMin - retornoIntervaloMin;
+                                document.getElementById('hidCpf').value = cpf; // CRU
+                                document.getElementById('hidEmpresaId').value = empresaId; // CRU
+                                document.getElementById('hidData').value = data; // YYYY-MM-DD
+                                document.getElementById('hidMes').value = mes;
+                                document.getElementById('hidAno').value = ano;
+                                document.getElementById('hidId').value = idSel;
 
-                            totalMinutos = manha + tarde;
-                        } else {
-                            totalMinutos = saidaFinalMin - entradaMin;
-                        }
-
-                        // Converter para horas e minutos
-                        const horas = Math.floor(totalMinutos / 60);
-                        const minutos = totalMinutos % 60;
-
-                        document.getElementById('editCarga').value = `${horas.toString().padStart(2, '0')}h ${minutos.toString().padStart(2, '0')}m`;
-                    }
-
-                    // Adicionar eventos para calcular a carga horária quando os campos são alterados
-                    document.getElementById('editEntrada').addEventListener('change', calcularCargaModal);
-                    document.getElementById('editSaidaIntervalo').addEventListener('change', calcularCargaModal);
-                    document.getElementById('editRetornoIntervalo').addEventListener('change', calcularCargaModal);
-                    document.getElementById('editSaidaFinal').addEventListener('change', calcularCargaModal);
+                                // recalcula ao alterar
+                                ['editEntrada', 'editSaidaIntervalo', 'editRetornoIntervalo', 'editSaidaFinal']
+                                .forEach(id => document.getElementById(id).onchange = calcCarga);
+                            });
+                        });
+                    })();
                 </script>
+
 
                 <script>
                     const searchInput = document.getElementById('searchInput');
