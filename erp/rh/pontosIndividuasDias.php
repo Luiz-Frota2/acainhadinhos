@@ -517,7 +517,7 @@ try {
                                             <th>Entrada Int.</th>
                                             <th>Saída</th>
                                             <th>Carga Horária</th>
-                                            <th>Ações</th>
+                                            <th class="text-end">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -526,8 +526,19 @@ try {
                                                 <td colspan="7" class="text-center">Nenhum ponto registrado para este período</td>
                                             </tr>
                                         <?php else: ?>
+                                            <?php
+                                            // util para mostrar HH:MM sem segundos
+                                            $fmt = function ($t) {
+                                                return $t ? substr($t, 0, 5) : '--:--';
+                                            };
+                                            // mês/ano já vindos da URL:
+                                            $mesStr = (string)$mes;
+                                            $anoStr = (string)$ano;
+                                            ?>
                                             <?php foreach ($pontos as $ponto): ?>
                                                 <?php
+                                                $dataYmd = $ponto['data']; // YYYY-MM-DD no banco
+                                                // calcula carga para exibir
                                                 $cargaHoraria = calcularCargaHoraria(
                                                     $ponto['entrada'],
                                                     $ponto['saida_intervalo'],
@@ -536,24 +547,34 @@ try {
                                                 );
                                                 ?>
                                                 <tr>
-                                                    <td><?= date('d/m/Y', strtotime($ponto['data'])) ?></td>
-                                                    <td><?= $ponto['entrada'] ? substr($ponto['entrada'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $ponto['saida_intervalo'] ? substr($ponto['saida_intervalo'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $ponto['retorno_intervalo'] ? substr($ponto['retorno_intervalo'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $ponto['saida_final'] ? substr($ponto['saida_final'], 0, 5) : '--:--' ?></td>
-                                                    <td><?= $cargaHoraria ?></td>
-                                                    <td>
-                                                        <a href="#" data-bs-toggle="modal" data-bs-target="#editarPontoModal"
-                                                            onclick="carregarDadosModal(
-                                               '<?= $ponto['id'] ?>',
-                                               '<?= $ponto['entrada'] ?>',
-                                               '<?= $ponto['saida_intervalo'] ?>',
-                                               '<?= $ponto['retorno_intervalo'] ?>',
-                                               '<?= $ponto['saida_final'] ?>',
-                                               '<?= $cargaHoraria ?>'
-                                           )">
+                                                    <td><?= htmlspecialchars(date('d/m/Y', strtotime($dataYmd))) ?></td>
+                                                    <td><?= htmlspecialchars($fmt($ponto['entrada'])) ?></td>
+                                                    <td><?= htmlspecialchars($fmt($ponto['saida_intervalo'])) ?></td>
+                                                    <td><?= htmlspecialchars($fmt($ponto['retorno_intervalo'])) ?></td>
+                                                    <td><?= htmlspecialchars($fmt($ponto['saida_final'])) ?></td>
+                                                    <td><?= htmlspecialchars($cargaHoraria) ?></td>
+                                                    <td class="text-end">
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-primary btn-edit-ponto"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#editarPontoModal"
+
+                                                            data-data="<?= htmlspecialchars($dataYmd) ?>" <!-- YYYY-MM-DD -->
+                                                            data-entrada="<?= htmlspecialchars($ponto['entrada'] ?? '') ?>"
+                                                            data-saida_intervalo="<?= htmlspecialchars($ponto['saida_intervalo'] ?? '') ?>"
+                                                            data-retorno_intervalo="<?= htmlspecialchars($ponto['retorno_intervalo'] ?? '') ?>"
+                                                            data-saida_final="<?= htmlspecialchars($ponto['saida_final'] ?? '') ?>"
+                                                            data-carga="<?= htmlspecialchars($cargaHoraria) ?>"
+
+                                                            data-empresa_id="<?= htmlspecialchars($idSelecionado) ?>"
+                                                            data-cpf="<?= htmlspecialchars($cpf) ?>"
+                                                            data-mes="<?= htmlspecialchars($mesStr) ?>"
+                                                            data-ano="<?= htmlspecialchars($anoStr) ?>"
+                                                            data-id="<?= htmlspecialchars($idSelecionado) ?>"
+                                                            >
                                                             <i class="fas fa-edit"></i>
-                                                        </a>
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -562,7 +583,6 @@ try {
                                 </table>
                             </div>
 
-                            <!-- Modal de Edição -->
                             <!-- Modal de Edição -->
                             <div class="modal fade" id="editarPontoModal" tabindex="-1" aria-labelledby="editarPontoModalLabel" aria-hidden="true">
                                 <div class="modal-dialog">
@@ -615,180 +635,179 @@ try {
                                 </div>
                             </div>
 
-
                             <div class="d-flex gap-2 m-3">
                                 <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
                                 <div id="paginacaoHoras" class="d-flex gap-1"></div>
                                 <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
                             </div>
+
+                            <script>
+                                (function() {
+                                    function toTimeInput(t) {
+                                        if (!t) return '';
+                                        const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(t);
+                                        return m ? (m[1] + ':' + m[2]) : '';
+                                    }
+
+                                    function calcCarga() {
+                                        const entrada = document.getElementById('editEntrada').value;
+                                        const saidaI = document.getElementById('editSaidaIntervalo').value;
+                                        const retI = document.getElementById('editRetornoIntervalo').value;
+                                        const saidaF = document.getElementById('editSaidaFinal').value;
+                                        const out = document.getElementById('editCarga');
+
+                                        function toMin(v) {
+                                            if (!v) return null;
+                                            const [h, m] = v.split(':').map(Number);
+                                            return h * 60 + m;
+                                        }
+
+                                        const e = toMin(entrada),
+                                            s = toMin(saidaF);
+                                        if (e === null || s === null) {
+                                            out.value = '00h 00m';
+                                            return;
+                                        }
+
+                                        let total = 0;
+                                        if (saidaI && retI) {
+                                            const si = toMin(saidaI),
+                                                ri = toMin(retI);
+                                            if (si !== null && ri !== null) total = (si - e) + (s - ri);
+                                            else total = s - e;
+                                        } else {
+                                            total = s - e;
+                                        }
+
+                                        const hh = String(Math.max(0, Math.floor(total / 60))).padStart(2, '0');
+                                        const mm = String(Math.max(0, total % 60)).padStart(2, '0');
+                                        out.value = `${hh}h ${mm}m`;
+                                    }
+
+                                    // Preenche modal ao clicar em "Editar"
+                                    document.querySelectorAll('.btn-edit-ponto').forEach(function(btn) {
+                                        btn.addEventListener('click', function() {
+                                            // valores vindos do botão
+                                            const data = btn.dataset.data; // YYYY-MM-DD
+                                            const ent = btn.dataset.entrada || '';
+                                            const saiI = btn.dataset.saida_intervalo || '';
+                                            const retI = btn.dataset.retorno_intervalo || '';
+                                            const saiF = btn.dataset.saida_final || '';
+                                            const carga = btn.dataset.carga || '';
+
+                                            const empresaId = btn.dataset.empresa_id || '';
+                                            const cpf = btn.dataset.cpf || '';
+                                            const mes = btn.dataset.mes || '';
+                                            const ano = btn.dataset.ano || '';
+                                            const idSel = btn.dataset.id || '';
+
+                                            // preenche inputs time
+                                            document.getElementById('editEntrada').value = toTimeInput(ent);
+                                            document.getElementById('editSaidaIntervalo').value = toTimeInput(saiI);
+                                            document.getElementById('editRetornoIntervalo').value = toTimeInput(retI);
+                                            document.getElementById('editSaidaFinal').value = toTimeInput(saiF);
+                                            document.getElementById('editCarga').value = carga;
+
+                                            // hiddens para o UPDATE
+                                            document.getElementById('hidCpf').value = cpf; // CRU
+                                            document.getElementById('hidEmpresaId').value = empresaId; // CRU
+                                            document.getElementById('hidData').value = data; // YYYY-MM-DD
+                                            document.getElementById('hidMes').value = mes;
+                                            document.getElementById('hidAno').value = ano;
+                                            document.getElementById('hidId').value = idSel;
+
+                                            // recalcula quando mudar qualquer time
+                                            ['editEntrada', 'editSaidaIntervalo', 'editRetornoIntervalo', 'editSaidaFinal']
+                                            .forEach(id => document.getElementById(id).onchange = calcCarga);
+                                        });
+                                    });
+                                })();
+                            </script>
+
+
+                            <script>
+                                const searchInput = document.getElementById('searchInput');
+                                const allRows = Array.from(document.querySelectorAll('#tabelaBancoHoras tbody tr'));
+                                const prevBtn = document.getElementById('prevPageHoras');
+                                const nextBtn = document.getElementById('nextPageHoras');
+                                const pageContainer = document.getElementById('paginacaoHoras');
+                                const perPage = 10;
+                                let currentPage = 1;
+
+                                function renderTable() {
+                                    const filter = searchInput.value.trim().toLowerCase();
+                                    const filteredRows = allRows.filter(row => {
+                                        if (!filter) return true;
+                                        return Array.from(row.cells).some(td =>
+                                            td.textContent.toLowerCase().includes(filter)
+                                        );
+                                    });
+
+                                    const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
+                                    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+                                    // Hide all, then show slice
+                                    allRows.forEach(r => r.style.display = 'none');
+                                    filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
+                                        .forEach(r => r.style.display = '');
+
+                                    // Render page buttons
+                                    pageContainer.innerHTML = '';
+                                    for (let i = 1; i <= totalPages; i++) {
+                                        const btn = document.createElement('button');
+                                        btn.textContent = i;
+                                        btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                                        btn.style.marginRight = '4px';
+                                        btn.onclick = () => {
+                                            currentPage = i;
+                                            renderTable();
+                                        };
+                                        pageContainer.appendChild(btn);
+                                    }
+
+                                    prevBtn.disabled = currentPage === 1;
+                                    nextBtn.disabled = currentPage === totalPages;
+                                }
+
+                                prevBtn.addEventListener('click', () => {
+                                    if (currentPage > 1) {
+                                        currentPage--;
+                                        renderTable();
+                                    }
+                                });
+                                nextBtn.addEventListener('click', () => {
+                                    currentPage++;
+                                    renderTable();
+                                });
+                                searchInput.addEventListener('input', () => {
+                                    currentPage = 1;
+                                    renderTable();
+                                });
+
+                                document.addEventListener('DOMContentLoaded', renderTable);
+                            </script>
+
                         </div>
                     </div>
                 </div>
-                <script>
-                    (function() {
-                        function toTimeInput(t) {
-                            if (!t) return '';
-                            const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(t);
-                            return m ? (m[1] + ':' + m[2]) : '';
-                        }
 
-                        function calcCarga() {
-                            const entrada = document.getElementById('editEntrada').value;
-                            const saidaI = document.getElementById('editSaidaIntervalo').value;
-                            const retI = document.getElementById('editRetornoIntervalo').value;
-                            const saidaF = document.getElementById('editSaidaFinal').value;
-                            const out = document.getElementById('editCarga');
+                <script src="../../js/saudacao.js"></script>
+                <script src="../../assets/vendor/libs/popper/popper.js"></script>
+                <script src="../../assets/vendor/js/bootstrap.js"></script>
+                <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 
-                            function toMin(v) {
-                                if (!v) return null;
-                                const [h, m] = v.split(':').map(Number);
-                                return h * 60 + m;
-                            }
+                <script src="../../assets/vendor/js/menu.js"></script>
+                <!-- endbuild -->
 
-                            const e = toMin(entrada),
-                                s = toMin(saidaF);
-                            if (e === null || s === null) {
-                                out.value = '00h 00m';
-                                return;
-                            }
+                <!-- Vendors JS -->
+                <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
-                            let total = 0;
-                            if (saidaI && retI) {
-                                const si = toMin(saidaI),
-                                    ri = toMin(retI);
-                                if (si !== null && ri !== null) total = (si - e) + (s - ri);
-                                else total = s - e;
-                            } else {
-                                total = s - e;
-                            }
-
-                            const hh = String(Math.max(0, Math.floor(total / 60))).padStart(2, '0');
-                            const mm = String(Math.max(0, total % 60)).padStart(2, '0');
-                            out.value = `${hh}h ${mm}m`;
-                        }
-
-                        document.querySelectorAll('.btn-edit-ponto').forEach(function(btn) {
-                            btn.addEventListener('click', function() {
-                                // valores
-                                const data = btn.dataset.data; // YYYY-MM-DD
-                                const ent = btn.dataset.entrada || '';
-                                const saiI = btn.dataset.saida_intervalo || '';
-                                const retI = btn.dataset.retorno_intervalo || '';
-                                const saiF = btn.dataset.saida_final || '';
-                                const carga = btn.dataset.carga || '';
-
-                                const empresaId = btn.dataset.empresa_id || '';
-                                const cpf = btn.dataset.cpf || '';
-                                const mes = btn.dataset.mes || '';
-                                const ano = btn.dataset.ano || '';
-                                const idSel = btn.dataset.id || '';
-
-                                // preenche inputs
-                                document.getElementById('editEntrada').value = toTimeInput(ent);
-                                document.getElementById('editSaidaIntervalo').value = toTimeInput(saiI);
-                                document.getElementById('editRetornoIntervalo').value = toTimeInput(retI);
-                                document.getElementById('editSaidaFinal').value = toTimeInput(saiF);
-                                document.getElementById('editCarga').value = carga;
-
-                                document.getElementById('hidCpf').value = cpf; // CRU
-                                document.getElementById('hidEmpresaId').value = empresaId; // CRU
-                                document.getElementById('hidData').value = data; // YYYY-MM-DD
-                                document.getElementById('hidMes').value = mes;
-                                document.getElementById('hidAno').value = ano;
-                                document.getElementById('hidId').value = idSel;
-
-                                // recalcula ao alterar
-                                ['editEntrada', 'editSaidaIntervalo', 'editRetornoIntervalo', 'editSaidaFinal']
-                                .forEach(id => document.getElementById(id).onchange = calcCarga);
-                            });
-                        });
-                    })();
-                </script>
+                <!-- Main JS -->
+                <script src="../../assets/js/main.js"></script>
 
 
-                <script>
-                    const searchInput = document.getElementById('searchInput');
-                    const allRows = Array.from(document.querySelectorAll('#tabelaBancoHoras tbody tr'));
-                    const prevBtn = document.getElementById('prevPageHoras');
-                    const nextBtn = document.getElementById('nextPageHoras');
-                    const pageContainer = document.getElementById('paginacaoHoras');
-                    const perPage = 10;
-                    let currentPage = 1;
-
-                    function renderTable() {
-                        const filter = searchInput.value.trim().toLowerCase();
-                        const filteredRows = allRows.filter(row => {
-                            if (!filter) return true;
-                            return Array.from(row.cells).some(td =>
-                                td.textContent.toLowerCase().includes(filter)
-                            );
-                        });
-
-                        const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
-                        currentPage = Math.min(Math.max(1, currentPage), totalPages);
-
-                        // Hide all, then show slice
-                        allRows.forEach(r => r.style.display = 'none');
-                        filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
-                            .forEach(r => r.style.display = '');
-
-                        // Render page buttons
-                        pageContainer.innerHTML = '';
-                        for (let i = 1; i <= totalPages; i++) {
-                            const btn = document.createElement('button');
-                            btn.textContent = i;
-                            btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-                            btn.style.marginRight = '4px';
-                            btn.onclick = () => {
-                                currentPage = i;
-                                renderTable();
-                            };
-                            pageContainer.appendChild(btn);
-                        }
-
-                        prevBtn.disabled = currentPage === 1;
-                        nextBtn.disabled = currentPage === totalPages;
-                    }
-
-                    prevBtn.addEventListener('click', () => {
-                        if (currentPage > 1) {
-                            currentPage--;
-                            renderTable();
-                        }
-                    });
-                    nextBtn.addEventListener('click', () => {
-                        currentPage++;
-                        renderTable();
-                    });
-                    searchInput.addEventListener('input', () => {
-                        currentPage = 1;
-                        renderTable();
-                    });
-
-                    document.addEventListener('DOMContentLoaded', renderTable);
-                </script>
-
-            </div>
-        </div>
-    </div>
-
-    <script src="../../js/saudacao.js"></script>
-    <script src="../../assets/vendor/libs/popper/popper.js"></script>
-    <script src="../../assets/vendor/js/bootstrap.js"></script>
-    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
-    <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
-
-    <!-- Vendors JS -->
-    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-    <!-- Main JS -->
-    <script src="../../assets/js/main.js"></script>
-
-
-    <!-- Place this tag in your head or just before your close body tag. -->
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
+                <!-- Place this tag in your head or just before your close body tag. -->
+                <script async defer src="https://buttons.github.io/buttons.js"></script>
 
 </body>
 
