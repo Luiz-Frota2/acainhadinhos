@@ -348,6 +348,7 @@ try {
                                     <tr>
                                         <th style="width:90px">#</th>
                                         <th>Status</th>
+                                        <th>Quantidade</th>
                                         <th>Total</th>
                                         <th>Criada em</th>
                                         <th style="width:160px">Ações</th>
@@ -357,6 +358,7 @@ try {
                                     <?php if ($solicitacoes): foreach ($solicitacoes as $sid => $s): ?>
                                             <tr data-sid="<?= (int)$sid ?>">
                                                 <td><?= (int)$sid ?></td>
+                                                <td><?= $s['qtd_total'] ?></td>
                                                 <td><span class="badge badge-<?= htmlspecialchars($s['status']) ?>"><?= ucfirst($s['status']) ?></span></td>
                                                 <td>R$ <?= number_format((float)$s['total'], 2, ',', '.') ?></td>
                                                 <td><?= date('d/m/Y H:i', strtotime($s['created_at'])) ?></td>
