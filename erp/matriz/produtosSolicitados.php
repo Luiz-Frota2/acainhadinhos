@@ -384,8 +384,8 @@ try {
                     <h4 class="fw-bold mb-3">Produtos Solicitados</h4>
 
                     <div class="card">
-                        <div class="table-responsive">
-                            <table class="table mb-0 text-nowrap" id="tabelaSolicitacoes">
+                        <div class="table-responsive text-nowrap">
+                            <table class="table mb-0" id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:90px">#</th>
