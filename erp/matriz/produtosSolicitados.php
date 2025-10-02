@@ -385,7 +385,7 @@ try {
 
                     <div class="card">
                         <div class="table-responsive text-nowrap">
-                            <table class="table mb-0" id="tabelaSolicitacoes">
+                            <table class="table mb-0 text-nowrap" id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
                                         <th>#</th>
@@ -397,7 +397,7 @@ try {
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody class="text-nowrap">
+                                <tbody>
                                     <?php if ($solicitacoes): foreach ($solicitacoes as $sid => $s): ?>
                                             <tr data-sid="<?= (int)$sid ?>">
                                                 <td><?= (int)$sid ?></td>
@@ -431,6 +431,7 @@ try {
                             <button type="button" id="nextPage" class="btn btn-sm btn-outline-primary">Próxima</button>
                         </div>
                     </div>
+
                 </div>
 
                 <!-- MODAL DETALHES -->
