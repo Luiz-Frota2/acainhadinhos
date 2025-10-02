@@ -388,13 +388,13 @@ try {
                             <table class="table mb-0 text-nowrap " id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
-                                        <th style="width:90px">#</th>
+                                        <th>#</th>
                                         <th>Status</th>
                                         <th>Produtos</th>
                                         <th>Quantidade</th>
                                         <th>Total</th>
                                         <th>Criada em</th>
-                                        <th style="width:160px">Ações</th>
+                                        <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
