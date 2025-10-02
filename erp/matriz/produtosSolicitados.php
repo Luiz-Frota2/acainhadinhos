@@ -1,26 +1,24 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-
 session_start();
 
-// ✅ id selecionado (obrigatório)
+/* ==================== Sessão & parâmetros ==================== */
 $idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
 }
 
-// ✅ login básico
 if (!isset($_SESSION['usuario_logado'], $_SESSION['empresa_id'], $_SESSION['tipo_empresa'], $_SESSION['usuario_id'])) {
     header("Location: .././login.php?id=" . urlencode($idSelecionado));
     exit;
 }
 
-// ✅ conexão
+/* ==================== Conexão ==================== */
 require '../../assets/php/conexao.php';
 
-// ✅ usuário logado
+/* ==================== Usuário logado ==================== */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
@@ -40,7 +38,7 @@ try {
     exit;
 }
 
-// ✅ permissão de acesso
+/* ==================== Permissão ==================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -60,7 +58,7 @@ if (!$acessoPermitido) {
     exit;
 }
 
-// ✅ logo empresa
+/* ==================== Logo ==================== */
 try {
     $s = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :i LIMIT 1");
     $s->execute([':i' => $idSelecionado]);
@@ -70,24 +68,57 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* =========================================================
-   Listagem de Solicitações do Solicitante
-   ========================================================= */
-$solicitacoes = [];
-try {
-    $sql = "SELECT id, id_matriz, id_solicitante, status, total_estimado,
-                 created_at, aprovada_em, enviada_em, entregue_em
-          FROM solicitacoes_b2b
-          WHERE id_solicitante = :sol
-          ORDER BY created_at DESC";
-    $st = $pdo->prepare($sql);
-    $st->execute([':sol' => $idSelecionado]);
-    $solicitacoes = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $solicitacoes = [];
-}
+/* ==================== Listagem (solicitante = idSelecionado) + Itens ==================== */
+/* Carrega cabeçalho + itens em um único array agrupado por solicitação */
+$solicitacoes = [];           // [id => ['id'=>..,'status'=>..,'total'=>..,'created_at'=>..]]
+$solicitacaoItens = [];       // [id => [ {item1}, {item2} ]]
 
-?>
+try {
+    // Cabeçalho
+    $sqlCab = "SELECT id, id_matriz, id_solicitante, status, total_estimado, created_at, aprovada_em, enviada_em, entregue_em
+             FROM solicitacoes_b2b
+             WHERE id_solicitante = :sol
+             ORDER BY created_at DESC";
+    $stCab = $pdo->prepare($sqlCab);
+    $stCab->execute([':sol' => $idSelecionado]);
+    while ($row = $stCab->fetch(PDO::FETCH_ASSOC)) {
+        $sid = (int)$row['id'];
+        $solicitacoes[$sid] = [
+            'id'         => $sid,
+            'status'     => (string)$row['status'],
+            'total'      => (float)$row['total_estimado'],
+            'created_at' => (string)$row['created_at'],
+            'aprovada_em' => $row['aprovada_em'],
+            'enviada_em' => $row['enviada_em'],
+            'entregue_em' => $row['entregue_em']
+        ];
+        $solicitacaoItens[$sid] = []; // inicializa
+    }
+
+    if ($solicitacoes) {
+        // Itens de todas as solicitações carregadas
+        $ids = implode(',', array_map('intval', array_keys($solicitacoes)));
+        $sqlIt = "SELECT solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal
+              FROM solicitacoes_b2b_itens
+              WHERE solicitacao_id IN ($ids)
+              ORDER BY solicitacao_id ASC, id ASC";
+        $stIt = $pdo->query($sqlIt);
+        while ($it = $stIt->fetch(PDO::FETCH_ASSOC)) {
+            $sid = (int)$it['solicitacao_id'];
+            $solicitacaoItens[$sid][] = [
+                'produto_id' => (int)$it['produto_id'],
+                'codigo'     => (string)$it['codigo_produto'],
+                'nome'       => (string)$it['nome_produto'],
+                'unidade'    => (string)$it['unidade'],
+                'preco'      => (float)$it['preco_unitario'],
+                'quantidade' => (int)$it['quantidade'],
+                'subtotal'   => (float)$it['subtotal']
+            ];
+        }
+    }
+} catch (PDOException $e) {
+    // se der erro, mantém arrays vazios
+}
 
 ?>
 <!DOCTYPE html>
@@ -96,7 +127,7 @@ try {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>ERP - Matriz</title>
+    <title>ERP - Produtos Solicitados</title>
     <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -169,7 +200,7 @@ try {
 <body>
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- ===== SIDEBAR ===== (mesmo do seu arquivo) -->
+            <!-- ===== SIDEBAR ===== -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -212,24 +243,6 @@ try {
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Solicitar Pagamento</div>
-                                </a></li>
-                        </ul>
-                    </li>
-
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-                            <div>Relatórios</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item"><a class="menu-link" href="./vendas.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Vendas por Filial</div>
-                                </a></li>
-                            <li class="menu-item"><a class="menu-link" href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Mais Vendidos</div>
-                                </a></li>
-                            <li class="menu-item"><a class="menu-link" href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Vendas por Período</div>
                                 </a></li>
                         </ul>
                     </li>
@@ -286,7 +299,7 @@ try {
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
                                 <i class="bx bx-search fs-4 lh-0"></i>
-                                <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar..." />
+                                <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar por #id, status, data..." />
                             </div>
                         </div>
                         <!-- /Search -->
@@ -313,7 +326,6 @@ try {
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
@@ -327,29 +339,30 @@ try {
 
                 <!-- CONTENT -->
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-3">Minhas Solicitações</h4>
+                    <h4 class="fw-bold mb-3">Produtos Solicitados</h4>
 
                     <div class="card">
                         <div class="table-responsive">
                             <table class="table mb-0" id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>#</th>
+                                        <th style="width:90px">#</th>
                                         <th>Status</th>
                                         <th>Total</th>
-                                        <th>Criada</th>
-                                        <th>Ações</th>
+                                        <th>Criada em</th>
+                                        <th style="width:160px">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php if ($solicitacoes): foreach ($solicitacoes as $s): ?>
-                                            <tr>
-                                                <td><?= (int)$s['id'] ?></td>
-                                                <td><span class="badge badge-<?= $s['status'] ?>"><?= ucfirst($s['status']) ?></span></td>
-                                                <td>R$ <?= number_format($s['total_estimado'], 2, ',', '.') ?></td>
+                                    <?php if ($solicitacoes): foreach ($solicitacoes as $sid => $s): ?>
+                                            <tr data-sid="<?= (int)$sid ?>">
+                                                <td><?= (int)$sid ?></td>
+                                                <td><span class="badge badge-<?= htmlspecialchars($s['status']) ?>"><?= ucfirst($s['status']) ?></span></td>
+                                                <td>R$ <?= number_format((float)$s['total'], 2, ',', '.') ?></td>
                                                 <td><?= date('d/m/Y H:i', strtotime($s['created_at'])) ?></td>
                                                 <td>
-                                                    <button class="btn btn-sm btn-outline-primary btnDetalhes" data-id="<?= $s['id'] ?>">Detalhes</button>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary btnDetalhes"
+                                                        data-sid="<?= (int)$sid ?>">Detalhes</button>
                                                 </td>
                                             </tr>
                                         <?php endforeach;
@@ -371,14 +384,19 @@ try {
 
                 <!-- MODAL DETALHES -->
                 <div class="modal fade" id="modalDetalhes" tabindex="-1">
-                    <div class="modal-dialog modal-lg">
+                    <div class="modal-dialog modal-lg modal-dialog-scrollable">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title">Detalhes da Solicitação</h5>
+                                <h5 class="modal-title">Detalhes da Solicitação <span id="modalSid"></span></h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <div id="detalhesConteudo">Carregando...</div>
+                                <div class="mb-2">
+                                    <div>Status: <span class="badge" id="modalStatus"></span></div>
+                                    <div class="text-muted">Criada em: <span id="modalCriada"></span></div>
+                                    <div class="fw-semibold">Total Estimado: <span id="modalTotal"></span></div>
+                                </div>
+                                <div id="modalItensWrapper"></div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -386,14 +404,15 @@ try {
                         </div>
                     </div>
                 </div>
+                <!-- /MODAL -->
 
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
                             &copy;<script>
                                 document.write(new Date().getFullYear());
-                            </script>, <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por <strong>Lucas Correa</strong>.
+                            </script>, <strong>Açaínhadinhos</strong>.
+                            Todos os direitos reservados. Desenvolvido por <strong>Lucas Correa</strong>.
                         </div>
                     </div>
                 </footer>
@@ -402,8 +421,16 @@ try {
         </div>
     </div>
 
+    <!-- Dados em JSON para detalhes (sem AJAX) -->
+    <script id="dadosSolicitacoes" type="application/json">
+        <?= json_encode([
+            'cab' => array_values($solicitacoes), // cabeçalhos em lista
+            'mapCab' => $solicitacoes,            // mapa por id (se precisar)
+            'itens' => $solicitacaoItens          // itens por id
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
+    </script>
+
     <!-- JS -->
-    <script src="../../js/saudacao.js"></script>
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
@@ -415,27 +442,36 @@ try {
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 
     <script>
+        // ===== Pesquisa + Paginação =====
+        const searchInput = document.getElementById('searchInput');
         const allRows = Array.from(document.querySelectorAll('#tabelaSolicitacoes tbody tr'));
         const rowsPerPage = 10;
         let currentPage = 1;
 
         function renderTable() {
-            const filtro = document.getElementById('searchInput').value.trim().toLowerCase();
-            const filteredRows = allRows.filter(row =>
-                !filtro || row.textContent.toLowerCase().includes(filtro)
-            );
+            const filtro = searchInput.value.trim().toLowerCase();
+
+            const filteredRows = allRows.filter(row => {
+                if (!filtro) return true;
+                return Array.from(row.cells).some(cell =>
+                    cell.textContent.toLowerCase().includes(filtro)
+                );
+            });
 
             const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
 
-            allRows.forEach(r => r.style.display = 'none');
-            filteredRows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).forEach(r => r.style.display = '');
+            allRows.forEach(row => row.style.display = 'none');
+            filteredRows.slice(startIndex, endIndex).forEach(row => row.style.display = '');
 
             const paginacao = document.getElementById('paginacao');
             paginacao.innerHTML = '';
             for (let i = 1; i <= totalPages; i++) {
                 const btn = document.createElement('button');
                 btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                btn.style.marginRight = '5px';
                 btn.textContent = i;
                 btn.onclick = () => {
                     currentPage = i;
@@ -445,13 +481,9 @@ try {
             }
 
             document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages;
+            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
         }
 
-        document.getElementById('searchInput').addEventListener('input', () => {
-            currentPage = 1;
-            renderTable();
-        });
         document.getElementById('prevPage').addEventListener('click', () => {
             if (currentPage > 1) {
                 currentPage--;
@@ -462,22 +494,81 @@ try {
             currentPage++;
             renderTable();
         });
+        searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            renderTable();
+        });
 
+        // Inicializa a tabela
         renderTable();
 
-        // Detalhes na modal
-        $(document).on('click', '.btnDetalhes', function() {
-            const id = $(this).data('id');
-            $('#modalDetalhes').modal('show');
-            $('#detalhesConteudo').html('Carregando...');
-            $.get('solicitacaoDetalhes.php', {
-                id: id
-            }, function(res) {
-                $('#detalhesConteudo').html(res);
-            }).fail(() => $('#detalhesConteudo').html('<div class="text-danger">Erro ao carregar detalhes</div>'));
-        });
-    </script>
+        // ===== Modal de Detalhes (sem AJAX) =====
+        const dados = JSON.parse(document.getElementById('dadosSolicitacoes').textContent || '{}');
+        const itensPorId = dados?.itens || {};
+        const cabPorLista = dados?.cab || [];
 
+        function formatBRL(v) {
+            return (v || 0).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            });
+        }
+
+        function statusClass(s) {
+            return 'badge-' + (s || 'pendente');
+        }
+
+        $(document).on('click', '.btnDetalhes', function() {
+            const sid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
+            const cab = (dados.mapCab && dados.mapCab[sid]) || (cabPorLista.find(c => parseInt(c.id, 10) === sid)) || null;
+            const itens = itensPorId[sid] || [];
+
+            if (!cab) {
+                $('#modalSid').text('');
+                $('#modalStatus').attr('class', 'badge').text('—');
+                $('#modalCriada').text('—');
+                $('#modalTotal').text('—');
+                $('#modalItensWrapper').html('<p class="text-danger mb-0">Solicitação não encontrada.</p>');
+            } else {
+                $('#modalSid').text('#' + sid);
+                $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text((cab.status || '').charAt(0).toUpperCase() + (cab.status || '').slice(1).replace('_', ' '));
+                $('#modalCriada').text(new Date(cab.created_at.replace(' ', 'T')).toLocaleString('pt-BR'));
+                $('#modalTotal').text(formatBRL(parseFloat(cab.total)));
+
+                if (!itens.length) {
+                    $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
+                } else {
+                    let html = '<div class="table-responsive"><table class="table table-sm">';
+                    html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
+                    itens.forEach(i => {
+                        html += `<tr>
+              <td>${escapeHtml(i.codigo||'')}</td>
+              <td>${escapeHtml(i.nome||'')}</td>
+              <td>${parseInt(i.quantidade||0,10)}</td>
+              <td>${escapeHtml(i.unidade||'')}</td>
+              <td>${formatBRL(parseFloat(i.preco||0))}</td>
+              <td>${formatBRL(parseFloat(i.subtotal||0))}</td>
+            </tr>`;
+                    });
+                    html += '</tbody></table></div>';
+                    $('#modalItensWrapper').html(html);
+                }
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('modalDetalhes'));
+            modal.show();
+        });
+
+        // util: escapar html
+        function escapeHtml(str) {
+            return String(str)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", "&#039;");
+        }
+    </script>
 </body>
 
 </html>
