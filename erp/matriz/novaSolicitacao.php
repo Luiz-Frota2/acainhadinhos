@@ -331,7 +331,12 @@ try {
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
                     </div>
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <div class="navbar-nav align-items-center"></div>
+                        <div class="navbar-nav align-items-center">
+                            <div class="nav-item d-flex align-items-center">
+                                <i class="bx bx-search fs-4 lh-0"></i>
+                                <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar produto, código, categoria…" />
+                            </div>
+                        </div>
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
@@ -382,9 +387,6 @@ try {
                             </div>
                         </div>
 
-                        <div class="toolbar">
-                            <input id="searchInput" class="form-control" type="text" placeholder="Pesquisar produto, código, categoria…" />
-                        </div>
                     </div>
 
                     <form id="formSolicitacao" method="post" action="../../assets/php/matriz/novaSolicitacaoSubmit.php">
