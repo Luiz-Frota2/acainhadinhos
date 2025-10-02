@@ -70,41 +70,49 @@ try {
 
 /* ==================== Listagem (solicitante = idSelecionado) + Itens ==================== */
 /* Carrega cabeçalho + itens em um único array agrupado por solicitação */
-$solicitacoes = [];           // [id => ['id'=>..,'status'=>..,'total'=>..,'created_at'=>..]]
+$solicitacoes = [];           // [id => ['id'=>..,'status'=>..,'total'=>..,'created_at'=>..,'qtd_total'=>..]]
 $solicitacaoItens = [];       // [id => [ {item1}, {item2} ]]
 
 try {
     // Cabeçalho
     $sqlCab = "SELECT id, id_matriz, id_solicitante, status, total_estimado, created_at, aprovada_em, enviada_em, entregue_em
-             FROM solicitacoes_b2b
-             WHERE id_solicitante = :sol
-             ORDER BY created_at DESC";
+               FROM solicitacoes_b2b
+               WHERE id_solicitante = :sol
+               ORDER BY created_at DESC";
     $stCab = $pdo->prepare($sqlCab);
     $stCab->execute([':sol' => $idSelecionado]);
     while ($row = $stCab->fetch(PDO::FETCH_ASSOC)) {
         $sid = (int)$row['id'];
         $solicitacoes[$sid] = [
-            'id'         => $sid,
-            'status'     => (string)$row['status'],
-            'total'      => (float)$row['total_estimado'],
-            'created_at' => (string)$row['created_at'],
+            'id'          => $sid,
+            'status'      => (string)$row['status'],
+            'total'       => (float)$row['total_estimado'],
+            'created_at'  => (string)$row['created_at'],
             'aprovada_em' => $row['aprovada_em'],
-            'enviada_em' => $row['enviada_em'],
-            'entregue_em' => $row['entregue_em']
+            'enviada_em'  => $row['enviada_em'],
+            'entregue_em' => $row['entregue_em'],
+            'qtd_total'   => 0, // será preenchido abaixo
         ];
         $solicitacaoItens[$sid] = []; // inicializa
     }
 
     if ($solicitacoes) {
         // Itens de todas as solicitações carregadas
-        $ids = implode(',', array_map('intval', array_keys($solicitacoes)));
+        $idsArray = array_map('intval', array_keys($solicitacoes));
+        $ids = implode(',', $idsArray);
+
         $sqlIt = "SELECT solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal
-              FROM solicitacoes_b2b_itens
-              WHERE solicitacao_id IN ($ids)
-              ORDER BY solicitacao_id ASC, id ASC";
+                  FROM solicitacoes_b2b_itens
+                  WHERE solicitacao_id IN ($ids)
+                  ORDER BY solicitacao_id ASC, id ASC";
         $stIt = $pdo->query($sqlIt);
+
+        // Acumular quantidades por solicitação
+        $qtdPorSid = array_fill_keys($idsArray, 0);
+
         while ($it = $stIt->fetch(PDO::FETCH_ASSOC)) {
             $sid = (int)$it['solicitacao_id'];
+
             $solicitacaoItens[$sid][] = [
                 'produto_id' => (int)$it['produto_id'],
                 'codigo'     => (string)$it['codigo_produto'],
@@ -114,12 +122,20 @@ try {
                 'quantidade' => (int)$it['quantidade'],
                 'subtotal'   => (float)$it['subtotal']
             ];
+
+            $qtdPorSid[$sid] += (int)$it['quantidade'];
+        }
+
+        // Atribuir qtd_total ao cabeçalho
+        foreach ($qtdPorSid as $sid => $qtd) {
+            if (isset($solicitacoes[$sid])) {
+                $solicitacoes[$sid]['qtd_total'] = (int)$qtd;
+            }
         }
     }
 } catch (PDOException $e) {
     // se der erro, mantém arrays vazios
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -343,7 +359,7 @@ try {
 
                     <div class="card">
                         <div class="table-responsive">
-                            <table class="table mb-0" id="tabelaSolicitacoes">
+                            <table class="table mb-0 text-nowrap" id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:90px">#</th>
@@ -358,19 +374,24 @@ try {
                                     <?php if ($solicitacoes): foreach ($solicitacoes as $sid => $s): ?>
                                             <tr data-sid="<?= (int)$sid ?>">
                                                 <td><?= (int)$sid ?></td>
-                                                <td><?= $s['qtd_total'] ?></td>
-                                                <td><span class="badge badge-<?= htmlspecialchars($s['status']) ?>"><?= ucfirst($s['status']) ?></span></td>
+                                                <td>
+                                                    <?php
+                                                    $status = (string)$s['status'];
+                                                    $statusTxt = ucwords(str_replace('_', ' ', $status));
+                                                    ?>
+                                                    <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?>"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
+                                                </td>
+                                                <td><?= (int)($s['qtd_total'] ?? 0) ?></td>
                                                 <td>R$ <?= number_format((float)$s['total'], 2, ',', '.') ?></td>
                                                 <td><?= date('d/m/Y H:i', strtotime($s['created_at'])) ?></td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-outline-primary btnDetalhes"
-                                                        data-sid="<?= (int)$sid ?>">Detalhes</button>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary btnDetalhes" data-sid="<?= (int)$sid ?>">Detalhes</button>
                                                 </td>
                                             </tr>
                                         <?php endforeach;
                                     else: ?>
                                         <tr>
-                                            <td colspan="5" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                                            <td colspan="6" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>
@@ -426,9 +447,9 @@ try {
     <!-- Dados em JSON para detalhes (sem AJAX) -->
     <script id="dadosSolicitacoes" type="application/json">
         <?= json_encode([
-            'cab' => array_values($solicitacoes), // cabeçalhos em lista
-            'mapCab' => $solicitacoes,            // mapa por id (se precisar)
-            'itens' => $solicitacaoItens          // itens por id
+            'cab'    => array_values($solicitacoes), // cabeçalhos em lista (com qtd_total)
+            'mapCab' => $solicitacoes,               // mapa por id
+            'itens'  => $solicitacaoItens            // itens por id
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
     </script>
 
@@ -520,9 +541,14 @@ try {
             return 'badge-' + (s || 'pendente');
         }
 
+        function titleCaseStatus(s) {
+            return String(s || '').replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
         $(document).on('click', '.btnDetalhes', function() {
             const sid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
-            const cab = (dados.mapCab && dados.mapCab[sid]) || (cabPorLista.find(c => parseInt(c.id, 10) === sid)) || null;
+            const mapCab = dados.mapCab || {};
+            const cab = mapCab[sid] || (cabPorLista.find(c => parseInt(c.id, 10) === sid)) || null;
             const itens = itensPorId[sid] || [];
 
             if (!cab) {
@@ -533,24 +559,24 @@ try {
                 $('#modalItensWrapper').html('<p class="text-danger mb-0">Solicitação não encontrada.</p>');
             } else {
                 $('#modalSid').text('#' + sid);
-                $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text((cab.status || '').charAt(0).toUpperCase() + (cab.status || '').slice(1).replace('_', ' '));
-                $('#modalCriada').text(new Date(cab.created_at.replace(' ', 'T')).toLocaleString('pt-BR'));
+                $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
+                $('#modalCriada').text(new Date(String(cab.created_at).replace(' ', 'T')).toLocaleString('pt-BR'));
                 $('#modalTotal').text(formatBRL(parseFloat(cab.total)));
 
                 if (!itens.length) {
                     $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
                 } else {
-                    let html = '<div class="table-responsive"><table class="table table-sm">';
+                    let html = '<div class="table-responsive text-nowrap"><table class="table table-sm">';
                     html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
                     itens.forEach(i => {
                         html += `<tr>
-              <td>${escapeHtml(i.codigo||'')}</td>
-              <td>${escapeHtml(i.nome||'')}</td>
-              <td>${parseInt(i.quantidade||0,10)}</td>
-              <td>${escapeHtml(i.unidade||'')}</td>
-              <td>${formatBRL(parseFloat(i.preco||0))}</td>
-              <td>${formatBRL(parseFloat(i.subtotal||0))}</td>
-            </tr>`;
+                        <td>${escapeHtml(i.codigo||'')}</td>
+                        <td>${escapeHtml(i.nome||'')}</td>
+                        <td>${parseInt(i.quantidade||0,10)}</td>
+                        <td>${escapeHtml(i.unidade||'')}</td>
+                        <td>${formatBRL(parseFloat(i.preco||0))}</td>
+                        <td>${formatBRL(parseFloat(i.subtotal||0))}</td>
+                    </tr>`;
                     });
                     html += '</tbody></table></div>';
                     $('#modalItensWrapper').html(html);
