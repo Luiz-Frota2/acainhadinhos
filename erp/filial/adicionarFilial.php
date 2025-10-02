@@ -434,7 +434,7 @@ try {
                     <div class="mb-3 col-12 col-md-6">
                       <label for="nomeUnidade" class="form-label">Nome da Filial</label>
                       <input type="text" class="form-control" id="nomeUnidade" name="nomeUnidade"
-                        placeholder="Ex: Franquia São Paulo" required>
+                        placeholder="Ex: Filial São Paulo" required>
                     </div>
 
                     <div class="mb-3 col-12 col-md-6">
