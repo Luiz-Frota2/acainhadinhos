@@ -465,7 +465,7 @@ try {
                                         <div class="fw-semibold">Valor estimado: <span id="valorTotal">R$ 0,00</span></div>
                                     </div>
 
-                                    <button type="submit" id="btnEnviar" class="btn btn-primary btn-w140" disabled>
+                                    <button type="submit" id="btnEnviar" class="btn btn-primary btn-w200 col-12 col-md-6" disabled>
                                         <i class="bx bx-send me-1"></i> Enviar Solicitação
                                     </button>
                                 </div>
