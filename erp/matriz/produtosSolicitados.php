@@ -70,8 +70,8 @@ try {
 
 /* ==================== Listagem (solicitante = idSelecionado) + Itens ==================== */
 /* Carrega cabeçalho + itens em um único array agrupado por solicitação */
-$solicitacoes = [];           // [id => ['id'=>..,'status'=>..,'total'=>..,'created_at'=>..,'qtd_total'=>..]]
-$solicitacaoItens = [];       // [id => [ {item1}, {item2} ]]
+$solicitacoes = [];     // [id => ['id'=>..,'status'=>..,'total'=>..,'created_at'=>..,'qtd_total'=>..,'produtos_str'=>..]]
+$solicitacaoItens = []; // [id => [ {item1}, {item2} ]]
 
 try {
     // Cabeçalho
@@ -91,7 +91,8 @@ try {
             'aprovada_em' => $row['aprovada_em'],
             'enviada_em'  => $row['enviada_em'],
             'entregue_em' => $row['entregue_em'],
-            'qtd_total'   => 0, // será preenchido abaixo
+            'qtd_total'   => 0,     // será preenchido abaixo
+            'produtos_str' => '—',   // será preenchido abaixo
         ];
         $solicitacaoItens[$sid] = []; // inicializa
     }
@@ -107,8 +108,9 @@ try {
                   ORDER BY solicitacao_id ASC, id ASC";
         $stIt = $pdo->query($sqlIt);
 
-        // Acumular quantidades por solicitação
-        $qtdPorSid = array_fill_keys($idsArray, 0);
+        // Acumular quantidades e nomes por solicitação
+        $qtdPorSid      = array_fill_keys($idsArray, 0);
+        $nomesPorSid    = array_fill_keys($idsArray, []); // nomes únicos
 
         while ($it = $stIt->fetch(PDO::FETCH_ASSOC)) {
             $sid = (int)$it['solicitacao_id'];
@@ -124,12 +126,30 @@ try {
             ];
 
             $qtdPorSid[$sid] += (int)$it['quantidade'];
+
+            $nome = trim((string)$it['nome_produto']);
+            if ($nome !== '' && !in_array($nome, $nomesPorSid[$sid], true)) {
+                $nomesPorSid[$sid][] = $nome;
+            }
         }
 
-        // Atribuir qtd_total ao cabeçalho
-        foreach ($qtdPorSid as $sid => $qtd) {
-            if (isset($solicitacoes[$sid])) {
-                $solicitacoes[$sid]['qtd_total'] = (int)$qtd;
+        // Atribuir qtd_total e produtos_str ao cabeçalho
+        foreach ($idsArray as $sid) {
+            if (!isset($solicitacoes[$sid])) continue;
+
+            $solicitacoes[$sid]['qtd_total'] = (int)($qtdPorSid[$sid] ?? 0);
+
+            $nomes   = $nomesPorSid[$sid] ?? [];
+            $totalN  = count($nomes);
+            if ($totalN === 0) {
+                $solicitacoes[$sid]['produtos_str'] = '—';
+            } else {
+                // mostra até 3 nomes + “+N” se houver mais
+                $preview = array_slice($nomes, 0, 3);
+                $extra   = $totalN - count($preview);
+                $str     = implode(', ', $preview);
+                if ($extra > 0) $str .= " +{$extra}";
+                $solicitacoes[$sid]['produtos_str'] = $str;
             }
         }
     }
@@ -209,6 +229,12 @@ try {
 
         #paginacao button {
             margin-right: 5px;
+        }
+
+        /* col Produtos pode estourar; deixa quebrar linha bonitinho */
+        td.col-produtos {
+            max-width: 420px;
+            white-space: normal;
         }
     </style>
 </head>
@@ -315,7 +341,7 @@ try {
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
                                 <i class="bx bx-search fs-4 lh-0"></i>
-                                <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar por #id, status, data..." />
+                                <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar por #id, status, produto, data..." />
                             </div>
                         </div>
                         <!-- /Search -->
@@ -359,11 +385,12 @@ try {
 
                     <div class="card">
                         <div class="table-responsive">
-                            <table class="table mb-0 text-nowrap" id="tabelaSolicitacoes">
+                            <table class="table mb-0" id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:90px">#</th>
                                         <th>Status</th>
+                                        <th>Produtos</th>
                                         <th>Quantidade</th>
                                         <th>Total</th>
                                         <th>Criada em</th>
@@ -381,6 +408,7 @@ try {
                                                     ?>
                                                     <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?>"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
                                                 </td>
+                                                <td class="col-produtos"><?= htmlspecialchars((string)($s['produtos_str'] ?? '—'), ENT_QUOTES) ?></td>
                                                 <td><?= (int)($s['qtd_total'] ?? 0) ?></td>
                                                 <td>R$ <?= number_format((float)$s['total'], 2, ',', '.') ?></td>
                                                 <td><?= date('d/m/Y H:i', strtotime($s['created_at'])) ?></td>
@@ -391,7 +419,7 @@ try {
                                         <?php endforeach;
                                     else: ?>
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                                            <td colspan="7" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>
@@ -447,9 +475,9 @@ try {
     <!-- Dados em JSON para detalhes (sem AJAX) -->
     <script id="dadosSolicitacoes" type="application/json">
         <?= json_encode([
-            'cab'    => array_values($solicitacoes), // cabeçalhos em lista (com qtd_total)
-            'mapCab' => $solicitacoes,               // mapa por id
-            'itens'  => $solicitacaoItens            // itens por id
+            'cab'    => array_values($solicitacoes), // inclui produtos_str e qtd_total
+            'mapCab' => $solicitacoes,
+            'itens'  => $solicitacaoItens
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
     </script>
 
@@ -566,7 +594,7 @@ try {
                 if (!itens.length) {
                     $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
                 } else {
-                    let html = '<div class="table-responsive text-nowrap"><table class="table table-sm">';
+                    let html = '<div class="table-responsive"><table class="table table-sm">';
                     html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
                     itens.forEach(i => {
                         html += `<tr>
