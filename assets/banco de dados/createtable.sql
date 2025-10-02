@@ -592,3 +592,51 @@ CREATE TABLE vendas (
   chave_nfce                              VARCHAR(44) DEFAULT NULL,
   status_nfce                             VARCHAR(20) DEFAULT NULL
 );
+
+-- =======================
+-- Tabela: solicitacoes_b2b
+-- =======================
+CREATE TABLE solicitacoes_b2b (
+    id                                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    id_matriz                             VARCHAR(40)  NOT NULL,            -- ex.: 'principal_1'
+    id_solicitante                        VARCHAR(40)  NOT NULL,            -- ex.: 'filial_2'/'franquia_3'/'unidade_2'
+    criado_por_usuario_id                 INT UNSIGNED NOT NULL,
+    status                                ENUM('pendente','aprovada','reprovada','em_transito','entregue','cancelada')
+                                          NOT NULL DEFAULT 'pendente',
+    total_estimado                        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    observacao                            TEXT,
+
+    created_at                            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at                            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    aprovada_em                           DATETIME,
+    enviada_em                            DATETIME,
+    entregue_em                           DATETIME,
+
+    -- Índices para navegação/joins
+    INDEX idx_b2b_matriz (id_matriz),
+    INDEX idx_b2b_solicitante (id_solicitante),
+    INDEX idx_b2b_created (created_at),
+    INDEX idx_b2b_status (status)
+);
+
+-- =======================
+-- Tabela: solicitacoes_b2b_itens
+-- =======================
+CREATE TABLE solicitacoes_b2b_itens (
+    id                                    INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    solicitacao_id                        INT UNSIGNED NOT NULL,        -- referência lógica a solicitacoes_b2b.id
+    produto_id                            INT UNSIGNED NOT NULL,        -- referência lógica a estoque.id
+    codigo_produto                        VARCHAR(100) NOT NULL,
+    nome_produto                          VARCHAR(255) NOT NULL,
+    unidade                               VARCHAR(10)  NOT NULL DEFAULT 'UN',
+    preco_unitario                        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    quantidade                            INT UNSIGNED  NOT NULL DEFAULT 0,
+    subtotal                              DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+
+    created_at                            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    -- Índices “tipo FK” para performance e integridade via aplicação
+    INDEX idx_itens_solicitacao (solicitacao_id),
+    INDEX idx_itens_produto (produto_id),
+    INDEX idx_itens_sol_prod (solicitacao_id, produto_id)
+);

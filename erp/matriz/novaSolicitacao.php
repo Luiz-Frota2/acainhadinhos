@@ -387,7 +387,7 @@ try {
                         </div>
                     </div>
 
-                    <form id="formSolicitacao" method="post" action="./actions/novaSolicitacao_Salvar.php">
+                    <form id="formSolicitacao" method="post" action="../../assets/php/matriz/novaSolicitacaoSubmit.php">
                         <input type="hidden" name="id_matriz" value="<?= htmlspecialchars($empresa_matriz_id) ?>">
                         <input type="hidden" name="id_solicitante" value="<?= htmlspecialchars($solicitanteId ?: $idEmpresaSession) ?>">
                         <input type="hidden" name="id_pagina" value="<?= htmlspecialchars($idSelecionado) ?>">
