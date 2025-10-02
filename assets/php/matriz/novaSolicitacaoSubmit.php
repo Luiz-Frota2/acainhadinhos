@@ -22,12 +22,12 @@ function js_alert_go(string $msg, string $url): void {
 ========== */
 $idSelecionado = $_POST['id_pagina'] ?? '';
 if (!$idSelecionado) {
-    echo "<script>alert('Sessão expirada. Faça login novamente.'); window.location.href='../../login.php';</script>";
+    echo "<script>alert('Sessão expirada. Faça login novamente.'); window.location.href='../../../erp/login.php';</script>";
     exit;
 }
 
 if (!isset($_SESSION['usuario_logado'], $_SESSION['empresa_id'], $_SESSION['tipo_empresa'], $_SESSION['usuario_id'])) {
-    echo "<script>alert('Acesso negado. Faça login novamente.'); window.location.href='../../login.php?id=".htmlspecialchars($idSelecionado, ENT_QUOTES)."';</script>";
+    echo "<script>alert('Acesso negado. Faça login novamente.'); window.location.href='../../../erp/login.php?id=".htmlspecialchars($idSelecionado, ENT_QUOTES)."';</script>";
     exit;
 }
 
@@ -184,7 +184,7 @@ try {
     $pdo->commit();
 
     // sucesso -> vai para a lista de solicitados
-    $go = "../../matriz/produtosSolicitados.php?id=" . rawurlencode($idSelecionado);
+    $go = "../../../erp/matriz/produtosSolicitados.php?id=" . rawurlencode($idSelecionado);
     js_alert_go("Solicitação #{$solicitacaoId} criada com sucesso!", $go);
 
 } catch (PDOException $e) {
