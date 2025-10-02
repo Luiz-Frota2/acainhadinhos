@@ -547,7 +547,6 @@ try {
             renderTable();
           </script>
 
-
           <!-- build:js assets/vendor/js/core.js -->
           <script src="../../js/saudacao.js"></script>
           <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
