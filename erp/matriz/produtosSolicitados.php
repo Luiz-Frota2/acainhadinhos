@@ -385,7 +385,7 @@ try {
 
                     <div class="card">
                         <div class="table-responsive text-nowrap">
-                            <table class="table mb-0" id="tabelaSolicitacoes">
+                            <table class="table mb-0 text-nowrap " id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:90px">#</th>
