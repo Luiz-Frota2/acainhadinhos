@@ -385,7 +385,7 @@ try {
 
                     <div class="card">
                         <div class="table-responsive">
-                            <table class="table mb-0" id="tabelaSolicitacoes">
+                            <table class="table mb-0 text-nowrap" id="tabelaSolicitacoes">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width:90px">#</th>
@@ -594,7 +594,7 @@ try {
                 if (!itens.length) {
                     $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
                 } else {
-                    let html = '<div class="table-responsive"><table class="table table-sm">';
+                    let html = '<div class="table-responsive text-nowrap"><table class="table table-sm">';
                     html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
                     itens.forEach(i => {
                         html += `<tr>
