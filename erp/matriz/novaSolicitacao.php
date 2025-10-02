@@ -393,9 +393,9 @@ try {
                         <input type="hidden" name="id_pagina" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                         <div class="card">
-                            <div class="table-responsive">
-                                <table class="table mb-0">
-                                    <thead class="table-light">
+                            <div class="table-responsive" style="max-height:60vh;">
+                                <table class="table text-nowrap" id="tabelaProdutos">
+                                    <thead>
                                         <tr>
                                             <th class="col-check"></th>
                                             <th>Produto</th>
@@ -407,11 +407,6 @@ try {
                                             <th class="col-qtd">Qtd. Solicitar</th>
                                         </tr>
                                     </thead>
-                                </table>
-                            </div>
-
-                            <div class="table-responsive" style="max-height:60vh;">
-                                <table class="table text-nowrap" id="tabelaProdutos">
                                     <tbody>
                                         <?php if ($produtos): foreach ($produtos as $p):
                                                 $rowId  = (int)$p['id'];
