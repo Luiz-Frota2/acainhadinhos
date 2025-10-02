@@ -69,9 +69,8 @@ try {
 }
 
 /* ==================== Listagem (solicitante = idSelecionado) + Itens ==================== */
-/* Carrega cabeçalho + itens em um único array agrupado por solicitação */
-$solicitacoes = [];     // [id => ['id'=>..,'status'=>..,'total'=>..,'created_at'=>..,'qtd_total'=>..,'produtos_str'=>..]]
-$solicitacaoItens = []; // [id => [ {item1}, {item2} ]]
+$solicitacoes = [];     // [id => {status,total,created_at,qtd_total,produtos_str,...}]
+$solicitacaoItens = []; // [id => [ {item} ]]
 
 try {
     // Cabeçalho
@@ -91,14 +90,13 @@ try {
             'aprovada_em' => $row['aprovada_em'],
             'enviada_em'  => $row['enviada_em'],
             'entregue_em' => $row['entregue_em'],
-            'qtd_total'   => 0,     // será preenchido abaixo
-            'produtos_str' => '—',   // será preenchido abaixo
+            'qtd_total'   => 0,
+            'produtos_str' => '—',
         ];
-        $solicitacaoItens[$sid] = []; // inicializa
+        $solicitacaoItens[$sid] = [];
     }
 
     if ($solicitacoes) {
-        // Itens de todas as solicitações carregadas
         $idsArray = array_map('intval', array_keys($solicitacoes));
         $ids = implode(',', $idsArray);
 
@@ -108,9 +106,8 @@ try {
                   ORDER BY solicitacao_id ASC, id ASC";
         $stIt = $pdo->query($sqlIt);
 
-        // Acumular quantidades e nomes por solicitação
-        $qtdPorSid      = array_fill_keys($idsArray, 0);
-        $nomesPorSid    = array_fill_keys($idsArray, []); // nomes únicos
+        $qtdPorSid   = array_fill_keys($idsArray, 0);
+        $nomesPorSid = array_fill_keys($idsArray, []);
 
         while ($it = $stIt->fetch(PDO::FETCH_ASSOC)) {
             $sid = (int)$it['solicitacao_id'];
@@ -133,18 +130,16 @@ try {
             }
         }
 
-        // Atribuir qtd_total e produtos_str ao cabeçalho
         foreach ($idsArray as $sid) {
             if (!isset($solicitacoes[$sid])) continue;
 
             $solicitacoes[$sid]['qtd_total'] = (int)($qtdPorSid[$sid] ?? 0);
 
-            $nomes   = $nomesPorSid[$sid] ?? [];
-            $totalN  = count($nomes);
+            $nomes  = $nomesPorSid[$sid] ?? [];
+            $totalN = count($nomes);
             if ($totalN === 0) {
                 $solicitacoes[$sid]['produtos_str'] = '—';
             } else {
-                // mostra até 3 nomes + “+N” se houver mais
                 $preview = array_slice($nomes, 0, 3);
                 $extra   = $totalN - count($preview);
                 $str     = implode(', ', $preview);
@@ -154,7 +149,7 @@ try {
         }
     }
 } catch (PDOException $e) {
-    // se der erro, mantém arrays vazios
+    // mantém arrays vazios em caso de erro
 }
 ?>
 <!DOCTYPE html>
@@ -231,10 +226,13 @@ try {
             margin-right: 5px;
         }
 
-        /* col Produtos pode estourar; deixa quebrar linha bonitinho */
+        /* Produtos: não quebrar linha e cortar com reticências se ultrapassar */
         td.col-produtos {
             max-width: 420px;
-            white-space: normal;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            /* <- mantém o nowrap mesmo com text-nowrap */
         }
     </style>
 </head>
@@ -431,7 +429,6 @@ try {
                             <button type="button" id="nextPage" class="btn btn-sm btn-outline-primary">Próxima</button>
                         </div>
                     </div>
-
                 </div>
 
                 <!-- MODAL DETALHES -->
@@ -448,6 +445,7 @@ try {
                                     <div class="text-muted">Criada em: <span id="modalCriada"></span></div>
                                     <div class="fw-semibold">Total Estimado: <span id="modalTotal"></span></div>
                                 </div>
+
                                 <div id="modalItensWrapper"></div>
                             </div>
                             <div class="modal-footer">
@@ -476,7 +474,7 @@ try {
     <!-- Dados em JSON para detalhes (sem AJAX) -->
     <script id="dadosSolicitacoes" type="application/json">
         <?= json_encode([
-            'cab'    => array_values($solicitacoes), // inclui produtos_str e qtd_total
+            'cab'    => array_values($solicitacoes),
             'mapCab' => $solicitacoes,
             'itens'  => $solicitacaoItens
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
@@ -595,7 +593,7 @@ try {
                 if (!itens.length) {
                     $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
                 } else {
-                    let html = '<div class="table-responsive text-nowrap"><table class="table table-sm">';
+                    let html = '<div class="table-responsive text-nowrap"><table class="table table-sm text-nowrap">';
                     html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
                     itens.forEach(i => {
                         html += `<tr>
