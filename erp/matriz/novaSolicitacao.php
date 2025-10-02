@@ -183,7 +183,7 @@ try {
 
                             <!-- Ver os produtos que a matriz enviou para a filial -->
                             <li class="menu-item">
-                                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Recebidos</div>
                                 </a>
                             </li>
@@ -226,12 +226,12 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./Vendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./vendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Vendas">Vendas por Filial</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="MaisVendidos">Mais Vendidos</div>
                                 </a>
                             </li>
