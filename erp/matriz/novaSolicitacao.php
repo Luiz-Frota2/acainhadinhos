@@ -411,7 +411,7 @@ try {
                             </div>
 
                             <div class="table-responsive" style="max-height:60vh;">
-                                <table class="table table-striped" id="tabelaProdutos">
+                                <table class="table text-nowrap" id="tabelaProdutos">
                                     <tbody>
                                         <?php if ($produtos): foreach ($produtos as $p):
                                                 $rowId  = (int)$p['id'];
