@@ -176,28 +176,28 @@ try {
                         <ul class="menu-sub active">
                             <!-- Ver solicitações já feitas -->
                             <li class="menu-item">
-                                <a href="./produtosSolicitadosMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
                             </li>
 
                             <!-- Ver os produtos que a matriz enviou para a filial -->
                             <li class="menu-item">
-                                <a href="./produtosEnviadosMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Recebidos</div>
                                 </a>
                             </li>
 
                             <!-- Fazer nova solicitação de produto -->
                             <li class="menu-item active">
-                                <a href="./novaSolicitacaoMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./novaSolicitacao.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Nova Solicitação</div>
                                 </a>
                             </li>
 
                             <!-- Acompanhar status das transferências em andamento -->
                             <li class="menu-item">
-                                <a href="./statusTransferenciaMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Status da Transf.</div>
                                 </a>
                             </li>
@@ -211,7 +211,7 @@ try {
 
                             <!-- Solicitar pagamento de conta -->
                             <li class="menu-item">
-                                <a href="./solicitarPagamentoContaMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Solicitar Pagamento</div>
                                 </a>
                             </li>
@@ -226,7 +226,7 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./Vendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Vendas">Vendas por Filial</div>
                                 </a>
                             </li>
