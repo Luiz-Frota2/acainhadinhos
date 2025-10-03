@@ -409,7 +409,7 @@ try {
                                                 <td class="col-produtos"><?= htmlspecialchars((string)($s['produtos_str'] ?? '—'), ENT_QUOTES) ?></td>
                                                 <td><?= (int)($s['qtd_total'] ?? 0) ?></td>
                                                 <td>R$ <?= number_format((float)$s['total'], 2, ',', '.') ?></td>
-                                                <td><?= date('d/m/Y H:i', strtotime($s['created_at'])) ?></td>
+                                                <td><?= date('d/m/Y', strtotime($s['created_at'])) ?></td>
                                                 <td>
                                                     <button type="button" class="btn btn-sm btn-outline-primary btnDetalhes" data-sid="<?= (int)$sid ?>">Detalhes</button>
                                                 </td>
