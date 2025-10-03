@@ -423,10 +423,13 @@ try {
                                 </tbody>
                             </table>
                         </div>
-                        <div class="card-footer d-flex justify-content-between">
-                            <button type="button" id="prevPage" class="btn btn-sm btn-outline-primary">Anterior</button>
-                            <div id="paginacao"></div>
-                            <button type="button" id="nextPage" class="btn btn-sm btn-outline-primary">Próxima</button>
+                        <!-- Paginação -->
+                        <div class="d-flex justify-content-start align-items-center gap-2 m-3">
+                            <div>
+                                <button id="prevPage" class="btn btn-sm btn-outline-primary">Anterior</button>
+                                <div id="paginacao" class="btn-group"></div>
+                                <button id="nextPage" class="btn btn-sm btn-outline-primary">Próximo</button>
+                            </div>
                         </div>
                     </div>
                 </div>
