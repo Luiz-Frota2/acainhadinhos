@@ -5,9 +5,7 @@ error_reporting(E_ALL);
 session_start();
 date_default_timezone_set('America/Sao_Paulo');
 
-/* =========================================================
-   AUTENTICAÇÃO / SESSÃO
-   ========================================================= */
+/* ================== AUTENTICAÇÃO / SESSÃO ================== */
 $idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
   header("Location: .././login.php");
@@ -26,7 +24,7 @@ if (
 
 require '../../assets/php/conexao.php';
 
-// Usuário logado
+// Usuário
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
@@ -46,7 +44,7 @@ try {
   exit;
 }
 
-// Autorização por tipo/id empresa
+// Autorização
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -60,7 +58,6 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
   $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
-
 if (!$acessoPermitido) {
   echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
   exit;
@@ -76,19 +73,13 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* =========================================================
-   CSRF
-   ========================================================= */
+/* ================== CSRF ================== */
 if (empty($_SESSION['csrf_token'])) {
   $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
 }
 $CSRF = $_SESSION['csrf_token'];
 
-/* =========================================================
-   ENDPOINTS AJAX
-   ========================================================= */
-
-/* --- Itens da solicitação --- */
+/* ================== AJAX: Itens ================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   header('Content-Type: text/html; charset=UTF-8');
   $sid = (int)($_GET['sid'] ?? 0);
@@ -107,7 +98,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   }
 
   $q = $pdo->prepare("
-    SELECT id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal, created_at
+    SELECT id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal
     FROM solicitacoes_b2b_itens
     WHERE solicitacao_id = :sid
     ORDER BY id ASC
@@ -152,43 +143,37 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   exit;
 }
 
-/* --- Autocomplete do campo Buscar --- */
+/* ================== AJAX: Autocomplete ================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   header('Content-Type: application/json; charset=UTF-8');
   $term = trim($_GET['q'] ?? '');
   $out  = [];
   if ($term !== '' && mb_strlen($term) >= 2) {
-    // 1) solicitante
     $s1 = $pdo->prepare("
       SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
       FROM solicitacoes_b2b s
       WHERE s.id_matriz = :matriz AND s.id_solicitante LIKE :q
-      ORDER BY s.id_solicitante
-      LIMIT 10
+      ORDER BY s.id_solicitante LIMIT 10
     ");
     $s1->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
     foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
 
-    // 2) SKU
     $s2 = $pdo->prepare("
       SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
       FROM solicitacoes_b2b s
       JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
       WHERE s.id_matriz = :matriz AND it.codigo_produto LIKE :q
-      ORDER BY it.codigo_produto
-      LIMIT 10
+      ORDER BY it.codigo_produto LIMIT 10
     ");
     $s2->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
     foreach ($s2 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
 
-    // 3) Produto
     $s3 = $pdo->prepare("
       SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
       FROM solicitacoes_b2b s
       JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
       WHERE s.id_matriz = :matriz AND it.nome_produto LIKE :q
-      ORDER BY it.nome_produto
-      LIMIT 10
+      ORDER BY it.nome_produto LIMIT 10
     ");
     $s3->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
     foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -197,9 +182,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   exit;
 }
 
-/* =========================================================
-   AÇÕES DE STATUS (POST)
-   ========================================================= */
+/* ================== POST: mudar status ================== */
 $flashMsg = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid'], $_POST['csrf'])) {
   if (!hash_equals($CSRF, $_POST['csrf'])) {
@@ -211,14 +194,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
       $st = $pdo->prepare("SELECT id, status FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
       $st->execute([':id' => $sid, ':matriz' => $idSelecionado]);
       $row = $st->fetch(PDO::FETCH_ASSOC);
-
       if (!$row) {
         $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada para esta matriz.'];
       } else {
         $statusAtual = $row['status'];
         $novoStatus = null;
-        $setTime    = [];
-
+        $setTime = [];
         switch ($acao) {
           case 'aprovar':
             if ($statusAtual === 'pendente') {
@@ -249,21 +230,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
             }
             break;
         }
-
         if (!$novoStatus) {
           $flashMsg = ['type' => 'warning', 'text' => 'Transição de status não permitida.'];
         } else {
-          $sql = "UPDATE solicitacoes_b2b SET status = :status, updated_at = NOW()";
+          $sql = "UPDATE solicitacoes_b2b SET status=:status, updated_at=NOW()";
           $params = [':status' => $novoStatus, ':id' => $sid, ':matriz' => $idSelecionado];
-
           foreach ($setTime as $col => $val) {
-            $sql .= ", {$col} = :{$col}";
+            $sql .= ", {$col}=:{$col}";
             $params[":{$col}"] = $val;
           }
-          $sql .= " WHERE id = :id AND id_matriz = :matriz";
+          $sql .= " WHERE id=:id AND id_matriz=:matriz";
           $up = $pdo->prepare($sql);
           $up->execute($params);
-
           $flashMsg = ['type' => 'success', 'text' => 'Status atualizado para "' . $novoStatus . '".'];
         }
       }
@@ -273,9 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
   }
 }
 
-/* =========================================================
-   FILTROS + PAGINAÇÃO
-   ========================================================= */
+/* ================== FILTROS + PAGINAÇÃO ================== */
 $perPage = 20;
 $page    = max(1, (int)($_GET['p'] ?? 1));
 $offset  = ($page - 1) * $perPage;
@@ -302,38 +278,30 @@ if ($ate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ate)) {
 }
 if ($q !== '') {
   $where[] = "(
-      s.id_solicitante LIKE :q
-      OR EXISTS(
-        SELECT 1 FROM solicitacoes_b2b_itens it
-        WHERE it.solicitacao_id = s.id
-          AND (it.codigo_produto LIKE :q OR it.nome_produto LIKE :q)
-      )
-    )";
-  $params[':q'] = '%' . $q . '%';
+    s.id_solicitante LIKE :q
+    OR EXISTS(
+      SELECT 1 FROM solicitacoes_b2b_itens it
+      WHERE it.solicitacao_id = s.id
+        AND (it.codigo_produto LIKE :q OR it.nome_produto LIKE :q)
+    )
+  )";
+  $params[':q'] = "%$q%";
 }
 $whereSql = implode(' AND ', $where);
 
-$sqlCount = "SELECT COUNT(*) FROM solicitacoes_b2b s WHERE $whereSql";
-$stCount = $pdo->prepare($sqlCount);
+$stCount = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b s WHERE $whereSql");
 $stCount->execute($params);
-$totalRows = (int)$stCount->fetchColumn();
+$totalRows  = (int)$stCount->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 
+// dados
 $sql = "
 SELECT
-  s.id,
-  s.id_solicitante,
-  s.status,
-  s.total_estimado,
-  s.observacao,
-  s.created_at,
-  s.updated_at,
-  s.aprovada_em,
-  s.enviada_em,
-  s.entregue_em,
-  COALESCE(COUNT(it.id), 0) AS itens_count,
-  COALESCE(SUM(it.quantidade), 0) AS qtd_total,
-  COALESCE(SUM(it.subtotal), 0.00) AS subtotal_calc
+  s.id, s.id_solicitante, s.status, s.total_estimado,
+  s.created_at, s.aprovada_em, s.enviada_em, s.entregue_em,
+  COALESCE(COUNT(it.id),0) AS itens_count,
+  COALESCE(SUM(it.quantidade),0) AS qtd_total,
+  COALESCE(SUM(it.subtotal),0.00) AS subtotal_calc
 FROM solicitacoes_b2b s
 LEFT JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
 WHERE $whereSql
@@ -342,9 +310,7 @@ ORDER BY s.created_at DESC
 LIMIT :lim OFFSET :off
 ";
 $st = $pdo->prepare($sql);
-foreach ($params as $k => $v) {
-  $st->bindValue($k, $v);
-}
+foreach ($params as $k => $v) $st->bindValue($k, $v);
 $st->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
 $st->bindValue(':off', (int)$offset, PDO::PARAM_INT);
 $st->execute();
@@ -352,8 +318,8 @@ $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
 $statusMap = [
   'pendente'     => ['cls' => 'bg-label-warning', 'txt' => 'PENDENTE'],
-  'aprovada'     => ['cls' => 'bg-label-info',    'txt' => 'APROVADA'],
-  'reprovada'    => ['cls' => 'bg-label-dark',    'txt' => 'REPROVADA'],
+  'aprovada'     => ['cls' => 'bg-label-info', 'txt' => 'APROVADA'],
+  'reprovada'    => ['cls' => 'bg-label-dark', 'txt' => 'REPROVADA'],
   'em_transito'  => ['cls' => 'bg-label-primary', 'txt' => 'EM TRÂNSITO'],
   'entregue'     => ['cls' => 'bg-label-success', 'txt' => 'ENTREGUE'],
   'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'CANCELADA'],
@@ -386,21 +352,6 @@ $statusMap = [
       font-size: .78rem;
     }
 
-    .badge-dot {
-      display: inline-flex;
-      align-items: center;
-      gap: .4rem;
-    }
-
-    .badge-dot::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: currentColor;
-      display: inline-block;
-    }
-
     .pagination .page-link {
       min-width: 38px;
       text-align: center;
@@ -411,32 +362,41 @@ $statusMap = [
       color: #8b98a8;
     }
 
-    .sticky-actions {
-      position: sticky;
-      right: 0;
-      background: #fff;
-    }
-
-    /* ===== CORREÇÃO: dropdown não ficar cortado ===== */
+    /* ===== ZONA DA TABELA E DROPDOWN ===== */
     .table-zone {
       position: relative;
+    }
+
+    .table-zone .overflow-x {
+      overflow-x: auto;
     }
 
     .table-zone .table-responsive {
       overflow: visible;
     }
 
-    /* libera o menu */
-    .table-zone .overflow-x {
-      overflow-x: auto;
+    /* dropdown pode sair da tabela */
+    tr {
+      position: relative;
     }
 
-    /* mantém o scroll horizontal */
+    /* contexto para z-index do menu */
+    td.sticky-actions {
+      position: sticky;
+      right: 0;
+      background: #fff;
+      z-index: 1;
+      overflow: visible;
+    }
+
     .dropdown-menu {
-      z-index: 1051;
+      z-index: 2005;
     }
 
-    /* acima do card e da tabela */
+    /* acima do card/tabela */
+    .btn-group>.dropdown-menu {
+      margin-top: .25rem;
+    }
 
     /* ===== AUTOCOMPLETE ===== */
     .autocomplete {
@@ -454,7 +414,7 @@ $statusMap = [
       border: 1px solid #e6e9ef;
       border-radius: .5rem;
       box-shadow: 0 10px 24px rgba(24, 28, 50, .12);
-      z-index: 1052;
+      z-index: 2006;
     }
 
     .autocomplete-item {
@@ -475,7 +435,7 @@ $statusMap = [
       color: #6b7280;
     }
 
-    /* ===== filtros responsivos ===== */
+    /* ===== inputs como col-12 em telas menores ===== */
     @media (max-width: 991.98px) {
       .filter-col {
         width: 100%;
@@ -488,7 +448,7 @@ $statusMap = [
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
 
-      <!-- ====== ASIDE (mantido) ====== -->
+      <!-- ====== ASIDE (igual) ====== -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -507,8 +467,7 @@ $statusMap = [
             </a></li>
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Franquias</span></li>
           <li class="menu-item ">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-building"></i>
+            <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-building"></i>
               <div>Franquias</div>
             </a>
             <ul class="menu-sub">
@@ -518,8 +477,7 @@ $statusMap = [
             </ul>
           </li>
           <li class="menu-item active open">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+            <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div>B2B - Matriz</div>
             </a>
             <ul class="menu-sub">
@@ -547,8 +505,7 @@ $statusMap = [
             </ul>
           </li>
           <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+            <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
               <div>Relatórios</div>
             </a>
             <ul class="menu-sub">
@@ -690,11 +647,42 @@ $statusMap = [
             </div>
           </form>
 
+          <?php
+          // Helper de paginação (topo e rodapé)
+          $qs = $_GET;
+          $qs['id'] = $idSelecionado;
+          $makeUrl = function ($p) use ($qs) {
+            $qs['p'] = $p;
+            return '?' . http_build_query($qs);
+          };
+          $range = 2; // mostra 2 antes e 2 depois
+          ?>
+
+          <?php if ($totalPages > 1): ?>
+            <div class="d-flex justify-content-end mb-2">
+              <ul class="pagination mb-0">
+                <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
+                <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
+                <?php
+                $start = max(1, $page - $range);
+                $end   = min($totalPages, $page + $range);
+                if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                for ($i = $start; $i <= $end; $i++) {
+                  $active = ($i == $page) ? 'active' : '';
+                  echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
+                }
+                if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                ?>
+                <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
+                <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
+              </ul>
+            </div>
+          <?php endif; ?>
+
           <!-- ===== Tabela ===== -->
           <div class="card table-zone">
             <h5 class="card-header">Lista de Produtos Solicitados</h5>
 
-            <!-- wrapper mantém scroll horizontal; a table-responsive fica com overflow visível p/ dropdown -->
             <div class="overflow-x">
               <div class="table-responsive text-nowrap">
                 <table class="table table-hover align-middle">
@@ -735,8 +723,10 @@ $statusMap = [
                                 <i class="bx bx-detail me-1"></i> Detalhes
                               </button>
 
-                              <!-- CORREÇÃO: boundary viewport evita corte; e menu alinhado à direita -->
-                              <button class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false">
+                              <!-- FIX: display static + boundary viewport para não cortar -->
+                              <button class="btn btn-outline-primary dropdown-toggle"
+                                data-bs-toggle="dropdown" data-bs-display="static"
+                                data-bs-boundary="viewport" aria-expanded="false">
                                 Mudar Status
                               </button>
                               <ul class="dropdown-menu dropdown-menu-end">
@@ -751,7 +741,7 @@ $statusMap = [
                                 }
                                 foreach ($ops as $key => $label): ?>
                                   <li>
-                                    <form method="post" class="px-3 py-1">
+                                    <form method="post" class="px-3 py-1 m-0">
                                       <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
                                       <input type="hidden" name="sid" value="<?= (int)$r['id'] ?>">
                                       <input type="hidden" name="acao" value="<?= htmlspecialchars($key) ?>">
@@ -759,9 +749,12 @@ $statusMap = [
                                     </form>
                                   </li>
                                 <?php endforeach; ?>
-                                <?php if (!$ops): ?><li><span class="dropdown-item text-muted">Sem ações disponíveis</span></li><?php endif; ?>
+                                <?php if (!$ops): ?>
+                                  <li><span class="dropdown-item text-muted">Sem ações disponíveis</span></li>
+                                <?php endif; ?>
                               </ul>
                             </div>
+
                             <?php if (!empty($r['aprovada_em']) || !empty($r['enviada_em']) || !empty($r['entregue_em'])): ?>
                               <div class="small-muted mt-1">
                                 <?php if (!empty($r['aprovada_em'])): ?>Aprov.: <?= date('d/m H:i', strtotime($r['aprovada_em'])) ?> · <?php endif; ?>
@@ -778,22 +771,25 @@ $statusMap = [
               </div>
             </div>
 
-            <!-- Paginação -->
+            <!-- Paginação (rodapé) -->
             <?php if ($totalPages > 1): ?>
               <div class="card-footer d-flex justify-content-between align-items-center">
-                <span class="small text-muted">Mostrando <?= (int)min($totalRows, $offset + 1) ?>–<?= (int)min($totalRows, $offset + $perPage) ?> de <?= (int)$totalRows ?></span>
+                <span class="small text-muted">
+                  Mostrando <?= (int)min($totalRows, $offset + 1) ?>–<?= (int)min($totalRows, $offset + $perPage) ?> de <?= (int)$totalRows ?>
+                </span>
                 <ul class="pagination mb-0">
-                  <?php
-                  $qs = $_GET;
-                  $qs['id'] = $idSelecionado;
-                  $makeUrl = function ($p) use ($qs) {
-                    $qs['p'] = $p;
-                    return '?' . http_build_query($qs);
-                  };
-                  ?>
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
-                  <li class="page-item active"><span class="page-link"><?= (int)$page ?></span></li>
+                  <?php
+                  $start = max(1, $page - $range);
+                  $end   = min($totalPages, $page + $range);
+                  if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                  for ($i = $start; $i <= $end; $i++) {
+                    $active = ($i == $page) ? 'active' : '';
+                    echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
+                  }
+                  if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                  ?>
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
                 </ul>
@@ -894,8 +890,7 @@ $statusMap = [
           <div class="autocomplete-item" data-i="${i}">
             <span>${it.label}</span>
             <span class="autocomplete-tag">${it.tipo}</span>
-          </div>
-        `).join('');
+          </div>`).join('');
         openList();
       }
 
@@ -905,6 +900,7 @@ $statusMap = [
         closeList();
         form.submit();
       }
+
       qInput.addEventListener('input', function() {
         const v = qInput.value.trim();
         if (v.length < 2) {
@@ -913,18 +909,13 @@ $statusMap = [
         }
         if (aborter) aborter.abort();
         aborter = new AbortController();
-
         const url = new URL(window.location.href);
         url.searchParams.set('ajax', 'autocomplete');
         url.searchParams.set('q', v);
-
         fetch(url.toString(), {
             signal: aborter.signal
           })
-          .then(r => r.json())
-          .then(render)
-          .catch(() => {
-            /* ignore */ });
+          .then(r => r.json()).then(render).catch(() => {});
       });
       qInput.addEventListener('keydown', function(e) {
         if (list.classList.contains('d-none')) return;
@@ -955,9 +946,7 @@ $statusMap = [
       });
 
       function highlight() {
-        [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx) => {
-          el.classList.toggle('active', idx === activeIndex);
-        });
+        [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx) => el.classList.toggle('active', idx === activeIndex));
       }
     })();
   </script>
