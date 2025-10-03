@@ -590,7 +590,8 @@ try {
             } else {
                 $('#modalSid').text('#' + sid);
                 $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
-                $('#modalCriada').text(new Date(String(cab.created_at).replace(' ', 'T')).toLocaleString('pt-BR'));
+                const dt = new Date(String(cab.created_at).replace(' ', 'T'));
+                $('#modalCriada').text(dt.toLocaleDateString('pt-BR'));
                 $('#modalTotal').text(formatBRL(parseFloat(cab.total)));
 
                 if (!itens.length) {
