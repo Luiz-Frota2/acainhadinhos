@@ -359,6 +359,51 @@ $statusMap = [
       font-size: .8rem;
       color: #8b98a8
     }
+
+
+    /* ===== Autocomplete ===== */
+    .autocomplete {
+      position: relative
+    }
+
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 260px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #e6e9ef;
+      border-radius: .5rem;
+      box-shadow: 0 10px 24px rgba(24, 28, 50, .12);
+      z-index: 2060
+    }
+
+    .autocomplete-item {
+      padding: .5rem .75rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      gap: .75rem
+    }
+
+    .autocomplete-item:hover,
+    .autocomplete-item.active {
+      background: #f5f7fb
+    }
+
+    .autocomplete-tag {
+      font-size: .75rem;
+      color: #6b7280
+    }
+
+    /* inputs como col-12 em telas menores */
+    @media (max-width: 991.98px) {
+      .filter-col {
+        width: 100%
+      }
+    }
   </style>
 </head>
 
