@@ -11,7 +11,6 @@ if (!$idSelecionado) {
   header("Location: .././login.php");
   exit;
 }
-
 if (
   !isset($_SESSION['usuario_logado']) ||
   !isset($_SESSION['empresa_id']) ||
@@ -24,7 +23,7 @@ if (
 
 require '../../assets/php/conexao.php';
 
-// Usuário
+/* ================== USUÁRIO ================== */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
@@ -44,7 +43,7 @@ try {
   exit;
 }
 
-// Autorização
+/* ================== AUTORIZAÇÃO ================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -63,7 +62,7 @@ if (!$acessoPermitido) {
   exit;
 }
 
-// Logo
+/* ================== LOGO ================== */
 try {
   $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
   $stmt->execute([':id' => $idSelecionado]);
@@ -269,7 +268,7 @@ if ($status !== '' && in_array($status, ['pendente', 'aprovada', 'reprovada', 'e
 }
 if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
   $where[] = "DATE(s.created_at) >= :de";
-  $params[':de'] = $de;
+  $params[':de']  = $de;
 }
 if ($ate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ate)) {
   $where[] = "DATE(s.created_at) <= :ate";
@@ -314,12 +313,13 @@ $st->bindValue(':off', (int)$offset, PDO::PARAM_INT);
 $st->execute();
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
+/* ================== MAPA STATUS ================== */
 $statusMap = [
-  'pendente'     => ['cls' => 'bg-label-warning',  'txt' => 'PENDENTE'],
-  'aprovada'     => ['cls' => 'bg-label-info',     'txt' => 'APROVADA'],
-  'reprovada'    => ['cls' => 'bg-label-dark',     'txt' => 'REPROVADA'],
-  'em_transito'  => ['cls' => 'bg-label-primary',  'txt' => 'EM TRÂNSITO'],
-  'entregue'     => ['cls' => 'bg-label-success',  'txt' => 'ENTREGUE'],
+  'pendente'     => ['cls' => 'bg-label-warning', 'txt' => 'PENDENTE'],
+  'aprovada'     => ['cls' => 'bg-label-info', 'txt' => 'APROVADA'],
+  'reprovada'    => ['cls' => 'bg-label-dark', 'txt' => 'REPROVADA'],
+  'em_transito'  => ['cls' => 'bg-label-primary', 'txt' => 'EM TRÂNSITO'],
+  'entregue'     => ['cls' => 'bg-label-success', 'txt' => 'ENTREGUE'],
   'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'CANCELADA'],
 ];
 ?>
@@ -335,76 +335,54 @@ $statusMap = [
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-  <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
-  <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/core.css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" />
   <link rel="stylesheet" href="../../assets/css/demo.css" />
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
   <style>
     .table thead th {
-      white-space: nowrap;
+      white-space: nowrap
     }
 
     .status-badge {
-      font-size: .78rem;
+      font-size: .78rem
     }
 
     .pagination .page-link {
       min-width: 38px;
-      text-align: center;
+      text-align: center
     }
 
     .small-muted {
       font-size: .8rem;
-      color: #8b98a8;
+      color: #8b98a8
     }
 
-    /* ===== ZONA DA TABELA E DROPDOWN ===== */
+    /* ===== Tabela ===== */
     .table-zone {
-      position: relative;
+      position: relative
     }
 
     .table-zone .overflow-x {
-      overflow-x: auto;
+      overflow-x: auto
     }
 
     .table-zone .table-responsive {
-      overflow: visible;
+      overflow: visible
     }
-
-    /* dropdown pode projetar-se */
 
     td.sticky-actions {
       position: sticky;
       right: 0;
       background: #fff;
-      /* z-index removido para evitar stacking indevido entre linhas */
-      overflow: visible;
+      overflow: visible
     }
 
-    /* Quando o dropdown abrir, removemos a stickiness temporariamente */
-    td.sticky-actions.is-open {
-      position: static !important;
-    }
-
-    .dropdown-menu {
-      z-index: 2050;
-      /* acima da tabela/cartão */
-      max-height: 260px;
-      /* SCROLL interno do menu */
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      /* não repassar scroll para a tabela/página */
-    }
-
-    .dropdown-menu.show {
-      display: block;
-    }
-
-    /* ===== AUTOCOMPLETE ===== */
+    /* ===== Autocomplete ===== */
     .autocomplete {
-      position: relative;
+      position: relative
     }
 
     .autocomplete-list {
@@ -418,7 +396,7 @@ $statusMap = [
       border: 1px solid #e6e9ef;
       border-radius: .5rem;
       box-shadow: 0 10px 24px rgba(24, 28, 50, .12);
-      z-index: 2060;
+      z-index: 2060
     }
 
     .autocomplete-item {
@@ -426,23 +404,23 @@ $statusMap = [
       cursor: pointer;
       display: flex;
       justify-content: space-between;
-      gap: .75rem;
+      gap: .75rem
     }
 
     .autocomplete-item:hover,
     .autocomplete-item.active {
-      background: #f5f7fb;
+      background: #f5f7fb
     }
 
     .autocomplete-tag {
       font-size: .75rem;
-      color: #6b7280;
+      color: #6b7280
     }
 
-    /* ===== inputs como col-12 em telas menores ===== */
+    /* inputs como col-12 em telas menores */
     @media (max-width: 991.98px) {
       .filter-col {
-        width: 100%;
+        width: 100%
       }
     }
   </style>
@@ -452,19 +430,17 @@ $statusMap = [
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
 
-      <!-- ====== ASIDE ====== -->
+      <!-- ===== ASIDE ===== -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform:capitalize;">Açaínhadinhos</span>
           </a>
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
             <i class="bx bx-chevron-left bx-sm align-middle"></i>
           </a>
         </div>
-
         <div class="menu-inner-shadow"></div>
-
         <ul class="menu-inner py-1">
           <li class="menu-item"><a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div>Dashboard</div>
@@ -551,9 +527,9 @@ $statusMap = [
             </a></li>
         </ul>
       </aside>
-      <!-- ====== /ASIDE ====== -->
+      <!-- ===== /ASIDE ===== -->
 
-      <!-- Layout container -->
+      <!-- ===== Layout page ===== -->
       <div class="layout-page">
         <!-- Navbar -->
         <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
@@ -576,12 +552,9 @@ $statusMap = [
                   <li><a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
-                          <div class="avatar avatar-online"><img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" /></div>
+                          <div class="avatar avatar-online"><img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" class="w-px-40 h-auto rounded-circle" /></div>
                         </div>
-                        <div class="flex-grow-1">
-                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
-                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
-                        </div>
+                        <div class="flex-grow-1"><span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span><small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small></div>
                       </div>
                     </a></li>
                   <li>
@@ -611,7 +584,7 @@ $statusMap = [
             </div>
           <?php endif; ?>
 
-          <!-- ===== Toolbar / Filtros ===== -->
+          <!-- ===== Filtros ===== -->
           <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
             <div class="card-body">
@@ -652,7 +625,6 @@ $statusMap = [
           </form>
 
           <?php
-          // Helper de paginação (topo e rodapé)
           $qs = $_GET;
           $qs['id'] = $idSelecionado;
           $makeUrl = function ($p) use ($qs) {
@@ -661,7 +633,6 @@ $statusMap = [
           };
           $range = 2;
           ?>
-
           <?php if ($totalPages > 1): ?>
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
               <div>
@@ -671,16 +642,14 @@ $statusMap = [
               <ul class="pagination mb-0">
                 <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                 <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
-                <?php
-                $start = max(1, $page - $range);
-                $end   = min($totalPages, $page + $range);
+                <?php $start = max(1, $page - $range);
+                $end = min($totalPages, $page + $range);
                 if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                 for ($i = $start; $i <= $end; $i++) {
                   $active = ($i == $page) ? 'active' : '';
                   echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
                 }
-                if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
-                ?>
+                if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>'; ?>
                 <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
                 <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
               </ul>
@@ -690,7 +659,6 @@ $statusMap = [
           <!-- ===== Tabela ===== -->
           <div class="card table-zone">
             <h5 class="card-header">Lista de Produtos Solicitados</h5>
-
             <div class="overflow-x">
               <div class="table-responsive text-nowrap">
                 <table class="table table-hover align-middle">
@@ -712,8 +680,7 @@ $statusMap = [
                       <tr>
                         <td colspan="9" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                       </tr>
-                    <?php else: ?>
-                      <?php foreach ($rows as $r):
+                      <?php else: foreach ($rows as $r):
                         $sm = $statusMap[$r['status']] ?? ['cls' => 'bg-label-secondary', 'txt' => $r['status']];
                       ?>
                         <tr>
@@ -726,40 +693,19 @@ $statusMap = [
                           <td><?= date('d/m/Y H:i', strtotime($r['created_at'])) ?></td>
                           <td><span class="badge status-badge <?= $sm['cls'] ?>"><?= htmlspecialchars($sm['txt']) ?></span></td>
                           <td class="sticky-actions">
-                            <div class="btn-group btn-group-sm dropdown-guard">
+                            <div class="btn-group btn-group-sm">
                               <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes" data-sid="<?= (int)$r['id'] ?>">
                                 <i class="bx bx-detail me-1"></i> Detalhes
                               </button>
-
-                              <button class="btn btn-outline-primary dropdown-toggle"
-                                data-bs-toggle="dropdown" data-bs-display="static"
-                                data-bs-boundary="viewport" aria-expanded="false">
+                              <!-- Abre a modal de status -->
+                              <button class="btn btn-outline-primary"
+                                data-bs-toggle="modal"
+                                data-bs-target="#modalStatus"
+                                data-sid="<?= (int)$r['id'] ?>"
+                                data-status="<?= htmlspecialchars($r['status'], ENT_QUOTES) ?>">
                                 Mudar Status
                               </button>
-                              <ul class="dropdown-menu dropdown-menu-end">
-                                <?php
-                                $ops = [];
-                                if ($r['status'] === 'pendente') {
-                                  $ops = ['aprovar' => 'Aprovar', 'reprovar' => 'Reprovar', 'cancelar' => 'Cancelar'];
-                                } elseif ($r['status'] === 'aprovada') {
-                                  $ops = ['enviar' => 'Marcar Em Trânsito', 'cancelar' => 'Cancelar'];
-                                } elseif ($r['status'] === 'em_transito') {
-                                  $ops = ['entregar' => 'Marcar Entregue'];
-                                }
-                                foreach ($ops as $key => $label): ?>
-                                  <li>
-                                    <form method="post" class="px-3 py-1 m-0">
-                                      <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
-                                      <input type="hidden" name="sid" value="<?= (int)$r['id'] ?>">
-                                      <input type="hidden" name="acao" value="<?= htmlspecialchars($key) ?>">
-                                      <button type="submit" class="dropdown-item"><?= htmlspecialchars($label) ?></button>
-                                    </form>
-                                  </li>
-                                <?php endforeach; ?>
-                                <?php if (!$ops): ?><li><span class="dropdown-item text-muted">Sem ações disponíveis</span></li><?php endif; ?>
-                              </ul>
                             </div>
-
                             <?php if (!empty($r['aprovada_em']) || !empty($r['enviada_em']) || !empty($r['entregue_em'])): ?>
                               <div class="small-muted mt-1">
                                 <?php if (!empty($r['aprovada_em'])): ?>Aprov.: <?= date('d/m H:i', strtotime($r['aprovada_em'])) ?> · <?php endif; ?>
@@ -769,8 +715,8 @@ $statusMap = [
                             <?php endif; ?>
                           </td>
                         </tr>
-                      <?php endforeach; ?>
-                    <?php endif; ?>
+                    <?php endforeach;
+                    endif; ?>
                   </tbody>
                 </table>
               </div>
@@ -786,16 +732,14 @@ $statusMap = [
                 <ul class="pagination mb-0">
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
-                  <?php
-                  $start = max(1, $page - $range);
-                  $end   = min($totalPages, $page + $range);
+                  <?php $start = max(1, $page - $range);
+                  $end = min($totalPages, $page + $range);
                   if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                   for ($i = $start; $i <= $end; $i++) {
                     $active = ($i == $page) ? 'active' : '';
                     echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
                   }
-                  if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
-                  ?>
+                  if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>'; ?>
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
                 </ul>
@@ -815,16 +759,48 @@ $statusMap = [
                 <div class="modal-body">
                   <div id="modal-detalhes-body" class="py-2 text-center text-muted">Carregando…</div>
                 </div>
-                <div class="modal-footer">
-                  <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Mudar Status -->
+          <div class="modal fade" id="modalStatus" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title">Mudar status da solicitação <span id="ms-title-id" class="text-muted"></span></h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
+                <form method="post" id="formStatus" class="m-0">
+                  <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
+                  <input type="hidden" name="sid" id="ms-sid" value="">
+                  <input type="hidden" name="acao" id="ms-acao" value="">
+                  <div class="modal-body">
+                    <div class="mb-3">
+                      <label class="form-label">Ação</label>
+                      <select class="form-select" id="ms-select">
+                        <!-- opções inseridas via JS -->
+                      </select>
+                    </div>
+                    <div class="mb-3 d-none" id="ms-motivo-wrap">
+                      <label class="form-label">Motivo (opcional)</label>
+                      <textarea class="form-control" rows="3" name="motivo" placeholder="Descreva o motivo..."></textarea>
+                    </div>
+                    <div class="small text-muted">As opções exibidas dependem do status atual da solicitação.</div>
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Confirmar</button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
 
         </div><!-- /container -->
-      </div><!-- /Layout page -->
-    </div><!-- /Layout container -->
+      </div><!-- /layout-page -->
+    </div><!-- /layout-container -->
   </div>
 
   <!-- Core JS -->
@@ -858,25 +834,76 @@ $statusMap = [
       fetch(url.toString(), {
           credentials: 'same-origin'
         })
-        .then(r => r.text())
-        .then(html => {
-          body.innerHTML = html;
-        })
-        .catch(() => {
-          body.innerHTML = '<div class="text-danger">Falha ao carregar itens.</div>';
-        });
+        .then(r => r.text()).then(html => body.innerHTML = html)
+        .catch(() => body.innerHTML = '<div class="text-danger">Falha ao carregar itens.</div>');
     });
 
-    /* ===== Dropdown: resolver overlay/scroll e stickiness ===== */
-    document.querySelectorAll('.dropdown-guard .dropdown-toggle').forEach(btn => {
-      btn.addEventListener('show.bs.dropdown', () => {
-        const td = btn.closest('td.sticky-actions');
-        if (td) td.classList.add('is-open'); // desliga o sticky enquanto aberto
-      });
-      btn.addEventListener('hide.bs.dropdown', () => {
-        const td = btn.closest('td.sticky-actions');
-        if (td) td.classList.remove('is-open'); // liga novamente
-      });
+    /* ===== Modal Status (dinâmica) ===== */
+    const modalStatus = document.getElementById('modalStatus');
+    const msSid = document.getElementById('ms-sid');
+    const msAcao = document.getElementById('ms-acao');
+    const msSelect = document.getElementById('ms-select');
+    const msTitulo = document.getElementById('ms-title-id');
+    const msMotivoWrap = document.getElementById('ms-motivo-wrap');
+
+    function optionsForStatus(st) {
+      // mapeia as transições válidas
+      if (st === 'pendente') return [{
+        v: 'aprovar',
+        t: 'Aprovar'
+      }, {
+        v: 'reprovar',
+        t: 'Reprovar'
+      }, {
+        v: 'cancelar',
+        t: 'Cancelar'
+      }];
+      if (st === 'aprovada') return [{
+        v: 'enviar',
+        t: 'Marcar Em Trânsito'
+      }, {
+        v: 'cancelar',
+        t: 'Cancelar'
+      }];
+      if (st === 'em_transito') return [{
+        v: 'entregar',
+        t: 'Marcar Entregue'
+      }];
+      return []; // reprovada/cancelada/entregue -> sem ação
+    }
+
+    modalStatus.addEventListener('show.bs.modal', function(event) {
+      const btn = event.relatedTarget;
+      const sid = btn?.getAttribute('data-sid');
+      const statusAtual = btn?.getAttribute('data-status') || '';
+      msSid.value = sid || '';
+      msTitulo.textContent = sid ? ('#' + sid) : '';
+      const ops = optionsForStatus(statusAtual);
+
+      if (!ops.length) {
+        msSelect.innerHTML = '<option value="">Sem ações disponíveis</option>';
+        msSelect.disabled = true;
+      } else {
+        msSelect.disabled = false;
+        msSelect.innerHTML = ops.map(o => `<option value="${o.v}">${o.t}</option>`).join('');
+      }
+
+      // mostrar textarea motivo para reprovar/cancelar
+      const toggleMotivo = () => {
+        const v = msSelect.value;
+        if (v === 'reprovar' || v === 'cancelar') msMotivoWrap.classList.remove('d-none');
+        else msMotivoWrap.classList.add('d-none');
+      };
+      toggleMotivo();
+      msSelect.onchange = toggleMotivo;
+    });
+
+    document.getElementById('formStatus').addEventListener('submit', function(e) {
+      if (!msSelect.value) {
+        e.preventDefault();
+        return;
+      }
+      msAcao.value = msSelect.value;
     });
 
     /* ===== Autocomplete ===== */
@@ -884,9 +911,9 @@ $statusMap = [
       const qInput = document.getElementById('qInput');
       const list = document.getElementById('qList');
       const form = document.getElementById('filtroForm');
-      let items = [];
-      let activeIndex = -1;
-      let aborter = null;
+      let items = [],
+        activeIndex = -1,
+        aborter = null;
 
       function closeList() {
         list.classList.add('d-none');
@@ -907,8 +934,7 @@ $statusMap = [
         items = data.slice(0, 15);
         list.innerHTML = items.map((it, i) => `
           <div class="autocomplete-item" data-i="${i}">
-            <span>${it.label}</span>
-            <span class="autocomplete-tag">${it.tipo}</span>
+            <span>${it.label}</span><span class="autocomplete-tag">${it.tipo}</span>
           </div>`).join('');
         openList();
       }
