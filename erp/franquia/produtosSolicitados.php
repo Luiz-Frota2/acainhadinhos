@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
   if (!hash_equals($CSRF, $_POST['csrf'])) {
     $flashMsg = ['type' => 'danger', 'text' => 'Falha de segurança (CSRF). Recarregue a página.'];
   } else {
-    $sid = (int)$_POST['sid'];
+    $sid  = (int)$_POST['sid'];
     $acao = $_POST['acao'];
     try {
       $st = $pdo->prepare("SELECT id, status FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
@@ -198,8 +198,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
         $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada para esta matriz.'];
       } else {
         $statusAtual = $row['status'];
-        $novoStatus = null;
-        $setTime = [];
+        $novoStatus  = null;
+        $setTime     = [];
         switch ($acao) {
           case 'aprovar':
             if ($statusAtual === 'pendente') {
@@ -240,8 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
             $params[":{$col}"] = $val;
           }
           $sql .= " WHERE id=:id AND id_matriz=:matriz";
-          $up = $pdo->prepare($sql);
-          $up->execute($params);
+          $pdo->prepare($sql)->execute($params);
           $flashMsg = ['type' => 'success', 'text' => 'Status atualizado para "' . $novoStatus . '".'];
         }
       }
@@ -294,7 +293,6 @@ $stCount->execute($params);
 $totalRows  = (int)$stCount->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 
-// dados
 $sql = "
 SELECT
   s.id, s.id_solicitante, s.status, s.total_estimado,
@@ -317,11 +315,11 @@ $st->execute();
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
 $statusMap = [
-  'pendente'     => ['cls' => 'bg-label-warning', 'txt' => 'PENDENTE'],
-  'aprovada'     => ['cls' => 'bg-label-info', 'txt' => 'APROVADA'],
-  'reprovada'    => ['cls' => 'bg-label-dark', 'txt' => 'REPROVADA'],
-  'em_transito'  => ['cls' => 'bg-label-primary', 'txt' => 'EM TRÂNSITO'],
-  'entregue'     => ['cls' => 'bg-label-success', 'txt' => 'ENTREGUE'],
+  'pendente'     => ['cls' => 'bg-label-warning',  'txt' => 'PENDENTE'],
+  'aprovada'     => ['cls' => 'bg-label-info',     'txt' => 'APROVADA'],
+  'reprovada'    => ['cls' => 'bg-label-dark',     'txt' => 'REPROVADA'],
+  'em_transito'  => ['cls' => 'bg-label-primary',  'txt' => 'EM TRÂNSITO'],
+  'entregue'     => ['cls' => 'bg-label-success',  'txt' => 'ENTREGUE'],
   'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'CANCELADA'],
 ];
 ?>
@@ -375,27 +373,33 @@ $statusMap = [
       overflow: visible;
     }
 
-    /* dropdown pode sair da tabela */
-    tr {
-      position: relative;
-    }
+    /* dropdown pode projetar-se */
 
-    /* contexto para z-index do menu */
     td.sticky-actions {
       position: sticky;
       right: 0;
       background: #fff;
-      z-index: 1;
+      /* z-index removido para evitar stacking indevido entre linhas */
       overflow: visible;
     }
 
-    .dropdown-menu {
-      z-index: 2005;
+    /* Quando o dropdown abrir, removemos a stickiness temporariamente */
+    td.sticky-actions.is-open {
+      position: static !important;
     }
 
-    /* acima do card/tabela */
-    .btn-group>.dropdown-menu {
-      margin-top: .25rem;
+    .dropdown-menu {
+      z-index: 2050;
+      /* acima da tabela/cartão */
+      max-height: 260px;
+      /* SCROLL interno do menu */
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      /* não repassar scroll para a tabela/página */
+    }
+
+    .dropdown-menu.show {
+      display: block;
     }
 
     /* ===== AUTOCOMPLETE ===== */
@@ -414,7 +418,7 @@ $statusMap = [
       border: 1px solid #e6e9ef;
       border-radius: .5rem;
       box-shadow: 0 10px 24px rgba(24, 28, 50, .12);
-      z-index: 2006;
+      z-index: 2060;
     }
 
     .autocomplete-item {
@@ -448,7 +452,7 @@ $statusMap = [
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
 
-      <!-- ====== ASIDE (igual) ====== -->
+      <!-- ====== ASIDE ====== -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -655,11 +659,15 @@ $statusMap = [
             $qs['p'] = $p;
             return '?' . http_build_query($qs);
           };
-          $range = 2; // mostra 2 antes e 2 depois
+          $range = 2;
           ?>
 
           <?php if ($totalPages > 1): ?>
-            <div class="d-flex justify-content-end mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <div>
+                <a class="btn btn-sm btn-outline-primary <?= ($page <= 1 ? 'disabled' : '') ?>" href="<?= $makeUrl(max(1, $page - 1)) ?>">Voltar</a>
+                <a class="btn btn-sm btn-outline-primary <?= ($page >= $totalPages ? 'disabled' : '') ?>" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>">Próximo</a>
+              </div>
               <ul class="pagination mb-0">
                 <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                 <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
@@ -718,12 +726,11 @@ $statusMap = [
                           <td><?= date('d/m/Y H:i', strtotime($r['created_at'])) ?></td>
                           <td><span class="badge status-badge <?= $sm['cls'] ?>"><?= htmlspecialchars($sm['txt']) ?></span></td>
                           <td class="sticky-actions">
-                            <div class="btn-group btn-group-sm">
+                            <div class="btn-group btn-group-sm dropdown-guard">
                               <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes" data-sid="<?= (int)$r['id'] ?>">
                                 <i class="bx bx-detail me-1"></i> Detalhes
                               </button>
 
-                              <!-- FIX: display static + boundary viewport para não cortar -->
                               <button class="btn btn-outline-primary dropdown-toggle"
                                 data-bs-toggle="dropdown" data-bs-display="static"
                                 data-bs-boundary="viewport" aria-expanded="false">
@@ -749,9 +756,7 @@ $statusMap = [
                                     </form>
                                   </li>
                                 <?php endforeach; ?>
-                                <?php if (!$ops): ?>
-                                  <li><span class="dropdown-item text-muted">Sem ações disponíveis</span></li>
-                                <?php endif; ?>
+                                <?php if (!$ops): ?><li><span class="dropdown-item text-muted">Sem ações disponíveis</span></li><?php endif; ?>
                               </ul>
                             </div>
 
@@ -773,10 +778,11 @@ $statusMap = [
 
             <!-- Paginação (rodapé) -->
             <?php if ($totalPages > 1): ?>
-              <div class="card-footer d-flex justify-content-between align-items-center">
-                <span class="small text-muted">
-                  Mostrando <?= (int)min($totalRows, $offset + 1) ?>–<?= (int)min($totalRows, $offset + $perPage) ?> de <?= (int)$totalRows ?>
-                </span>
+              <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <a class="btn btn-sm btn-outline-primary <?= ($page <= 1 ? 'disabled' : '') ?>" href="<?= $makeUrl(max(1, $page - 1)) ?>">Voltar</a>
+                  <a class="btn btn-sm btn-outline-primary <?= ($page >= $totalPages ? 'disabled' : '') ?>" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>">Próximo</a>
+                </div>
                 <ul class="pagination mb-0">
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
@@ -793,6 +799,7 @@ $statusMap = [
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
                 </ul>
+                <span class="small text-muted">Mostrando <?= (int)min($totalRows, $offset + 1) ?>–<?= (int)min($totalRows, $offset + $perPage) ?> de <?= (int)$totalRows ?></span>
               </div>
             <?php endif; ?>
           </div>
@@ -858,6 +865,18 @@ $statusMap = [
         .catch(() => {
           body.innerHTML = '<div class="text-danger">Falha ao carregar itens.</div>';
         });
+    });
+
+    /* ===== Dropdown: resolver overlay/scroll e stickiness ===== */
+    document.querySelectorAll('.dropdown-guard .dropdown-toggle').forEach(btn => {
+      btn.addEventListener('show.bs.dropdown', () => {
+        const td = btn.closest('td.sticky-actions');
+        if (td) td.classList.add('is-open'); // desliga o sticky enquanto aberto
+      });
+      btn.addEventListener('hide.bs.dropdown', () => {
+        const td = btn.closest('td.sticky-actions');
+        if (td) td.classList.remove('is-open'); // liga novamente
+      });
     });
 
     /* ===== Autocomplete ===== */
