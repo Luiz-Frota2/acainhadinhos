@@ -759,7 +759,7 @@ $statusMap = [
                 <form method="post"
                   id="formStatus"
                   class="m-0"
-                  action="../../assets/php/financas/produtosSolicitadosSubmit.php?id=<?= urlencode($idSelecionado) ?>">
+                  action="../../assets/php/franquia/produtosSolicitadosSubmit.php?id=<?= urlencode($idSelecionado) ?>">
                   <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
                   <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
                   <input type="hidden" name="sid" id="ms-sid" value="">
@@ -896,7 +896,7 @@ $statusMap = [
     document.getElementById('btnProcessarEstoque').addEventListener('click', function() {
       const sid = msSid.value || '';
       if (!sid) return;
-      const url = new URL('processarSolicitacao.php', window.location.href);
+      const url = new URL('../../assets/php/franquia/produtosSolicitadosSubmit.php', window.location.href);
       url.searchParams.set('id', '<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>');
       url.searchParams.set('sid', sid);
       window.location.href = url.toString();
