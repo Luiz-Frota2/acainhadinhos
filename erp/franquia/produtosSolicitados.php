@@ -108,8 +108,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   if (!$itens) {
     echo '<div class="text-muted p-2">Nenhum item nesta solicitação.</div>';
     exit;
-  }
-?>
+  } ?>
   <div class="table-responsive">
     <table class="table table-sm table-hover">
       <thead>
@@ -181,7 +180,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   exit;
 }
 
-/* ================== POST: mudar status ================== */
+/* ================== POST: mudar status (aqui você pode processar itens também, se quiser) ================== */
 $flashMsg = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid'], $_POST['csrf'])) {
   if (!hash_equals($CSRF, $_POST['csrf'])) {
@@ -189,58 +188,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
   } else {
     $sid  = (int)$_POST['sid'];
     $acao = $_POST['acao'];
+    $id_matriz_post      = $_POST['id_matriz']      ?? $idSelecionado;         // vem do hidden
+    $id_solicitante_post = $_POST['id_solicitante'] ?? '';                     // vem do hidden
+
     try {
-      $st = $pdo->prepare("SELECT id, status FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
+      $st = $pdo->prepare("SELECT id, status, id_matriz, id_solicitante FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
       $st->execute([':id' => $sid, ':matriz' => $idSelecionado]);
       $row = $st->fetch(PDO::FETCH_ASSOC);
       if (!$row) {
         $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada para esta matriz.'];
       } else {
-        $statusAtual = $row['status'];
-        $novoStatus  = null;
-        $setTime     = [];
-        switch ($acao) {
-          case 'aprovar':
-            if ($statusAtual === 'pendente') {
-              $novoStatus = 'aprovada';
-              $setTime['aprovada_em'] = date('Y-m-d H:i:s');
-            }
-            break;
-          case 'reprovar':
-            if ($statusAtual === 'pendente') {
-              $novoStatus = 'reprovada';
-            }
-            break;
-          case 'cancelar':
-            if (in_array($statusAtual, ['pendente', 'aprovada'])) {
-              $novoStatus = 'cancelada';
-            }
-            break;
-          case 'enviar':
-            if ($statusAtual === 'aprovada') {
-              $novoStatus = 'em_transito';
-              $setTime['enviada_em'] = date('Y-m-d H:i:s');
-            }
-            break;
-          case 'entregar':
-            if ($statusAtual === 'em_transito') {
-              $novoStatus = 'entregue';
-              $setTime['entregue_em'] = date('Y-m-d H:i:s');
-            }
-            break;
-        }
-        if (!$novoStatus) {
-          $flashMsg = ['type' => 'warning', 'text' => 'Transição de status não permitida.'];
+        // valida se o hidden bate com o registro
+        if ($id_matriz_post !== $row['id_matriz'] || ($id_solicitante_post && $id_solicitante_post !== $row['id_solicitante'])) {
+          $flashMsg = ['type' => 'danger', 'text' => 'Dados da empresa divergentes da solicitação.'];
         } else {
-          $sql = "UPDATE solicitacoes_b2b SET status=:status, updated_at=NOW()";
-          $params = [':status' => $novoStatus, ':id' => $sid, ':matriz' => $idSelecionado];
-          foreach ($setTime as $col => $val) {
-            $sql .= ", {$col}=:{$col}";
-            $params[":{$col}"] = $val;
+          $statusAtual = $row['status'];
+          $novoStatus  = null;
+          $setTime     = [];
+          switch ($acao) {
+            case 'aprovar':
+              if ($statusAtual === 'pendente') {
+                $novoStatus = 'aprovada';
+                $setTime['aprovada_em'] = date('Y-m-d H:i:s');
+              }
+              break;
+            case 'reprovar':
+              if ($statusAtual === 'pendente') $novoStatus = 'reprovada';
+              break;
+            case 'cancelar':
+              if (in_array($statusAtual, ['pendente', 'aprovada'])) $novoStatus = 'cancelada';
+              break;
+            case 'enviar':
+              if ($statusAtual === 'aprovada') {
+                $novoStatus = 'em_transito';
+                $setTime['enviada_em'] = date('Y-m-d H:i:s');
+              }
+              break;
+            case 'entregar':
+              if ($statusAtual === 'em_transito') {
+                $novoStatus = 'entregue';
+                $setTime['entregue_em'] = date('Y-m-d H:i:s');
+              }
+              break;
           }
-          $sql .= " WHERE id=:id AND id_matriz=:matriz";
-          $pdo->prepare($sql)->execute($params);
-          $flashMsg = ['type' => 'success', 'text' => 'Status atualizado para "' . $novoStatus . '".'];
+          if (!$novoStatus) {
+            $flashMsg = ['type' => 'warning', 'text' => 'Transição de status não permitida.'];
+          } else {
+            $sql = "UPDATE solicitacoes_b2b SET status=:status, updated_at=NOW()";
+            $params = [':status' => $novoStatus, ':id' => $sid, ':matriz' => $idSelecionado];
+            foreach ($setTime as $col => $val) {
+              $sql .= ", {$col}=:{$col}";
+              $params[":{$col}"] = $val;
+            }
+            $sql .= " WHERE id=:id AND id_matriz=:matriz";
+            $pdo->prepare($sql)->execute($params);
+
+            // OBS: se for processar itens/estoque, aqui você já terá id_matriz_post (ex.: 'principal_1') e id_solicitante_post (ex.: 'franquia_3'/'filial_2')
+            // e o $sid da solicitação para buscar itens. (O processamento do estoque não está implementado aqui por pedido anterior.)
+            $flashMsg = ['type' => 'success', 'text' => 'Status atualizado para "' . $novoStatus . '".'];
+          }
         }
       }
     } catch (PDOException $e) {
@@ -360,7 +366,6 @@ $statusMap = [
       color: #8b98a8
     }
 
-    /* Autocomplete */
     .autocomplete {
       position: relative
     }
@@ -623,7 +628,7 @@ $statusMap = [
                 <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
                 <?php
                 $start = max(1, $page - $range);
-                $end = min($totalPages, $page + $range);
+                $end   = min($totalPages, $page + $range);
                 if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                 for ($i = $start; $i <= $end; $i++) {
                   $active = ($i == $page) ? 'active' : '';
@@ -675,7 +680,9 @@ $statusMap = [
                           <td><span class="badge status-badge <?= $sm['cls'] ?>"><?= htmlspecialchars($sm['txt']) ?></span></td>
                           <td class="sticky-actions">
                             <div class="btn-group btn-group-sm">
-                              <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes" data-sid="<?= (int)$r['id'] ?>">
+                              <button class="btn btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#modalDetalhes"
+                                data-sid="<?= (int)$r['id'] ?>">
                                 <i class="bx bx-detail me-1"></i> Detalhes
                               </button>
                               <!-- Abre a modal de status -->
@@ -683,7 +690,8 @@ $statusMap = [
                                 data-bs-toggle="modal"
                                 data-bs-target="#modalStatus"
                                 data-sid="<?= (int)$r['id'] ?>"
-                                data-status="<?= htmlspecialchars($r['status'], ENT_QUOTES) ?>">
+                                data-status="<?= htmlspecialchars($r['status'], ENT_QUOTES) ?>"
+                                data-solicitante="<?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?>">
                                 Mudar Status
                               </button>
                             </div>
@@ -755,15 +763,14 @@ $statusMap = [
                   <h5 class="modal-title">Mudar status da solicitação <span id="ms-title-id" class="text-muted"></span></h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <!-- IMPORTANTE: action aponta para esta mesma página e envia também o id selecionado -->
-                <form method="post"
-                  id="formStatus"
-                  class="m-0"
-                  action="../../assets/php/franquia/produtosSolicitadosSubmit.php?id=<?= urlencode($idSelecionado) ?>">
+                <!-- Agora o form também envia id_matriz e id_solicitante -->
+                <form method="post" id="formStatus" class="m-0" action="../../assets/php/franquia/produtosSolicitadosSubmit.php">
                   <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
                   <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
                   <input type="hidden" name="sid" id="ms-sid" value="">
                   <input type="hidden" name="acao" id="ms-acao" value="">
+                  <input type="hidden" name="id_matriz" id="ms-id-matriz" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
+                  <input type="hidden" name="id_solicitante" id="ms-id-solicitante" value="">
                   <div class="modal-body">
                     <div class="mb-3">
                       <label class="form-label">Ação</label>
@@ -777,8 +784,6 @@ $statusMap = [
                   </div>
                   <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <!-- botão que envia para processar itens/estoque -->
-                    <button type="button" id="btnProcessarEstoque" class="btn btn-outline-primary">Processar no Estoque</button>
                     <button type="submit" class="btn btn-primary">Confirmar</button>
                   </div>
                 </form>
@@ -815,7 +820,6 @@ $statusMap = [
         body.innerHTML = '<div class="text-danger">Solicitação inválida.</div>';
         return;
       }
-
       const url = new URL(window.location.href);
       url.searchParams.set('ajax', 'itens');
       url.searchParams.set('sid', sid);
@@ -833,6 +837,8 @@ $statusMap = [
     const msSelect = document.getElementById('ms-select');
     const msTitulo = document.getElementById('ms-title-id');
     const msMotivoWrap = document.getElementById('ms-motivo-wrap');
+    const msIdMatriz = document.getElementById('ms-id-matriz');
+    const msIdSolicitante = document.getElementById('ms-id-solicitante');
 
     function optionsForStatus(st) {
       if (st === 'pendente') return [{
@@ -863,10 +869,14 @@ $statusMap = [
       const btn = event.relatedTarget;
       const sid = btn?.getAttribute('data-sid');
       const statusAtual = btn?.getAttribute('data-status') || '';
+      const solicitante = btn?.getAttribute('data-solicitante') || '';
+
       msSid.value = sid || '';
       msTitulo.textContent = sid ? ('#' + sid) : '';
-      const ops = optionsForStatus(statusAtual);
+      msIdMatriz.value = '<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>'; // matriz atual (ex.: principal_1)
+      msIdSolicitante.value = solicitante; // quem solicitou (franquia_X / filial_Y / unidade_Z)
 
+      const ops = optionsForStatus(statusAtual);
       if (!ops.length) {
         msSelect.innerHTML = '<option value="">Sem ações disponíveis</option>';
         msSelect.disabled = true;
@@ -890,16 +900,6 @@ $statusMap = [
         return;
       }
       msAcao.value = msSelect.value;
-    });
-
-    // Botão para processar no estoque — navega para a página de processamento com id + sid
-    document.getElementById('btnProcessarEstoque').addEventListener('click', function() {
-      const sid = msSid.value || '';
-      if (!sid) return;
-      const url = new URL('../../assets/php/franquia/produtosSolicitadosSubmit.php', window.location.href);
-      url.searchParams.set('id', '<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>');
-      url.searchParams.set('sid', sid);
-      window.location.href = url.toString();
     });
 
     /* ===== Autocomplete ===== */
