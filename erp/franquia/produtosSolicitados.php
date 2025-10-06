@@ -753,8 +753,10 @@ $statusMap = [
                   <h5 class="modal-title">Mudar status da solicitação <span id="ms-title-id" class="text-muted"></span></h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <form method="post" id="formStatus" class="m-0">
+                <form method="
+                " id="formStatus" class="m-0">
                   <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
+                  <input type="hidden">
                   <input type="hidden" name="sid" id="ms-sid" value="">
                   <input type="hidden" name="acao" id="ms-acao" value="">
                   <div class="modal-body">
