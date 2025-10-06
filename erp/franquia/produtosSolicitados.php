@@ -360,8 +360,7 @@ $statusMap = [
       color: #8b98a8
     }
 
-
-    /* ===== Autocomplete ===== */
+    /* Autocomplete */
     .autocomplete {
       position: relative
     }
@@ -398,7 +397,6 @@ $statusMap = [
       color: #6b7280
     }
 
-    /* inputs como col-12 em telas menores */
     @media (max-width: 991.98px) {
       .filter-col {
         width: 100%
@@ -623,14 +621,16 @@ $statusMap = [
               <ul class="pagination mb-0">
                 <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                 <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
-                <?php $start = max(1, $page - $range);
+                <?php
+                $start = max(1, $page - $range);
                 $end = min($totalPages, $page + $range);
                 if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                 for ($i = $start; $i <= $end; $i++) {
                   $active = ($i == $page) ? 'active' : '';
                   echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
                 }
-                if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>'; ?>
+                if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                ?>
                 <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
                 <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
               </ul>
@@ -713,14 +713,16 @@ $statusMap = [
                 <ul class="pagination mb-0">
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
-                  <?php $start = max(1, $page - $range);
+                  <?php
+                  $start = max(1, $page - $range);
                   $end = min($totalPages, $page + $range);
                   if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                   for ($i = $start; $i <= $end; $i++) {
                     $active = ($i == $page) ? 'active' : '';
                     echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
                   }
-                  if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>'; ?>
+                  if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                  ?>
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
                   <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
                 </ul>
@@ -753,18 +755,19 @@ $statusMap = [
                   <h5 class="modal-title">Mudar status da solicitação <span id="ms-title-id" class="text-muted"></span></h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <form method="
-                " id="formStatus" class="m-0">
+                <!-- IMPORTANTE: action aponta para esta mesma página e envia também o id selecionado -->
+                <form method="post"
+                  id="formStatus"
+                  class="m-0"
+                  action="../../assets/php/financas/produtosSolicitadosSubmit.php?id=<?= urlencode($idSelecionado) ?>">
                   <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
-                  <input type="hidden">
+                  <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
                   <input type="hidden" name="sid" id="ms-sid" value="">
                   <input type="hidden" name="acao" id="ms-acao" value="">
                   <div class="modal-body">
                     <div class="mb-3">
                       <label class="form-label">Ação</label>
-                      <select class="form-select" id="ms-select">
-                        <!-- opções inseridas via JS -->
-                      </select>
+                      <select class="form-select" id="ms-select"></select>
                     </div>
                     <div class="mb-3 d-none" id="ms-motivo-wrap">
                       <label class="form-label">Motivo (opcional)</label>
@@ -774,6 +777,8 @@ $statusMap = [
                   </div>
                   <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <!-- botão que envia para processar itens/estoque -->
+                    <button type="button" id="btnProcessarEstoque" class="btn btn-outline-primary">Processar no Estoque</button>
                     <button type="submit" class="btn btn-primary">Confirmar</button>
                   </div>
                 </form>
@@ -830,7 +835,6 @@ $statusMap = [
     const msMotivoWrap = document.getElementById('ms-motivo-wrap');
 
     function optionsForStatus(st) {
-      // mapeia as transições válidas
       if (st === 'pendente') return [{
         v: 'aprovar',
         t: 'Aprovar'
@@ -852,7 +856,7 @@ $statusMap = [
         v: 'entregar',
         t: 'Marcar Entregue'
       }];
-      return []; // reprovada/cancelada/entregue -> sem ação
+      return [];
     }
 
     modalStatus.addEventListener('show.bs.modal', function(event) {
@@ -871,7 +875,6 @@ $statusMap = [
         msSelect.innerHTML = ops.map(o => `<option value="${o.v}">${o.t}</option>`).join('');
       }
 
-      // mostrar textarea motivo para reprovar/cancelar
       const toggleMotivo = () => {
         const v = msSelect.value;
         if (v === 'reprovar' || v === 'cancelar') msMotivoWrap.classList.remove('d-none');
@@ -887,6 +890,16 @@ $statusMap = [
         return;
       }
       msAcao.value = msSelect.value;
+    });
+
+    // Botão para processar no estoque — navega para a página de processamento com id + sid
+    document.getElementById('btnProcessarEstoque').addEventListener('click', function() {
+      const sid = msSid.value || '';
+      if (!sid) return;
+      const url = new URL('processarSolicitacao.php', window.location.href);
+      url.searchParams.set('id', '<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>');
+      url.searchParams.set('sid', sid);
+      window.location.href = url.toString();
     });
 
     /* ===== Autocomplete ===== */
