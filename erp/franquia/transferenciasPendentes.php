@@ -1,12 +1,12 @@
 <?php
-// transferenciasPendentes.php — SOMENTE PENDENTES (pendente|aprovada|em_transito)
+// transferenciasPendentes.php — SOMENTE status = 'pendente'
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 session_start();
 date_default_timezone_set('America/Sao_Paulo');
 
-// ==== Polyfills (PHP 7.4 compat) ====
+// ==== Polyfill p/ PHP < 8 (str_starts_with) ====
 if (!function_exists('str_starts_with')) {
     function str_starts_with($haystack, $needle)
     {
@@ -104,14 +104,14 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $CSRF = $_SESSION['csrf_token'];
 
-// ================== MAPA STATUS ==================
+// ================== MAPA STATUS (só exibimos pendente aqui) ==================
 $statusMap = [
-    'pendente'     => ['cls' => 'bg-label-warning',  'txt' => 'Pendente'],
-    'aprovada'     => ['cls' => 'bg-label-info',     'txt' => 'Aprovada'],
-    'reprovada'    => ['cls' => 'bg-label-dark',     'txt' => 'Reprovada'],
-    'em_transito'  => ['cls' => 'bg-label-primary',  'txt' => 'Em trânsito'],
-    'entregue'     => ['cls' => 'bg-label-success',  'txt' => 'Entregue'],
-    'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'Cancelada'],
+    'pendente'     => ['cls' => 'bg-label-warning',  'txt' => 'PENDENTE'],
+    'aprovada'     => ['cls' => 'bg-label-info',     'txt' => 'APROVADA'],
+    'reprovada'    => ['cls' => 'bg-label-dark',     'txt' => 'REPROVADA'],
+    'em_transito'  => ['cls' => 'bg-label-primary',  'txt' => 'EM TRÂNSITO'],
+    'entregue'     => ['cls' => 'bg-label-success',  'txt' => 'ENTREGUE'],
+    'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'CANCELADA'],
 ];
 
 // ================== MINI ENDPOINT AJAX (ANTES DO HTML!) ==================
@@ -276,7 +276,6 @@ $perPage = 20;
 $page    = max(1, (int)($_GET['p'] ?? 1));
 $offset  = ($page - 1) * $perPage;
 
-$status = $_GET['status'] ?? ''; // '', 'pendente', 'aprovada', 'em_transito'
 $q      = trim($_GET['q'] ?? '');
 $de     = trim($_GET['de'] ?? '');
 $ate    = trim($_GET['ate'] ?? '');
@@ -293,14 +292,8 @@ if ($tipoSession === 'franquia') {
     $params[':matriz'] = $idSelecionado;
 }
 
-// PENDENTES por padrão
-$pendentes = ['pendente', 'aprovada', 'em_transito'];
-if ($status !== '' && in_array($status, $pendentes, true)) {
-    $where[] = "s.status = :status";
-    $params[':status'] = $status;
-} else {
-    $where[] = "s.status IN ('pendente','aprovada','em_transito')";
-}
+// **TRAVADO EM PENDENTE**
+$where[] = "s.status = 'pendente'";
 
 if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
     $where[] = "DATE(s.created_at) >= :de";
@@ -338,7 +331,7 @@ $totalPages = max(1, (int)ceil($totalRows / $perPage));
 $sql = "
 SELECT
   s.id, s.id_solicitante, s.status, s.total_estimado,
-  s.created_at, s.aprovada_em, s.enviada_em, s.entregue_em,
+  s.created_at, s.aprovada_em, s.enviada_em,
   COALESCE(COUNT(it.id),0) AS itens_count,
   COALESCE(SUM(it.quantidade),0) AS qtd_total,
   COALESCE(SUM(it.subtotal),0.00) AS subtotal_calc,
@@ -349,7 +342,7 @@ JOIN unidades u
 LEFT JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
 WHERE $whereSql
 GROUP BY s.id
-ORDER BY FIELD(s.status,'pendente','aprovada','em_transito') ASC, s.created_at DESC
+ORDER BY s.created_at DESC
 LIMIT :lim OFFSET :off
 ";
 $st = $pdo->prepare($sql);
@@ -362,6 +355,7 @@ $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 // ===== view helpers =====
 function actionsFor(string $status): array
 {
+    // aqui só vai cair 'pendente', mas deixo por segurança
     if ($status === 'pendente')   return [['v' => 'aprovar', 't' => 'Aprovar'], ['v' => 'reprovar', 't' => 'Reprovar'], ['v' => 'cancelar', 't' => 'Cancelar']];
     if ($status === 'aprovada')   return [['v' => 'enviar', 't' => 'Marcar Em Trânsito'], ['v' => 'cancelar', 't' => 'Cancelar']];
     if ($status === 'em_transito') return [['v' => 'entregar', 't' => 'Marcar Entregue']];
@@ -410,7 +404,7 @@ function actionsFor(string $status): array
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
-            <!-- ===== ASIDE ===== -->
+            <!-- ===== ASIDE (mantém seu layout) ===== -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -541,7 +535,7 @@ function actionsFor(string $status): array
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Franquias</a>/</span> Transferências Pendentes</h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Somente <strong>pendentes</strong>: Pendente, Aprovada e Em trânsito.</span></h5>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Listando somente solicitações com status <strong>PENDENTE</strong>.</span></h5>
 
                     <?php if ($flashMsg): ?>
                         <div class="alert alert-<?= e($flashMsg['type']) ?> alert-dismissible" role="alert">
@@ -550,20 +544,11 @@ function actionsFor(string $status): array
                         </div>
                     <?php endif; ?>
 
-                    <!-- Filtros -->
+                    <!-- Filtros (sem select de status) -->
                     <form class="card mb-3" method="get" id="filtroForm">
                         <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
                         <div class="card-body">
                             <div class="row g-3 align-items-end">
-                                <div class="col-12 col-md-auto">
-                                    <label class="form-label mb-1">Status</label>
-                                    <select class="form-select form-select-sm" name="status">
-                                        <option value="">Todos pendentes (padrão)</option>
-                                        <option value="pendente" <?= $status === 'pendente' ? 'selected' : '' ?>>Pendente</option>
-                                        <option value="aprovada" <?= $status === 'aprovada' ? 'selected' : '' ?>>Aprovada (aguarda envio)</option>
-                                        <option value="em_transito" <?= $status === 'em_transito' ? 'selected' : '' ?>>Em trânsito</option>
-                                    </select>
-                                </div>
                                 <div class="col-12 col-md-auto">
                                     <label class="form-label mb-1">De</label>
                                     <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
@@ -608,7 +593,7 @@ function actionsFor(string $status): array
                                 <tbody class="table-border-bottom-0">
                                     <?php if (!$rows): ?>
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">Nada pendente no critério informado.</td>
+                                            <td colspan="9" class="text-center text-muted py-4">Nenhuma solicitação pendente no critério informado.</td>
                                         </tr>
                                         <?php else: foreach ($rows as $r):
                                             $sm = $statusMap[$r['status']] ?? ['cls' => 'bg-label-secondary', 'txt' => strtoupper($r['status'])];
@@ -641,8 +626,8 @@ function actionsFor(string $status): array
                                                     </div>
                                                     <?php if (!empty($r['aprovada_em']) || !empty($r['enviada_em'])): ?>
                                                         <div class="small-muted mt-1">
-                                                            <?php if (!empty($r['aprovada_em'])): ?>Aprov.: <?= e(date('d/m H:i', strtotime($r['aprovada_em']))) ?> · <?php endif; ?>
-                                                        <?php if (!empty($r['enviada_em'])): ?>Env.: <?= e(date('d/m H:i', strtotime($r['enviada_em']))) ?><?php endif; ?>
+                                                            <?php if (!empty($r['aprovada_em'])): ?>Aprov.: <?= e(date('d/m H:i', strtotime($r['aprovada_em']))) ?><?php endif; ?>
+                                                            <?php if (!empty($r['enviada_em'])): ?><?= !empty($r['aprovada_em']) ? ' · ' : '' ?>Env.: <?= e(date('d/m H:i', strtotime($r['enviada_em']))) ?><?php endif; ?>
                                                         </div>
                                                     <?php endif; ?>
                                                 </td>
@@ -723,7 +708,7 @@ function actionsFor(string $status): array
                                             <label class="form-label">Ação</label>
                                             <select class="form-select" id="ms-select"></select>
                                         </div>
-                                        <div class="small text-muted">As opções dependem do status atual.</div>
+                                        <div class="small text-muted">As opções dependem do status atual (aqui: PENDENTE).</div>
                                     </div>
                                     <div class="modal-footer">
                                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -774,7 +759,7 @@ function actionsFor(string $status): array
                 .catch(() => body.innerHTML = '<div class="text-danger">Falha ao carregar itens.</div>');
         });
 
-        // Modal Status
+        // Modal Status (somente pendente terá ações aqui)
         const modalStatus = document.getElementById('modalStatus');
         const msSid = document.getElementById('ms-sid');
         const msAcao = document.getElementById('ms-acao');
