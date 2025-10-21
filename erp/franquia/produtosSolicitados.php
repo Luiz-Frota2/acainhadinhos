@@ -87,22 +87,24 @@ $CSRF = $_SESSION['csrf_token'];
 
 /* ============================================================
    ESCOPOS + SOMENTE FRANQUIAS
-   - Sempre filtrar s.id_solicitante via JOIN unidades u (u.tipo='Franquia')
-   - Escopo de dados depende do tipo da sessão
+   - JOIN com 'unidades u' pelo ID numérico no final de s.id_solicitante
+     u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+   - Filtrar u.tipo = 'Franquia'
+   - franquia logada vê só suas solicitações (comparando também o número)
    ============================================================ */
 $scopeWhere  = [];
 $scopeParams = [];
 
-// Sempre exigimos que o solicitante exista em "unidades" e seja do tipo Franquia
+// Sempre exigimos que seja FRANQUIA
 $scopeWhere[] = "u.tipo = 'Franquia'";
 
+// Escopo por tipo de sessão
 if ($tipoSession === 'franquia') {
-  // FRANQUIA → ver SOMENTE o que ela mesma solicitou
-  $scopeWhere[] = "s.id_solicitante = :solicitante";
+  // Enxergar somente as solicitações da própria franquia
+  $scopeWhere[] = "CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED) = CAST(SUBSTRING_INDEX(:solicitante, '_', -1) AS UNSIGNED)";
   $scopeParams[':solicitante'] = $idSelecionado;
 } else {
-  // PRINCIPAL / FILIAL / UNIDADE → escopo por id_matriz (como já usava),
-  // mas restrito a solicitantes que sejam Franquia (via JOIN unidades u)
+  // Principal/Filial/Unidade → por matriz
   $scopeWhere[] = "s.id_matriz = :matriz";
   $scopeParams[':matriz'] = $idSelecionado;
 }
@@ -117,22 +119,24 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
     exit;
   }
 
-  // Validação de acesso, garantindo também que é de FRANQUIA
+  // Validação de acesso com a mesma regra e garantindo franquia
   if ($tipoSession === 'franquia') {
     $ok = $pdo->prepare("
       SELECT COUNT(*)
       FROM solicitacoes_b2b s
-      JOIN unidades u ON u.empresa_id = s.id_solicitante
+      JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
       WHERE s.id = :id
-        AND s.id_solicitante = :sol
         AND u.tipo = 'Franquia'
+        AND CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED) = CAST(SUBSTRING_INDEX(:sol, '_', -1) AS UNSIGNED)
     ");
     $ok->execute([':id' => $sid, ':sol' => $idSelecionado]);
   } else {
     $ok = $pdo->prepare("
       SELECT COUNT(*)
       FROM solicitacoes_b2b s
-      JOIN unidades u ON u.empresa_id = s.id_solicitante
+      JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
       WHERE s.id = :id
         AND s.id_matriz = :mat
         AND u.tipo = 'Franquia'
@@ -191,20 +195,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   exit;
 }
 
-/* ================== AJAX: Autocomplete (Somente Franquias) ================== */
+/* ================== AJAX: Autocomplete (somente Franquias) ================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   header('Content-Type: application/json; charset=UTF-8');
   $term = trim($_GET['q'] ?? '');
   $out  = [];
   if ($term !== '' && mb_strlen($term) >= 2) {
     if ($tipoSession === 'franquia') {
-      // Escopo: a própria franquia + somente Franquias (consistência)
       $s1 = $pdo->prepare("
         SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
         FROM solicitacoes_b2b s
-        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE u.tipo = 'Franquia'
-          AND s.id_solicitante = :sol
+          AND CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED) = CAST(SUBSTRING_INDEX(:sol, '_', -1) AS UNSIGNED)
           AND s.id_solicitante LIKE :q
         ORDER BY s.id_solicitante
         LIMIT 10
@@ -216,9 +219,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE u.tipo = 'Franquia'
-          AND s.id_solicitante = :sol
+          AND CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED) = CAST(SUBSTRING_INDEX(:sol, '_', -1) AS UNSIGNED)
           AND it.codigo_produto LIKE :q
         ORDER BY it.codigo_produto
         LIMIT 10
@@ -230,9 +233,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE u.tipo = 'Franquia'
-          AND s.id_solicitante = :sol
+          AND CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED) = CAST(SUBSTRING_INDEX(:sol, '_', -1) AS UNSIGNED)
           AND it.nome_produto LIKE :q
         ORDER BY it.nome_produto
         LIMIT 10
@@ -240,11 +243,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
       $s3->execute([':sol' => $idSelecionado, ':q' => "%$term%"]);
       foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
     } else {
-      // Escopo: por matriz + somente Franquias
       $s1 = $pdo->prepare("
         SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
         FROM solicitacoes_b2b s
-        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE u.tipo = 'Franquia'
           AND s.id_matriz = :matriz
           AND s.id_solicitante LIKE :q
@@ -258,7 +260,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE u.tipo = 'Franquia'
           AND s.id_matriz = :matriz
           AND it.codigo_produto LIKE :q
@@ -272,7 +274,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE u.tipo = 'Franquia'
           AND s.id_matriz = :matriz
           AND it.nome_produto LIKE :q
@@ -290,7 +292,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
 /* ================== POST: mudar status ================== */
 $flashMsg = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid'], $_POST['csrf'])) {
-  // Por segurança, somente 'principal' pode alterar status (ajuste se desejar)
   if ($tipoSession !== 'principal') {
     $flashMsg = ['type' => 'danger', 'text' => 'Ação não permitida para seu perfil.'];
   } elseif (!hash_equals($CSRF, (string)$_POST['csrf'])) {
@@ -302,11 +303,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
     $id_solicitante_post = $_POST['id_solicitante'] ?? '';
 
     try {
-      // Confirma que a solicitação pertence à matriz atual E é de Franquia
+      // Confirma que pertence à matriz atual e é de Franquia
       $st = $pdo->prepare("
         SELECT s.id, s.status, s.id_matriz, s.id_solicitante
         FROM solicitacoes_b2b s
-        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE s.id = :id
           AND s.id_matriz = :matriz
           AND u.tipo = 'Franquia'
@@ -414,7 +415,8 @@ $whereSql = implode(' AND ', $where);
 $stCount = $pdo->prepare("
   SELECT COUNT(*)
   FROM solicitacoes_b2b s
-  JOIN unidades u ON u.empresa_id = s.id_solicitante
+  JOIN unidades u
+    ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
   WHERE $whereSql
 ");
 $stCount->execute($params);
@@ -429,9 +431,11 @@ SELECT
   COALESCE(COUNT(it.id),0) AS itens_count,
   COALESCE(SUM(it.quantidade),0) AS qtd_total,
   COALESCE(SUM(it.subtotal),0.00) AS subtotal_calc,
-  u.nome AS nome_unidade, u.tipo AS tipo_unidade
+  MAX(u.nome) AS nome_unidade,
+  MAX(u.tipo) AS tipo_unidade
 FROM solicitacoes_b2b s
-JOIN unidades u ON u.empresa_id = s.id_solicitante
+JOIN unidades u
+  ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
 LEFT JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
 WHERE $whereSql
 GROUP BY s.id
@@ -466,7 +470,6 @@ function dateBr(?string $dt): string
 }
 
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
 
@@ -701,7 +704,7 @@ function dateBr(?string $dt): string
 
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Franquias</a>/</span> Produtos Solicitados</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Pedidos de produtos enviados pelas <strong>Franquias</strong></span></h5>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Pedidos enviados por <strong>Franquias</strong></span></h5>
 
           <?php if ($flashMsg): ?>
             <div class="alert alert-<?= e($flashMsg['type']) ?> alert-dismissible" role="alert">
@@ -868,7 +871,7 @@ function dateBr(?string $dt): string
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(max(1, $page - 1))) ?>"><i class="bx bx-chevron-left"></i></a></li>
                   <?php
                   $start = max(1, $page - $range);
-                  $end   = min($totalPages, $page + $range);
+                  $end = min($totalPages, $page + $range);
                   if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                   for ($i = $start; $i <= $end; $i++) {
                     $active = ($i == $page) ? 'active' : '';
@@ -908,7 +911,6 @@ function dateBr(?string $dt): string
                   <h5 class="modal-title">Mudar status da solicitação <span id="ms-title-id" class="text-muted"></span></h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <!-- Envia id_matriz e id_solicitante (para validação) -->
                 <form method="post" id="formStatus" class="m-0" action="">
                   <input type="hidden" name="csrf" value="<?= e($CSRF) ?>">
                   <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
@@ -1047,7 +1049,7 @@ function dateBr(?string $dt): string
       msAcao.value = msSelect.value;
     });
 
-    /* ===== Autocomplete (Somente Franquias) ===== */
+    /* ===== Autocomplete ===== */
     (function() {
       const qInput = document.getElementById('qInput');
       const list = document.getElementById('qList');
