@@ -4,14 +4,12 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
+/* ================== ENTRADA / SESSÃO ================== */
 $idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
 }
-
-// ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
@@ -22,35 +20,34 @@ if (
     exit;
 }
 
-// ✅ Conexão com o banco de dados
+/* ================== CONEXÃO ================== */
 require '../../assets/php/conexao.php';
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// ✅ Buscar nome e tipo do usuário logado
+/* ================== USUÁRIO ================== */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id  = $_SESSION['usuario_id'];
+$usuario_id  = (int)$_SESSION['usuario_id'];
 
 try {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $tipoUsuario = ucfirst($usuario['nivel']);
+    $st = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $st->execute([':id' => $usuario_id]);
+    if ($u = $st->fetch(PDO::FETCH_ASSOC)) {
+        $nomeUsuario = $u['usuario'] ?? 'Usuário';
+        $tipoUsuario = ucfirst($u['nivel'] ?? 'Comum');
     } else {
         echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
         exit;
     }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+} catch (Throwable $e) {
+    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage(), ENT_QUOTES) . "'); history.back();</script>";
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
+/* ================== AUTORIZAÇÃO ================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
-$tipoSession       = $_SESSION['tipo_empresa'];
+$tipoSession       = $_SESSION['tipo_empresa']; // principal | filial | unidade | franquia
 
 if (str_starts_with($idSelecionado, 'principal_')) {
     $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
@@ -61,22 +58,187 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
-
 if (!$acessoPermitido) {
     echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
 }
 
-// ✅ Logo da empresa (fallback)
+/* ================== LOGO ================== */
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
-    $stmt->bindParam(':id', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
+    $stmt->execute([':id' => $idSelecionado]);
     $sobre = $stmt->fetch(PDO::FETCH_ASSOC);
     $logoEmpresa = !empty($sobre['imagem']) ? "../../assets/img/empresa/" . $sobre['imagem'] : "../../assets/img/favicon/logo.png";
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
+
+/* ================== TOKENS / HELPERS ================== */
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
+}
+$csrf = $_SESSION['csrf_token'];
+
+function e($v)
+{
+    return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+}
+function dbr(?string $dt)
+{
+    return $dt ? date('d/m/Y H:i', strtotime($dt)) : '—';
+}
+
+$mapStatus = [
+    'aguardando'  => ['label' => 'Aguardando',   'class' => 'bg-label-secondary'],
+    'enviado'     => ['label' => 'Enviado',      'class' => 'bg-label-warning'],
+    'em_transito' => ['label' => 'Em trânsito',  'class' => 'bg-label-info'],
+    'recebido'    => ['label' => 'Recebido',     'class' => 'bg-label-success'],
+    'cancelado'   => ['label' => 'Cancelado',    'class' => 'bg-label-danger'],
+];
+
+/* =======================================================
+   AJAX: Detalhes de itens (?ajax=itens&t=ID)
+   ======================================================= */
+if (($_GET['ajax'] ?? '') === 'itens') {
+    header('Content-Type: application/json; charset=utf-8');
+    $tId = (int)($_GET['t'] ?? 0);
+    $out = ['ok' => false, 'itens' => [], 'obs' => '', 'erro' => null];
+
+    try {
+        if ($tId <= 0) throw new Exception('ID inválido.');
+
+        // Checa se a transferência existe e é de franquia
+        $st = $pdo->prepare("
+      SELECT t.id, t.obs
+        FROM transferencias_b2b t
+        JOIN franquias f ON f.id = t.filial_id
+       WHERE t.id = :id
+       LIMIT 1
+    ");
+        $st->execute([':id' => $tId]);
+        $head = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$head) throw new Exception('Transferência não encontrada (ou não é de franquia).');
+
+        $si = $pdo->prepare("
+      SELECT i.id, i.sku, i.nome, i.qtd
+        FROM transferencias_itens i
+       WHERE i.transferencia_id = :tid
+       ORDER BY i.nome ASC
+    ");
+        $si->execute([':tid' => $tId]);
+        $out['itens'] = $si->fetchAll(PDO::FETCH_ASSOC);
+        $out['obs']   = (string)($head['obs'] ?? '');
+        $out['ok']    = true;
+    } catch (Throwable $e) {
+        $out['erro'] = $e->getMessage();
+    }
+
+    echo json_encode($out, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/* =======================================================
+   CONSULTA: TODAS AS TRANSFERÊNCIAS DE FRANQUIAS
+   =======================================================
+
+   - Se sessão = franquia → filtra por essa franquia
+   - Caso contrário → traz TODAS as transferências de franquias (todas as situações)
+*/
+$params = [];
+$where  = [];
+
+if ($tipoSession === 'franquia') {
+    // precisamos mapear o id interno da franquia para comparar com t.filial_id (inteiro)
+    // assumindo que você guarda o código "franquia_X" no campo 'empresa_id' da tabela franquias
+    $qIdFr = $pdo->prepare("SELECT id FROM franquias WHERE empresa_id = :eid LIMIT 1");
+    $qIdFr->execute([':eid' => $idSelecionado]);
+    $idFranquia = (int)($qIdFr->fetchColumn() ?: 0);
+    // se não achar, ainda assim evita vazar dados:
+    $where[] = "t.filial_id = :fid";
+    $params[':fid'] = $idFranquia ?: -1;
+}
+
+// Filtros opcionais (se quiser usar via GET sem atrapalhar o “todas”)
+$fStatus  = $_GET['status'] ?? '';   // aguardando | enviado | em_transito | recebido | cancelado
+$fBusca   = trim($_GET['q'] ?? '');  // busca por código / franquia / obs
+$fIni     = trim($_GET['de'] ?? '');
+$fFim     = trim($_GET['ate'] ?? '');
+
+if ($fStatus !== '' && in_array($fStatus, ['aguardando', 'enviado', 'em_transito', 'recebido', 'cancelado'], true)) {
+    $where[] = "t.status = :st";
+    $params[':st'] = $fStatus;
+}
+if ($fIni !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fIni)) {
+    $where[] = "DATE(t.criado_em) >= :di";
+    $params[':di'] = $fIni;
+}
+if ($fFim !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fFim)) {
+    $where[] = "DATE(t.criado_em) <= :df";
+    $params[':df'] = $fFim;
+}
+if ($fBusca !== '') {
+    $where[] = "(t.codigo LIKE :q OR t.obs LIKE :q OR f.nome LIKE :q)";
+    $params[':q'] = "%{$fBusca}%";
+}
+
+$whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
+
+// paginação
+$perPage = 20;
+$page    = max(1, (int)($_GET['p'] ?? 1));
+$offset  = ($page - 1) * $perPage;
+
+// count
+$sqlCount = "
+  SELECT COUNT(*)
+    FROM transferencias_b2b t
+    JOIN franquias f ON f.id = t.filial_id
+  $whereSql
+";
+$stCount = $pdo->prepare($sqlCount);
+foreach ($params as $k => $v) $stCount->bindValue($k, $v);
+$stCount->execute();
+$totalRows  = (int)$stCount->fetchColumn();
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+
+// listagem
+$sql = "
+  SELECT
+    t.id,
+    t.codigo,
+    t.filial_id,
+    f.nome AS franquia_nome,
+    t.status,
+    t.criado_em,
+    t.enviado_em,
+    t.recebido_em,   -- se sua tabela usa cancelado_em, inclua abaixo
+    t.cancelado_em,
+    t.obs,
+    COUNT(i.id)              AS itens_total,
+    COALESCE(SUM(i.qtd),0)   AS qtd_total
+  FROM transferencias_b2b t
+  JOIN franquias f ON f.id = t.filial_id
+  LEFT JOIN transferencias_itens i ON i.transferencia_id = t.id
+  $whereSql
+  GROUP BY t.id, t.codigo, t.filial_id, f.nome, t.status, t.criado_em, t.enviado_em, t.recebido_em, t.cancelado_em, t.obs
+  ORDER BY t.criado_em DESC
+  LIMIT :lim OFFSET :off
+";
+$st = $pdo->prepare($sql);
+foreach ($params as $k => $v) $st->bindValue($k, $v);
+$st->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+$st->bindValue(':off', (int)$offset, PDO::PARAM_INT);
+$st->execute();
+$linhas = $st->fetchAll(PDO::FETCH_ASSOC);
+
+/* ================== URL helper paginação ================== */
+$qs = $_GET;
+$qs['id'] = $idSelecionado;
+$makeUrl = function ($p) use ($qs) {
+    $qs['p'] = $p;
+    return '?' . http_build_query($qs);
+};
+$range = 2;
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -84,40 +246,41 @@ try {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>ERP — Produtos Solicitados</title>
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+    <title>ERP — Histórico de Transferências</title>
+    <link rel="icon" type="image/x-icon" href="<?= e($logoEmpresa) ?>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-    <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
-    <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
+    <link rel="stylesheet" href="../../assets/vendor/css/core.css" />
+    <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
     <style>
         .table thead th {
-            white-space: nowrap;
+            white-space: nowrap
         }
 
         .status-badge {
-            font-size: .78rem;
+            font-size: .78rem
         }
 
         .toolbar {
             gap: .5rem;
+            flex-wrap: wrap
         }
 
         .toolbar .form-select,
         .toolbar .form-control {
-            max-width: 220px;
+            max-width: 220px
         }
 
         .badge-dot {
             display: inline-flex;
             align-items: center;
-            gap: .4rem;
+            gap: .4rem
         }
 
         .badge-dot::before {
@@ -126,7 +289,7 @@ try {
             height: 8px;
             border-radius: 50%;
             background: currentColor;
-            display: inline-block;
+            display: inline-block
         }
     </style>
 </head>
@@ -135,203 +298,97 @@ try {
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
-            <!-- ====== ASIDE (EXATAMENTE COMO SOLICITADO) ====== -->
+            <!-- ====== ASIDE (como o seu) ====== -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
-                            style=" text-transform: capitalize;">Açaínhadinhos</span>
-
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform:capitalize;">Açaínhadinhos</span>
                     </a>
-
                     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
-
                 <div class="menu-inner-shadow"></div>
-
                 <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
+                    <li class="menu-item"><a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-home-circle"></i>
+                            <div>Dashboard</div>
+                        </a></li>
+
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Franquias</span></li>
                     <li class="menu-item">
-                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-home-circle"></i>
-                            <div data-i18n="Analytics">Dashboard</div>
-                        </a>
-                    </li>
-
-                    <!-- Administração de Filiais -->
-                    <li class="menu-header small text-uppercase">
-                        <span class="menu-header-text">Administração Franquias</span>
-                    </li>
-
-                    <!-- Adicionar Filial -->
-                    <li class="menu-item ">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-building"></i>
-                            <div data-i18n="Adicionar">Franquias</div>
+                        <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-building"></i>
+                            <div>Franquias</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Filiais">Adicionadas</div>
-                                </a>
-                            </li>
+                            <li class="menu-item"><a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Adicionadas</div>
+                                </a></li>
                         </ul>
                     </li>
 
                     <li class="menu-item active open">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
-                            <div data-i18n="B2B">B2B - Matriz</div>
+                        <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div>B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub">
-                            <!-- Contas das Filiais -->
-                            <li class="menu-item">
-                                <a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                            <li class="menu-item"><a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
-                                </a>
-                            </li>
-
-                            <!-- Produtos solicitados pelas filiais -->
-                            <li class="menu-item">
-                                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                </a></li>
+                            <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
-                                </a>
-                            </li>
-
-                            <!-- Produtos enviados pela matriz -->
-                            <li class="menu-item">
-                                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                </a></li>
+                            <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
-                                </a>
-                            </li>
-
-                            <!-- Transferências em andamento -->
-                            <li class="menu-item">
-                                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                </a></li>
+                            <li class="menu-item"><a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
-                                </a>
-                            </li>
-
-                            <!-- Histórico de transferências -->
-                            <li class="menu-item active">
-                                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                </a></li>
+                            <li class="menu-item active"><a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
-                                </a>
-                            </li>
-
-                            <!-- Gestão de Estoque Central -->
-                            <li class="menu-item">
-                                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                </a></li>
+                            <li class="menu-item"><a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
-                                </a>
-                            </li>
-                            <!-- Relatórios e indicadores B2B -->
-                            <li class="menu-item">
-                                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                </a></li>
+                            <li class="menu-item"><a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
-                                </a>
-                            </li>
+                                </a></li>
                         </ul>
                     </li>
 
-                    <!-- Relatórios -->
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-                            <div data-i18n="Relatorios">Relatórios</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./VendasFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Vendas">Vendas por Franquias</div>
-                                </a>
-                            </li>
-
-                            <li class="menu-item">
-                                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
-                                </a>
-                            </li>
-
-
-                            <li class="menu-item">
-                                <a href="./FinanceiroFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Financeiro">Financeiro</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-
-                    <!--END DELIVERY-->
-
-                    <!-- Misc -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-                    <li class="menu-item">
-                        <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-group"></i>
-                            <div data-i18n="Authentications">RH</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-dollar"></i>
-                            <div data-i18n="Authentications">Finanças</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-desktop"></i>
-                            <div data-i18n="Authentications">PDV</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
-                            <div data-i18n="Authentications">Empresa</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-box"></i>
-                            <div data-i18n="Authentications">Estoque</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../filial/index.php?id=principal_1" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-building"></i>
-                            <div data-i18n="Authentications">Filial</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-group"></i>
-                            <div data-i18n="Authentications">Usuários </div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-support"></i>
-                            <div data-i18n="Basic">Suporte</div>
-                        </a>
-                    </li>
-                    <!--/MISC-->
+                    <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+                            <div>RH</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i>
+                            <div>Finanças</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i>
+                            <div>PDV</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div>Empresa</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i>
+                            <div>Estoque</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../filial/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-building"></i>
+                            <div>Filial</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+                            <div>Usuários</div>
+                        </a></li>
+                    <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
+                            <div>Suporte</div>
+                        </a></li>
                 </ul>
             </aside>
             <!-- ====== /ASIDE ====== -->
 
-            <!-- Layout container -->
             <div class="layout-page">
                 <!-- Navbar -->
                 <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                            <i class="bx bx-menu bx-sm"></i>
-                        </a>
+                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
                     </div>
-
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
@@ -339,30 +396,22 @@ try {
                                 <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search..." />
                             </div>
                         </div>
-
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
-                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
-                                    <li>
-                                        <a class="dropdown-item" href="#">
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="#">
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
-                                                    <div class="avatar avatar-online">
-                                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
-                                                    </div>
+                                                    <div class="avatar avatar-online"><img src="<?= e($logoEmpresa) ?>" class="w-px-40 h-auto rounded-circle" /></div>
                                                 </div>
-                                                <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
-                                                </div>
+                                                <div class="flex-grow-1"><span class="fw-semibold d-block"><?= e($nomeUsuario) ?></span><small class="text-muted"><?= e($tipoUsuario) ?></small></div>
                                             </div>
-                                        </a>
-                                    </li>
+                                        </a></li>
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
@@ -385,18 +434,34 @@ try {
                         Histórico de Transferências
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Produtos Enviado para as Franquias</span>
+                        <span class="text-muted fw-light">Produtos enviados para as Franquias — todas as situações</span>
                     </h5>
 
-                    <!-- Toolbar / Filtros (HTML estático por enquanto) -->
+                    <!-- (Opcional) Barra de filtros simples -->
+                    <form class="card mb-3" method="get" autocomplete="off">
+                        <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
+                        <div class="card-body toolbar d-flex">
+                            <select class="form-select form-select-sm" name="status">
+                                <option value="">Todos os status</option>
+                                <?php foreach (['aguardando', 'enviado', 'em_transito', 'recebido', 'cancelado'] as $opt): ?>
+                                    <option value="<?= $opt ?>" <?= ($opt === ($_GET['status'] ?? '')) ? 'selected' : '' ?>><?= ucfirst(str_replace('_', ' ', $opt)) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <input type="date" name="de" class="form-control form-control-sm" value="<?= e($_GET['de'] ?? '') ?>" placeholder="De">
+                            <input type="date" name="ate" class="form-control form-control-sm" value="<?= e($_GET['ate'] ?? '') ?>" placeholder="Até">
+                            <input type="text" name="q" class="form-control form-control-sm" value="<?= e($_GET['q'] ?? '') ?>" placeholder="Código, franquia ou obs…">
+                            <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+                            <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                            <div class="ms-auto small text-muted">
+                                Registros: <strong><?= (int)$totalRows ?></strong> · Página <strong><?= (int)$page ?></strong> de <strong><?= (int)$totalPages ?></strong>
+                            </div>
+                        </div>
+                    </form>
 
-
-                    <!-- Tabela (HTML mock) -->
-                    <!-- Histórico de Transferências -->
                     <div class="card">
                         <h5 class="card-header">Histórico de Transferências</h5>
                         <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
+                            <table class="table table-hover align-middle">
                                 <thead>
                                     <tr>
                                         <th>#</th>
@@ -411,109 +476,71 @@ try {
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                    <!-- Caso não tenha histórico -->
-                                    <!--
-
-
-                                    <!-- Exemplo: concluída/recebida -->
-                                    <tr>
-                                        <td><strong>TR-0990</strong></td>
-                                        <td>Franquia Centro</td>
-                                        <td>4</td>
-                                        <td>180</td>
-                                        <td>12/09/2025 08:40</td>
-                                        <td>12/09/2025 12:05</td>
-                                        <td>13/09/2025 09:10</td>
-                                        <td><span class="badge bg-label-success status-badge">Recebido</span></td>
-                                        <td class="text-end">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalHistDetalhes"
-                                                data-id="990"
-                                                data-codigo="TR-0990"
-                                                data-filial="Franquia Centro"
-                                                data-status="Recebido">
-                                                Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Exemplo: concluída/recebida -->
-                                    <tr>
-                                        <td><strong>TR-0989</strong></td>
-                                        <td>Franquia Norte</td>
-                                        <td>3</td>
-                                        <td>60</td>
-                                        <td>10/09/2025 15:22</td>
-                                        <td>10/09/2025 18:00</td>
-                                        <td>11/09/2025 10:35</td>
-                                        <td><span class="badge bg-label-success status-badge">Recebido</span></td>
-                                        <td class="text-end">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalHistDetalhes"
-                                                data-id="989"
-                                                data-codigo="TR-0989"
-                                                data-filial="Franquia Norte"
-                                                data-status="Recebido">
-                                                Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Exemplo: cancelada -->
-                                    <tr>
-                                        <td><strong>TR-0988</strong></td>
-                                        <td>Franquia Sul</td>
-                                        <td>2</td>
-                                        <td>24</td>
-                                        <td>09/09/2025 09:05</td>
-                                        <td>—</td>
-                                        <td>09/09/2025 11:20</td>
-                                        <td><span class="badge bg-label-danger status-badge">Cancelado</span></td>
-                                        <td class="text-end">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalHistDetalhes"
-                                                data-id="988"
-                                                data-codigo="TR-0988"
-                                                data-filial="Franquia Sul"
-                                                data-status="Cancelado">
-                                                Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Exemplo: concluída/recebida -->
-                                    <tr>
-                                        <td><strong>TR-0987</strong></td>
-                                        <td>Franquia Leste</td>
-                                        <td>6</td>
-                                        <td>320</td>
-                                        <td>05/09/2025 14:12</td>
-                                        <td>05/09/2025 17:00</td>
-                                        <td>06/09/2025 08:55</td>
-                                        <td><span class="badge bg-label-success status-badge">Recebido</span></td>
-                                        <td class="text-end">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalHistDetalhes"
-                                                data-id="987"
-                                                data-codigo="TR-0987"
-                                                data-filial="Franquia Leste"
-                                                data-status="Recebido">
-                                                Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-
+                                    <?php if (!$linhas): ?>
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">Nenhuma transferência encontrada.</td>
+                                        </tr>
+                                        <?php else:
+                                        foreach ($linhas as $r):
+                                            $badge = $mapStatus[$r['status']] ?? ['label' => $r['status'], 'class' => 'bg-label-secondary'];
+                                            $finalDate = ($r['status'] === 'recebido') ? $r['recebido_em'] : (($r['status'] === 'cancelado') ? ($r['cancelado_em'] ?? null) : null);
+                                        ?>
+                                            <tr>
+                                                <td><strong><?= e($r['codigo']) ?></strong></td>
+                                                <td><?= e($r['franquia_nome']) ?></td>
+                                                <td><?= (int)$r['itens_total'] ?></td>
+                                                <td><?= (int)$r['qtd_total'] ?></td>
+                                                <td><?= dbr($r['criado_em']) ?></td>
+                                                <td><?= dbr($r['enviado_em']) ?></td>
+                                                <td><?= dbr($finalDate) ?></td>
+                                                <td><span class="badge <?= e($badge['class']) ?> status-badge"><?= e($badge['label']) ?></span></td>
+                                                <td class="text-end">
+                                                    <button
+                                                        class="btn btn-sm btn-outline-secondary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#modalHistDetalhes"
+                                                        data-id="<?= (int)$r['id'] ?>"
+                                                        data-codigo="<?= e($r['codigo']) ?>"
+                                                        data-filial="<?= e($r['franquia_nome']) ?>"
+                                                        data-status="<?= e($badge['label']) ?>"
+                                                        data-criado="<?= dbr($r['criado_em']) ?>"
+                                                        data-enviado="<?= dbr($r['enviado_em']) ?>"
+                                                        data-final="<?= dbr($finalDate) ?>"
+                                                        data-itens="<?= (int)$r['itens_total'] ?>">Detalhes</button>
+                                                </td>
+                                            </tr>
+                                    <?php endforeach;
+                                    endif; ?>
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Paginação -->
+                        <?php if ($totalPages > 1): ?>
+                            <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <a class="btn btn-sm btn-outline-primary <?= ($page <= 1 ? 'disabled' : '') ?>" href="<?= $makeUrl(max(1, $page - 1)) ?>">Voltar</a>
+                                    <a class="btn btn-sm btn-outline-primary <?= ($page >= $totalPages ? 'disabled' : '') ?>" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>">Próximo</a>
+                                </div>
+                                <ul class="pagination mb-0">
+                                    <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
+                                    <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
+                                    <?php
+                                    $start = max(1, $page - $range);
+                                    $end   = min($totalPages, $page + $range);
+                                    if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                                    for ($i = $start; $i <= $end; $i++) {
+                                        $active = ($i == $page) ? 'active' : '';
+                                        echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
+                                    }
+                                    if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
+                                    ?>
+                                    <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
+                                    <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
+                                </ul>
+                                <span class="small text-muted">Mostrando <?= (int)min($totalRows, $offset + 1) ?>–<?= (int)min($totalRows, $offset + $perPage) ?> de <?= (int)$totalRows ?></span>
+                            </div>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Modal Detalhes (Histórico) -->
@@ -525,8 +552,6 @@ try {
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                 </div>
                                 <div class="modal-body">
-
-                                    <!-- Cabeçalho -->
                                     <div class="row g-3 mb-2">
                                         <div class="col-md-3">
                                             <p><strong>Código:</strong> <span id="hist-codigo">-</span></p>
@@ -542,7 +567,6 @@ try {
                                         </div>
                                     </div>
 
-                                    <!-- Tabela de Itens -->
                                     <div class="table-responsive">
                                         <table class="table">
                                             <thead>
@@ -553,7 +577,6 @@ try {
                                                 </tr>
                                             </thead>
                                             <tbody id="hist-itens-body">
-                                                <!-- Exemplo vazio/carregando -->
                                                 <tr>
                                                     <td colspan="3" class="text-muted">Carregando...</td>
                                                 </tr>
@@ -561,13 +584,11 @@ try {
                                         </table>
                                     </div>
 
-                                    <!-- Observações -->
                                     <div class="mt-2">
                                         <strong>Observações:</strong>
                                         <div id="hist-obs" class="text-muted">—</div>
                                     </div>
 
-                                    <!-- Linha do tempo simples -->
                                     <div class="mt-3">
                                         <strong>Linha do tempo:</strong>
                                         <ul class="mb-0">
@@ -576,7 +597,6 @@ try {
                                             <li><span class="text-muted">Recebido/Cancelado:</span> <span id="hist-final">—</span></li>
                                         </ul>
                                     </div>
-
                                 </div>
                                 <div class="modal-footer">
                                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -585,12 +605,9 @@ try {
                         </div>
                     </div>
 
-
-
-                </div>
-                <!-- /container -->
-            </div><!-- /Layout page -->
-        </div><!-- /Layout container -->
+                </div><!-- /container -->
+            </div><!-- /layout-page -->
+        </div><!-- /layout-container -->
     </div>
 
     <!-- Core JS -->
@@ -602,6 +619,68 @@ try {
     <script src="../../assets/vendor/js/menu.js"></script>
     <script src="../../assets/js/main.js"></script>
     <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+    <script>
+        // Abre modal e carrega itens
+        const modal = document.getElementById('modalHistDetalhes');
+        modal?.addEventListener('show.bs.modal', function(e) {
+            const btn = e.relatedTarget;
+            if (!btn) return;
+
+            const id = btn.getAttribute('data-id');
+            const codigo = btn.getAttribute('data-codigo');
+            const filial = btn.getAttribute('data-filial');
+            const status = btn.getAttribute('data-status');
+            const criado = btn.getAttribute('data-criado');
+            const enviado = btn.getAttribute('data-enviado');
+            const finalDt = btn.getAttribute('data-final');
+            const itens = btn.getAttribute('data-itens');
+
+            document.getElementById('hist-codigo').textContent = codigo || '-';
+            document.getElementById('hist-filial').textContent = filial || '-';
+            document.getElementById('hist-status').textContent = status || '-';
+            document.getElementById('hist-itens').textContent = itens || '0';
+            document.getElementById('hist-criado').textContent = criado || '—';
+            document.getElementById('hist-enviado').textContent = enviado || '—';
+            document.getElementById('hist-final').textContent = finalDt || '—';
+
+            const tbody = document.getElementById('hist-itens-body');
+            tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
+            document.getElementById('hist-obs').textContent = '—';
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('ajax', 'itens');
+            url.searchParams.set('t', id);
+
+            fetch(url.toString(), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(data => {
+                    if (!data || !Array.isArray(data.itens) || !data.ok) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-danger">Falha ao carregar itens.</td></tr>';
+                        return;
+                    }
+                    if (!data.itens.length) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens.</td></tr>';
+                    } else {
+                        tbody.innerHTML = data.itens.map(i => `
+              <tr>
+                <td>${(i.sku ?? '').toString().replaceAll('<','&lt;')}</td>
+                <td>${(i.nome ?? '').toString().replaceAll('<','&lt;')}</td>
+                <td>${parseInt(i.qtd ?? 0)}</td>
+              </tr>
+            `).join('');
+                    }
+                    document.getElementById('hist-obs').textContent = (data.obs ?? '—') || '—';
+                })
+                .catch(() => {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-danger">Erro ao carregar itens.</td></tr>';
+                });
+        });
+    </script>
 </body>
 
 </html>
