@@ -86,21 +86,23 @@ if (empty($_SESSION['csrf_token'])) {
 $CSRF = $_SESSION['csrf_token'];
 
 /* ============================================================
-   ESCOPOS (IMPORTANTE!)
-   - principal: restringe por id_matriz
-   - filial/unidade: por padrão restringe por id_matriz (ajuste se quiser)
-   - franquia: restringe por id_solicitante (pedido do usuário)
+   ESCOPOS + SOMENTE FRANQUIAS
+   - Sempre filtrar s.id_solicitante via JOIN unidades u (u.tipo='Franquia')
+   - Escopo de dados depende do tipo da sessão
    ============================================================ */
-$scopeWhere = [];
+$scopeWhere  = [];
 $scopeParams = [];
+
+// Sempre exigimos que o solicitante exista em "unidades" e seja do tipo Franquia
+$scopeWhere[] = "u.tipo = 'Franquia'";
 
 if ($tipoSession === 'franquia') {
   // FRANQUIA → ver SOMENTE o que ela mesma solicitou
   $scopeWhere[] = "s.id_solicitante = :solicitante";
   $scopeParams[':solicitante'] = $idSelecionado;
 } else {
-  // PRINCIPAL / FILIAL / UNIDADE → por padrão, escopo por id_matriz
-  // (Se quiser que filial/unidade vejam por solicitante, altere esta lógica.)
+  // PRINCIPAL / FILIAL / UNIDADE → escopo por id_matriz (como já usava),
+  // mas restrito a solicitantes que sejam Franquia (via JOIN unidades u)
   $scopeWhere[] = "s.id_matriz = :matriz";
   $scopeParams[':matriz'] = $idSelecionado;
 }
@@ -115,12 +117,26 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
     exit;
   }
 
-  // Validação de acesso à solicitação, respeitando o escopo por tipo
+  // Validação de acesso, garantindo também que é de FRANQUIA
   if ($tipoSession === 'franquia') {
-    $ok = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b WHERE id = :id AND id_solicitante = :sol");
+    $ok = $pdo->prepare("
+      SELECT COUNT(*)
+      FROM solicitacoes_b2b s
+      JOIN unidades u ON u.empresa_id = s.id_solicitante
+      WHERE s.id = :id
+        AND s.id_solicitante = :sol
+        AND u.tipo = 'Franquia'
+    ");
     $ok->execute([':id' => $sid, ':sol' => $idSelecionado]);
   } else {
-    $ok = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :mat");
+    $ok = $pdo->prepare("
+      SELECT COUNT(*)
+      FROM solicitacoes_b2b s
+      JOIN unidades u ON u.empresa_id = s.id_solicitante
+      WHERE s.id = :id
+        AND s.id_matriz = :mat
+        AND u.tipo = 'Franquia'
+    ");
     $ok->execute([':id' => $sid, ':mat' => $idSelecionado]);
   }
 
@@ -175,19 +191,23 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   exit;
 }
 
-/* ================== AJAX: Autocomplete ================== */
+/* ================== AJAX: Autocomplete (Somente Franquias) ================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   header('Content-Type: application/json; charset=UTF-8');
   $term = trim($_GET['q'] ?? '');
   $out  = [];
   if ($term !== '' && mb_strlen($term) >= 2) {
     if ($tipoSession === 'franquia') {
-      // Escopo por solicitante (a própria franquia)
+      // Escopo: a própria franquia + somente Franquias (consistência)
       $s1 = $pdo->prepare("
         SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
         FROM solicitacoes_b2b s
-        WHERE s.id_solicitante = :sol AND s.id_solicitante LIKE :q
-        ORDER BY s.id_solicitante LIMIT 10
+        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        WHERE u.tipo = 'Franquia'
+          AND s.id_solicitante = :sol
+          AND s.id_solicitante LIKE :q
+        ORDER BY s.id_solicitante
+        LIMIT 10
       ");
       $s1->execute([':sol' => $idSelecionado, ':q' => "%$term%"]);
       foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -196,8 +216,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        WHERE s.id_solicitante = :sol AND it.codigo_produto LIKE :q
-        ORDER BY it.codigo_produto LIMIT 10
+        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        WHERE u.tipo = 'Franquia'
+          AND s.id_solicitante = :sol
+          AND it.codigo_produto LIKE :q
+        ORDER BY it.codigo_produto
+        LIMIT 10
       ");
       $s2->execute([':sol' => $idSelecionado, ':q' => "%$term%"]);
       foreach ($s2 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -206,18 +230,26 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        WHERE s.id_solicitante = :sol AND it.nome_produto LIKE :q
-        ORDER BY it.nome_produto LIMIT 10
+        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        WHERE u.tipo = 'Franquia'
+          AND s.id_solicitante = :sol
+          AND it.nome_produto LIKE :q
+        ORDER BY it.nome_produto
+        LIMIT 10
       ");
       $s3->execute([':sol' => $idSelecionado, ':q' => "%$term%"]);
       foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
     } else {
-      // Escopo por matriz
+      // Escopo: por matriz + somente Franquias
       $s1 = $pdo->prepare("
         SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
         FROM solicitacoes_b2b s
-        WHERE s.id_matriz = :matriz AND s.id_solicitante LIKE :q
-        ORDER BY s.id_solicitante LIMIT 10
+        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        WHERE u.tipo = 'Franquia'
+          AND s.id_matriz = :matriz
+          AND s.id_solicitante LIKE :q
+        ORDER BY s.id_solicitante
+        LIMIT 10
       ");
       $s1->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
       foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -226,8 +258,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        WHERE s.id_matriz = :matriz AND it.codigo_produto LIKE :q
-        ORDER BY it.codigo_produto LIMIT 10
+        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        WHERE u.tipo = 'Franquia'
+          AND s.id_matriz = :matriz
+          AND it.codigo_produto LIKE :q
+        ORDER BY it.codigo_produto
+        LIMIT 10
       ");
       $s2->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
       foreach ($s2 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -236,8 +272,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
         SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
         FROM solicitacoes_b2b s
         JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-        WHERE s.id_matriz = :matriz AND it.nome_produto LIKE :q
-        ORDER BY it.nome_produto LIMIT 10
+        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        WHERE u.tipo = 'Franquia'
+          AND s.id_matriz = :matriz
+          AND it.nome_produto LIKE :q
+        ORDER BY it.nome_produto
+        LIMIT 10
       ");
       $s3->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
       foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -262,11 +302,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
     $id_solicitante_post = $_POST['id_solicitante'] ?? '';
 
     try {
-      $st = $pdo->prepare("SELECT id, status, id_matriz, id_solicitante FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
+      // Confirma que a solicitação pertence à matriz atual E é de Franquia
+      $st = $pdo->prepare("
+        SELECT s.id, s.status, s.id_matriz, s.id_solicitante
+        FROM solicitacoes_b2b s
+        JOIN unidades u ON u.empresa_id = s.id_solicitante
+        WHERE s.id = :id
+          AND s.id_matriz = :matriz
+          AND u.tipo = 'Franquia'
+      ");
       $st->execute([':id' => $sid, ':matriz' => $idSelecionado]);
       $row = $st->fetch(PDO::FETCH_ASSOC);
       if (!$row) {
-        $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada para esta matriz.'];
+        $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada para esta matriz (ou não é de franquia).'];
       } else {
         if ($id_matriz_post !== $row['id_matriz'] || ($id_solicitante_post && $id_solicitante_post !== $row['id_solicitante'])) {
           $flashMsg = ['type' => 'danger', 'text' => 'Dados da empresa divergentes da solicitação.'];
@@ -332,7 +380,7 @@ $q      = trim($_GET['q'] ?? '');
 $de     = trim($_GET['de'] ?? '');
 $ate    = trim($_GET['ate'] ?? '');
 
-/* ===== WHERE base por escopo ===== */
+/* ===== WHERE base por escopo + Franquias ===== */
 $where  = $scopeWhere;
 $params = $scopeParams;
 
@@ -362,21 +410,28 @@ if ($q !== '') {
 }
 $whereSql = implode(' AND ', $where);
 
-/* ===== COUNT ===== */
-$stCount = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b s WHERE $whereSql");
+/* ===== COUNT (apenas franquias) ===== */
+$stCount = $pdo->prepare("
+  SELECT COUNT(*)
+  FROM solicitacoes_b2b s
+  JOIN unidades u ON u.empresa_id = s.id_solicitante
+  WHERE $whereSql
+");
 $stCount->execute($params);
 $totalRows  = (int)$stCount->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 
-/* ===== SELECT PÁGINA ===== */
+/* ===== SELECT PÁGINA (apenas franquias) ===== */
 $sql = "
 SELECT
   s.id, s.id_solicitante, s.status, s.total_estimado,
   s.created_at, s.aprovada_em, s.enviada_em, s.entregue_em,
   COALESCE(COUNT(it.id),0) AS itens_count,
   COALESCE(SUM(it.quantidade),0) AS qtd_total,
-  COALESCE(SUM(it.subtotal),0.00) AS subtotal_calc
+  COALESCE(SUM(it.subtotal),0.00) AS subtotal_calc,
+  u.nome AS nome_unidade, u.tipo AS tipo_unidade
 FROM solicitacoes_b2b s
+JOIN unidades u ON u.empresa_id = s.id_solicitante
 LEFT JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
 WHERE $whereSql
 GROUP BY s.id
@@ -392,17 +447,23 @@ $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
 /* ================== MAPA STATUS ================== */
 $statusMap = [
-  'pendente'     => ['cls' => 'badge soft warn', 'txt' => 'PENDENTE'],
-  'aprovada'     => ['cls' => 'badge soft info', 'txt' => 'APROVADA'],
-  'reprovada'    => ['cls' => 'badge soft dark', 'txt' => 'REPROVADA'],
-  'em_transito'  => ['cls' => 'badge soft primary', 'txt' => 'EM TRÂNSITO'],
-  'entregue'     => ['cls' => 'badge soft success', 'txt' => 'ENTREGUE'],
-  'cancelada'    => ['cls' => 'badge soft secondary', 'txt' => 'CANCELADA'],
+  'pendente'     => ['cls' => 'bg-label-warning',  'txt' => 'PENDENTE'],
+  'aprovada'     => ['cls' => 'bg-label-info',     'txt' => 'APROVADA'],
+  'reprovada'    => ['cls' => 'bg-label-dark',     'txt' => 'REPROVADA'],
+  'em_transito'  => ['cls' => 'bg-label-primary',  'txt' => 'EM TRÂNSITO'],
+  'entregue'     => ['cls' => 'bg-label-success',  'txt' => 'ENTREGUE'],
+  'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'CANCELADA'],
 ];
 
 /* ================== HELPERS ================== */
-function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
-function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime($dt)) : '-'; }
+function e(string $v): string
+{
+  return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+}
+function dateBr(?string $dt): string
+{
+  return $dt ? date('d/m/Y H:i', strtotime($dt)) : '-';
+}
 
 ?>
 
@@ -412,8 +473,8 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>ERP — Produtos Solicitados</title>
-  <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+  <title>ERP — Produtos Solicitados (Franquias)</title>
+  <link rel="icon" type="image/x-icon" href="<?= e($logoEmpresa) ?>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -483,6 +544,10 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
       .filter-col {
         width: 100%
       }
+    }
+
+    .sticky-actions {
+      white-space: nowrap
     }
   </style>
 </head>
@@ -607,15 +672,15 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
             <ul class="navbar-nav flex-row align-items-center ms-auto">
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
-                  <div class="avatar avatar-online"><img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" /></div>
+                  <div class="avatar avatar-online"><img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" /></div>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
                   <li><a class="dropdown-item" href="#">
                       <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
-                          <div class="avatar avatar-online"><img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" class="w-px-40 h-auto rounded-circle" /></div>
+                          <div class="avatar avatar-online"><img src="<?= e($logoEmpresa) ?>" class="w-px-40 h-auto rounded-circle" /></div>
                         </div>
-                        <div class="flex-grow-1"><span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span><small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small></div>
+                        <div class="flex-grow-1"><span class="fw-semibold d-block"><?= e($nomeUsuario); ?></span><small class="text-muted"><?= e($tipoUsuario); ?></small></div>
                       </div>
                     </a></li>
                   <li>
@@ -636,18 +701,18 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
 
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Franquias</a>/</span> Produtos Solicitados</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Pedidos de produtos enviados pelas franquias</span></h5>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Pedidos de produtos enviados pelas <strong>Franquias</strong></span></h5>
 
           <?php if ($flashMsg): ?>
-            <div class="alert alert-<?= htmlspecialchars($flashMsg['type']) ?> alert-dismissible" role="alert">
-              <?= htmlspecialchars($flashMsg['text']) ?>
+            <div class="alert alert-<?= e($flashMsg['type']) ?> alert-dismissible" role="alert">
+              <?= e($flashMsg['text']) ?>
               <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
           <?php endif; ?>
 
           <!-- ===== Filtros ===== -->
           <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
-            <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
+            <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
             <div class="card-body">
               <div class="row g-3 align-items-end">
                 <div class="col-12 col-md-auto filter-col">
@@ -655,22 +720,22 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
                   <select class="form-select form-select-sm" name="status">
                     <option value="">Todos</option>
                     <?php foreach (['pendente', 'aprovada', 'reprovada', 'em_transito', 'entregue', 'cancelada'] as $stt): ?>
-                      <option value="<?= $stt ?>" <?= $status === $stt ? 'selected' : '' ?>><?= ucfirst(str_replace('_', ' ', $stt)) ?></option>
+                      <option value="<?= e($stt) ?>" <?= $status === $stt ? 'selected' : '' ?>><?= ucfirst(str_replace('_', ' ', $stt)) ?></option>
                     <?php endforeach; ?>
                   </select>
                 </div>
                 <div class="col-12 col-md-auto filter-col">
                   <label class="form-label mb-1">De</label>
-                  <input type="date" class="form-control form-control-sm" name="de" value="<?= htmlspecialchars($de, ENT_QUOTES) ?>">
+                  <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
                 </div>
                 <div class="col-12 col-md-auto filter-col">
                   <label class="form-label mb-1">Até</label>
-                  <input type="date" class="form-control form-control-sm" name="ate" value="<?= htmlspecialchars($ate, ENT_QUOTES) ?>">
+                  <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
                 </div>
                 <div class="col-12 col-md flex-grow-1 filter-col">
                   <label class="form-label mb-1">Buscar</label>
                   <div class="autocomplete">
-                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante, SKU ou Produto…" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" autocomplete="off">
+                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante (ex.: franquia_1), SKU ou Produto…" value="<?= e($q) ?>" autocomplete="off">
                     <div class="autocomplete-list d-none" id="qList"></div>
                   </div>
                 </div>
@@ -680,7 +745,7 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
                 </div>
               </div>
               <div class="small-muted mt-2">
-                Encontradas <strong><?= (int)$totalRows ?></strong> solicitações · Página <strong><?= (int)$page ?></strong> de <strong><?= (int)$totalPages ?></strong>
+                Encontradas <strong><?= (int)$totalRows ?></strong> solicitações (somente <strong>Franquias</strong>) · Página <strong><?= (int)$page ?></strong> de <strong><?= (int)$totalPages ?></strong>
               </div>
             </div>
           </form>
@@ -697,31 +762,31 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
           <?php if ($totalPages > 1): ?>
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
               <div>
-                <a class="btn btn-sm btn-outline-primary <?= ($page <= 1 ? 'disabled' : '') ?>" href="<?= $makeUrl(max(1, $page - 1)) ?>">Voltar</a>
-                <a class="btn btn-sm btn-outline-primary <?= ($page >= $totalPages ? 'disabled' : '') ?>" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>">Próximo</a>
+                <a class="btn btn-sm btn-outline-primary <?= ($page <= 1 ? 'disabled' : '') ?>" href="<?= e($makeUrl(max(1, $page - 1))) ?>">Voltar</a>
+                <a class="btn btn-sm btn-outline-primary <?= ($page >= $totalPages ? 'disabled' : '') ?>" href="<?= e($makeUrl(min($totalPages, $page + 1))) ?>">Próximo</a>
               </div>
               <ul class="pagination mb-0">
-                <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
-                <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
+                <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(1)) ?>"><i class="bx bx-chevrons-left"></i></a></li>
+                <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(max(1, $page - 1))) ?>"><i class="bx bx-chevron-left"></i></a></li>
                 <?php
                 $start = max(1, $page - $range);
                 $end   = min($totalPages, $page + $range);
                 if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                 for ($i = $start; $i <= $end; $i++) {
                   $active = ($i == $page) ? 'active' : '';
-                  echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
+                  echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . e($makeUrl($i)) . '">' . $i . '</a></li>';
                 }
                 if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                 ?>
-                <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
-                <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
+                <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(min($totalPages, $page + 1))) ?>"><i class="bx bx-chevron-right"></i></a></li>
+                <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl($totalPages)) ?>"><i class="bx bx-chevrons-right"></i></a></li>
               </ul>
             </div>
           <?php endif; ?>
 
           <!-- ===== Tabela ===== -->
           <div class="card table-zone">
-            <h5 class="card-header">Lista de Produtos Solicitados</h5>
+            <h5 class="card-header">Lista de Produtos Solicitados (Somente Franquias)</h5>
             <div class="overflow-x">
               <div class="table-responsive text-nowrap">
                 <table class="table table-hover align-middle">
@@ -729,6 +794,7 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
                     <tr>
                       <th>#</th>
                       <th>Solicitante</th>
+                      <th>Nome da Unidade</th>
                       <th class="text-end">Itens</th>
                       <th class="text-end">Qtd Total</th>
                       <th class="text-end">Total (Calc.)</th>
@@ -741,20 +807,21 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
                   <tbody class="table-border-bottom-0">
                     <?php if (!$rows): ?>
                       <tr>
-                        <td colspan="9" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                        <td colspan="10" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                       </tr>
                       <?php else: foreach ($rows as $r):
                         $sm = $statusMap[$r['status']] ?? ['cls' => 'bg-label-secondary', 'txt' => $r['status']];
                       ?>
                         <tr>
                           <td><?= (int)$r['id'] ?></td>
-                          <td><strong><?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?></strong></td>
+                          <td><strong><?= e($r['id_solicitante']) ?></strong> <span class="badge bg-label-success ms-1">Franquia</span></td>
+                          <td><?= e($r['nome_unidade'] ?: '-') ?></td>
                           <td class="text-end"><?= (int)$r['itens_count'] ?></td>
                           <td class="text-end"><?= (int)$r['qtd_total'] ?></td>
                           <td class="text-end">R$ <?= number_format((float)$r['subtotal_calc'], 2, ',', '.') ?></td>
                           <td class="text-end">R$ <?= number_format((float)$r['total_estimado'], 2, ',', '.') ?></td>
-                          <td><?= date('d/m/Y H:i', strtotime($r['created_at'])) ?></td>
-                          <td><span class="badge status-badge <?= $sm['cls'] ?>"><?= htmlspecialchars($sm['txt']) ?></span></td>
+                          <td><?= e(dateBr($r['created_at'])) ?></td>
+                          <td><span class="badge status-badge <?= e($sm['cls']) ?>"><?= e($sm['txt']) ?></span></td>
                           <td class="sticky-actions">
                             <div class="btn-group btn-group-sm">
                               <button class="btn btn-outline-secondary"
@@ -762,21 +829,22 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
                                 data-sid="<?= (int)$r['id'] ?>">
                                 <i class="bx bx-detail me-1"></i> Detalhes
                               </button>
-                              <!-- Abre a modal de status -->
-                              <button class="btn btn-outline-primary"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalStatus"
-                                data-sid="<?= (int)$r['id'] ?>"
-                                data-status="<?= htmlspecialchars($r['status'], ENT_QUOTES) ?>"
-                                data-solicitante="<?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?>">
-                                Mudar Status
-                              </button>
+                              <?php if ($tipoSession === 'principal'): ?>
+                                <button class="btn btn-outline-primary"
+                                  data-bs-toggle="modal"
+                                  data-bs-target="#modalStatus"
+                                  data-sid="<?= (int)$r['id'] ?>"
+                                  data-status="<?= e($r['status']) ?>"
+                                  data-solicitante="<?= e($r['id_solicitante']) ?>">
+                                  Mudar Status
+                                </button>
+                              <?php endif; ?>
                             </div>
                             <?php if (!empty($r['aprovada_em']) || !empty($r['enviada_em']) || !empty($r['entregue_em'])): ?>
                               <div class="small-muted mt-1">
-                                <?php if (!empty($r['aprovada_em'])): ?>Aprov.: <?= date('d/m H:i', strtotime($r['aprovada_em'])) ?> · <?php endif; ?>
-                              <?php if (!empty($r['enviada_em'])): ?>Env.: <?= date('d/m H:i', strtotime($r['enviada_em'])) ?> · <?php endif; ?>
-                            <?php if (!empty($r['entregue_em'])): ?>Entreg.: <?= date('d/m H:i', strtotime($r['entregue_em'])) ?><?php endif; ?>
+                                <?php if (!empty($r['aprovada_em'])): ?>Aprov.: <?= e(date('d/m H:i', strtotime($r['aprovada_em']))) ?> · <?php endif; ?>
+                              <?php if (!empty($r['enviada_em'])): ?>Env.: <?= e(date('d/m H:i', strtotime($r['enviada_em']))) ?> · <?php endif; ?>
+                            <?php if (!empty($r['entregue_em'])): ?>Entreg.: <?= e(date('d/m H:i', strtotime($r['entregue_em']))) ?><?php endif; ?>
                               </div>
                             <?php endif; ?>
                           </td>
@@ -792,24 +860,24 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
             <?php if ($totalPages > 1): ?>
               <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
-                  <a class="btn btn-sm btn-outline-primary <?= ($page <= 1 ? 'disabled' : '') ?>" href="<?= $makeUrl(max(1, $page - 1)) ?>">Voltar</a>
-                  <a class="btn btn-sm btn-outline-primary <?= ($page >= $totalPages ? 'disabled' : '') ?>" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>">Próximo</a>
+                  <a class="btn btn-sm btn-outline-primary <?= ($page <= 1 ? 'disabled' : '') ?>" href="<?= e($makeUrl(max(1, $page - 1))) ?>">Voltar</a>
+                  <a class="btn btn-sm btn-outline-primary <?= ($page >= $totalPages ? 'disabled' : '') ?>" href="<?= e($makeUrl(min($totalPages, $page + 1))) ?>">Próximo</a>
                 </div>
                 <ul class="pagination mb-0">
-                  <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
-                  <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
+                  <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(1)) ?>"><i class="bx bx-chevrons-left"></i></a></li>
+                  <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(max(1, $page - 1))) ?>"><i class="bx bx-chevron-left"></i></a></li>
                   <?php
                   $start = max(1, $page - $range);
-                  $end = min($totalPages, $page + $range);
+                  $end   = min($totalPages, $page + $range);
                   if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                   for ($i = $start; $i <= $end; $i++) {
                     $active = ($i == $page) ? 'active' : '';
-                    echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . $makeUrl($i) . '">' . $i . '</a></li>';
+                    echo '<li class="page-item ' . $active . '"><a class="page-link" href="' . e($makeUrl($i)) . '">' . $i . '</a></li>';
                   }
                   if ($end < $totalPages) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                   ?>
-                  <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
-                  <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
+                  <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(min($totalPages, $page + 1))) ?>"><i class="bx bx-chevron-right"></i></a></li>
+                  <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl($totalPages)) ?>"><i class="bx bx-chevrons-right"></i></a></li>
                 </ul>
                 <span class="small text-muted">Mostrando <?= (int)min($totalRows, $offset + 1) ?>–<?= (int)min($totalRows, $offset + $perPage) ?> de <?= (int)$totalRows ?></span>
               </div>
@@ -840,13 +908,13 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
                   <h5 class="modal-title">Mudar status da solicitação <span id="ms-title-id" class="text-muted"></span></h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <!-- Agora o form também envia id_matriz e id_solicitante -->
-                <form method="post" id="formStatus" class="m-0" action="../../assets/php/franquia/produtosSolicitadosSubmit.php">
-                  <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
-                  <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
+                <!-- Envia id_matriz e id_solicitante (para validação) -->
+                <form method="post" id="formStatus" class="m-0" action="">
+                  <input type="hidden" name="csrf" value="<?= e($CSRF) ?>">
+                  <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
                   <input type="hidden" name="sid" id="ms-sid" value="">
                   <input type="hidden" name="acao" id="ms-acao" value="">
-                  <input type="hidden" name="id_matriz" id="ms-id-matriz" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
+                  <input type="hidden" name="id_matriz" id="ms-id-matriz" value="<?= e($idSelecionado) ?>">
                   <input type="hidden" name="id_solicitante" id="ms-id-solicitante" value="">
                   <div class="modal-body">
                     <div class="mb-3">
@@ -950,8 +1018,8 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
 
       msSid.value = sid || '';
       msTitulo.textContent = sid ? ('#' + sid) : '';
-      msIdMatriz.value = '<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>'; // matriz atual (ex.: principal_1)
-      msIdSolicitante.value = solicitante; // quem solicitou (franquia_X / filial_Y / unidade_Z)
+      msIdMatriz.value = '<?= e($idSelecionado) ?>';
+      msIdSolicitante.value = solicitante;
 
       const ops = optionsForStatus(statusAtual);
       if (!ops.length) {
@@ -979,7 +1047,7 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
       msAcao.value = msSelect.value;
     });
 
-    /* ===== Autocomplete ===== */
+    /* ===== Autocomplete (Somente Franquias) ===== */
     (function() {
       const qInput = document.getElementById('qInput');
       const list = document.getElementById('qList');
@@ -1007,7 +1075,7 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
         items = data.slice(0, 15);
         list.innerHTML = items.map((it, i) => `
           <div class="autocomplete-item" data-i="${i}">
-            <span>${it.label}</span><span class="autocomplete-tag">${it.tipo}</span>
+            <span>${escapeHtml(it.label)}</span><span class="autocomplete-tag">${escapeHtml(it.tipo)}</span>
           </div>`).join('');
         openList();
       }
@@ -1018,7 +1086,6 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
         closeList();
         form.submit();
       }
-
       qInput.addEventListener('input', function() {
         const v = qInput.value.trim();
         if (v.length < 2) {
@@ -1065,6 +1132,16 @@ function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime(
 
       function highlight() {
         [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx) => el.classList.toggle('active', idx === activeIndex));
+      }
+
+      function escapeHtml(s) {
+        return (s || '').toString().replace(/[&<>"']/g, m => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        } [m]));
       }
     })();
   </script>
