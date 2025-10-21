@@ -21,7 +21,14 @@ if (
   exit;
 }
 
+/* ================== CONEXÃO ================== */
 require '../../assets/php/conexao.php';
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  http_response_code(500);
+  echo "Erro: conexão indisponível.";
+  exit;
+}
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 /* ================== USUÁRIO ================== */
 $nomeUsuario = 'Usuário';
@@ -39,14 +46,14 @@ try {
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "'); history.back();</script>";
   exit;
 }
 
 /* ================== AUTORIZAÇÃO ================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
-$tipoSession       = $_SESSION['tipo_empresa'];
+$tipoSession       = $_SESSION['tipo_empresa']; // 'principal' | 'filial' | 'unidade' | 'franquia'
 
 if (str_starts_with($idSelecionado, 'principal_')) {
   $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
@@ -78,6 +85,26 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $CSRF = $_SESSION['csrf_token'];
 
+/* ============================================================
+   ESCOPOS (IMPORTANTE!)
+   - principal: restringe por id_matriz
+   - filial/unidade: por padrão restringe por id_matriz (ajuste se quiser)
+   - franquia: restringe por id_solicitante (pedido do usuário)
+   ============================================================ */
+$scopeWhere = [];
+$scopeParams = [];
+
+if ($tipoSession === 'franquia') {
+  // FRANQUIA → ver SOMENTE o que ela mesma solicitou
+  $scopeWhere[] = "s.id_solicitante = :solicitante";
+  $scopeParams[':solicitante'] = $idSelecionado;
+} else {
+  // PRINCIPAL / FILIAL / UNIDADE → por padrão, escopo por id_matriz
+  // (Se quiser que filial/unidade vejam por solicitante, altere esta lógica.)
+  $scopeWhere[] = "s.id_matriz = :matriz";
+  $scopeParams[':matriz'] = $idSelecionado;
+}
+
 /* ================== AJAX: Itens ================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   header('Content-Type: text/html; charset=UTF-8');
@@ -88,8 +115,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
     exit;
   }
 
-  $ok = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
-  $ok->execute([':id' => $sid, ':matriz' => $idSelecionado]);
+  // Validação de acesso à solicitação, respeitando o escopo por tipo
+  if ($tipoSession === 'franquia') {
+    $ok = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b WHERE id = :id AND id_solicitante = :sol");
+    $ok->execute([':id' => $sid, ':sol' => $idSelecionado]);
+  } else {
+    $ok = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :mat");
+    $ok->execute([':id' => $sid, ':mat' => $idSelecionado]);
+  }
+
   if (!$ok->fetchColumn()) {
     http_response_code(403);
     echo '<div class="text-danger p-2">Acesso negado.</div>';
@@ -126,10 +160,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
         <?php foreach ($itens as $it): ?>
           <tr>
             <td><?= (int)$it['id'] ?></td>
-            <td><?= htmlspecialchars($it['codigo_produto'], ENT_QUOTES) ?></td>
-            <td><?= htmlspecialchars($it['nome_produto'], ENT_QUOTES) ?></td>
+            <td><?= htmlspecialchars((string)$it['codigo_produto'], ENT_QUOTES, 'UTF-8') ?></td>
+            <td><?= htmlspecialchars((string)$it['nome_produto'], ENT_QUOTES, 'UTF-8') ?></td>
             <td class="text-end"><?= (int)$it['quantidade'] ?></td>
-            <td><?= htmlspecialchars($it['unidade'], ENT_QUOTES) ?></td>
+            <td><?= htmlspecialchars((string)$it['unidade'], ENT_QUOTES, 'UTF-8') ?></td>
             <td class="text-end">R$ <?= number_format((float)$it['preco_unitario'], 2, ',', '.') ?></td>
             <td class="text-end">R$ <?= number_format((float)$it['subtotal'], 2, ',', '.') ?></td>
           </tr>
@@ -147,49 +181,85 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   $term = trim($_GET['q'] ?? '');
   $out  = [];
   if ($term !== '' && mb_strlen($term) >= 2) {
-    $s1 = $pdo->prepare("
-      SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
-      FROM solicitacoes_b2b s
-      WHERE s.id_matriz = :matriz AND s.id_solicitante LIKE :q
-      ORDER BY s.id_solicitante LIMIT 10
-    ");
-    $s1->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
-    foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
+    if ($tipoSession === 'franquia') {
+      // Escopo por solicitante (a própria franquia)
+      $s1 = $pdo->prepare("
+        SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
+        FROM solicitacoes_b2b s
+        WHERE s.id_solicitante = :sol AND s.id_solicitante LIKE :q
+        ORDER BY s.id_solicitante LIMIT 10
+      ");
+      $s1->execute([':sol' => $idSelecionado, ':q' => "%$term%"]);
+      foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
 
-    $s2 = $pdo->prepare("
-      SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
-      FROM solicitacoes_b2b s
-      JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-      WHERE s.id_matriz = :matriz AND it.codigo_produto LIKE :q
-      ORDER BY it.codigo_produto LIMIT 10
-    ");
-    $s2->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
-    foreach ($s2 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
+      $s2 = $pdo->prepare("
+        SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
+        FROM solicitacoes_b2b s
+        JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
+        WHERE s.id_solicitante = :sol AND it.codigo_produto LIKE :q
+        ORDER BY it.codigo_produto LIMIT 10
+      ");
+      $s2->execute([':sol' => $idSelecionado, ':q' => "%$term%"]);
+      foreach ($s2 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
 
-    $s3 = $pdo->prepare("
-      SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
-      FROM solicitacoes_b2b s
-      JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-      WHERE s.id_matriz = :matriz AND it.nome_produto LIKE :q
-      ORDER BY it.nome_produto LIMIT 10
-    ");
-    $s3->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
-    foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
+      $s3 = $pdo->prepare("
+        SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
+        FROM solicitacoes_b2b s
+        JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
+        WHERE s.id_solicitante = :sol AND it.nome_produto LIKE :q
+        ORDER BY it.nome_produto LIMIT 10
+      ");
+      $s3->execute([':sol' => $idSelecionado, ':q' => "%$term%"]);
+      foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
+    } else {
+      // Escopo por matriz
+      $s1 = $pdo->prepare("
+        SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
+        FROM solicitacoes_b2b s
+        WHERE s.id_matriz = :matriz AND s.id_solicitante LIKE :q
+        ORDER BY s.id_solicitante LIMIT 10
+      ");
+      $s1->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
+      foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
+
+      $s2 = $pdo->prepare("
+        SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
+        FROM solicitacoes_b2b s
+        JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
+        WHERE s.id_matriz = :matriz AND it.codigo_produto LIKE :q
+        ORDER BY it.codigo_produto LIMIT 10
+      ");
+      $s2->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
+      foreach ($s2 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
+
+      $s3 = $pdo->prepare("
+        SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
+        FROM solicitacoes_b2b s
+        JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
+        WHERE s.id_matriz = :matriz AND it.nome_produto LIKE :q
+        ORDER BY it.nome_produto LIMIT 10
+      ");
+      $s3->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
+      foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
+    }
   }
   echo json_encode($out, JSON_UNESCAPED_UNICODE);
   exit;
 }
 
-/* ================== POST: mudar status (aqui você pode processar itens também, se quiser) ================== */
+/* ================== POST: mudar status ================== */
 $flashMsg = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid'], $_POST['csrf'])) {
-  if (!hash_equals($CSRF, $_POST['csrf'])) {
+  // Por segurança, somente 'principal' pode alterar status (ajuste se desejar)
+  if ($tipoSession !== 'principal') {
+    $flashMsg = ['type' => 'danger', 'text' => 'Ação não permitida para seu perfil.'];
+  } elseif (!hash_equals($CSRF, (string)$_POST['csrf'])) {
     $flashMsg = ['type' => 'danger', 'text' => 'Falha de segurança (CSRF). Recarregue a página.'];
   } else {
     $sid  = (int)$_POST['sid'];
-    $acao = $_POST['acao'];
-    $id_matriz_post      = $_POST['id_matriz']      ?? $idSelecionado;         // vem do hidden
-    $id_solicitante_post = $_POST['id_solicitante'] ?? '';                     // vem do hidden
+    $acao = (string)$_POST['acao'];
+    $id_matriz_post      = $_POST['id_matriz']      ?? $idSelecionado;
+    $id_solicitante_post = $_POST['id_solicitante'] ?? '';
 
     try {
       $st = $pdo->prepare("SELECT id, status, id_matriz, id_solicitante FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
@@ -198,7 +268,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
       if (!$row) {
         $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada para esta matriz.'];
       } else {
-        // valida se o hidden bate com o registro
         if ($id_matriz_post !== $row['id_matriz'] || ($id_solicitante_post && $id_solicitante_post !== $row['id_solicitante'])) {
           $flashMsg = ['type' => 'danger', 'text' => 'Dados da empresa divergentes da solicitação.'];
         } else {
@@ -216,7 +285,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
               if ($statusAtual === 'pendente') $novoStatus = 'reprovada';
               break;
             case 'cancelar':
-              if (in_array($statusAtual, ['pendente', 'aprovada'])) $novoStatus = 'cancelada';
+              if (in_array($statusAtual, ['pendente', 'aprovada'], true)) $novoStatus = 'cancelada';
               break;
             case 'enviar':
               if ($statusAtual === 'aprovada') {
@@ -243,8 +312,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
             $sql .= " WHERE id=:id AND id_matriz=:matriz";
             $pdo->prepare($sql)->execute($params);
 
-            // OBS: se for processar itens/estoque, aqui você já terá id_matriz_post (ex.: 'principal_1') e id_solicitante_post (ex.: 'franquia_3'/'filial_2')
-            // e o $sid da solicitação para buscar itens. (O processamento do estoque não está implementado aqui por pedido anterior.)
             $flashMsg = ['type' => 'success', 'text' => 'Status atualizado para "' . $novoStatus . '".'];
           }
         }
@@ -265,9 +332,11 @@ $q      = trim($_GET['q'] ?? '');
 $de     = trim($_GET['de'] ?? '');
 $ate    = trim($_GET['ate'] ?? '');
 
-$where  = ["s.id_matriz = :matriz"];
-$params = [':matriz' => $idSelecionado];
+/* ===== WHERE base por escopo ===== */
+$where  = $scopeWhere;
+$params = $scopeParams;
 
+/* ===== Filtros adicionais ===== */
 if ($status !== '' && in_array($status, ['pendente', 'aprovada', 'reprovada', 'em_transito', 'entregue', 'cancelada'], true)) {
   $where[] = "s.status = :status";
   $params[':status'] = $status;
@@ -293,11 +362,13 @@ if ($q !== '') {
 }
 $whereSql = implode(' AND ', $where);
 
+/* ===== COUNT ===== */
 $stCount = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b s WHERE $whereSql");
 $stCount->execute($params);
 $totalRows  = (int)$stCount->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 
+/* ===== SELECT PÁGINA ===== */
 $sql = "
 SELECT
   s.id, s.id_solicitante, s.status, s.total_estimado,
@@ -321,14 +392,20 @@ $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
 /* ================== MAPA STATUS ================== */
 $statusMap = [
-  'pendente'     => ['cls' => 'bg-label-warning', 'txt' => 'PENDENTE'],
-  'aprovada'     => ['cls' => 'bg-label-info', 'txt' => 'APROVADA'],
-  'reprovada'    => ['cls' => 'bg-label-dark', 'txt' => 'REPROVADA'],
-  'em_transito'  => ['cls' => 'bg-label-primary', 'txt' => 'EM TRÂNSITO'],
-  'entregue'     => ['cls' => 'bg-label-success', 'txt' => 'ENTREGUE'],
-  'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'CANCELADA'],
+  'pendente'     => ['cls' => 'badge soft warn', 'txt' => 'PENDENTE'],
+  'aprovada'     => ['cls' => 'badge soft info', 'txt' => 'APROVADA'],
+  'reprovada'    => ['cls' => 'badge soft dark', 'txt' => 'REPROVADA'],
+  'em_transito'  => ['cls' => 'badge soft primary', 'txt' => 'EM TRÂNSITO'],
+  'entregue'     => ['cls' => 'badge soft success', 'txt' => 'ENTREGUE'],
+  'cancelada'    => ['cls' => 'badge soft secondary', 'txt' => 'CANCELADA'],
 ];
+
+/* ================== HELPERS ================== */
+function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
+function dateBr(?string $dt): string { return $dt ? date('d/m/Y H:i', strtotime($dt)) : '-'; }
+
 ?>
+
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
 
@@ -448,7 +525,7 @@ $statusMap = [
               <li class="menu-item"><a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a></li>
-              <li class="menu-item active"><a href="#?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item active"><a href="#" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a></li>
               <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
