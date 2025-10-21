@@ -5,14 +5,13 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
+// ========================= Autenticação / Sessão =========================
 $idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
 }
 
-// ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
@@ -23,10 +22,10 @@ if (
     exit;
 }
 
-// ✅ Conexão com o banco de dados
+// ========================= Conexão =========================
 require '../../assets/php/conexao.php';
 
-// ✅ Buscar nome e tipo do usuário logado
+// ========================= Usuário =========================
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int) $_SESSION['usuario_id'];
@@ -35,20 +34,19 @@ try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
     $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'];
-        $tipoUsuario = ucfirst($usuario['nivel']);
+    if ($usuario = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $nomeUsuario = $usuario['usuario'] ?? 'Usuário';
+        $tipoUsuario = ucfirst($usuario['nivel'] ?? 'Comum');
     } else {
         echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "'); history.back();</script>";
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
+// ========================= Autorização =========================
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -68,7 +66,7 @@ if (!$acessoPermitido) {
     exit;
 }
 
-// ✅ Logo da empresa (fallback)
+// ========================= Logo =========================
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
     $stmt->bindParam(':id', $idSelecionado, PDO::PARAM_STR);
@@ -79,9 +77,7 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-// =======================================================
-// Helpers
-// =======================================================
+// ========================= Helpers / CSRF =========================
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -100,9 +96,9 @@ $mapStatus = [
     'cancelado'   => ['label' => 'Cancelado',    'class' => 'bg-label-danger'],
 ];
 
-// =======================================================
-// Ações por POST (confirmar envio / recebimento / cancelar)
-// =======================================================
+$pendentesList = ['aguardando', 'enviado', 'em_transito'];
+
+// ========================= Ações (POST) =========================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $acao      = $_POST['acao'] ?? '';
     $idTransf  = (int) ($_POST['transferencia_id'] ?? 0);
@@ -114,21 +110,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        // TODO: ajuste a coluna que vincula a transferência ao contexto (ex.: id_selecionado / empresa_id / matriz_id)
         $pdo->beginTransaction();
 
         if ($acao === 'confirmar_envio') {
             $sql = "UPDATE transferencias_b2b 
-              SET status = 'em_transito', enviado_em = COALESCE(enviado_em, NOW()), atualizado_em = NOW(), usuario_acao = :uid
-              WHERE id = :id AND status IN ('aguardando','enviado')";
+                      SET status = 'em_transito', enviado_em = COALESCE(enviado_em, NOW()), atualizado_em = NOW(), usuario_acao = :uid
+                    WHERE id = :id AND status IN ('aguardando','enviado')";
         } elseif ($acao === 'confirmar_recebimento') {
             $sql = "UPDATE transferencias_b2b 
-              SET status = 'recebido', recebido_em = NOW(), atualizado_em = NOW(), usuario_acao = :uid
-              WHERE id = :id AND status IN ('em_transito','enviado')";
+                      SET status = 'recebido', recebido_em = NOW(), atualizado_em = NOW(), usuario_acao = :uid
+                    WHERE id = :id AND status IN ('em_transito','enviado')";
         } elseif ($acao === 'cancelar') {
             $sql = "UPDATE transferencias_b2b 
-              SET status = 'cancelado', atualizado_em = NOW(), usuario_acao = :uid
-              WHERE id = :id AND status IN ('aguardando','enviado','em_transito')";
+                      SET status = 'cancelado', atualizado_em = NOW(), usuario_acao = :uid
+                    WHERE id = :id AND status IN ('aguardando','enviado','em_transito')";
         } else {
             throw new Exception('Ação desconhecida.');
         }
@@ -146,31 +141,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// =======================================================
-// Filtros (GET)
-// =======================================================
-$fStatus   = $_GET['status']   ?? 'pendentes';
-$fFilial   = trim($_GET['filial'] ?? '');
-$fDataIni  = trim($_GET['data_ini'] ?? '');
-$fDataFim  = trim($_GET['data_fim'] ?? '');
-$busca     = trim($_GET['q'] ?? '');
-
-// status considerados "pendentes"
-$pendentesList = ['aguardando', 'enviado', 'em_transito'];
-
-// =======================================================
-// Fonte para <select> Filiais
-// =======================================================
-try {
-    // TODO: ajuste o JOIN/WHERE de acordo com sua modelagem de franquias
-    $filiais = $pdo->query("SELECT id, nome FROM franquias ORDER BY nome ASC")->fetchAll(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {
-    $filiais = [];
-}
-
-// =======================================================
-// Consulta principal
-// =======================================================
+// ========================= Consulta (SOMENTE PENDENTES) =========================
+// OBS: Ajuste o JOIN/WHERE conforme seu schema. Aqui assumimos:
+// - transferencias_b2b(filial_id) -> franquias(id)
+// - transferencias_itens(transferencia_id) itens
+// - Se existir coluna da matriz/empresa em transferencias_b2b, descomente o filtro.
 $sql = [];
 $sql[] = "SELECT 
             t.id,
@@ -185,42 +160,17 @@ $sql[] = "SELECT
             COUNT(i.id) AS itens_total,
             t.obs
           FROM transferencias_b2b t
-          JOIN franquias f ON f.id = t.filial_id
+          JOIN franquias f       ON f.id = t.filial_id
           LEFT JOIN transferencias_itens i ON i.transferencia_id = t.id";
 $w = [];
 $params = [];
 
-// Apenas transferências do contexto atual (se houver uma coluna que vincule à matriz/empresa)
-# TODO: se existir, descomente/ajuste a linha abaixo:
-# $w[] = "t.id_selecionado = :idSel";
-# $params[':idSel'] = $idSelecionado;
+// --- Escopo por matriz/empresa (descomente se houver a coluna) ---
+// $w[] = "t.id_selecionado = :idSel";
+// $params[':idSel'] = $idSelecionado;
 
-if ($fStatus === 'pendentes') {
-    $w[] = "t.status IN ('" . implode("','", $pendentesList) . "')";
-} elseif ($fStatus && $fStatus !== 'todas') {
-    $w[] = "t.status = :st";
-    $params[':st'] = $fStatus;
-} // 'todas' não aplica filtro de status
-
-if ($fFilial !== '') {
-    $w[] = "t.filial_id = :fid";
-    $params[':fid'] = (int)$fFilial;
-}
-
-if ($fDataIni !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fDataIni)) {
-    $w[] = "DATE(t.criado_em) >= :di";
-    $params[':di'] = $fDataIni;
-}
-if ($fDataFim !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fDataFim)) {
-    $w[] = "DATE(t.criado_em) <= :df";
-    $params[':df'] = $fDataFim;
-}
-
-if ($busca !== '') {
-    // busca por código/observação/nome da filial
-    $w[] = "(t.codigo LIKE :q OR t.obs LIKE :q OR f.nome LIKE :q)";
-    $params[':q'] = "%{$busca}%";
-}
+// --- Somente pendentes ---
+$w[] = "t.status IN ('" . implode("','", $pendentesList) . "')";
 
 if ($w) $sql[] = "WHERE " . implode(" AND ", $w);
 $sql[] = "GROUP BY t.id, t.codigo, t.filial_id, f.nome, t.status, t.criado_em, t.enviado_em, t.recebido_em, t.obs";
@@ -229,13 +179,17 @@ $sqlStr = implode("\n", $sql);
 
 try {
     $stmt = $pdo->prepare($sqlStr);
-    foreach ($params as $k => $v) {
-        $stmt->bindValue($k, $v);
-    }
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
     $stmt->execute();
     $linhas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $linhas = [];
+}
+
+// ========================= Funções de formatação =========================
+function dtbr($d)
+{
+    return $d ? date('d/m/Y H:i', strtotime($d)) : '-';
 }
 
 ?>
@@ -266,37 +220,16 @@ try {
             font-size: .78rem;
         }
 
-        .toolbar {
-            gap: .5rem;
-            flex-wrap: wrap;
-        }
-
-        .toolbar .form-select,
-        .toolbar .form-control {
-            max-width: 220px;
-        }
-
-        .badge-dot {
-            display: inline-flex;
-            align-items: center;
-            gap: .4rem;
-        }
-
-        .badge-dot::before {
-            content: '';
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: currentColor;
-            display: inline-block;
-        }
-
         .actions .btn {
             margin-right: .25rem;
         }
 
         .table-responsive {
             overflow: auto;
+        }
+
+        .sticky-actions {
+            white-space: nowrap;
         }
     </style>
 </head>
@@ -305,7 +238,7 @@ try {
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
-            <!-- ====== ASIDE (mantido do seu layout) ====== -->
+            <!-- ====== ASIDE ====== -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -421,9 +354,7 @@ try {
                 <!-- Navbar -->
                 <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                            <i class="bx bx-menu bx-sm"></i>
-                        </a>
+                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
@@ -438,7 +369,7 @@ try {
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
-                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
@@ -447,12 +378,12 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
+                                                    <span class="fw-semibold d-block"><?= e($nomeUsuario) ?></span>
+                                                    <small class="text-muted"><?= e($tipoUsuario) ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -479,150 +410,86 @@ try {
                         Transferências Pendentes
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Movimentações a concluir entre Matriz e Franquias</span>
+                        <span class="text-muted fw-light">Mostrando apenas transferências <strong>pendentes</strong> (Aguardando, Enviado, Em trânsito)</span>
                     </h5>
 
-                    <!-- Tabela -->
                     <div class="card">
                         <h5 class="card-header">Lista de Transferências</h5>
                         <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
+                            <table class="table table-hover align-middle">
                                 <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Franquia</th>
-                                        <th>Itens</th>
-                                        <th>Qtd</th>
+                                        <th class="text-end">Itens</th>
+                                        <th class="text-end">Qtd</th>
                                         <th>Criado</th>
                                         <th>Envio</th>
                                         <th>Status</th>
-                                        <th class="text-end">Ações</th>
+                                        <th class="text-end sticky-actions">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
+                                    <?php if (empty($linhas)): ?>
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">Nenhuma transferência pendente encontrada.</td>
+                                        </tr>
+                                        <?php else: foreach ($linhas as $t):
+                                            $stInfo = $mapStatus[$t['status']] ?? ['label' => $t['status'], 'class' => 'bg-label-secondary'];
+                                            $permitConfirmarEnvio = in_array($t['status'], ['aguardando', 'enviado'], true);
+                                            $permitReceber        = in_array($t['status'], ['em_transito', 'enviado'], true);
+                                            $permitCancelar       = in_array($t['status'], ['aguardando', 'enviado', 'em_transito'], true);
+                                        ?>
+                                            <tr>
+                                                <td><strong><?= e($t['codigo']) ?></strong></td>
+                                                <td><?= e($t['filial_nome']) ?></td>
+                                                <td class="text-end"><?= (int)$t['itens_total'] ?></td>
+                                                <td class="text-end"><?= (int)$t['qtd_total'] ?></td>
+                                                <td><?= dtbr($t['criado_em']) ?></td>
+                                                <td><?= dtbr($t['enviado_em']) ?></td>
+                                                <td><span class="badge status-badge <?= e($stInfo['class']) ?>"><?= e($stInfo['label']) ?></span></td>
+                                                <td class="text-end">
+                                                    <button
+                                                        class="btn btn-sm btn-outline-secondary"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#modalDetalhes"
+                                                        data-id="<?= (int)$t['id'] ?>"
+                                                        data-codigo="<?= e($t['codigo']) ?>"
+                                                        data-filial="<?= e($t['filial_nome']) ?>"
+                                                        data-status="<?= e($stInfo['label']) ?>">
+                                                        Detalhes
+                                                    </button>
 
-                                    <!-- Exemplo quando não há registros -->
-                                    <!--
+                                                    <?php if ($permitConfirmarEnvio): ?>
+                                                        <form class="d-inline" method="post" action="">
+                                                            <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+                                                            <input type="hidden" name="transferencia_id" value="<?= (int)$t['id'] ?>">
+                                                            <input type="hidden" name="acao" value="confirmar_envio">
+                                                            <button class="btn btn-sm btn-warning">Confirmar envio</button>
+                                                        </form>
+                                                    <?php endif; ?>
 
+                                                    <?php if ($permitReceber): ?>
+                                                        <form class="d-inline" method="post" action="">
+                                                            <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+                                                            <input type="hidden" name="transferencia_id" value="<?= (int)$t['id'] ?>">
+                                                            <input type="hidden" name="acao" value="confirmar_recebimento">
+                                                            <button class="btn btn-sm btn-success">Marcar recebido</button>
+                                                        </form>
+                                                    <?php endif; ?>
 
-                                    <!-- Linha de exemplo 1 -->
-                                    <tr>
-                                        <td><strong>TR-1024</strong></td>
-                                        <td>Franquia Centro</td>
-                                        <td>5</td>
-                                        <td>120</td>
-                                        <td>26/09/2025 09:20</td>
-                                        <td>-</td>
-                                        <td><span class="badge bg-label-secondary status-badge">Aguardando</span></td>
-                                        <td class="text-end actions">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalDetalhes"
-                                                data-id="1024"
-                                                data-codigo="TR-1024"
-                                                data-filial="Franquia Centro"
-                                                data-status="Aguardando">
-                                                Detalhes
-                                            </button>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1024">
-                                                <input type="hidden" name="acao" value="confirmar_envio">
-                                                <button class="btn btn-sm btn-warning">Confirmar envio</button>
-                                            </form>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1024">
-                                                <input type="hidden" name="acao" value="cancelar">
-                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Linha de exemplo 2 -->
-                                    <tr>
-                                        <td><strong>TR-1025</strong></td>
-                                        <td>Franquia Norte</td>
-                                        <td>3</td>
-                                        <td>40</td>
-                                        <td>25/09/2025 15:10</td>
-                                        <td>25/09/2025 18:00</td>
-                                        <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
-                                        <td class="text-end actions">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalDetalhes"
-                                                data-id="1025"
-                                                data-codigo="TR-1025"
-                                                data-filial="Franquia Norte"
-                                                data-status="Enviado">
-                                                Detalhes
-                                            </button>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1025">
-                                                <input type="hidden" name="acao" value="confirmar_envio">
-                                                <button class="btn btn-sm btn-warning">Confirmar envio</button>
-                                            </form>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1025">
-                                                <input type="hidden" name="acao" value="confirmar_recebimento">
-                                                <button class="btn btn-sm btn-success">Marcar recebido</button>
-                                            </form>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1025">
-                                                <input type="hidden" name="acao" value="cancelar">
-                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Linha de exemplo 3 -->
-                                    <tr>
-                                        <td><strong>TR-1026</strong></td>
-                                        <td>Franquia Sul</td>
-                                        <td>2</td>
-                                        <td>500</td>
-                                        <td>20/09/2025 10:00</td>
-                                        <td>21/09/2025 08:30</td>
-                                        <td><span class="badge bg-label-info status-badge">Em trânsito</span></td>
-                                        <td class="text-end actions">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalDetalhes"
-                                                data-id="1026"
-                                                data-codigo="TR-1026"
-                                                data-filial="Franquia Sul"
-                                                data-status="Em trânsito">
-                                                Detalhes
-                                            </button>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1026">
-                                                <input type="hidden" name="acao" value="confirmar_recebimento">
-                                                <button class="btn btn-sm btn-success">Marcar recebido</button>
-                                            </form>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1026">
-                                                <input type="hidden" name="acao" value="cancelar">
-                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-
+                                                    <?php if ($permitCancelar): ?>
+                                                        <form class="d-inline" method="post" action="" onsubmit="return confirm('Cancelar esta transferência?');">
+                                                            <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+                                                            <input type="hidden" name="transferencia_id" value="<?= (int)$t['id'] ?>">
+                                                            <input type="hidden" name="acao" value="cancelar">
+                                                            <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+                                                        </form>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                    <?php endforeach;
+                                    endif; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -642,7 +509,7 @@ try {
                                             <p><strong>Código:</strong> <span id="det-codigo">-</span></p>
                                         </div>
                                         <div class="col-md-4">
-                                            <p><strong>Filial:</strong> <span id="det-filial">-</span></p>
+                                            <p><strong>Franquia:</strong> <span id="det-filial">-</span></p>
                                         </div>
                                         <div class="col-md-4">
                                             <p><strong>Status:</strong> <span id="det-status">-</span></p>
@@ -678,9 +545,7 @@ try {
                         </div>
                     </div>
 
-
-                </div>
-                <!-- /container -->
+                </div><!-- /container -->
             </div><!-- /Layout page -->
         </div><!-- /Layout container -->
     </div>
@@ -713,7 +578,6 @@ try {
             document.getElementById('det-itens').innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
             document.getElementById('det-obs').textContent = '—';
 
-            // Endpoint interno nesta mesma página (modo leve)
             fetch(`./transferenciasPendentes.php?ajax=itens&id=<?= urlencode($idSelecionado); ?>&t=` + encodeURIComponent(id), {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
@@ -726,14 +590,13 @@ try {
                         tBody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens.</td></tr>';
                     } else {
                         tBody.innerHTML = data.itens.map(i => `
-            <tr>
-              <td>${(i.sku ?? '').toString().replaceAll('<','&lt;')}</td>
-              <td>${(i.nome ?? '').toString().replaceAll('<','&lt;')}</td>
-              <td>${parseInt(i.qtd ?? 0)}</td>
-            </tr>
-          `).join('');
+                <tr>
+                    <td>${(i.sku ?? '').toString().replaceAll('<','&lt;')}</td>
+                    <td>${(i.nome ?? '').toString().replaceAll('<','&lt;')}</td>
+                    <td>${parseInt(i.qtd ?? 0)}</td>
+                </tr>`).join('');
                     }
-                    document.getElementById('det-obs').textContent = (data.obs ?? '—');
+                    document.getElementById('det-obs').textContent = (data.obs ?? '—') || '—';
                 })
                 .catch(() => {
                     document.getElementById('det-itens').innerHTML = '<tr><td colspan="3" class="text-danger">Falha ao carregar itens.</td></tr>';
@@ -742,9 +605,7 @@ try {
     </script>
 
     <?php
-    // =======================================================
-    // Mini endpoint AJAX (?ajax=itens&t={id})
-    // =======================================================
+    // ========================= Mini endpoint AJAX (?ajax=itens&t={id}) =========================
     if (($_GET['ajax'] ?? '') === 'itens') {
         header('Content-Type: application/json; charset=utf-8');
         $tId = (int)($_GET['t'] ?? 0);
@@ -752,15 +613,13 @@ try {
 
         if ($tId > 0) {
             try {
-                // Itens
                 $si = $pdo->prepare("SELECT i.id, i.sku, i.nome, i.qtd 
-                           FROM transferencias_itens i 
-                           WHERE i.transferencia_id = :tid
-                           ORDER BY i.nome ASC");
+                                   FROM transferencias_itens i 
+                                  WHERE i.transferencia_id = :tid
+                               ORDER BY i.nome ASC");
                 $si->execute([':tid' => $tId]);
                 $out['itens'] = $si->fetchAll(PDO::FETCH_ASSOC);
 
-                // Observação do cabeçalho
                 $so = $pdo->prepare("SELECT obs FROM transferencias_b2b WHERE id = :tid LIMIT 1");
                 $so->execute([':tid' => $tId]);
                 $out['obs'] = (string)($so->fetchColumn() ?? '');
