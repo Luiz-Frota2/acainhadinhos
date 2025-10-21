@@ -18,6 +18,63 @@ if (!isset($_SESSION['usuario_logado'], $_SESSION['empresa_id'], $_SESSION['tipo
 /* ==================== Conexão ==================== */
 require '../../assets/php/conexao.php';
 
+/* ==================== Handler AJAX: atualizar status ==================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_status') {
+    header('Content-Type: application/json; charset=UTF-8');
+
+    $sid    = (int)($_POST['sid'] ?? 0);
+    $status = strtolower(trim((string)($_POST['status'] ?? '')));
+
+    // Status válidos (sinta-se à vontade para ajustar)
+    $validos = ['pendente', 'aprovada', 'reprovada', 'em_transito', 'entregue', 'cancelada'];
+    if ($sid <= 0 || !in_array($status, $validos, true)) {
+        echo json_encode(['ok' => false, 'msg' => 'Parâmetros inválidos.']);
+        exit;
+    }
+
+    try {
+        // Garante que a solicitação pertence ao solicitante (idSelecionado) atual
+        $chk = $pdo->prepare("SELECT id, status, aprovada_em, enviada_em, entregue_em, created_at, total_estimado 
+                              FROM solicitacoes_b2b 
+                              WHERE id = :sid AND id_solicitante = :sol LIMIT 1");
+        $chk->execute([':sid' => $sid, ':sol' => $idSelecionado]);
+        $row = $chk->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            echo json_encode(['ok' => false, 'msg' => 'Solicitação não encontrada para este solicitante.']);
+            exit;
+        }
+
+        // Atualiza status e carimbos (só preenche se estiverem nulos)
+        $up = $pdo->prepare("
+            UPDATE solicitacoes_b2b SET 
+                status = :st,
+                aprovada_em = CASE WHEN :st = 'aprovada'    AND (aprovada_em IS NULL OR aprovada_em = '0000-00-00 00:00:00') THEN NOW() ELSE aprovada_em END,
+                enviada_em  = CASE WHEN :st = 'em_transito' AND (enviada_em  IS NULL OR enviada_em  = '0000-00-00 00:00:00') THEN NOW() ELSE enviada_em  END,
+                entregue_em = CASE WHEN :st = 'entregue'    AND (entregue_em IS NULL OR entregue_em = '0000-00-00 00:00:00') THEN NOW() ELSE entregue_em END
+            WHERE id = :sid AND id_solicitante = :sol
+            LIMIT 1
+        ");
+        $ok = $up->execute([':st' => $status, ':sid' => $sid, ':sol' => $idSelecionado]);
+
+        if (!$ok) {
+            echo json_encode(['ok' => false, 'msg' => 'Falha ao atualizar.']);
+            exit;
+        }
+
+        // Retorna os novos dados (com timestamps atualizados)
+        $ref = $pdo->prepare("SELECT id, status, aprovada_em, enviada_em, entregue_em, created_at, total_estimado 
+                              FROM solicitacoes_b2b WHERE id = :sid LIMIT 1");
+        $ref->execute([':sid' => $sid]);
+        $novos = $ref->fetch(PDO::FETCH_ASSOC);
+
+        echo json_encode(['ok' => true, 'data' => $novos]);
+        exit;
+    } catch (PDOException $e) {
+        echo json_encode(['ok' => false, 'msg' => 'Erro: ' . $e->getMessage()]);
+        exit;
+    }
+}
+
 /* ==================== Usuário logado ==================== */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
@@ -158,7 +215,7 @@ try {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>ERP - Produtos Solicitados</title>
+    <title>ERP - Status de Transferência</title>
     <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -226,13 +283,34 @@ try {
             margin-right: 5px;
         }
 
-        /* Produtos: não quebrar linha e cortar com reticências se ultrapassar */
         td.col-produtos {
             max-width: 420px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            /* <- mantém o nowrap mesmo com text-nowrap */
+        }
+
+        /* Botões de ação no estilo da imagem (grupo com borda visual) */
+        .actions-group .btn {
+            border-radius: 8px;
+        }
+
+        .actions-group .btn+.btn {
+            margin-left: 6px;
+        }
+
+        .btn-outline-primary.soft {
+            background: #f8fafc;
+        }
+
+        /* Linha de carimbos no modal detalhes */
+        .meta-line {
+            font-size: .86rem;
+            color: #64748b;
+        }
+
+        .meta-line span {
+            margin-right: .5rem;
         }
     </style>
 </head>
@@ -335,14 +413,12 @@ try {
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
                     </div>
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
                                 <i class="bx bx-search fs-4 lh-0"></i>
                                 <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar por #id, status, produto, data..." />
                             </div>
                         </div>
-                        <!-- /Search -->
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
@@ -392,7 +468,7 @@ try {
                                         <th>Quantidade</th>
                                         <th>Total</th>
                                         <th>Criada em</th>
-                                        <th>Ações</th>
+                                        <th style="min-width:240px">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -400,18 +476,28 @@ try {
                                             <tr data-sid="<?= (int)$sid ?>">
                                                 <td><?= (int)$sid ?></td>
                                                 <td>
-                                                    <?php
-                                                    $status = (string)$s['status'];
-                                                    $statusTxt = ucwords(str_replace('_', ' ', $status));
-                                                    ?>
-                                                    <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?>"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
+                                                    <?php $status = (string)$s['status'];
+                                                    $statusTxt = ucwords(str_replace('_', ' ', $status)); ?>
+                                                    <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?> status-badge"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
                                                 </td>
                                                 <td class="col-produtos"><?= htmlspecialchars((string)($s['produtos_str'] ?? '—'), ENT_QUOTES) ?></td>
-                                                <td><?= (int)($s['qtd_total'] ?? 0) ?></td>
-                                                <td>R$ <?= number_format((float)$s['total'], 2, ',', '.') ?></td>
-                                                <td><?= date('d/m/Y', strtotime($s['created_at'])) ?></td>
+                                                <td class="qtd-total"><?= (int)($s['qtd_total'] ?? 0) ?></td>
+                                                <td class="total-estimado">R$ <?= number_format((float)$s['total'], 2, ',', '.') ?></td>
+                                                <td class="criada-em"><?= date('d/m/Y', strtotime($s['created_at'])) ?></td>
                                                 <td>
-                                                    <button type="button" class="btn btn-sm btn-outline-primary btnDetalhes" data-sid="<?= (int)$sid ?>">Detalhes</button>
+                                                    <div class="actions-group d-flex align-items-center">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary soft btnDetalhes" data-sid="<?= (int)$sid ?>">
+                                                            <i class="bx bx-news me-1"></i> Detalhes
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-primary btnMudarStatus"
+                                                            data-sid="<?= (int)$sid ?>"
+                                                            data-status="<?= htmlspecialchars($status, ENT_QUOTES) ?>"
+                                                            data-aprovada="<?= htmlspecialchars((string)$s['aprovada_em'] ?? '', ENT_QUOTES) ?>"
+                                                            data-enviada="<?= htmlspecialchars((string)$s['enviada_em'] ?? '', ENT_QUOTES) ?>"
+                                                            data-entregue="<?= htmlspecialchars((string)$s['entregue_em'] ?? '', ENT_QUOTES) ?>">
+                                                            Mudar Status
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php endforeach;
@@ -445,10 +531,14 @@ try {
                             <div class="modal-body">
                                 <div class="mb-2">
                                     <div>Status: <span class="badge" id="modalStatus"></span></div>
+                                    <div class="meta-line mt-1">
+                                        <span>Aprov.: <span id="metaAprov"></span></span> ·
+                                        <span>Env.: <span id="metaEnv"></span></span> ·
+                                        <span>Entr.: <span id="metaEntr"></span></span>
+                                    </div>
                                     <div class="text-muted">Criada em: <span id="modalCriada"></span></div>
                                     <div class="fw-semibold">Total Estimado: <span id="modalTotal"></span></div>
                                 </div>
-
                                 <div id="modalItensWrapper"></div>
                             </div>
                             <div class="modal-footer">
@@ -457,7 +547,42 @@ try {
                         </div>
                     </div>
                 </div>
-                <!-- /MODAL -->
+
+                <!-- MODAL MUDAR STATUS -->
+                <div class="modal fade" id="modalStatus" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Mudar Status da Solicitação <span id="statusSid"></span></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="selectStatus" class="form-label">Novo status</label>
+                                    <select id="selectStatus" class="form-select">
+                                        <option value="pendente">Pendente</option>
+                                        <option value="aprovada">Aprovada</option>
+                                        <option value="em_transito">Em trânsito</option>
+                                        <option value="entregue">Entregue</option>
+                                        <option value="reprovada">Reprovada</option>
+                                        <option value="cancelada">Cancelada</option>
+                                    </select>
+                                    <div class="form-text">Para marcar como entregue, selecione <strong>Entregue</strong> e salve.</div>
+                                </div>
+                                <div class="meta-line">
+                                    <span>Aprov.: <span id="msAprov"></span></span> ·
+                                    <span>Env.: <span id="msEnv"></span></span> ·
+                                    <span>Entr.: <span id="msEntr"></span></span>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-primary" id="btnSalvarStatus">Salvar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- /MODAIS -->
 
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
@@ -555,13 +680,22 @@ try {
         // Inicializa a tabela
         renderTable();
 
-        // ===== Modal de Detalhes (sem AJAX) =====
+        // ===== Dados locais para modais =====
         const dados = JSON.parse(document.getElementById('dadosSolicitacoes').textContent || '{}');
         const itensPorId = dados?.itens || {};
         const cabPorLista = dados?.cab || [];
+        const mapCabInit = dados?.mapCab || {};
+
+        // Mantém um mapa mutável no cliente para refletir updates
+        const mapCab = {};
+        (cabPorLista || []).forEach(c => {
+            mapCab[parseInt(c.id, 10)] = c;
+        });
+        Object.assign(mapCab, mapCabInit);
 
         function formatBRL(v) {
-            return (v || 0).toLocaleString('pt-BR', {
+            const num = parseFloat(v || 0);
+            return num.toLocaleString('pt-BR', {
                 style: 'currency',
                 currency: 'BRL'
             });
@@ -575,9 +709,24 @@ try {
             return String(s || '').replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
         }
 
+        function toBrDateTime(ts) {
+            if (!ts) return '—';
+            const d = new Date(String(ts).replace(' ', 'T'));
+            if (isNaN(d.getTime())) return '—';
+            const dd = d.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit'
+            });
+            const hm = d.toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            return dd + ' ' + hm;
+        }
+
+        // ===== Modal Detalhes =====
         $(document).on('click', '.btnDetalhes', function() {
             const sid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
-            const mapCab = dados.mapCab || {};
             const cab = mapCab[sid] || (cabPorLista.find(c => parseInt(c.id, 10) === sid)) || null;
             const itens = itensPorId[sid] || [];
 
@@ -586,13 +735,19 @@ try {
                 $('#modalStatus').attr('class', 'badge').text('—');
                 $('#modalCriada').text('—');
                 $('#modalTotal').text('—');
+                $('#metaAprov').text('—');
+                $('#metaEnv').text('—');
+                $('#metaEntr').text('—');
                 $('#modalItensWrapper').html('<p class="text-danger mb-0">Solicitação não encontrada.</p>');
             } else {
                 $('#modalSid').text('#' + sid);
                 $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
                 const dt = new Date(String(cab.created_at).replace(' ', 'T'));
                 $('#modalCriada').text(dt.toLocaleDateString('pt-BR'));
-                $('#modalTotal').text(formatBRL(parseFloat(cab.total)));
+                $('#modalTotal').text(formatBRL(parseFloat(cab.total_estimado ?? cab.total ?? 0)));
+                $('#metaAprov').text(toBrDateTime(cab.aprovada_em));
+                $('#metaEnv').text(toBrDateTime(cab.enviada_em));
+                $('#metaEntr').text(toBrDateTime(cab.entregue_em));
 
                 if (!itens.length) {
                     $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
@@ -616,6 +771,82 @@ try {
 
             const modal = new bootstrap.Modal(document.getElementById('modalDetalhes'));
             modal.show();
+        });
+
+        // ===== Modal Mudar Status =====
+        let currentSid = null;
+        $(document).on('click', '.btnMudarStatus', function() {
+            currentSid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
+            const st = (this.dataset.status || 'pendente').toLowerCase();
+            const aprov = this.dataset.aprovada || '';
+            const envi = this.dataset.enviada || '';
+            const entr = this.dataset.entregue || '';
+
+            $('#statusSid').text('#' + currentSid);
+            $('#selectStatus').val(st);
+            $('#msAprov').text(toBrDateTime(aprov));
+            $('#msEnv').text(toBrDateTime(envi));
+            $('#msEntr').text(toBrDateTime(entr));
+
+            const modal = new bootstrap.Modal(document.getElementById('modalStatus'));
+            modal.show();
+        });
+
+        $('#btnSalvarStatus').on('click', function() {
+            if (!currentSid) return;
+            const novo = $('#selectStatus').val();
+
+            const fd = new FormData();
+            fd.append('action', 'update_status');
+            fd.append('sid', String(currentSid));
+            fd.append('status', String(novo));
+
+            fetch(window.location.href, {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'same-origin'
+                })
+                .then(r => r.json())
+                .then(resp => {
+                    if (!resp?.ok) {
+                        alert(resp?.msg || 'Erro ao atualizar.');
+                        return;
+                    }
+                    const d = resp.data || {};
+                    // Atualiza cache local
+                    mapCab[currentSid] = Object.assign({}, mapCab[currentSid] || {}, d);
+
+                    // Atualiza a linha da tabela (badge + dataset do botão)
+                    const tr = document.querySelector(`tr[data-sid="${currentSid}"]`);
+                    if (tr) {
+                        const badge = tr.querySelector('.status-badge');
+                        if (badge) {
+                            badge.className = 'badge status-badge ' + statusClass(d.status);
+                            badge.textContent = titleCaseStatus(d.status);
+                        }
+                        const btn = tr.querySelector('.btnMudarStatus');
+                        if (btn) {
+                            btn.dataset.status = d.status || '';
+                            btn.dataset.aprovada = d.aprovada_em || '';
+                            btn.dataset.enviada = d.enviada_em || '';
+                            btn.dataset.entregue = d.entregue_em || '';
+                        }
+                    }
+
+                    // Se o modal de detalhes estiver aberto, sincroniza os campos
+                    $('#modalStatus').modal('hide');
+                    const openedDetails = document.getElementById('modalDetalhes');
+                    if (openedDetails && openedDetails.classList.contains('show')) {
+                        const cab = mapCab[currentSid];
+                        if (cab) {
+                            $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
+                            $('#metaAprov').text(toBrDateTime(cab.aprovada_em));
+                            $('#metaEnv').text(toBrDateTime(cab.enviada_em));
+                            $('#metaEntr').text(toBrDateTime(cab.entregue_em));
+                        }
+                    }
+                })
+                .catch(() => alert('Falha de rede ao atualizar o status.'));
         });
 
         // util: escapar html
