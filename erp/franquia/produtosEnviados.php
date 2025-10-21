@@ -39,7 +39,7 @@ try {
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage(), ENT_QUOTES) . "'); history.back();</script>";
   exit;
 }
 
@@ -88,7 +88,16 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
     exit;
   }
 
-  $ok = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
+  // Valida acesso: pertence à matriz atual E é de FRANQUIA
+  $ok = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM solicitacoes_b2b s
+    JOIN unidades u
+      ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+    WHERE s.id = :id
+      AND s.id_matriz = :matriz
+      AND u.tipo = 'Franquia'
+  ");
   $ok->execute([':id' => $sid, ':matriz' => $idSelecionado]);
   if (!$ok->fetchColumn()) {
     http_response_code(403);
@@ -141,7 +150,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'itens') {
   exit;
 }
 
-/* ================== AJAX: Autocomplete ================== */
+/* ================== AJAX: Autocomplete (apenas Franquias) ================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   header('Content-Type: application/json; charset=UTF-8');
   $term = trim($_GET['q'] ?? '');
@@ -150,8 +159,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
     $s1 = $pdo->prepare("
       SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
       FROM solicitacoes_b2b s
-      WHERE s.id_matriz = :matriz AND s.id_solicitante LIKE :q
-      ORDER BY s.id_solicitante LIMIT 10
+      JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+      WHERE s.id_matriz = :matriz
+        AND u.tipo = 'Franquia'
+        AND s.id_solicitante LIKE :q
+      ORDER BY s.id_solicitante
+      LIMIT 10
     ");
     $s1->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
     foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -160,8 +174,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
       SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
       FROM solicitacoes_b2b s
       JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-      WHERE s.id_matriz = :matriz AND it.codigo_produto LIKE :q
-      ORDER BY it.codigo_produto LIMIT 10
+      JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+      WHERE s.id_matriz = :matriz
+        AND u.tipo = 'Franquia'
+        AND it.codigo_produto LIKE :q
+      ORDER BY it.codigo_produto
+      LIMIT 10
     ");
     $s2->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
     foreach ($s2 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -170,8 +189,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
       SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
       FROM solicitacoes_b2b s
       JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
-      WHERE s.id_matriz = :matriz AND it.nome_produto LIKE :q
-      ORDER BY it.nome_produto LIMIT 10
+      JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+      WHERE s.id_matriz = :matriz
+        AND u.tipo = 'Franquia'
+        AND it.nome_produto LIKE :q
+      ORDER BY it.nome_produto
+      LIMIT 10
     ");
     $s3->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
     foreach ($s3 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
@@ -180,7 +204,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
   exit;
 }
 
-/* ================== POST: mudar status (aqui você pode processar itens também, se quiser) ================== */
+/* ================== POST: mudar status ================== */
 $flashMsg = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid'], $_POST['csrf'])) {
   if (!hash_equals($CSRF, $_POST['csrf'])) {
@@ -188,19 +212,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
   } else {
     $sid  = (int)$_POST['sid'];
     $acao = $_POST['acao'];
-    $id_matriz_post      = $_POST['id_matriz']      ?? $idSelecionado;         // vem do hidden
-    $id_solicitante_post = $_POST['id_solicitante'] ?? '';                     // vem do hidden
+    $id_matriz_post      = $_POST['id_matriz']      ?? $idSelecionado;
+    $id_solicitante_post = $_POST['id_solicitante'] ?? '';
 
     try {
-      $st = $pdo->prepare("SELECT id, status, id_matriz, id_solicitante FROM solicitacoes_b2b WHERE id = :id AND id_matriz = :matriz");
+      // Confirma que pertence à matriz e é franquia
+      $st = $pdo->prepare("
+        SELECT s.id, s.status, s.id_matriz, s.id_solicitante
+        FROM solicitacoes_b2b s
+        JOIN unidades u
+          ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+        WHERE s.id = :id
+          AND s.id_matriz = :matriz
+          AND u.tipo = 'Franquia'
+      ");
       $st->execute([':id' => $sid, ':matriz' => $idSelecionado]);
       $row = $st->fetch(PDO::FETCH_ASSOC);
       if (!$row) {
-        $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada para esta matriz.'];
+        $flashMsg = ['type' => 'danger', 'text' => 'Solicitação não encontrada (ou não é de franquia).'];
       } else {
-        // valida se o hidden bate com o registro
         if ($id_matriz_post !== $row['id_matriz'] || ($id_solicitante_post && $id_solicitante_post !== $row['id_solicitante'])) {
-          $flashMsg = ['type' => 'danger', 'text' => 'Dados da empresa divergentes da solicitação.'];
+          $flashMsg = ['type' => 'danger', 'text' => 'Dados divergentes da solicitação.'];
         } else {
           $statusAtual = $row['status'];
           $novoStatus  = null;
@@ -242,9 +274,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
             }
             $sql .= " WHERE id=:id AND id_matriz=:matriz";
             $pdo->prepare($sql)->execute($params);
-
-            // OBS: se for processar itens/estoque, aqui você já terá id_matriz_post (ex.: 'principal_1') e id_solicitante_post (ex.: 'franquia_3'/'filial_2')
-            // e o $sid da solicitação para buscar itens. (O processamento do estoque não está implementado aqui por pedido anterior.)
             $flashMsg = ['type' => 'success', 'text' => 'Status atualizado para "' . $novoStatus . '".'];
           }
         }
@@ -256,18 +285,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
 }
 
 /* ================== FILTROS + PAGINAÇÃO ================== */
-// Força mostrar só status 'aprovada'
+/* Esta página está fixa para mostrar APENAS status "aprovada" */
 $perPage = 20;
 $page    = max(1, (int)($_GET['p'] ?? 1));
 $offset  = ($page - 1) * $perPage;
 
-// $status = $_GET['status'] ?? '';
-$status = 'aprovada'; // força mostrar só aprovadas
+$status = 'aprovada'; // fixa "aprovada"
 $q      = trim($_GET['q'] ?? '');
 $de     = trim($_GET['de'] ?? '');
 $ate    = trim($_GET['ate'] ?? '');
 
-$where  = ["s.id_matriz = :matriz", "s.status = :status"];
+/* ===== WHERE base: por matriz + Apenas FRANQUIAS + status aprovado ===== */
+$where  = ["s.id_matriz = :matriz", "u.tipo = 'Franquia'", "s.status = :status"];
 $params = [':matriz' => $idSelecionado, ':status' => $status];
 
 if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
@@ -291,11 +320,19 @@ if ($q !== '') {
 }
 $whereSql = implode(' AND ', $where);
 
-$stCount = $pdo->prepare("SELECT COUNT(*) FROM solicitacoes_b2b s WHERE $whereSql");
+/* ===== COUNT (apenas Franquias) ===== */
+$stCount = $pdo->prepare("
+  SELECT COUNT(*)
+  FROM solicitacoes_b2b s
+  JOIN unidades u
+    ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+  WHERE $whereSql
+");
 $stCount->execute($params);
 $totalRows  = (int)$stCount->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 
+/* ===== SELECT (apenas Franquias) ===== */
 $sql = "
 SELECT
   s.id, s.id_solicitante, s.status, s.total_estimado,
@@ -303,7 +340,10 @@ SELECT
   COALESCE(COUNT(it.id),0) AS itens_count,
   COALESCE(SUM(it.quantidade),0) AS qtd_total,
   COALESCE(SUM(it.subtotal),0.00) AS subtotal_calc
+  -- , MAX(u.nome) AS nome_unidade -- (se quiser exibir o nome)
 FROM solicitacoes_b2b s
+JOIN unidades u
+  ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
 LEFT JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
 WHERE $whereSql
 GROUP BY s.id
@@ -320,8 +360,8 @@ $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 /* ================== MAPA STATUS ================== */
 $statusMap = [
   'pendente'     => ['cls' => 'bg-label-warning', 'txt' => 'PENDENTE'],
-  'aprovada'     => ['cls' => 'bg-label-info', 'txt' => 'APROVADA'],
-  'reprovada'    => ['cls' => 'bg-label-dark', 'txt' => 'REPROVADA'],
+  'aprovada'     => ['cls' => 'bg-label-info',    'txt' => 'APROVADA'],
+  'reprovada'    => ['cls' => 'bg-label-dark',    'txt' => 'REPROVADA'],
   'em_transito'  => ['cls' => 'bg-label-primary', 'txt' => 'EM TRÂNSITO'],
   'entregue'     => ['cls' => 'bg-label-success', 'txt' => 'ENTREGUE'],
   'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'CANCELADA'],
@@ -334,7 +374,7 @@ $statusMap = [
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>ERP — Produtos Solicitados</title>
+  <title>ERP — Produtos Enviados (Franquias)</title>
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -405,6 +445,10 @@ $statusMap = [
       .filter-col {
         width: 100%
       }
+    }
+
+    .sticky-actions {
+      white-space: nowrap
     }
   </style>
 </head>
@@ -557,8 +601,8 @@ $statusMap = [
         <!-- /Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Franquias</a>/</span> Produtos Solicitados</h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Pedidos de produtos enviados pelas franquias</span></h5>
+          <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Franquias</a>/</span> Produtos Enviados</h4>
+          <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Somente solicitações de <strong>Franquias</strong> aprovadas</span></h5>
 
           <?php if ($flashMsg): ?>
             <div class="alert alert-<?= htmlspecialchars($flashMsg['type']) ?> alert-dismissible" role="alert">
@@ -572,13 +616,11 @@ $statusMap = [
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
             <div class="card-body">
               <div class="row g-3 align-items-end">
+                <!-- Status fixo (aprovada) - deixei o select, mas desabilitado/sem bind -->
                 <div class="col-12 col-md-auto filter-col">
                   <label class="form-label mb-1">Status</label>
-                  <select class="form-select form-select-sm" name="status">
-                    <option value="">Todos</option>
-                    <?php foreach (['pendente', 'aprovada', 'reprovada', 'em_transito', 'entregue', 'cancelada'] as $stt): ?>
-                      <option value="<?= $stt ?>" <?= $status === $stt ? 'selected' : '' ?>><?= ucfirst(str_replace('_', ' ', $stt)) ?></option>
-                    <?php endforeach; ?>
+                  <select class="form-select form-select-sm" disabled>
+                    <option selected>aprovada</option>
                   </select>
                 </div>
                 <div class="col-12 col-md-auto filter-col">
@@ -592,7 +634,7 @@ $statusMap = [
                 <div class="col-12 col-md flex-grow-1 filter-col">
                   <label class="form-label mb-1">Buscar</label>
                   <div class="autocomplete">
-                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante, SKU ou Produto…" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" autocomplete="off">
+                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante (ex.: franquia_1), SKU ou Produto…" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" autocomplete="off">
                     <div class="autocomplete-list d-none" id="qList"></div>
                   </div>
                 </div>
@@ -602,7 +644,7 @@ $statusMap = [
                 </div>
               </div>
               <div class="small-muted mt-2">
-                Encontradas <strong><?= (int)$totalRows ?></strong> solicitações · Página <strong><?= (int)$page ?></strong> de <strong><?= (int)$totalPages ?></strong>
+                Encontradas <strong><?= (int)$totalRows ?></strong> solicitações (somente <strong>Franquias</strong>) · Página <strong><?= (int)$page ?></strong> de <strong><?= (int)$totalPages ?></strong>
               </div>
             </div>
           </form>
@@ -638,12 +680,13 @@ $statusMap = [
                 <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(min($totalPages, $page + 1)) ?>"><i class="bx bx-chevron-right"></i></a></li>
                 <li class="page-item <?= ($page >= $totalPages ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl($totalPages) ?>"><i class="bx bx-chevrons-right"></i></a></li>
               </ul>
+              <span class="small text-muted">Mostrando <?= (int)min($totalRows, $offset + 1) ?>–<?= (int)min($totalRows, $offset + $perPage) ?> de <?= (int)$totalRows ?></span>
             </div>
           <?php endif; ?>
 
           <!-- ===== Tabela ===== -->
           <div class="card table-zone">
-            <h5 class="card-header">Lista de Produtos Solicitados</h5>
+            <h5 class="card-header">Lista de Produtos Enviados (Franquias aprovadas)</h5>
             <div class="overflow-x">
               <div class="table-responsive text-nowrap">
                 <table class="table table-hover align-middle">
@@ -670,7 +713,7 @@ $statusMap = [
                       ?>
                         <tr>
                           <td><?= (int)$r['id'] ?></td>
-                          <td><strong><?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?></strong></td>
+                          <td><strong><?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?></strong> <span class="badge bg-label-success ms-1">Franquia</span></td>
                           <td class="text-end"><?= (int)$r['itens_count'] ?></td>
                           <td class="text-end"><?= (int)$r['qtd_total'] ?></td>
                           <td class="text-end">R$ <?= number_format((float)$r['subtotal_calc'], 2, ',', '.') ?></td>
@@ -721,8 +764,8 @@ $statusMap = [
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(1) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                   <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= $makeUrl(max(1, $page - 1)) ?>"><i class="bx bx-chevron-left"></i></a></li>
                   <?php
-                  $start = max(1, $page - $range);
-                  $end = min($totalPages, $page + $range);
+                  $start = max(1, $page - 2);
+                  $end   = min($totalPages, $page + 2);
                   if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                   for ($i = $start; $i <= $end; $i++) {
                     $active = ($i == $page) ? 'active' : '';
@@ -762,7 +805,7 @@ $statusMap = [
                   <h5 class="modal-title">Mudar status da solicitação <span id="ms-title-id" class="text-muted"></span></h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <!-- Agora o form também envia id_matriz e id_solicitante -->
+                <!-- Mantido seu destino de submit -->
                 <form method="post" id="formStatus" class="m-0" action="../../assets/php/franquia/produtosSolicitadosSubmit.php">
                   <input type="hidden" name="csrf" value="<?= htmlspecialchars($CSRF, ENT_QUOTES) ?>">
                   <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
@@ -872,8 +915,8 @@ $statusMap = [
 
       msSid.value = sid || '';
       msTitulo.textContent = sid ? ('#' + sid) : '';
-      msIdMatriz.value = '<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>'; // matriz atual (ex.: principal_1)
-      msIdSolicitante.value = solicitante; // quem solicitou (franquia_X / filial_Y / unidade_Z)
+      msIdMatriz.value = '<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>';
+      msIdSolicitante.value = solicitante;
 
       const ops = optionsForStatus(statusAtual);
       if (!ops.length) {
@@ -921,6 +964,16 @@ $statusMap = [
         list.classList.remove('d-none');
       }
 
+      function escapeHtml(s) {
+        return (s || '').toString().replace(/[&<>"']/g, m => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        } [m]));
+      }
+
       function render(data) {
         if (!data || !data.length) {
           closeList();
@@ -929,7 +982,7 @@ $statusMap = [
         items = data.slice(0, 15);
         list.innerHTML = items.map((it, i) => `
           <div class="autocomplete-item" data-i="${i}">
-            <span>${it.label}</span><span class="autocomplete-tag">${it.tipo}</span>
+            <span>${escapeHtml(it.label)}</span><span class="autocomplete-tag">${escapeHtml(it.tipo)}</span>
           </div>`).join('');
         openList();
       }
@@ -940,7 +993,6 @@ $statusMap = [
         closeList();
         form.submit();
       }
-
       qInput.addEventListener('input', function() {
         const v = qInput.value.trim();
         if (v.length < 2) {
