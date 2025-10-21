@@ -447,7 +447,7 @@ $statusMap = [
               <li class="menu-item"><a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a></li>
-              <li class="menu-item"><a href="./produtosSolicitados?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a></li>
               <li class="menu-item active"><a href="#" class="menu-link">
