@@ -6,7 +6,15 @@ error_reporting(E_ALL);
 session_start();
 date_default_timezone_set('America/Sao_Paulo');
 
-/* ================== AUTENTICAÇÃO / SESSÃO ================== */
+// ==== Polyfills (PHP 7.4 compat) ====
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle)
+    {
+        return $needle !== '' && strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+// ================== AUTENTICAÇÃO / SESSÃO ==================
 $idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
     header("Location: .././login.php");
@@ -22,8 +30,8 @@ if (
     exit;
 }
 
-/* ================== CONEXÃO ================== */
-require '../../assets/php/conexao.php';
+// ================== CONEXÃO ==================
+require_once '../../assets/php/conexao.php';
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     http_response_code(500);
     echo "Erro: conexão indisponível.";
@@ -31,7 +39,17 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 }
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-/* ================== USUÁRIO ================== */
+// helpers mínimos antes de qualquer saída
+function e(string $v): string
+{
+    return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+}
+function dateBr(?string $dt): string
+{
+    return $dt ? date('d/m/Y H:i', strtotime($dt)) : '-';
+}
+
+// ================== USUÁRIO ==================
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
@@ -47,11 +65,11 @@ try {
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar usuário: " . e($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-/* ================== AUTORIZAÇÃO ================== */
+// ================== AUTORIZAÇÃO ==================
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa']; // 'principal' | 'filial' | 'unidade' | 'franquia'
@@ -70,7 +88,7 @@ if (!$acessoPermitido) {
     exit;
 }
 
-/* ================== LOGO ================== */
+// ================== LOGO ==================
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
     $stmt->execute([':id' => $idSelecionado]);
@@ -80,13 +98,13 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* ================== CSRF ================== */
+// ================== CSRF ==================
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
 }
 $CSRF = $_SESSION['csrf_token'];
 
-/* ================== MAPA STATUS (solicitacoes_b2b) ================== */
+// ================== MAPA STATUS ==================
 $statusMap = [
     'pendente'     => ['cls' => 'bg-label-warning',  'txt' => 'Pendente'],
     'aprovada'     => ['cls' => 'bg-label-info',     'txt' => 'Aprovada'],
@@ -96,7 +114,90 @@ $statusMap = [
     'cancelada'    => ['cls' => 'bg-label-secondary', 'txt' => 'Cancelada'],
 ];
 
-/* =============== POST: transições de status (perfil principal) =============== */
+// ================== MINI ENDPOINT AJAX (ANTES DO HTML!) ==================
+if (($_GET['ajax'] ?? '') === 'itens') {
+    header('Content-Type: text/html; charset=UTF-8');
+
+    $sid = (int)($_GET['sid'] ?? 0);
+    if ($sid <= 0) {
+        echo '<div class="text-danger p-2">Solicitação inválida.</div>';
+        exit;
+    }
+
+    // valida escopo
+    if ($tipoSession === 'franquia') {
+        $ok = $pdo->prepare("
+      SELECT COUNT(*)
+      FROM solicitacoes_b2b s
+      JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+      WHERE s.id = :id
+        AND u.tipo = 'Franquia'
+        AND CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED) = CAST(SUBSTRING_INDEX(:sol, '_', -1) AS UNSIGNED)
+    ");
+        $ok->execute([':id' => $sid, ':sol' => $idSelecionado]);
+    } else {
+        $ok = $pdo->prepare("
+      SELECT COUNT(*)
+      FROM solicitacoes_b2b s
+      JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+      WHERE s.id = :id
+        AND s.id_matriz = :mat
+        AND u.tipo = 'Franquia'
+    ");
+        $ok->execute([':id' => $sid, ':mat' => $idSelecionado]);
+    }
+    if (!$ok->fetchColumn()) {
+        echo '<div class="text-danger p-2">Acesso negado.</div>';
+        exit;
+    }
+
+    $q = $pdo->prepare("
+    SELECT id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal
+    FROM solicitacoes_b2b_itens
+    WHERE solicitacao_id = :sid
+    ORDER BY id ASC
+  ");
+    $q->execute([':sid' => $sid]);
+    $itens = $q->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$itens) {
+        echo '<div class="text-muted p-2">Nenhum item nesta solicitação.</div>';
+        exit;
+    }
+?>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>SKU</th>
+                    <th>Produto</th>
+                    <th class="text-end">Qtde</th>
+                    <th>Unid.</th>
+                    <th class="text-end">Preço</th>
+                    <th class="text-end">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($itens as $it): ?>
+                    <tr>
+                        <td><?= (int)$it['id'] ?></td>
+                        <td><?= e((string)$it['codigo_produto']) ?></td>
+                        <td><?= e((string)$it['nome_produto']) ?></td>
+                        <td class="text-end"><?= (int)$it['quantidade'] ?></td>
+                        <td><?= e((string)$it['unidade']) ?></td>
+                        <td class="text-end">R$ <?= number_format((float)$it['preco_unitario'], 2, ',', '.') ?></td>
+                        <td class="text-end">R$ <?= number_format((float)$it['subtotal'], 2, ',', '.') ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php
+    exit;
+}
+
+// ============== POST: transições de status (perfil principal) ==============
 $flashMsg = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid'], $_POST['csrf'])) {
     if ($tipoSession !== 'principal') {
@@ -108,7 +209,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
         $acao = (string)$_POST['acao'];
 
         try {
-            // Confere escopo: Franquia + pertence à matriz atual
             $st = $pdo->prepare("
         SELECT s.id, s.status
         FROM solicitacoes_b2b s
@@ -171,16 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['sid']
     }
 }
 
-/* ================== FILTROS + ESCOPOS ================== */
-function e(string $v): string
-{
-    return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
-}
-function dateBr(?string $dt): string
-{
-    return $dt ? date('d/m/Y H:i', strtotime($dt)) : '-';
-}
-
+// ================== FILTROS + ESCOPOS ==================
 $perPage = 20;
 $page    = max(1, (int)($_GET['p'] ?? 1));
 $offset  = ($page - 1) * $perPage;
@@ -190,7 +281,7 @@ $q      = trim($_GET['q'] ?? '');
 $de     = trim($_GET['de'] ?? '');
 $ate    = trim($_GET['ate'] ?? '');
 
-/* ===== WHERE base: somente FRANQUIAS + escopo de empresa ===== */
+// WHERE base: somente FRANQUIAS + escopo
 $where  = ["u.tipo = 'Franquia'"];
 $params = [];
 
@@ -202,24 +293,18 @@ if ($tipoSession === 'franquia') {
     $params[':matriz'] = $idSelecionado;
 }
 
-/* ===== Somente PENDENTES por padrão =====
-   - pendente (aguardando aprovação)
-   - aprovada (aguardando envio)
-   - em_transito (aguardando recebimento) */
+// PENDENTES por padrão
 $pendentes = ['pendente', 'aprovada', 'em_transito'];
-
 if ($status !== '' && in_array($status, $pendentes, true)) {
     $where[] = "s.status = :status";
     $params[':status'] = $status;
 } else {
-    // padrão: todos os pendentes
     $where[] = "s.status IN ('pendente','aprovada','em_transito')";
 }
 
-/* ===== filtros opcionais ===== */
 if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
     $where[] = "DATE(s.created_at) >= :de";
-    $params[':de'] = $de;
+    $params[':de']  = $de;
 }
 if ($ate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ate)) {
     $where[] = "DATE(s.created_at) <= :ate";
@@ -236,10 +321,9 @@ if ($q !== '') {
   )";
     $params[':q'] = "%$q%";
 }
-
 $whereSql = implode(' AND ', $where);
 
-/* ===== COUNT ===== */
+// COUNT
 $stCount = $pdo->prepare("
   SELECT COUNT(*)
   FROM solicitacoes_b2b s
@@ -250,7 +334,7 @@ $stCount->execute($params);
 $totalRows  = (int)$stCount->fetchColumn();
 $totalPages = max(1, (int)ceil($totalRows / $perPage));
 
-/* ===== SELECT PÁGINA ===== */
+// SELECT
 $sql = "
 SELECT
   s.id, s.id_solicitante, s.status, s.total_estimado,
@@ -265,9 +349,7 @@ JOIN unidades u
 LEFT JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
 WHERE $whereSql
 GROUP BY s.id
-ORDER BY
-  FIELD(s.status,'pendente','aprovada','em_transito') ASC,
-  s.created_at DESC
+ORDER BY FIELD(s.status,'pendente','aprovada','em_transito') ASC, s.created_at DESC
 LIMIT :lim OFFSET :off
 ";
 $st = $pdo->prepare($sql);
@@ -277,16 +359,14 @@ $st->bindValue(':off', (int)$offset, PDO::PARAM_INT);
 $st->execute();
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
-/* ================== HELPERS VIEW ================== */
+// ===== view helpers =====
 function actionsFor(string $status): array
 {
-    // Ações mostradas no botão "Mudar Status" (apenas para principal)
     if ($status === 'pendente')   return [['v' => 'aprovar', 't' => 'Aprovar'], ['v' => 'reprovar', 't' => 'Reprovar'], ['v' => 'cancelar', 't' => 'Cancelar']];
     if ($status === 'aprovada')   return [['v' => 'enviar', 't' => 'Marcar Em Trânsito'], ['v' => 'cancelar', 't' => 'Cancelar']];
     if ($status === 'em_transito') return [['v' => 'entregar', 't' => 'Marcar Entregue']];
     return [];
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -330,7 +410,7 @@ function actionsFor(string $status): array
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
-            <!-- ===== ASIDE (mantido) ===== -->
+            <!-- ===== ASIDE ===== -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -460,13 +540,8 @@ function actionsFor(string $status): array
                 <!-- /Navbar -->
 
                 <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
-                        Transferências Pendentes
-                    </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Somente solicitações <strong>Pendentes</strong>: pendente, aprovada e em trânsito.</span>
-                    </h5>
+                    <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Franquias</a>/</span> Transferências Pendentes</h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font"><span class="text-muted fw-light">Somente <strong>pendentes</strong>: Pendente, Aprovada e Em trânsito.</span></h5>
 
                     <?php if ($flashMsg): ?>
                         <div class="alert alert-<?= e($flashMsg['type']) ?> alert-dismissible" role="alert">
@@ -485,7 +560,7 @@ function actionsFor(string $status): array
                                     <select class="form-select form-select-sm" name="status">
                                         <option value="">Todos pendentes (padrão)</option>
                                         <option value="pendente" <?= $status === 'pendente' ? 'selected' : '' ?>>Pendente</option>
-                                        <option value="aprovada" <?= $status === 'aprovada' ? 'selected' : '' ?>>Aprovada (aguard. envio)</option>
+                                        <option value="aprovada" <?= $status === 'aprovada' ? 'selected' : '' ?>>Aprovada (aguarda envio)</option>
                                         <option value="em_transito" <?= $status === 'em_transito' ? 'selected' : '' ?>>Em trânsito</option>
                                     </select>
                                 </div>
@@ -596,7 +671,8 @@ function actionsFor(string $status): array
                                 <ul class="pagination mb-0">
                                     <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(1)) ?>"><i class="bx bx-chevrons-left"></i></a></li>
                                     <li class="page-item <?= ($page <= 1 ? 'disabled' : '') ?>"><a class="page-link" href="<?= e($makeUrl(max(1, $page - 1))) ?>"><i class="bx bx-chevron-left"></i></a></li>
-                                    <?php $start = max(1, $page - $range);
+                                    <?php
+                                    $start = max(1, $page - $range);
                                     $end = min($totalPages, $page + $range);
                                     if ($start > 1) echo '<li class="page-item disabled"><span class="page-link">…</span></li>';
                                     for ($i = $start; $i <= $end; $i++) {
@@ -629,7 +705,7 @@ function actionsFor(string $status): array
                         </div>
                     </div>
 
-                    <!-- Modal Mudar Status (principal) -->
+                    <!-- Modal Mudar Status -->
                     <div class="modal fade" id="modalStatus" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
                             <div class="modal-content">
@@ -674,7 +750,7 @@ function actionsFor(string $status): array
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 
     <script>
-        /* ===== Modal Detalhes (AJAX) ===== */
+        // Modal Detalhes (carrega SOMENTE a tabela HTML do endpoint)
         const modalDetalhes = document.getElementById('modalDetalhes');
         modalDetalhes.addEventListener('show.bs.modal', function(event) {
             const button = event.relatedTarget;
@@ -691,13 +767,14 @@ function actionsFor(string $status): array
             url.searchParams.set('ajax', 'itens');
             url.searchParams.set('sid', sid);
             fetch(url.toString(), {
-                    credentials: 'same-origin'
+                    credentials: 'same-origin',
+                    cache: 'no-store'
                 })
                 .then(r => r.text()).then(html => body.innerHTML = html)
                 .catch(() => body.innerHTML = '<div class="text-danger">Falha ao carregar itens.</div>');
         });
 
-        /* ===== Modal Status (dinâmica) ===== */
+        // Modal Status
         const modalStatus = document.getElementById('modalStatus');
         const msSid = document.getElementById('ms-sid');
         const msAcao = document.getElementById('ms-acao');
@@ -733,10 +810,8 @@ function actionsFor(string $status): array
             const btn = event.relatedTarget;
             const sid = btn?.getAttribute('data-sid');
             const statusAtual = btn?.getAttribute('data-status') || '';
-
             msSid.value = sid || '';
             msTitulo.textContent = sid ? ('#' + sid) : '';
-
             const ops = optionsForStatus(statusAtual);
             if (!ops.length) {
                 msSelect.innerHTML = '<option value="">Sem ações disponíveis</option>';
@@ -755,90 +830,6 @@ function actionsFor(string $status): array
             msAcao.value = msSelect.value;
         });
     </script>
-
-    <?php
-    /* ================== Mini endpoint AJAX (?ajax=itens&sid=ID) ================== */
-    if (($_GET['ajax'] ?? '') === 'itens') {
-        header('Content-Type: text/html; charset=UTF-8');
-        $sid = (int)($_GET['sid'] ?? 0);
-        if ($sid <= 0) {
-            echo '<div class="text-danger p-2">Solicitação inválida.</div>';
-            exit;
-        }
-
-        // valida escopo
-        if ($tipoSession === 'franquia') {
-            $ok = $pdo->prepare("
-      SELECT COUNT(*)
-      FROM solicitacoes_b2b s
-      JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
-      WHERE s.id = :id
-        AND u.tipo = 'Franquia'
-        AND CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED) = CAST(SUBSTRING_INDEX(:sol, '_', -1) AS UNSIGNED)
-    ");
-            $ok->execute([':id' => $sid, ':sol' => $idSelecionado]);
-        } else {
-            $ok = $pdo->prepare("
-      SELECT COUNT(*)
-      FROM solicitacoes_b2b s
-      JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
-      WHERE s.id = :id
-        AND s.id_matriz = :mat
-        AND u.tipo = 'Franquia'
-    ");
-            $ok->execute([':id' => $sid, ':mat' => $idSelecionado]);
-        }
-        if (!$ok->fetchColumn()) {
-            echo '<div class="text-danger p-2">Acesso negado.</div>';
-            exit;
-        }
-
-        $q = $pdo->prepare("
-    SELECT id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal
-    FROM solicitacoes_b2b_itens
-    WHERE solicitacao_id = :sid
-    ORDER BY id ASC
-  ");
-        $q->execute([':sid' => $sid]);
-        $itens = $q->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!$itens) {
-            echo '<div class="text-muted p-2">Nenhum item nesta solicitação.</div>';
-            exit;
-        }
-    ?>
-        <div class="table-responsive">
-            <table class="table table-sm table-hover">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>SKU</th>
-                        <th>Produto</th>
-                        <th class="text-end">Qtde</th>
-                        <th>Unid.</th>
-                        <th class="text-end">Preço</th>
-                        <th class="text-end">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($itens as $it): ?>
-                        <tr>
-                            <td><?= (int)$it['id'] ?></td>
-                            <td><?= e((string)$it['codigo_produto']) ?></td>
-                            <td><?= e((string)$it['nome_produto']) ?></td>
-                            <td class="text-end"><?= (int)$it['quantidade'] ?></td>
-                            <td><?= e((string)$it['unidade']) ?></td>
-                            <td class="text-end">R$ <?= number_format((float)$it['preco_unitario'], 2, ',', '.') ?></td>
-                            <td class="text-end">R$ <?= number_format((float)$it['subtotal'], 2, ',', '.') ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    <?php
-        exit;
-    }
-    ?>
 </body>
 
 </html>
