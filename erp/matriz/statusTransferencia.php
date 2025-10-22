@@ -21,7 +21,6 @@ require '../../assets/php/conexao.php';
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
-
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     $stmt->execute([':id' => $usuario_id]);
@@ -40,8 +39,7 @@ try {
 /* ==================== Permissão ==================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
-$tipoSession       = $_SESSION['tipo_empresa'];
-
+$tipoSession = $_SESSION['tipo_empresa'];
 if (str_starts_with($idSelecionado, 'principal_')) {
     $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
@@ -51,7 +49,6 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
-
 if (!$acessoPermitido) {
     echo "<script>alert('Acesso negado!'); location.href='.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
@@ -70,7 +67,6 @@ try {
 /* ==================== Listagem + Itens ==================== */
 $solicitacoes = [];
 $solicitacaoItens = [];
-
 try {
     $sqlCab = "SELECT id, id_matriz, id_solicitante, status, total_estimado, created_at, aprovada_em, enviada_em, entregue_em
                FROM solicitacoes_b2b
@@ -82,7 +78,7 @@ try {
         $sid = (int)$row['id'];
         $solicitacoes[$sid] = [
             'id'             => $sid,
-            'id_solicitante' => (string)$row['id_solicitante'], // manter para usar no botão
+            'id_solicitante' => (string)$row['id_solicitante'],
             'status'         => (string)$row['status'],
             'total'          => (float)$row['total_estimado'],
             'created_at'     => (string)$row['created_at'],
@@ -98,54 +94,47 @@ try {
     if ($solicitacoes) {
         $idsArray = array_map('intval', array_keys($solicitacoes));
         $ids = implode(',', $idsArray);
-
         $sqlIt = "SELECT solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal
                   FROM solicitacoes_b2b_itens
                   WHERE solicitacao_id IN ($ids)
                   ORDER BY solicitacao_id ASC, id ASC";
         $stIt = $pdo->query($sqlIt);
 
-        $qtdPorSid   = array_fill_keys($idsArray, 0);
+        $qtdPorSid = array_fill_keys($idsArray, 0);
         $nomesPorSid = array_fill_keys($idsArray, []);
-
         while ($it = $stIt->fetch(PDO::FETCH_ASSOC)) {
             $sid = (int)$it['solicitacao_id'];
-
             $solicitacaoItens[$sid][] = [
                 'produto_id' => (int)$it['produto_id'],
-                'codigo'     => (string)$it['codigo_produto'],
-                'nome'       => (string)$it['nome_produto'],
-                'unidade'    => (string)$it['unidade'],
-                'preco'      => (float)$it['preco_unitario'],
+                'codigo' => (string)$it['codigo_produto'],
+                'nome' => (string)$it['nome_produto'],
+                'unidade' => (string)$it['unidade'],
+                'preco' => (float)$it['preco_unitario'],
                 'quantidade' => (int)$it['quantidade'],
-                'subtotal'   => (float)$it['subtotal']
+                'subtotal' => (float)$it['subtotal']
             ];
-
             $qtdPorSid[$sid] += (int)$it['quantidade'];
-
             $nome = trim((string)$it['nome_produto']);
             if ($nome !== '' && !in_array($nome, $nomesPorSid[$sid], true)) {
                 $nomesPorSid[$sid][] = $nome;
             }
         }
-
         foreach ($idsArray as $sid) {
             $solicitacoes[$sid]['qtd_total'] = (int)($qtdPorSid[$sid] ?? 0);
-
             $nomes  = $nomesPorSid[$sid] ?? [];
             $totalN = count($nomes);
             if ($totalN === 0) {
                 $solicitacoes[$sid]['produtos_str'] = '—';
             } else {
                 $preview = array_slice($nomes, 0, 3);
-                $extra   = $totalN - count($preview);
-                $str     = implode(', ', $preview);
+                $extra = $totalN - count($preview);
+                $str = implode(', ', $preview);
                 if ($extra > 0) $str .= " +{$extra}";
                 $solicitacoes[$sid]['produtos_str'] = $str;
             }
         }
     }
-} catch (PDOException $e) { /* silencia para a lista */
+} catch (PDOException $e) { /* lista segue vazia */
 }
 ?>
 <!DOCTYPE html>
@@ -268,19 +257,52 @@ try {
             color: #64748b;
             border-color: #cbd5e1
         }
+
+        /* Toast/alert fixo */
+        #toastArea {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 1080;
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+        .toast-msg {
+            min-width: 280px;
+            max-width: 420px;
+            border-radius: 10px;
+            padding: 12px 14px;
+            color: #0f5132;
+            background: #d1e7dd;
+            border: 1px solid #badbcc;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, .08)
+        }
+
+        .toast-error {
+            color: #842029;
+            background: #f8d7da;
+            border: 1px solid #f5c2c7
+        }
+
+        .toast-title {
+            font-weight: 600;
+            margin-bottom: 2px
+        }
     </style>
 </head>
 
 <body>
+    <div id="toastArea"></div> <!-- container de mensagens -->
+
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- sidebar omitido (igual ao seu) -->
-            <!-- ... (sidebar e navbar exatamente como estava no seu arquivo anterior) ... -->
+            <!-- (Sidebar e Navbar iguais aos anteriores, omitidos por brevidade) -->
 
             <div class="layout-page">
-                <!-- NAVBAR (igual) -->
+                <!-- NAVBAR -->
                 <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
-                    <!-- conteúdo igual ao anterior -->
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
                     </div>
@@ -346,8 +368,7 @@ try {
                                     <?php if ($solicitacoes): foreach ($solicitacoes as $sid => $s): ?>
                                             <tr data-sid="<?= (int)$sid ?>">
                                                 <td><?= (int)$sid ?></td>
-                                                <td>
-                                                    <?php $status = (string)$s['status'];
+                                                <td><?php $status = (string)$s['status'];
                                                     $statusTxt = ucwords(str_replace('_', ' ', $status)); ?>
                                                     <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?> status-badge"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
                                                 </td>
@@ -429,10 +450,9 @@ try {
                             </div>
                             <div class="modal-body">
                                 <label class="form-label">Ação</label>
-                                <select id="selectStatus" class="form-select">
-                                    <option value="entregue">Marcar Entregue</option>
-                                </select>
-                                <div class="form-text">As opções exibidas dependem do status atual da solicitação.</div>
+                                <select id="selectStatus" class="form-select"></select>
+                                <div id="noActionsHelp" class="form-text d-none">Sem ações disponíveis para este status.</div>
+                                <div id="actionsHelp" class="form-text">As opções exibidas dependem do status atual da solicitação.</div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -458,11 +478,7 @@ try {
     </div>
 
     <script id="dadosSolicitacoes" type="application/json">
-        <?= json_encode([
-            'cab'    => array_values($solicitacoes),
-            'mapCab' => $solicitacoes,
-            'itens'  => $solicitacaoItens
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
+        <?= json_encode(['cab' => array_values($solicitacoes), 'mapCab' => $solicitacoes, 'itens' => $solicitacaoItens], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
     </script>
 
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
@@ -476,7 +492,19 @@ try {
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 
     <script>
-        // paginação/pesquisa (igual ao seu)
+        /* ===== Toast simples ===== */
+        function showMsg(type, text) {
+            const area = document.getElementById('toastArea');
+            const div = document.createElement('div');
+            div.className = 'toast-msg' + (type === 'error' ? ' toast-error' : '');
+            div.innerHTML = `<div class="toast-title">${type==='error'?'Erro':'Sucesso'}</div><div>${text}</div>`;
+            area.appendChild(div);
+            setTimeout(() => {
+                div.remove();
+            }, 4000);
+        }
+
+        /* ===== Paginação/Pesquisa ===== */
         const searchInput = document.getElementById('searchInput');
         const allRows = Array.from(document.querySelectorAll('#tabelaSolicitacoes tbody tr'));
         const rowsPerPage = 10;
@@ -494,7 +522,6 @@ try {
                 endIndex = startIndex + rowsPerPage;
             allRows.forEach(row => row.style.display = 'none');
             filteredRows.slice(startIndex, endIndex).forEach(row => row.style.display = '');
-
             const paginacao = document.getElementById('paginacao');
             paginacao.innerHTML = '';
             for (let i = 1; i <= totalPages; i++) {
@@ -527,7 +554,7 @@ try {
         });
         renderTable();
 
-        // dados locais
+        /* ===== Dados Locais ===== */
         const dados = JSON.parse(document.getElementById('dadosSolicitacoes').textContent || '{}');
         const itensPorId = dados?.itens || {};
         const cabPorLista = dados?.cab || [];
@@ -569,11 +596,10 @@ try {
         }
 
         function escapeHtml(str) {
-            return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+            return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
         }
 
-        // Detalhes
+        /* ===== Modal Detalhes ===== */
         $(document).on('click', '.btnDetalhes', function() {
             const sid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
             const cab = mapCab[sid] || (cabPorLista.find(c => parseInt(c.id, 10) === sid)) || null;
@@ -596,21 +622,14 @@ try {
                 $('#metaAprov').text(toBrDateTime(cab.aprovada_em));
                 $('#metaEnv').text(toBrDateTime(cab.enviada_em));
                 $('#metaEntr').text(toBrDateTime(cab.entregue_em));
-
                 if (!itens.length) {
                     $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
                 } else {
                     let html = '<div class="table-responsive text-nowrap"><table class="table table-sm text-nowrap">';
                     html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
                     itens.forEach(i => {
-                        html += `<tr>
-                        <td>${escapeHtml(i.codigo||'')}</td>
-                        <td>${escapeHtml(i.nome||'')}</td>
-                        <td>${parseInt(i.quantidade||0,10)}</td>
-                        <td>${escapeHtml(i.unidade||'')}</td>
-                        <td>${formatBRL(parseFloat(i.preco||0))}</td>
-                        <td>${formatBRL(parseFloat(i.subtotal||0))}</td>
-                    </tr>`;
+                        html += `<tr><td>${escapeHtml(i.codigo||'')}</td><td>${escapeHtml(i.nome||'')}</td><td>${parseInt(i.quantidade||0,10)}</td>
+                    <td>${escapeHtml(i.unidade||'')}</td><td>${formatBRL(parseFloat(i.preco||0))}</td><td>${formatBRL(parseFloat(i.subtotal||0))}</td></tr>`;
                     });
                     html += '</tbody></table></div>';
                     $('#modalItensWrapper').html(html);
@@ -619,20 +638,70 @@ try {
             new bootstrap.Modal(document.getElementById('modalDetalhes')).show();
         });
 
-        // Mudar Status
+        /* ===== Helpers de ações do modal de status ===== */
+        function populateStatusActions(currentStatus) {
+            const select = document.getElementById('selectStatus');
+            const noActions = document.getElementById('noActionsHelp');
+            const actionsHelp = document.getElementById('actionsHelp');
+            const btn = document.getElementById('btnSalvarStatus');
+
+            select.innerHTML = '';
+            if (String(currentStatus) === 'entregue') {
+                // Sem ações
+                const opt = document.createElement('option');
+                opt.textContent = 'Sem ações disponíveis';
+                opt.value = '';
+                opt.disabled = true;
+                opt.selected = true;
+                select.appendChild(opt);
+                select.disabled = true;
+                btn.disabled = true;
+                noActions.classList.remove('d-none');
+                actionsHelp.classList.add('d-none');
+            } else {
+                // Pode marcar entregue
+                const opt = document.createElement('option');
+                opt.textContent = 'Marcar Entregue';
+                opt.value = 'entregue';
+                opt.selected = true;
+                select.appendChild(opt);
+                select.disabled = false;
+                btn.disabled = false;
+                noActions.classList.add('d-none');
+                actionsHelp.classList.remove('d-none');
+            }
+        }
+
+        /* ===== Modal Mudar Status ===== */
         let currentSid = null,
-            currentSolicitante = null;
+            currentSolicitante = null,
+            currentStatus = null;
         $(document).on('click', '.btnMudarStatus', function() {
             currentSid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
             currentSolicitante = this.dataset.solicitante || '';
+            // Pega status mais recente do mapCab (caso já tenha sido alterado), senão do data-*
+            currentStatus = (mapCab[currentSid]?.status) || (this.dataset.status || '');
+
             $('#statusSid').text('#' + currentSid);
             $('#statusSolicitante').text(currentSolicitante || '—');
-            $('#selectStatus').val('entregue');
+
+            populateStatusActions(currentStatus);
+
             new bootstrap.Modal(document.getElementById('modalMudarStatus')).show();
         });
 
-        $('#btnSalvarStatus').on('click', function() {
+        /* ===== Endpoint resolver ===== */
+        function endpointUrl() {
+            return new URL('../../assets/php/matriz/processar_mudar_status.php', window.location.href).toString();
+        }
+
+        /* ===== Salvar Status ===== */
+        $('#btnSalvarStatus').on('click', async function() {
             if (!currentSid) return;
+            if (String(currentStatus) === 'entregue') {
+                // já entregue: não envia nada
+                return;
+            }
 
             const fd = new FormData();
             fd.append('action', 'update_status');
@@ -640,49 +709,70 @@ try {
             fd.append('status', 'entregue');
             fd.append('solicitante', currentSolicitante || '');
 
-            // >>> chama o endpoint novo
-            fetch('../../assets/php/matriz/processarStatus.php', {
+            try {
+                const resp = await fetch(endpointUrl(), {
                     method: 'POST',
                     body: fd,
-                    credentials: 'same-origin'
-                })
-                .then(r => r.json())
-                .then(resp => {
-                    if (!resp?.ok) {
-                        alert(resp?.msg || 'Erro ao atualizar.');
-                        return;
+                    credentials: 'same-origin',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
-                    const d = resp.data || {};
-                    mapCab[currentSid] = Object.assign({}, mapCab[currentSid] || {}, d);
+                });
 
-                    const tr = document.querySelector(`tr[data-sid="${currentSid}"]`);
-                    if (tr) {
-                        const badge = tr.querySelector('.status-badge');
-                        if (badge) {
-                            badge.className = 'badge status-badge ' + statusClass(d.status);
-                            badge.textContent = titleCaseStatus(d.status);
-                        }
-                        const btn = tr.querySelector('.btnMudarStatus');
-                        if (btn) {
-                            btn.dataset.status = d.status || '';
-                            btn.dataset.aprovada = d.aprovada_em || '';
-                            btn.dataset.enviada = d.enviada_em || '';
-                            btn.dataset.entregue = d.entregue_em || '';
-                        }
+                const raw = await resp.text();
+                let data;
+                try {
+                    data = JSON.parse(raw);
+                } catch (e) {
+                    console.error('Resposta não-JSON do servidor:', raw);
+                    showMsg('error', 'Erro ao processar a resposta do servidor.');
+                    return;
+                }
+                if (!resp.ok || data.ok === false) {
+                    showMsg('error', data?.msg || ('Erro HTTP ' + resp.status));
+                    return;
+                }
+
+                const d = data.data || {};
+                mapCab[currentSid] = Object.assign({}, mapCab[currentSid] || {}, d);
+                currentStatus = d.status || 'entregue';
+
+                // Atualiza linha
+                const tr = document.querySelector(`tr[data-sid="${currentSid}"]`);
+                if (tr) {
+                    const badge = tr.querySelector('.status-badge');
+                    if (badge) {
+                        badge.className = 'badge status-badge ' + statusClass(d.status);
+                        badge.textContent = titleCaseStatus(d.status);
                     }
-
-                    const modalEl = document.getElementById('modalMudarStatus');
-                    (bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl)).hide();
-
-                    if (document.getElementById('modalDetalhes').classList.contains('show')) {
-                        const cab = mapCab[currentSid];
-                        if (cab) {
-                            $('#modalStatusBadge').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
-                            $('#metaEntr').text(toBrDateTime(cab.entregue_em));
-                        }
+                    const btn = tr.querySelector('.btnMudarStatus');
+                    if (btn) {
+                        btn.dataset.status = d.status || '';
+                        btn.dataset.aprovada = d.aprovada_em || '';
+                        btn.dataset.enviada = d.enviada_em || '';
+                        btn.dataset.entregue = d.entregue_em || '';
                     }
-                })
-                .catch(() => alert('Falha de rede ao atualizar o status.'));
+                }
+
+                // Mensagem de sucesso
+                showMsg('success', `Solicitação #${currentSid} marcada como ENTREGUE com sucesso!`);
+
+                // Fecha modal
+                const modalEl = document.getElementById('modalMudarStatus');
+                (bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl)).hide();
+
+                // Se modal de detalhes estiver aberta, sincroniza
+                if (document.getElementById('modalDetalhes').classList.contains('show')) {
+                    const cab = mapCab[currentSid];
+                    if (cab) {
+                        $('#modalStatusBadge').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
+                        $('#metaEntr').text(toBrDateTime(cab.entregue_em));
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                showMsg('error', 'Falha de rede ao atualizar o status. Tente novamente.');
+            }
         });
     </script>
 </body>

@@ -6,14 +6,18 @@ session_start();
 
 header('Content-Type: application/json; charset=UTF-8');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['ok' => false, 'msg' => 'Método inválido.']);
+function jexit($arr)
+{
+    echo json_encode($arr, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    jexit(['ok' => false, 'msg' => 'Método inválido.']);
+}
+
 if (!isset($_SESSION['usuario_logado'], $_SESSION['empresa_id'], $_SESSION['tipo_empresa'], $_SESSION['usuario_id'])) {
-    echo json_encode(['ok' => false, 'msg' => 'Sessão expirada. Faça login novamente.']);
-    exit;
+    jexit(['ok' => false, 'msg' => 'Sessão expirada. Faça login novamente.']);
 }
 
 require_once __DIR__ . '/../conexao.php';
@@ -23,11 +27,10 @@ $status       = strtolower(trim((string)($_POST['status'] ?? '')));
 $solicitanteP = trim((string)($_POST['solicitante'] ?? ''));
 
 if ($sid <= 0 || $status !== 'entregue' || $solicitanteP === '') {
-    echo json_encode(['ok' => false, 'msg' => 'Parâmetros inválidos.']);
-    exit;
+    jexit(['ok' => false, 'msg' => 'Parâmetros inválidos.']);
 }
 
-/* ====== Permissão de quem está logado para operar sobre o solicitante enviado ====== */
+/* ====== Permissão do logado para operar sobre o solicitante enviado ====== */
 $tipoSession      = $_SESSION['tipo_empresa'] ?? '';
 $idEmpresaSession = $_SESSION['empresa_id'] ?? '';
 
@@ -41,14 +44,12 @@ if (str_starts_with($solicitanteP, 'principal_')) {
 } elseif (str_starts_with($solicitanteP, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $solicitanteP);
 }
-
 if (!$acessoPermitido) {
-    echo json_encode(['ok' => false, 'msg' => 'Acesso negado para este solicitante.']);
-    exit;
+    jexit(['ok' => false, 'msg' => 'Acesso negado para este solicitante.']);
 }
 
 try {
-    // Confere se a solicitação existe e pertence ao solicitante
+    // Confirma existência e dono da solicitação
     $chk = $pdo->prepare("
         SELECT id, status, id_solicitante 
         FROM solicitacoes_b2b 
@@ -58,12 +59,10 @@ try {
     $chk->execute([':sid' => $sid]);
     $row = $chk->fetch(PDO::FETCH_ASSOC);
     if (!$row) {
-        echo json_encode(['ok' => false, 'msg' => 'Solicitação não encontrada.']);
-        exit;
+        jexit(['ok' => false, 'msg' => 'Solicitação não encontrada.']);
     }
     if ((string)$row['id_solicitante'] !== $solicitanteP) {
-        echo json_encode(['ok' => false, 'msg' => 'Solicitante da solicitação não confere.']);
-        exit;
+        jexit(['ok' => false, 'msg' => 'Solicitante da solicitação não confere.']);
     }
 
     // Atualiza status para "entregue"
@@ -79,8 +78,7 @@ try {
     ");
     $ok = $up->execute([':sid' => $sid, ':sol' => $solicitanteP]);
     if (!$ok) {
-        echo json_encode(['ok' => false, 'msg' => 'Falha ao atualizar.']);
-        exit;
+        jexit(['ok' => false, 'msg' => 'Falha ao atualizar.']);
     }
 
     $ref = $pdo->prepare("
@@ -92,9 +90,9 @@ try {
     $ref->execute([':sid' => $sid]);
     $novos = $ref->fetch(PDO::FETCH_ASSOC);
 
-    echo json_encode(['ok' => true, 'data' => $novos]);
+    jexit(['ok' => true, 'data' => $novos, 'msg' => 'Status atualizado para Entregue.']);
 } catch (PDOException $e) {
-    echo json_encode(['ok' => false, 'msg' => 'Erro: ' . $e->getMessage()]);
+    jexit(['ok' => false, 'msg' => 'Erro: ' . $e->getMessage()]);
 }
 
 ?>
