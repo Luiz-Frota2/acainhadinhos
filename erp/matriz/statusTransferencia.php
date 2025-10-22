@@ -6,11 +6,11 @@ session_start();
 /* ==================== Sessão & parâmetros ==================== */
 $idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
-    header("Location: .././login.php");
+    echo "<script>alert('Parâmetro id não informado.'); history.back();</script>";
     exit;
 }
 if (!isset($_SESSION['usuario_logado'], $_SESSION['empresa_id'], $_SESSION['tipo_empresa'], $_SESSION['usuario_id'])) {
-    header("Location: .././login.php?id=" . urlencode($idSelecionado));
+    echo "<script>alert('Sessão expirada. Faça login novamente.'); history.back();</script>";
     exit;
 }
 
@@ -21,6 +21,7 @@ require '../../assets/php/conexao.php';
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
+
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     $stmt->execute([':id' => $usuario_id]);
@@ -28,18 +29,19 @@ try {
         $nomeUsuario = $u['usuario'];
         $tipoUsuario = ucfirst($u['nivel']);
     } else {
-        echo "<script>alert('Usuário não encontrado.'); location.href='.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        echo "<script>alert('Usuário não encontrado.'); history.back();</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
 /* ==================== Permissão ==================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
+$tipoSession       = $_SESSION['tipo_empresa'];
+
 if (str_starts_with($idSelecionado, 'principal_')) {
     $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
@@ -49,8 +51,9 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
+
 if (!$acessoPermitido) {
-    echo "<script>alert('Acesso negado!'); location.href='.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    echo "<script>alert('Acesso negado!'); history.back();</script>";
     exit;
 }
 
@@ -67,6 +70,7 @@ try {
 /* ==================== Listagem + Itens ==================== */
 $solicitacoes = [];
 $solicitacaoItens = [];
+
 try {
     $sqlCab = "SELECT id, id_matriz, id_solicitante, status, total_estimado, created_at, aprovada_em, enviada_em, entregue_em
                FROM solicitacoes_b2b
@@ -94,47 +98,55 @@ try {
     if ($solicitacoes) {
         $idsArray = array_map('intval', array_keys($solicitacoes));
         $ids = implode(',', $idsArray);
+
         $sqlIt = "SELECT solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal
                   FROM solicitacoes_b2b_itens
                   WHERE solicitacao_id IN ($ids)
                   ORDER BY solicitacao_id ASC, id ASC";
         $stIt = $pdo->query($sqlIt);
 
-        $qtdPorSid = array_fill_keys($idsArray, 0);
+        $qtdPorSid   = array_fill_keys($idsArray, 0);
         $nomesPorSid = array_fill_keys($idsArray, []);
+
         while ($it = $stIt->fetch(PDO::FETCH_ASSOC)) {
             $sid = (int)$it['solicitacao_id'];
+
             $solicitacaoItens[$sid][] = [
                 'produto_id' => (int)$it['produto_id'],
-                'codigo' => (string)$it['codigo_produto'],
-                'nome' => (string)$it['nome_produto'],
-                'unidade' => (string)$it['unidade'],
-                'preco' => (float)$it['preco_unitario'],
+                'codigo'     => (string)$it['codigo_produto'],
+                'nome'       => (string)$it['nome_produto'],
+                'unidade'    => (string)$it['unidade'],
+                'preco'      => (float)$it['preco_unitario'],
                 'quantidade' => (int)$it['quantidade'],
-                'subtotal' => (float)$it['subtotal']
+                'subtotal'   => (float)$it['subtotal']
             ];
+
             $qtdPorSid[$sid] += (int)$it['quantidade'];
+
             $nome = trim((string)$it['nome_produto']);
             if ($nome !== '' && !in_array($nome, $nomesPorSid[$sid], true)) {
                 $nomesPorSid[$sid][] = $nome;
             }
         }
+
         foreach ($idsArray as $sid) {
             $solicitacoes[$sid]['qtd_total'] = (int)($qtdPorSid[$sid] ?? 0);
+
             $nomes  = $nomesPorSid[$sid] ?? [];
             $totalN = count($nomes);
             if ($totalN === 0) {
                 $solicitacoes[$sid]['produtos_str'] = '—';
             } else {
                 $preview = array_slice($nomes, 0, 3);
-                $extra = $totalN - count($preview);
-                $str = implode(', ', $preview);
+                $extra   = $totalN - count($preview);
+                $str     = implode(', ', $preview);
                 if ($extra > 0) $str .= " +{$extra}";
                 $solicitacoes[$sid]['produtos_str'] = $str;
             }
         }
     }
-} catch (PDOException $e) { /* lista segue vazia */
+} catch (PDOException $e) {
+    // Se quiser, pode avisar com alert, mas manter silencioso na listagem é comum.
 }
 ?>
 <!DOCTYPE html>
@@ -158,147 +170,112 @@ try {
     <script src="../../assets/js/config.js"></script>
     <style>
         .card {
-            border-radius: 14px
+            border-radius: 14px;
         }
 
         .table thead th {
             white-space: nowrap;
             font-weight: 600;
-            color: #6b7280
+            color: #6b7280;
         }
 
         .table tbody td {
-            vertical-align: middle
+            vertical-align: middle;
         }
 
         .badge {
             border-radius: 10px;
             padding: .25rem .5rem;
-            font-size: .8rem
+            font-size: .8rem;
         }
 
         .badge-pendente {
             background: #fef3c7;
-            color: #92400e
+            color: #92400e;
         }
 
         .badge-aprovada {
             background: #dcfce7;
-            color: #166534
+            color: #166534;
         }
 
         .badge-reprovada {
             background: #fee2e2;
-            color: #991b1b
+            color: #991b1b;
         }
 
         .badge-em_transito {
             background: #dbeafe;
-            color: #1e40af
+            color: #1e40af;
         }
 
         .badge-entregue {
             background: #e0f2fe;
-            color: #075985
+            color: #075985;
         }
 
         .badge-cancelada {
             background: #f3f4f6;
-            color: #374151
+            color: #374151;
         }
 
         #paginacao button {
-            margin-right: 5px
+            margin-right: 5px;
         }
 
         td.col-produtos {
             max-width: 420px;
             overflow: hidden;
             text-overflow: ellipsis;
-            white-space: nowrap
+            white-space: nowrap;
         }
 
         .actions-group .btn {
-            border-radius: 8px
+            border-radius: 8px;
         }
 
         .actions-group .btn+.btn {
-            margin-left: 6px
+            margin-left: 6px;
         }
 
         .btn-outline-primary.soft {
-            background: #f8fafc
+            background: #f8fafc;
         }
 
         .meta-line {
             font-size: .86rem;
-            color: #64748b
+            color: #64748b;
         }
 
         .meta-line span {
-            margin-right: .5rem
+            margin-right: .5rem;
         }
 
         .modal .modal-title {
-            font-weight: 600
+            font-weight: 600;
         }
 
         .btn-primary {
             background: #635bff;
-            border-color: #635bff
+            border-color: #635bff;
         }
 
         .btn-primary:hover {
             background: #524cf2;
-            border-color: #524cf2
+            border-color: #524cf2;
         }
 
         .btn-outline-secondary {
             color: #64748b;
-            border-color: #cbd5e1
-        }
-
-        /* Toast/alert fixo */
-        #toastArea {
-            position: fixed;
-            top: 16px;
-            right: 16px;
-            z-index: 1080;
-            display: flex;
-            flex-direction: column;
-            gap: 10px
-        }
-
-        .toast-msg {
-            min-width: 280px;
-            max-width: 420px;
-            border-radius: 10px;
-            padding: 12px 14px;
-            color: #0f5132;
-            background: #d1e7dd;
-            border: 1px solid #badbcc;
-            box-shadow: 0 6px 18px rgba(0, 0, 0, .08)
-        }
-
-        .toast-error {
-            color: #842029;
-            background: #f8d7da;
-            border: 1px solid #f5c2c7
-        }
-
-        .toast-title {
-            font-weight: 600;
-            margin-bottom: 2px
+            border-color: #cbd5e1;
         }
     </style>
 </head>
 
 <body>
-    <div id="toastArea"></div> <!-- container de mensagens -->
-
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- (Sidebar e Navbar iguais aos anteriores, omitidos por brevidade) -->
+            <!-- (Sidebar e Navbar iguais aos anteriores — mantidos como no seu layout) -->
 
             <div class="layout-page">
                 <!-- NAVBAR -->
@@ -345,6 +322,7 @@ try {
                         </ul>
                     </div>
                 </nav>
+                <!-- /NAVBAR -->
 
                 <!-- CONTENT -->
                 <div class="container-xxl flex-grow-1 container-p-y">
@@ -368,7 +346,8 @@ try {
                                     <?php if ($solicitacoes): foreach ($solicitacoes as $sid => $s): ?>
                                             <tr data-sid="<?= (int)$sid ?>">
                                                 <td><?= (int)$sid ?></td>
-                                                <td><?php $status = (string)$s['status'];
+                                                <td>
+                                                    <?php $status = (string)$s['status'];
                                                     $statusTxt = ucwords(str_replace('_', ' ', $status)); ?>
                                                     <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?> status-badge"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
                                                 </td>
@@ -461,6 +440,7 @@ try {
                         </div>
                     </div>
                 </div>
+                <!-- /MODAIS -->
 
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
@@ -477,10 +457,16 @@ try {
         </div>
     </div>
 
+    <!-- Dados em JSON para detalhes -->
     <script id="dadosSolicitacoes" type="application/json">
-        <?= json_encode(['cab' => array_values($solicitacoes), 'mapCab' => $solicitacoes, 'itens' => $solicitacaoItens], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
+        <?= json_encode([
+            'cab'    => array_values($solicitacoes),
+            'mapCab' => $solicitacoes,
+            'itens'  => $solicitacaoItens
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
     </script>
 
+    <!-- JS -->
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
@@ -492,18 +478,6 @@ try {
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 
     <script>
-        /* ===== Toast simples ===== */
-        function showMsg(type, text) {
-            const area = document.getElementById('toastArea');
-            const div = document.createElement('div');
-            div.className = 'toast-msg' + (type === 'error' ? ' toast-error' : '');
-            div.innerHTML = `<div class="toast-title">${type==='error'?'Erro':'Sucesso'}</div><div>${text}</div>`;
-            area.appendChild(div);
-            setTimeout(() => {
-                div.remove();
-            }, 4000);
-        }
-
         /* ===== Paginação/Pesquisa ===== */
         const searchInput = document.getElementById('searchInput');
         const allRows = Array.from(document.querySelectorAll('#tabelaSolicitacoes tbody tr'));
@@ -514,12 +488,14 @@ try {
             const filtro = searchInput.value.trim().toLowerCase();
             const filteredRows = allRows.filter(row => {
                 if (!filtro) return true;
-                return Array.from(row.cells).some(cell => cell.textContent.toLowerCase().includes(filtro));
+                return Array.from(row.cells).some(cell =>
+                    cell.textContent.toLowerCase().includes(filtro)
+                );
             });
             const totalPages = Math.ceil(filteredRows.length / rowsPerPage) || 1;
             if (currentPage > totalPages) currentPage = totalPages;
-            const startIndex = (currentPage - 1) * rowsPerPage,
-                endIndex = startIndex + rowsPerPage;
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = startIndex + rowsPerPage;
             allRows.forEach(row => row.style.display = 'none');
             filteredRows.slice(startIndex, endIndex).forEach(row => row.style.display = '');
             const paginacao = document.getElementById('paginacao');
@@ -596,7 +572,12 @@ try {
         }
 
         function escapeHtml(str) {
-            return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+            return String(str)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", "&#039;");
         }
 
         /* ===== Modal Detalhes ===== */
@@ -604,6 +585,7 @@ try {
             const sid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
             const cab = mapCab[sid] || (cabPorLista.find(c => parseInt(c.id, 10) === sid)) || null;
             const itens = itensPorId[sid] || [];
+
             if (!cab) {
                 $('#modalSid').text('');
                 $('#modalStatusBadge').attr('class', 'badge').text('—');
@@ -622,19 +604,27 @@ try {
                 $('#metaAprov').text(toBrDateTime(cab.aprovada_em));
                 $('#metaEnv').text(toBrDateTime(cab.enviada_em));
                 $('#metaEntr').text(toBrDateTime(cab.entregue_em));
+
                 if (!itens.length) {
                     $('#modalItensWrapper').html('<p class="text-muted mb-0">Nenhum item nesta solicitação.</p>');
                 } else {
                     let html = '<div class="table-responsive text-nowrap"><table class="table table-sm text-nowrap">';
                     html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
                     itens.forEach(i => {
-                        html += `<tr><td>${escapeHtml(i.codigo||'')}</td><td>${escapeHtml(i.nome||'')}</td><td>${parseInt(i.quantidade||0,10)}</td>
-                    <td>${escapeHtml(i.unidade||'')}</td><td>${formatBRL(parseFloat(i.preco||0))}</td><td>${formatBRL(parseFloat(i.subtotal||0))}</td></tr>`;
+                        html += `<tr>
+                            <td>${escapeHtml(i.codigo || '')}</td>
+                            <td>${escapeHtml(i.nome || '')}</td>
+                            <td>${parseInt(i.quantidade || 0, 10)}</td>
+                            <td>${escapeHtml(i.unidade || '')}</td>
+                            <td>${formatBRL(parseFloat(i.preco || 0))}</td>
+                            <td>${formatBRL(parseFloat(i.subtotal || 0))}</td>
+                        </tr>`;
                     });
                     html += '</tbody></table></div>';
                     $('#modalItensWrapper').html(html);
                 }
             }
+
             new bootstrap.Modal(document.getElementById('modalDetalhes')).show();
         });
 
@@ -647,7 +637,6 @@ try {
 
             select.innerHTML = '';
             if (String(currentStatus) === 'entregue') {
-                // Sem ações
                 const opt = document.createElement('option');
                 opt.textContent = 'Sem ações disponíveis';
                 opt.value = '';
@@ -659,7 +648,6 @@ try {
                 noActions.classList.remove('d-none');
                 actionsHelp.classList.add('d-none');
             } else {
-                // Pode marcar entregue
                 const opt = document.createElement('option');
                 opt.textContent = 'Marcar Entregue';
                 opt.value = 'entregue';
@@ -679,7 +667,6 @@ try {
         $(document).on('click', '.btnMudarStatus', function() {
             currentSid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
             currentSolicitante = this.dataset.solicitante || '';
-            // Pega status mais recente do mapCab (caso já tenha sido alterado), senão do data-*
             currentStatus = (mapCab[currentSid]?.status) || (this.dataset.status || '');
 
             $('#statusSid').text('#' + currentSid);
@@ -692,14 +679,14 @@ try {
 
         /* ===== Endpoint resolver ===== */
         function endpointUrl() {
-            return new URL('../../assets/php/matriz/processar_mudar_status.php', window.location.href).toString();
+            return new URL('../../assets/php/matriz/processarStatus.php', window.location.href).toString();
         }
 
         /* ===== Salvar Status ===== */
         $('#btnSalvarStatus').on('click', async function() {
             if (!currentSid) return;
             if (String(currentStatus) === 'entregue') {
-                // já entregue: não envia nada
+                // já entregue: não envia
                 return;
             }
 
@@ -724,12 +711,13 @@ try {
                 try {
                     data = JSON.parse(raw);
                 } catch (e) {
-                    console.error('Resposta não-JSON do servidor:', raw);
-                    showMsg('error', 'Erro ao processar a resposta do servidor.');
+                    alert('Erro ao processar a resposta do servidor.');
+                    history.back();
                     return;
                 }
                 if (!resp.ok || data.ok === false) {
-                    showMsg('error', data?.msg || ('Erro HTTP ' + resp.status));
+                    alert(data?.msg || ('Erro HTTP ' + resp.status));
+                    history.back();
                     return;
                 }
 
@@ -737,7 +725,7 @@ try {
                 mapCab[currentSid] = Object.assign({}, mapCab[currentSid] || {}, d);
                 currentStatus = d.status || 'entregue';
 
-                // Atualiza linha
+                // Atualiza linha visual
                 const tr = document.querySelector(`tr[data-sid="${currentSid}"]`);
                 if (tr) {
                     const badge = tr.querySelector('.status-badge');
@@ -754,8 +742,8 @@ try {
                     }
                 }
 
-                // Mensagem de sucesso
-                showMsg('success', `Solicitação #${currentSid} marcada como ENTREGUE com sucesso!`);
+                // Mensagem de sucesso (inclui o id_solicitante)
+                alert(`Solicitação #${currentSid} (${currentSolicitante}) marcada como ENTREGUE com sucesso!`);
 
                 // Fecha modal
                 const modalEl = document.getElementById('modalMudarStatus');
@@ -770,8 +758,8 @@ try {
                     }
                 }
             } catch (err) {
-                console.error(err);
-                showMsg('error', 'Falha de rede ao atualizar o status. Tente novamente.');
+                alert('Falha de rede ao atualizar o status.');
+                history.back();
             }
         });
     </script>
