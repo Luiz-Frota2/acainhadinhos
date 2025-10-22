@@ -181,10 +181,17 @@ try {
                 </a>
               </li>
 
+              <!-- Acompanhar status das transferências em andamento -->
+              <li class="menu-item">
+                <a href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Status da Transf.</div>
+                </a>
+              </li>
+
               <!-- Ver os produtos que a matriz enviou para a filial -->
               <li class="menu-item">
                 <a href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Produtos Recebidos</div>
+                  <div>Produtos Entregues</div>
                 </a>
               </li>
 
@@ -192,13 +199,6 @@ try {
               <li class="menu-item">
                 <a href="./novaSolicitacao.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Nova Solicitação</div>
-                </a>
-              </li>
-
-              <!-- Acompanhar status das transferências em andamento -->
-              <li class="menu-item">
-                <a href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Status da Transf.</div>
                 </a>
               </li>
 

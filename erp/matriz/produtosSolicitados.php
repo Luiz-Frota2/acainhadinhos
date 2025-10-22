@@ -287,14 +287,14 @@ function badge_soft_class($status)
                             <li class="menu-item active"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Produtos Solicitados</div>
                                 </a></li>
+                            <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <div>Status da Transf.</div>
+                                </a></li>
                             <li class="menu-item"><a class="menu-link" href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Produtos Recebidos</div>
+                                    <div>Produtos Entregues</div>
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./novaSolicitacao.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Nova Solicitação</div>
-                                </a></li>
-                            <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Status da Transf.</div>
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Estoque da Matriz</div>
