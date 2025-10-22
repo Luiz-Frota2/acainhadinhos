@@ -68,29 +68,30 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* ==================== Listagem (solicitante = idSelecionado) + Itens ==================== */
-$solicitacoes = [];     // [id => {status,total,created_at,qtd_total,produtos_str,...}]
-$solicitacaoItens = []; // [id => [ {item} ]]
+/* ==================== Listagem (somente PENDENTE) + Itens ==================== */
+$solicitacoes = [];     // [id => {...}]
+$solicitacaoItens = []; // [id => [ {...} ]]
 
 try {
-    // Cabeçalho
+    // Cabeçalho — SOMENTE status = 'pendente'
     $sqlCab = "SELECT id, id_matriz, id_solicitante, status, total_estimado, created_at, aprovada_em, enviada_em, entregue_em
                FROM solicitacoes_b2b
                WHERE id_solicitante = :sol
+                 AND status = 'pendente'
                ORDER BY created_at DESC";
     $stCab = $pdo->prepare($sqlCab);
     $stCab->execute([':sol' => $idSelecionado]);
     while ($row = $stCab->fetch(PDO::FETCH_ASSOC)) {
         $sid = (int)$row['id'];
         $solicitacoes[$sid] = [
-            'id'          => $sid,
-            'status'      => (string)$row['status'],
-            'total'       => (float)$row['total_estimado'],
-            'created_at'  => (string)$row['created_at'],
-            'aprovada_em' => $row['aprovada_em'],
-            'enviada_em'  => $row['enviada_em'],
-            'entregue_em' => $row['entregue_em'],
-            'qtd_total'   => 0,
+            'id'           => $sid,
+            'status'       => (string)$row['status'],
+            'total'        => (float)$row['total_estimado'],
+            'created_at'   => (string)$row['created_at'],
+            'aprovada_em'  => $row['aprovada_em'],
+            'enviada_em'   => $row['enviada_em'],
+            'entregue_em'  => $row['entregue_em'],
+            'qtd_total'    => 0,
             'produtos_str' => '—',
         ];
         $solicitacaoItens[$sid] = [];
@@ -151,6 +152,21 @@ try {
 } catch (PDOException $e) {
     // mantém arrays vazios em caso de erro
 }
+
+/* ===== Helper PHP para badge soft ===== */
+function badge_soft_class($status)
+{
+    $s = strtolower((string)$status);
+    return match ($s) {
+        'pendente'    => 'badge-primary-soft',
+        'aprovada'    => 'badge-success-soft',
+        'reprovada'   => 'badge-danger-soft',
+        'em_transito' => 'badge-primary-soft',
+        'entregue'    => 'badge-success-soft',
+        'cancelada'   => 'badge-secondary-soft',
+        default       => 'badge-secondary-soft',
+    };
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -186,53 +202,55 @@ try {
             vertical-align: middle;
         }
 
-        .badge {
+        /* ====== BADGES SOFT (estilo do print) ====== */
+        .status-badge {
+            text-transform: uppercase;
+            letter-spacing: .02em;
             border-radius: 10px;
-            padding: .25rem .5rem;
-            font-size: .8rem;
+            padding: .30rem .55rem;
+            font-size: .75rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            display: inline-block;
         }
 
-        .badge-pendente {
-            background: #fef3c7;
-            color: #92400e;
+        /* primary (roxinho suave) */
+        .badge-primary-soft {
+            color: #4f46e5;
+            background: #eef2ff;
+            border-color: #e0e7ff;
         }
 
-        .badge-aprovada {
-            background: #dcfce7;
-            color: #166534;
+        /* success (verde suave) */
+        .badge-success-soft {
+            color: #16a34a;
+            background: #ecfdf5;
+            border-color: #bbf7d0;
         }
 
-        .badge-reprovada {
+        /* danger (vermelho suave) */
+        .badge-danger-soft {
+            color: #b91c1c;
             background: #fee2e2;
-            color: #991b1b;
+            border-color: #fecaca;
         }
 
-        .badge-em_transito {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .badge-entregue {
-            background: #e0f2fe;
-            color: #075985;
-        }
-
-        .badge-cancelada {
-            background: #f3f4f6;
-            color: #374151;
+        /* secondary (cinza suave) */
+        .badge-secondary-soft {
+            color: #475569;
+            background: #f1f5f9;
+            border-color: #e2e8f0;
         }
 
         #paginacao button {
             margin-right: 5px;
         }
 
-        /* Produtos: não quebrar linha e cortar com reticências se ultrapassar */
         td.col-produtos {
             max-width: 420px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            /* <- mantém o nowrap mesmo com text-nowrap */
         }
     </style>
 </head>
@@ -402,9 +420,10 @@ try {
                                                 <td>
                                                     <?php
                                                     $status = (string)$s['status'];
-                                                    $statusTxt = ucwords(str_replace('_', ' ', $status));
+                                                    $statusTxt = strtoupper(str_replace('_', ' ', $status)); // MAIÚSCULO
+                                                    $badgeClass = badge_soft_class($status);
                                                     ?>
-                                                    <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?>"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
+                                                    <span class="status-badge <?= $badgeClass ?>"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
                                                 </td>
                                                 <td class="col-produtos"><?= htmlspecialchars((string)($s['produtos_str'] ?? '—'), ENT_QUOTES) ?></td>
                                                 <td><?= (int)($s['qtd_total'] ?? 0) ?></td>
@@ -417,7 +436,7 @@ try {
                                         <?php endforeach;
                                     else: ?>
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                                            <td colspan="7" class="text-center text-muted py-4">Nenhuma solicitação pendente.</td>
                                         </tr>
                                     <?php endif; ?>
                                 </tbody>
@@ -444,7 +463,7 @@ try {
                             </div>
                             <div class="modal-body">
                                 <div class="mb-2">
-                                    <div>Status: <span class="badge" id="modalStatus"></span></div>
+                                    <div>Status: <span class="status-badge" id="modalStatus"></span></div>
                                     <div class="text-muted">Criada em: <span id="modalCriada"></span></div>
                                     <div class="fw-semibold">Total Estimado: <span id="modalTotal"></span></div>
                                 </div>
@@ -567,12 +586,28 @@ try {
             });
         }
 
-        function statusClass(s) {
-            return 'badge-' + (s || 'pendente');
+        function statusClassSoft(s) {
+            s = String(s || '').toLowerCase();
+            switch (s) {
+                case 'pendente':
+                    return 'badge-primary-soft';
+                case 'aprovada':
+                    return 'badge-success-soft';
+                case 'reprovada':
+                    return 'badge-danger-soft';
+                case 'em_transito':
+                    return 'badge-primary-soft';
+                case 'entregue':
+                    return 'badge-success-soft';
+                case 'cancelada':
+                    return 'badge-secondary-soft';
+                default:
+                    return 'badge-secondary-soft';
+            }
         }
 
         function titleCaseStatus(s) {
-            return String(s || '').replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return String(s || '').replace('_', ' ').toUpperCase(); // mantém MAIÚSCULO
         }
 
         $(document).on('click', '.btnDetalhes', function() {
@@ -583,13 +618,13 @@ try {
 
             if (!cab) {
                 $('#modalSid').text('');
-                $('#modalStatus').attr('class', 'badge').text('—');
+                $('#modalStatus').attr('class', 'status-badge badge-secondary-soft').text('—');
                 $('#modalCriada').text('—');
                 $('#modalTotal').text('—');
                 $('#modalItensWrapper').html('<p class="text-danger mb-0">Solicitação não encontrada.</p>');
             } else {
                 $('#modalSid').text('#' + sid);
-                $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
+                $('#modalStatus').attr('class', 'status-badge ' + statusClassSoft(cab.status)).text(titleCaseStatus(cab.status));
                 const dt = new Date(String(cab.created_at).replace(' ', 'T'));
                 $('#modalCriada').text(dt.toLocaleDateString('pt-BR'));
                 $('#modalTotal').text(formatBRL(parseFloat(cab.total)));
@@ -601,13 +636,13 @@ try {
                     html += '<thead class="table-light"><tr><th>Código</th><th>Produto</th><th>Qtd</th><th>Unid.</th><th>Preço</th><th>Subtotal</th></tr></thead><tbody>';
                     itens.forEach(i => {
                         html += `<tr>
-                        <td>${escapeHtml(i.codigo||'')}</td>
-                        <td>${escapeHtml(i.nome||'')}</td>
-                        <td>${parseInt(i.quantidade||0,10)}</td>
-                        <td>${escapeHtml(i.unidade||'')}</td>
-                        <td>${formatBRL(parseFloat(i.preco||0))}</td>
-                        <td>${formatBRL(parseFloat(i.subtotal||0))}</td>
-                    </tr>`;
+                            <td>${escapeHtml(i.codigo||'')}</td>
+                            <td>${escapeHtml(i.nome||'')}</td>
+                            <td>${parseInt(i.quantidade||0,10)}</td>
+                            <td>${escapeHtml(i.unidade||'')}</td>
+                            <td>${formatBRL(parseFloat(i.preco||0))}</td>
+                            <td>${formatBRL(parseFloat(i.subtotal||0))}</td>
+                        </tr>`;
                     });
                     html += '</tbody></table></div>';
                     $('#modalItensWrapper').html(html);
