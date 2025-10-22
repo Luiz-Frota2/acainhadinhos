@@ -256,9 +256,6 @@ try {
             margin-left: 6px;
         }
 
-        .btn-outline-primary.soft {
-            background: #f8fafc;
-        }
 
         .meta-line {
             font-size: .86rem;
@@ -461,7 +458,7 @@ try {
                                                 <td class="criada-em"><?= date('d/m/Y', strtotime($s['created_at'])) ?></td>
                                                 <td>
                                                     <div class="actions-group d-flex align-items-center">
-                                                        <button type="button" class="btn btn-sm btn-outline-primary btnMudarStatus" data-sid="<?= (int)$sid ?>">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary btnDetalhes" data-sid="<?= (int)$sid ?>">
                                                             <i class="bx bx-news me-1"></i> Detalhes
                                                         </button>
                                                         <button type="button" class="btn btn-sm btn-outline-primary btnMudarStatus"
