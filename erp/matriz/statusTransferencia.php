@@ -146,7 +146,7 @@ try {
         }
     }
 } catch (PDOException $e) {
-    // Se quiser, pode avisar com alert, mas manter silencioso na listagem é comum.
+    // silencioso
 }
 ?>
 <!DOCTYPE html>
@@ -183,40 +183,58 @@ try {
             vertical-align: middle;
         }
 
-        .badge {
+        /* ====== BADGES (soft) ====== */
+        .status-badge {
+            text-transform: uppercase;
+            letter-spacing: .02em;
             border-radius: 10px;
-            padding: .25rem .5rem;
-            font-size: .8rem;
+            padding: .3rem .55rem;
+            font-size: .75rem;
+            font-weight: 700;
+            border: 1px solid transparent;
+            display: inline-block;
         }
 
-        .badge-pendente {
-            background: #fef3c7;
-            color: #92400e;
+        /* primary (roxinho suave) */
+        .badge-primary-soft {
+            color: #4f46e5;
+            background: #eef2ff;
+            border-color: #e0e7ff;
         }
 
-        .badge-aprovada {
-            background: #dcfce7;
-            color: #166534;
+        /* success (verde suave) */
+        .badge-success-soft {
+            color: #16a34a;
+            background: #ecfdf5;
+            border-color: #bbf7d0;
         }
 
-        .badge-reprovada {
+        /* warning (laranja suave) – caso precise */
+        .badge-warning-soft {
+            color: #b45309;
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+
+        /* danger (vermelho suave) */
+        .badge-danger-soft {
+            color: #b91c1c;
             background: #fee2e2;
-            color: #991b1b;
+            border-color: #fecaca;
         }
 
-        .badge-em_transito {
-            background: #dbeafe;
-            color: #1e40af;
-        }
-
-        .badge-entregue {
+        /* info (azul claro suave) – caso precise */
+        .badge-info-soft {
+            color: #0369a1;
             background: #e0f2fe;
-            color: #075985;
+            border-color: #bae6fd;
         }
 
-        .badge-cancelada {
-            background: #f3f4f6;
-            color: #374151;
+        /* secondary (cinza suave) */
+        .badge-secondary-soft {
+            color: #475569;
+            background: #f1f5f9;
+            border-color: #e2e8f0;
         }
 
         #paginacao button {
@@ -275,7 +293,93 @@ try {
 <body>
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- (Sidebar e Navbar iguais aos anteriores — mantidos como no seu layout) -->
+            <!-- ===== SIDEBAR ===== -->
+            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+                <div class="app-brand demo">
+                    <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
+                    </a>
+                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                        <i class="bx bx-chevron-left bx-sm align-middle"></i>
+                    </a>
+                </div>
+                <div class="menu-inner-shadow"></div>
+                <ul class="menu-inner py-1">
+                    <li class="menu-item">
+                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                            <i class="menu-icon tf-icons bx bx-home-circle"></i>
+                            <div>Dashboard</div>
+                        </a>
+                    </li>
+
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração</span></li>
+                    <li class="menu-item open active">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div>B2B - Matriz</div>
+                        </a>
+                        <ul class="menu-sub active">
+                            <li class="menu-item"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <div>Produtos Solicitados</div>
+                                </a></li>
+                            <li class="menu-item"><a class="menu-link" href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <div>Produtos Recebidos</div>
+                                </a></li>
+                            <li class="menu-item"><a class="menu-link" href="./novaSolicitacao.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <div>Nova Solicitação</div>
+                                </a></li>
+                            <li class="menu-item active"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <div>Status da Transf.</div>
+                                </a></li>
+                            <li class="menu-item"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <div>Estoque da Matriz</div>
+                                </a></li>
+                            <li class="menu-item"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>">
+                                    <div>Solicitar Pagamento</div>
+                                </a></li>
+                        </ul>
+                    </li>
+
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+                    <li class="menu-item"><a class="menu-link" href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-group"></i>
+                            <div>RH</div>
+                        </a></li>
+                    <li class="menu-item"><a class="menu-link" href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-dollar"></i>
+                            <div>Finanças</div>
+                        </a></li>
+                    <li class="menu-item"><a class="menu-link" href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-desktop"></i>
+                            <div>PDV</div>
+                        </a></li>
+                    <li class="menu-item"><a class="menu-link" href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div>Empresa</div>
+                        </a></li>
+                    <li class="menu-item"><a class="menu-link" href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-box"></i>
+                            <div>Estoque</div>
+                        </a></li>
+                    <?php
+                    $tipoLogado = $_SESSION['tipo_empresa'] ?? '';
+                    $idLogado   = $_SESSION['empresa_id']    ?? '';
+                    if ($tipoLogado === 'principal') { ?>
+                        <li class="menu-item"><a class="menu-link" href="../filial/index.php?id=principal_1"><i class="menu-icon tf-icons bx bx-building"></i>
+                                <div>Filial</div>
+                            </a></li>
+                        <li class="menu-item"><a class="menu-link" href="../franquia/index.php?id=principal_1"><i class="menu-icon tf-icons bx bx-store"></i>
+                                <div>Franquias</div>
+                            </a></li>
+                    <?php } elseif (in_array($tipoLogado, ['filial', 'franquia', 'unidade'])) { ?>
+                        <li class="menu-item"><a class="menu-link" href="../matriz/index.php?id=<?= urlencode($idLogado) ?>"><i class="menu-icon tf-icons bx bx-cog"></i>
+                                <div>Matriz</div>
+                            </a></li>
+                    <?php } ?>
+                    <li class="menu-item"><a class="menu-link" href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-group"></i>
+                            <div>Usuários</div>
+                        </a></li>
+                    <li class="menu-item"><a class="menu-link" target="_blank" href="https://wa.me/92991515710"><i class="menu-icon tf-icons bx bx-support"></i>
+                            <div>Suporte</div>
+                        </a></li>
+                </ul>
+            </aside>
+            <!-- ===== /SIDEBAR ===== -->
 
             <div class="layout-page">
                 <!-- NAVBAR -->
@@ -349,7 +453,7 @@ try {
                                                 <td>
                                                     <?php $status = (string)$s['status'];
                                                     $statusTxt = ucwords(str_replace('_', ' ', $status)); ?>
-                                                    <span class="badge <?= 'badge-' . htmlspecialchars($status, ENT_QUOTES) ?> status-badge"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
+                                                    <span class="status-badge <?= htmlspecialchars($status, ENT_QUOTES) ?>"><?= htmlspecialchars($statusTxt, ENT_QUOTES) ?></span>
                                                 </td>
                                                 <td class="col-produtos"><?= htmlspecialchars((string)($s['produtos_str'] ?? '—'), ENT_QUOTES) ?></td>
                                                 <td class="qtd-total"><?= (int)($s['qtd_total'] ?? 0) ?></td>
@@ -401,7 +505,7 @@ try {
                             </div>
                             <div class="modal-body">
                                 <div class="mb-2">
-                                    <div>Status: <span class="badge" id="modalStatusBadge"></span></div>
+                                    <div>Status: <span class="status-badge" id="modalStatusBadge"></span></div>
                                     <div class="meta-line mt-1">
                                         <span>Aprov.: <span id="metaAprov"></span></span> ·
                                         <span>Env.: <span id="metaEnv"></span></span> ·
@@ -547,9 +651,25 @@ try {
                 currency: 'BRL'
             });
         }
-
-        function statusClass(s) {
-            return 'badge-' + (s || 'pendente');
+        /* Retorna a classe visual (soft) para cada status */
+        function statusClassSoft(s) {
+            s = String(s || '').toLowerCase();
+            switch (s) {
+                case 'pendente':
+                    return 'badge-primary-soft';
+                case 'aprovada':
+                    return 'badge-success-soft';
+                case 'reprovada':
+                    return 'badge-danger-soft';
+                case 'em_transito':
+                    return 'badge-primary-soft';
+                case 'entregue':
+                    return 'badge-success-soft';
+                case 'cancelada':
+                    return 'badge-secondary-soft';
+                default:
+                    return 'badge-secondary-soft';
+            }
         }
 
         function titleCaseStatus(s) {
@@ -572,13 +692,14 @@ try {
         }
 
         function escapeHtml(str) {
-            return String(str)
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", "&#039;");
+            return String(str).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", "&#039;");
         }
+
+        /* ===== Aplicar classes soft iniciais na tabela ===== */
+        document.querySelectorAll('.status-badge').forEach(el => {
+            const s = el.classList[1] || ''; // segunda classe contém o status bruto inserido no PHP
+            el.className = 'status-badge ' + statusClassSoft(s);
+        });
 
         /* ===== Modal Detalhes ===== */
         $(document).on('click', '.btnDetalhes', function() {
@@ -588,7 +709,7 @@ try {
 
             if (!cab) {
                 $('#modalSid').text('');
-                $('#modalStatusBadge').attr('class', 'badge').text('—');
+                $('#modalStatusBadge').attr('class', 'status-badge badge-secondary-soft').text('—');
                 $('#modalCriada').text('—');
                 $('#modalTotal').text('—');
                 $('#metaAprov').text('—');
@@ -597,7 +718,7 @@ try {
                 $('#modalItensWrapper').html('<p class="text-danger mb-0">Solicitação não encontrada.</p>');
             } else {
                 $('#modalSid').text('#' + sid);
-                $('#modalStatusBadge').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
+                $('#modalStatusBadge').attr('class', 'status-badge ' + statusClassSoft(cab.status)).text(titleCaseStatus(cab.status));
                 const dt = new Date(String(cab.created_at).replace(' ', 'T'));
                 $('#modalCriada').text(dt.toLocaleDateString('pt-BR'));
                 $('#modalTotal').text(formatBRL(parseFloat(cab.total_estimado ?? cab.total ?? 0)));
@@ -730,7 +851,7 @@ try {
                 if (tr) {
                     const badge = tr.querySelector('.status-badge');
                     if (badge) {
-                        badge.className = 'badge status-badge ' + statusClass(d.status);
+                        badge.className = 'status-badge ' + statusClassSoft(d.status);
                         badge.textContent = titleCaseStatus(d.status);
                     }
                     const btn = tr.querySelector('.btnMudarStatus');
@@ -753,7 +874,7 @@ try {
                 if (document.getElementById('modalDetalhes').classList.contains('show')) {
                     const cab = mapCab[currentSid];
                     if (cab) {
-                        $('#modalStatusBadge').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
+                        $('#modalStatusBadge').attr('class', 'status-badge ' + statusClassSoft(cab.status)).text(titleCaseStatus(cab.status));
                         $('#metaEntr').text(toBrDateTime(cab.entregue_em));
                     }
                 }
