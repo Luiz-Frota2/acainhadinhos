@@ -352,7 +352,7 @@ try {
                             <div>B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub active">
-                            <li class="menu-item active"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>">
+                            <li class="menu-item"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Produtos Solicitados</div>
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>">
@@ -361,7 +361,7 @@ try {
                             <li class="menu-item"><a class="menu-link" href="./novaSolicitacao.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Nova Solicitação</div>
                                 </a></li>
-                            <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>">
+                            <li class="menu-item active"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>">
                                     <div>Status da Transf.</div>
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>">
