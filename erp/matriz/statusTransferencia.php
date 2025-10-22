@@ -25,18 +25,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
     $sid    = (int)($_POST['sid'] ?? 0);
     $status = strtolower(trim((string)($_POST['status'] ?? '')));
 
-    // Status válidos (sinta-se à vontade para ajustar)
-    $validos = ['pendente', 'aprovada', 'reprovada', 'em_transito', 'entregue', 'cancelada'];
-    if ($sid <= 0 || !in_array($status, $validos, true)) {
+    // neste layout, só permitimos marcar como entregue (igual ao print)
+    if ($sid <= 0 || $status !== 'entregue') {
         echo json_encode(['ok' => false, 'msg' => 'Parâmetros inválidos.']);
         exit;
     }
 
     try {
-        // Garante que a solicitação pertence ao solicitante (idSelecionado) atual
-        $chk = $pdo->prepare("SELECT id, status, aprovada_em, enviada_em, entregue_em, created_at, total_estimado 
-                              FROM solicitacoes_b2b 
-                              WHERE id = :sid AND id_solicitante = :sol LIMIT 1");
+        $chk = $pdo->prepare("SELECT id, status FROM solicitacoes_b2b WHERE id = :sid AND id_solicitante = :sol LIMIT 1");
         $chk->execute([':sid' => $sid, ':sol' => $idSelecionado]);
         $row = $chk->fetch(PDO::FETCH_ASSOC);
         if (!$row) {
@@ -44,24 +40,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
             exit;
         }
 
-        // Atualiza status e carimbos (só preenche se estiverem nulos)
         $up = $pdo->prepare("
             UPDATE solicitacoes_b2b SET 
-                status = :st,
-                aprovada_em = CASE WHEN :st = 'aprovada'    AND (aprovada_em IS NULL OR aprovada_em = '0000-00-00 00:00:00') THEN NOW() ELSE aprovada_em END,
-                enviada_em  = CASE WHEN :st = 'em_transito' AND (enviada_em  IS NULL OR enviada_em  = '0000-00-00 00:00:00') THEN NOW() ELSE enviada_em  END,
-                entregue_em = CASE WHEN :st = 'entregue'    AND (entregue_em IS NULL OR entregue_em = '0000-00-00 00:00:00') THEN NOW() ELSE entregue_em END
+                status = 'entregue',
+                entregue_em = CASE WHEN (entregue_em IS NULL OR entregue_em = '0000-00-00 00:00:00') THEN NOW() ELSE entregue_em END
             WHERE id = :sid AND id_solicitante = :sol
             LIMIT 1
         ");
-        $ok = $up->execute([':st' => $status, ':sid' => $sid, ':sol' => $idSelecionado]);
-
+        $ok = $up->execute([':sid' => $sid, ':sol' => $idSelecionado]);
         if (!$ok) {
             echo json_encode(['ok' => false, 'msg' => 'Falha ao atualizar.']);
             exit;
         }
 
-        // Retorna os novos dados (com timestamps atualizados)
         $ref = $pdo->prepare("SELECT id, status, aprovada_em, enviada_em, entregue_em, created_at, total_estimado 
                               FROM solicitacoes_b2b WHERE id = :sid LIMIT 1");
         $ref->execute([':sid' => $sid]);
@@ -126,11 +117,10 @@ try {
 }
 
 /* ==================== Listagem (solicitante = idSelecionado) + Itens ==================== */
-$solicitacoes = [];     // [id => {status,total,created_at,qtd_total,produtos_str,...}]
-$solicitacaoItens = []; // [id => [ {item} ]]
+$solicitacoes = [];
+$solicitacaoItens = [];
 
 try {
-    // Cabeçalho
     $sqlCab = "SELECT id, id_matriz, id_solicitante, status, total_estimado, created_at, aprovada_em, enviada_em, entregue_em
                FROM solicitacoes_b2b
                WHERE id_solicitante = :sol
@@ -290,7 +280,6 @@ try {
             white-space: nowrap;
         }
 
-        /* Botões de ação no estilo da imagem (grupo com borda visual) */
         .actions-group .btn {
             border-radius: 8px;
         }
@@ -303,7 +292,6 @@ try {
             background: #f8fafc;
         }
 
-        /* Linha de carimbos no modal detalhes */
         .meta-line {
             font-size: .86rem;
             color: #64748b;
@@ -311,6 +299,26 @@ try {
 
         .meta-line span {
             margin-right: .5rem;
+        }
+
+        /* Aparência do modal como no print */
+        .modal .modal-title {
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #635bff;
+            border-color: #635bff;
+        }
+
+        .btn-primary:hover {
+            background: #524cf2;
+            border-color: #524cf2;
+        }
+
+        .btn-outline-secondary {
+            color: #64748b;
+            border-color: #cbd5e1;
         }
     </style>
 </head>
@@ -530,7 +538,7 @@ try {
                             </div>
                             <div class="modal-body">
                                 <div class="mb-2">
-                                    <div>Status: <span class="badge" id="modalStatus"></span></div>
+                                    <div>Status: <span class="badge" id="modalStatusBadge"></span></div>
                                     <div class="meta-line mt-1">
                                         <span>Aprov.: <span id="metaAprov"></span></span> ·
                                         <span>Env.: <span id="metaEnv"></span></span> ·
@@ -548,36 +556,24 @@ try {
                     </div>
                 </div>
 
-                <!-- MODAL MUDAR STATUS -->
-                <div class="modal fade" id="modalStatus" tabindex="-1">
+                <!-- MODAL MUDAR STATUS (ID novo para não conflitar) -->
+                <div class="modal fade" id="modalMudarStatus" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title">Mudar Status da Solicitação <span id="statusSid"></span></h5>
+                                <h5 class="modal-title">Mudar status da solicitação <span id="statusSid"></span></h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <div class="mb-3">
-                                    <label for="selectStatus" class="form-label">Novo status</label>
-                                    <select id="selectStatus" class="form-select">
-                                        <option value="pendente">Pendente</option>
-                                        <option value="aprovada">Aprovada</option>
-                                        <option value="em_transito">Em trânsito</option>
-                                        <option value="entregue">Entregue</option>
-                                        <option value="reprovada">Reprovada</option>
-                                        <option value="cancelada">Cancelada</option>
-                                    </select>
-                                    <div class="form-text">Para marcar como entregue, selecione <strong>Entregue</strong> e salve.</div>
-                                </div>
-                                <div class="meta-line">
-                                    <span>Aprov.: <span id="msAprov"></span></span> ·
-                                    <span>Env.: <span id="msEnv"></span></span> ·
-                                    <span>Entr.: <span id="msEntr"></span></span>
-                                </div>
+                                <label class="form-label">Ação</label>
+                                <select id="selectStatus" class="form-select">
+                                    <option value="entregue">Marcar Entregue</option>
+                                </select>
+                                <div class="form-text">As opções exibidas dependem do status atual da solicitação.</div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="button" class="btn btn-primary" id="btnSalvarStatus">Salvar</button>
+                                <button type="button" class="btn btn-primary" id="btnSalvarStatus">Confirmar</button>
                             </div>
                         </div>
                     </div>
@@ -686,7 +682,6 @@ try {
         const cabPorLista = dados?.cab || [];
         const mapCabInit = dados?.mapCab || {};
 
-        // Mantém um mapa mutável no cliente para refletir updates
         const mapCab = {};
         (cabPorLista || []).forEach(c => {
             mapCab[parseInt(c.id, 10)] = c;
@@ -732,7 +727,7 @@ try {
 
             if (!cab) {
                 $('#modalSid').text('');
-                $('#modalStatus').attr('class', 'badge').text('—');
+                $('#modalStatusBadge').attr('class', 'badge').text('—');
                 $('#modalCriada').text('—');
                 $('#modalTotal').text('—');
                 $('#metaAprov').text('—');
@@ -741,7 +736,7 @@ try {
                 $('#modalItensWrapper').html('<p class="text-danger mb-0">Solicitação não encontrada.</p>');
             } else {
                 $('#modalSid').text('#' + sid);
-                $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
+                $('#modalStatusBadge').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
                 const dt = new Date(String(cab.created_at).replace(' ', 'T'));
                 $('#modalCriada').text(dt.toLocaleDateString('pt-BR'));
                 $('#modalTotal').text(formatBRL(parseFloat(cab.total_estimado ?? cab.total ?? 0)));
@@ -777,29 +772,22 @@ try {
         let currentSid = null;
         $(document).on('click', '.btnMudarStatus', function() {
             currentSid = parseInt(this.dataset.sid || this.getAttribute('data-sid'), 10);
-            const st = (this.dataset.status || 'pendente').toLowerCase();
-            const aprov = this.dataset.aprovada || '';
-            const envi = this.dataset.enviada || '';
-            const entr = this.dataset.entregue || '';
-
             $('#statusSid').text('#' + currentSid);
-            $('#selectStatus').val(st);
-            $('#msAprov').text(toBrDateTime(aprov));
-            $('#msEnv').text(toBrDateTime(envi));
-            $('#msEntr').text(toBrDateTime(entr));
 
-            const modal = new bootstrap.Modal(document.getElementById('modalStatus'));
+            // sempre deixa "Marcar Entregue" como única ação (igual ao print)
+            $('#selectStatus').val('entregue');
+
+            const modal = new bootstrap.Modal(document.getElementById('modalMudarStatus'));
             modal.show();
         });
 
         $('#btnSalvarStatus').on('click', function() {
             if (!currentSid) return;
-            const novo = $('#selectStatus').val();
 
             const fd = new FormData();
             fd.append('action', 'update_status');
             fd.append('sid', String(currentSid));
-            fd.append('status', String(novo));
+            fd.append('status', 'entregue');
 
             fetch(window.location.href, {
                     method: 'POST',
@@ -813,10 +801,9 @@ try {
                         return;
                     }
                     const d = resp.data || {};
-                    // Atualiza cache local
                     mapCab[currentSid] = Object.assign({}, mapCab[currentSid] || {}, d);
 
-                    // Atualiza a linha da tabela (badge + dataset do botão)
+                    // Atualiza a linha
                     const tr = document.querySelector(`tr[data-sid="${currentSid}"]`);
                     if (tr) {
                         const badge = tr.querySelector('.status-badge');
@@ -833,15 +820,16 @@ try {
                         }
                     }
 
-                    // Se o modal de detalhes estiver aberto, sincroniza os campos
-                    $('#modalStatus').modal('hide');
-                    const openedDetails = document.getElementById('modalDetalhes');
-                    if (openedDetails && openedDetails.classList.contains('show')) {
+                    // Fecha modal de status
+                    const modalEl = document.getElementById('modalMudarStatus');
+                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    modal.hide();
+
+                    // Se o modal de detalhes estiver aberto, sincroniza
+                    if (document.getElementById('modalDetalhes').classList.contains('show')) {
                         const cab = mapCab[currentSid];
                         if (cab) {
-                            $('#modalStatus').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
-                            $('#metaAprov').text(toBrDateTime(cab.aprovada_em));
-                            $('#metaEnv').text(toBrDateTime(cab.enviada_em));
+                            $('#modalStatusBadge').attr('class', 'badge ' + statusClass(cab.status)).text(titleCaseStatus(cab.status));
                             $('#metaEntr').text(toBrDateTime(cab.entregue_em));
                         }
                     }
