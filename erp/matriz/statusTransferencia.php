@@ -641,7 +641,7 @@ try {
             fd.append('solicitante', currentSolicitante || '');
 
             // >>> chama o endpoint novo
-            fetch('../../assets/php/matriz/processar_mudar_status.php', {
+            fetch('../../assets/php/matriz/processarStatus.php', {
                     method: 'POST',
                     body: fd,
                     credentials: 'same-origin'
