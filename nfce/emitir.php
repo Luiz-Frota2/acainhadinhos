@@ -31,7 +31,7 @@ function nfeproc($nfe,$prot){
        . $nfe.$prot.'</nfeProc>';
 }
 
-/* Saneadores iguais ao submit */
+/* Saneadores */
 function saneEAN(?string $v): string {
   $v = trim((string)$v);
   $d = preg_replace('/\D+/','',$v);
@@ -174,10 +174,14 @@ $emit = [
   'enderEmit'=>$enderEmit
 ];
 
+// Monta <dest> opcional à parte (para evitar erro de concatenação)
 $docDest = soDig($vendaRow['cpf_cliente'] ?? '');
-$dest = [];
-if (strlen($docDest)===11) $dest = ['CPF'=>$docDest,'indIEDest'=>9];
-elseif (strlen($docDest)===14) $dest = ['CNPJ'=>$docDest,'indIEDest'=>9];
+$destXML = '';
+if (strlen($docDest)===11) {
+  $destXML = '<dest><CPF>'.$docDest.'</CPF><indIEDest>9</indIEDest></dest>';
+} elseif (strlen($docDest)===14) {
+  $destXML = '<dest><CNPJ>'.$docDest.'</CNPJ><indIEDest>9</indIEDest></dest>';
+}
 
 /* ===== Itens (com saneamento) ===== */
 $i=1; $vProd=0.00; $detXML='';
@@ -217,7 +221,6 @@ $transpXML= '<transp><modFrete>9</modFrete></transp>';
 /* Pagamento (dinheiro ou forma da venda) */
 $tPag = '01'; // dinheiro
 if (!empty($vendaRow['forma_pagamento'])) {
-  // aceita "01" etc. Se vier palavra, deixe dinheiro como fallback
   $f = trim((string)$vendaRow['forma_pagamento']);
   if (preg_match('/^\d+$/',$f)) $tPag = str_pad(substr($f,-2),2,'0',STR_PAD_LEFT);
 }
@@ -229,32 +232,32 @@ $pagXML .= '</pag>';
 
 $infAd   = '<infAdic><infCpl>Emissão via autoERP</infCpl></infAd>';
 
-/* ===== XML da NFe ===== */
-$nfe = '<?xml version="1.0" encoding="UTF-8"?>'
-     . '<NFe xmlns="http://www.portalfiscal.inf.br/nfe">'
-     .   '<infNFe Id="'.$IdNFe.'" versao="4.00">'
-     .     '<ide>'
-     .       '<cUF>'.$ide['cUF'].'</cUF><cNF>'.$ide['cNF'].'</cNF><natOp>'.$ide['natOp'].'</natOp>'
-     .       '<mod>'.$ide['mod'].'</mod><serie>'.$ide['serie'].'</serie><nNF>'.$ide['nNF'].'</nNF>'
-     .       '<dhEmi>'.$ide['dhEmi'].'</dhEmi><tpNF>'.$ide['tpNF'].'</tpNF><idDest>'.$ide['idDest'].'</idDest>'
-     .       '<cMunFG>'.$ide['cMunFG'].'</cMunFG><tpImp>'.$ide['tpImp'].'</tpImp><tpEmis>'.$ide['tpEmis'].'</tpEmis>'
-     .       '<cDV>'.$ide['cDV'].'</cDV><tpAmb>'.$ide['tpAmb'].'</tpAmb><finNFe>'.$ide['finNFe'].'</finNFe>'
-     .       '<indFinal>'.$ide['indFinal'].'</indFinal><indPres>'.$ide['indPres'].'</indPres>'
-     .       '<procEmi>'.$ide['procEmi'].'</procEmi><verProc>'.$ide['verProc'].'</verProc>'
-     .     '</ide>'
-     .     '<emit>'
-     .       '<CNPJ>'.$emit['CNPJ'].'</CNPJ><xNome>'.$emit['xNome'].'</xNome><xFant>'.$emit['xFant'].'</xFant>'
-     .       '<enderEmit><xLgr>'.$emit['enderEmit']['xLgr'].'</xLgr><nro>'.$emit['enderEmit']['nro'].'</nro><xBairro>'.$emit['enderEmit']['xBairro'].'</xBairro><cMun>'.$emit['enderEmit']['cMun'].'</cMun><xMun>'.$emit['enderEmit']['xMun'].'</xMun><UF>'.$emit['enderEmit']['UF'].'</UF><CEP>'.$emit['enderEmit']['CEP'].'</CEP><cPais>'.$emit['enderEmit']['cPais'].'</cPais><xPais>'.$emit['enderEmit']['xPais'].'</xPais>'.(isset($emit['enderEmit']['fone'])?'<fone>'.$emit['enderEmit']['fone'].'</fone>':'').'</enderEmit>'
-     .       '<IE>'.$emit['IE'].'</IE><CRT>'.$emit['CRT'].'</CRT>'
-     .     '</emit>'
-     .     . (!empty($dest) ? ('<dest>'.(isset($dest['CPF'])?'<CPF>'.$dest['CPF'].'</CPF>':'<CNPJ>'.$dest['CNPJ'].'</CNPJ>').'<indIEDest>'.$dest['indIEDest'].'</indIEDest></dest>') : '')
-     .     $detXML
-     .     $totXML
-     .     $transpXML
-     .     $pagXML
-     .     $infAd
-     .   '</infNFe>'
-     . '</NFe>';
+/* ===== XML da NFe (SEM ternário na concatenação) ===== */
+$nfe  = '<?xml version="1.0" encoding="UTF-8"?>';
+$nfe .= '<NFe xmlns="http://www.portalfiscal.inf.br/nfe">';
+$nfe .=   '<infNFe Id="'.$IdNFe.'" versao="4.00">';
+$nfe .=     '<ide>'
+          .   '<cUF>'.$ide['cUF'].'</cUF><cNF>'.$ide['cNF'].'</cNF><natOp>'.$ide['natOp'].'</natOp>'
+          .   '<mod>'.$ide['mod'].'</mod><serie>'.$ide['serie'].'</serie><nNF>'.$ide['nNF'].'</nNF>'
+          .   '<dhEmi>'.$ide['dhEmi'].'</dhEmi><tpNF>'.$ide['tpNF'].'</tpNF><idDest>'.$ide['idDest'].'</idDest>'
+          .   '<cMunFG>'.$ide['cMunFG'].'</cMunFG><tpImp>'.$ide['tpImp'].'</tpImp><tpEmis>'.$ide['tpEmis'].'</tpEmis>'
+          .   '<cDV>'.$ide['cDV'].'</cDV><tpAmb>'.$ide['tpAmb'].'</tpAmb><finNFe>'.$ide['finNFe'].'</finNFe>'
+          .   '<indFinal>'.$ide['indFinal'].'</indFinal><indPres>'.$ide['indPres'].'</indPres>'
+          .   '<procEmi>'.$ide['procEmi'].'</procEmi><verProc>'.$ide['verProc'].'</verProc>'
+          . '</ide>';
+$nfe .=     '<emit>'
+          .   '<CNPJ>'.$emit['CNPJ'].'</CNPJ><xNome>'.$emit['xNome'].'</xNome><xFant>'.$emit['xFant'].'</xFant>'
+          .   '<enderEmit><xLgr>'.$enderEmit['xLgr'].'</xLgr><nro>'.$enderEmit['nro'].'</nro><xBairro>'.$enderEmit['xBairro'].'</xBairro><cMun>'.$enderEmit['cMun'].'</cMun><xMun>'.$enderEmit['xMun'].'</xMun><UF>'.$enderEmit['UF'].'</UF><CEP>'.$enderEmit['CEP'].'</CEP><cPais>'.$enderEmit['cPais'].'</cPais><xPais>'.$enderEmit['xPais'].'</xPais>'.(isset($enderEmit['fone'])?'<fone>'.$enderEmit['fone'].'</fone>':'').'</enderEmit>'
+          .   '<IE>'.$emit['IE'].'</IE><CRT>'.$emit['CRT'].'</CRT>'
+          . '</emit>';
+$nfe .=     $destXML;   // <<< AQUI fica o <dest> (se houver)
+$nfe .=     $detXML;
+$nfe .=     $totXML;
+$nfe .=     $transpXML;
+$nfe .=     $pagXML;
+$nfe .=     $infAd;
+$nfe .=   '</infNFe>';
+$nfe .= '</NFe>';
 
 /* ===== Assina ===== */
 try { $nfeAss = $tools->signNFe($nfe); }
@@ -348,5 +351,6 @@ if (!empty($stdEnv->cStat) && (int)$stdEnv->cStat === 103 && !empty($stdEnv->inf
 
 /* ===== Rejeição / retorno inesperado ===== */
 while (ob_get_level() > 0) ob_end_clean();
-echo "<pre>Retorno SEFAZ:\n".htmlspecialchars($respEnv, ENT_QUOTES, 'UTF-8')."</pre>";
+echo "<pre>Retorno SEFAZ:\n".htmlspecialchars($respEnv ?? '', ENT_QUOTES, 'UTF-8')."</pre>";
+
 ?>
