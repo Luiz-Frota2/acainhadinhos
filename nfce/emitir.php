@@ -1,5 +1,5 @@
 <?php
-// nfce/emitir.php — Emissão NFC-e (modelo 65) com saneamento NCM/CFOP/EAN
+// nfce/emitir.php — Emissão NFC-e (modelo 65) com saneamento NCM/CFOP/EAN e SELECT dinâmico
 declare(strict_types=1);
 ini_set('display_errors','1');
 error_reporting(E_ALL);
@@ -7,6 +7,13 @@ error_reporting(E_ALL);
 ob_start();
 
 if (file_exists(__DIR__ . '/vendor/autoload.php')) require __DIR__ . '/vendor/autoload.php';
+
+/* =========
+   PATCH: evitar Warning em config.php que usa $URL_QR / $URL_CHAVE como variáveis
+   ========= */
+$URL_QR = $URL_QR ?? (defined('URL_QR') ? constant('URL_QR') : '');
+$URL_CHAVE = $URL_CHAVE ?? (defined('URL_CHAVE') ? constant('URL_CHAVE') : '');
+
 if (file_exists(__DIR__ . '/config.php'))          require __DIR__ . '/config.php';
 
 use NFePHP\Common\Certificate;
@@ -31,7 +38,7 @@ function nfeproc($nfe,$prot){
        . $nfe.$prot.'</nfeProc>';
 }
 
-/* Saneadores */
+/* ==== Saneadores ==== */
 function saneEAN(?string $v): string {
   $v = trim((string)$v);
   $d = preg_replace('/\D+/','',$v);
@@ -53,6 +60,17 @@ function saneCFOP(?string $v): string {
 function saneUN(?string $v): string {
   $v = strtoupper(trim((string)$v));
   return ($v==='') ? 'UN' : $v;
+}
+
+/* ==== introspecção de colunas ==== */
+function tableColumns(PDO $pdo, string $table): array {
+  $cols = [];
+  $stmt = $pdo->query("DESCRIBE `$table`");
+  foreach ($stmt as $r) $cols[] = $r['Field'];
+  return $cols;
+}
+function hasCol(array $cols, string $name): bool {
+  return in_array($name, $cols, true);
 }
 
 /* ===== Carrega itens da venda do BD ===== */
@@ -77,23 +95,76 @@ if (!($__found && isset($pdo) && $pdo instanceof PDO)) {
 }
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Itens
-$st = $pdo->prepare("SELECT produto_id, produto_nome, quantidade, preco_unitario, unidade, ncm, cfop, codigo_barras
-                       FROM itens_venda WHERE venda_id=:v ORDER BY id ASC");
+/* === Checagem de colunas para SELECT dinâmico === */
+$colsItens = tableColumns($pdo, 'itens_venda');
+$selCols = ['produto_id','produto_nome','quantidade','preco_unitario']; // sempre
+if (hasCol($colsItens,'unidade'))        $selCols[] = 'unidade';
+if (hasCol($colsItens,'ncm'))            $selCols[] = 'ncm';
+if (hasCol($colsItens,'cfop'))           $selCols[] = 'cfop';
+if (hasCol($colsItens,'codigo_barras'))  $selCols[] = 'codigo_barras';
+
+$selectList = implode(', ', $selCols);
+$st = $pdo->prepare("SELECT $selectList FROM itens_venda WHERE venda_id=:v ORDER BY id ASC");
 $st->execute([':v'=>$venda_id]);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+
+/* === (Opcional) fallback para pegar dados do estoque se faltarem no item === */
+$colsEst = tableColumns($pdo, 'estoque');
+$needFromEstoque = function(string $k) use ($colsItens, $colsEst): bool {
+  // precisa buscar do estoque se NÃO tem no itens_venda mas EXISTE no estoque
+  $map = [
+    'codigo_barras' => 'codigo_barras',
+    'ncm'           => 'ncm',
+    'cfop'          => 'cfop',
+    'unidade'       => 'unidade',
+  ];
+  if (!isset($map[$k])) return false;
+  return !in_array($k, $colsItens, true) && in_array($map[$k], $colsEst, true);
+};
+$stEst = null;
+if ($needFromEstoque('codigo_barras') || $needFromEstoque('ncm') || $needFromEstoque('cfop') || $needFromEstoque('unidade')) {
+  $selEst = ['id'];
+  if ($needFromEstoque('codigo_barras')) $selEst[] = 'codigo_barras';
+  if ($needFromEstoque('ncm'))           $selEst[] = 'ncm';
+  if ($needFromEstoque('cfop'))          $selEst[] = 'cfop';
+  if ($needFromEstoque('unidade'))       $selEst[] = 'unidade';
+  $stEst = $pdo->prepare("SELECT ".implode(',', $selEst)." FROM estoque WHERE id=:id LIMIT 1");
+}
+
+/* === Monta array $itens com saneamento === */
 foreach ($rows as $r) {
+  $ean  = $r['codigo_barras'] ?? null;
+  $ncm  = $r['ncm'] ?? null;
+  $cfop = $r['cfop'] ?? null;
+  $un   = $r['unidade'] ?? null;
+
+  if ($stEst) {
+    // preencher o que estiver faltando a partir do estoque
+    $needAny = ($ean===null || $ean==='' || $ncm===null || $ncm==='' || $cfop===null || $cfop==='' || $un===null || $un==='');
+    if ($needAny) {
+      $stEst->execute([':id'=>$r['produto_id']]);
+      if ($es = $stEst->fetch(PDO::FETCH_ASSOC)) {
+        if (($ean===null || $ean==='') && array_key_exists('codigo_barras',$es)) $ean = $es['codigo_barras'];
+        if (($ncm===null || $ncm==='') && array_key_exists('ncm',$es))           $ncm = $es['ncm'];
+        if (($cfop===null || $cfop==='') && array_key_exists('cfop',$es))        $cfop = $es['cfop'];
+        if (($un===null || $un==='') && array_key_exists('unidade',$es))         $un = $es['unidade'];
+      }
+    }
+  }
+
   $itens[] = [
+    'id'   => (int)$r['produto_id'],
     'desc' => (string)$r['produto_nome'],
     'qtd'  => (float)$r['quantidade'],
     'vun'  => (float)$r['preco_unitario'],
-    'unid' => saneUN($r['unidade'] ?? 'UN'),
-    'ncm'  => saneNCM($r['ncm'] ?? ''),
-    'cfop' => saneCFOP($r['cfop'] ?? ''),
-    'ean'  => saneEAN($r['codigo_barras'] ?? '')
+    'unid' => saneUN($un ?? 'UN'),
+    'ncm'  => saneNCM($ncm ?? ''),
+    'cfop' => saneCFOP($cfop ?? ''),
+    'ean'  => saneEAN($ean ?? ''),
   ];
 }
-// Venda (pagamento)
+
+/* Venda (pagamento) */
 $stV = $pdo->prepare("SELECT cpf_cliente, forma_pagamento, valor_total, valor_recebido, troco
                         FROM vendas WHERE id=:v LIMIT 1");
 $stV->execute([':v'=>$venda_id]);
@@ -120,7 +191,8 @@ $configJson = json_encode([
   'schemes'     => 'PL_009_V4',
   'versao'      => '4.00',
   'CSC'         => CSC,
-  'CSCid'       => ID_TOKEN
+  'CSCid'       => ID_TOKEN,
+  // se seu config.php usa $URL_QR / $URL_CHAVE, as variáveis já estão definidas no topo
 ], JSON_UNESCAPED_UNICODE);
 $tools = new Tools($configJson, $cert);
 $tools->model('65');
@@ -174,7 +246,7 @@ $emit = [
   'enderEmit'=>$enderEmit
 ];
 
-// Monta <dest> opcional à parte (para evitar erro de concatenação)
+// <dest> opcional (se tiver CPF/CNPJ de cliente)
 $docDest = soDig($vendaRow['cpf_cliente'] ?? '');
 $destXML = '';
 if (strlen($docDest)===11) {
@@ -218,7 +290,7 @@ $vProdFmt = number_format($vProd,2,'.','');
 $totXML   = '<total><ICMSTot><vBC>0.00</vBC><vICMS>0.00</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>'.$vProdFmt.'</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>0.00</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS><vOutro>0.00</vOutro><vNF>'.$vProdFmt.'</vNF></ICMSTot></total>';
 $transpXML= '<transp><modFrete>9</modFrete></transp>';
 
-/* Pagamento (dinheiro ou forma da venda) */
+/* Pagamento */
 $tPag = '01'; // dinheiro
 if (!empty($vendaRow['forma_pagamento'])) {
   $f = trim((string)$vendaRow['forma_pagamento']);
@@ -232,7 +304,7 @@ $pagXML .= '</pag>';
 
 $infAd   = '<infAdic><infCpl>Emissão via autoERP</infCpl></infAd>';
 
-/* ===== XML da NFe (SEM ternário na concatenação) ===== */
+/* ===== XML da NFe ===== */
 $nfe  = '<?xml version="1.0" encoding="UTF-8"?>';
 $nfe .= '<NFe xmlns="http://www.portalfiscal.inf.br/nfe">';
 $nfe .=   '<infNFe Id="'.$IdNFe.'" versao="4.00">';
@@ -248,9 +320,9 @@ $nfe .=     '<ide>'
 $nfe .=     '<emit>'
           .   '<CNPJ>'.$emit['CNPJ'].'</CNPJ><xNome>'.$emit['xNome'].'</xNome><xFant>'.$emit['xFant'].'</xFant>'
           .   '<enderEmit><xLgr>'.$enderEmit['xLgr'].'</xLgr><nro>'.$enderEmit['nro'].'</nro><xBairro>'.$enderEmit['xBairro'].'</xBairro><cMun>'.$enderEmit['cMun'].'</cMun><xMun>'.$enderEmit['xMun'].'</xMun><UF>'.$enderEmit['UF'].'</UF><CEP>'.$enderEmit['CEP'].'</CEP><cPais>'.$enderEmit['cPais'].'</cPais><xPais>'.$enderEmit['xPais'].'</xPais>'.(isset($enderEmit['fone'])?'<fone>'.$enderEmit['fone'].'</fone>':'').'</enderEmit>'
-          .   '<IE>'.$emit['IE'].'</IE><CRT>'.$emit['CRT'].'</CRT>'
+          .   '<IE>'.EMIT_IE.'</IE><CRT>'.EMIT_CRT.'</CRT>'
           . '</emit>';
-$nfe .=     $destXML;   // <<< AQUI fica o <dest> (se houver)
+$nfe .=     $destXML;
 $nfe .=     $detXML;
 $nfe .=     $totXML;
 $nfe .=     $transpXML;
@@ -296,30 +368,43 @@ if (!empty($stdEnv->cStat) && (int)$stdEnv->cStat === 104) {
     $nProt   = null;
     if (preg_match('~<nProt>([^<]+)</nProt>~', $mProt[1], $m2)) $nProt = $m2[1];
 
-    $up = $pdo->prepare("UPDATE vendas SET chave_nfce=:ch, protocolo_nfce=:prot, status_nfce='autorizada', motivo_nfce=:m WHERE id=:v");
-    $up->execute([':ch'=>$chave, ':prot'=>$nProt, ':m'=>$xMotivo, ':v'=>$venda_id]);
+    // Atualiza venda se as colunas existirem (robusto)
+    $vCols = tableColumns($pdo, 'vendas');
+    $set = [];
+    $bind = [':v'=>$venda_id];
+    if (hasCol($vCols,'chave_nfce'))      { $set[]='chave_nfce=:ch';       $bind[':ch']=$chave; }
+    if (hasCol($vCols,'protocolo_nfce'))  { $set[]='protocolo_nfce=:prot'; $bind[':prot']=$nProt; }
+    if (hasCol($vCols,'status_nfce'))     { $set[]="status_nfce='autorizada'"; }
+    if (hasCol($vCols,'motivo_nfce'))     { $set[]='motivo_nfce=:m';       $bind[':m']=$xMotivo; }
+    if ($set) {
+      $up = $pdo->prepare("UPDATE vendas SET ".implode(',', $set)." WHERE id=:v");
+      $up->execute($bind);
+    }
 
-    // grava em nfce_emitidas
-    $st = $pdo->prepare("INSERT INTO nfce_emitidas
-      (empresa_id, venda_id, ambiente, serie, numero, chave, protocolo, status_sefaz, mensagem, xml_nfeproc, xml_envio, xml_retorno, valor_total)
-      VALUES (:empresa_id,:venda_id,:amb,:serie,:numero,:chave,:protocolo,:status,:msg,:xmlp,:xmle,:xmlr,:vtotal)
-      ON DUPLICATE KEY UPDATE protocolo=VALUES(protocolo), status_sefaz=VALUES(status_sefaz), mensagem=VALUES(mensagem),
-      xml_nfeproc=VALUES(xml_nfeproc), xml_envio=VALUES(xml_envio), xml_retorno=VALUES(xml_retorno), valor_total=VALUES(valor_total)");
-    $st->execute([
-      ':empresa_id'=>$empresaId ?: (defined('NFCE_EMPRESA_ID') ? NFCE_EMPRESA_ID : 'principal_1'),
-      ':venda_id'=>$venda_id,
-      ':amb'=>(int)TP_AMB,
-      ':serie'=>(int)NFC_SERIE,
-      ':numero'=>$nNF,
-      ':chave'=>$chave,
-      ':protocolo'=>$nProt,
-      ':status'=>$cStat,
-      ':msg'=>$xMotivo,
-      ':xmlp'=>$proc,
-      ':xmle'=>$nfeAss,
-      ':xmlr'=>$respEnv,
-      ':vtotal'=>number_format((float)($vendaRow['valor_total'] ?? $vProd), 2, '.', '')
-    ]);
+    // grava em nfce_emitidas (se existir)
+    try {
+      $pdo->prepare("DESCRIBE `nfce_emitidas`")->execute();
+      $st = $pdo->prepare("INSERT INTO nfce_emitidas
+        (empresa_id, venda_id, ambiente, serie, numero, chave, protocolo, status_sefaz, mensagem, xml_nfeproc, xml_envio, xml_retorno, valor_total)
+        VALUES (:empresa_id,:venda_id,:amb,:serie,:numero,:chave,:protocolo,:status,:msg,:xmlp,:xmle,:xmlr,:vtotal)
+        ON DUPLICATE KEY UPDATE protocolo=VALUES(protocolo), status_sefaz=VALUES(status_sefaz), mensagem=VALUES(mensagem),
+        xml_nfeproc=VALUES(xml_nfeproc), xml_envio=VALUES(xml_envio), xml_retorno=VALUES(xml_retorno), valor_total=VALUES(valor_total)");
+      $st->execute([
+        ':empresa_id'=>$empresaId ?: (defined('NFCE_EMPRESA_ID') ? NFCE_EMPRESA_ID : 'principal_1'),
+        ':venda_id'=>$venda_id,
+        ':amb'=>(int)TP_AMB,
+        ':serie'=>(int)NFC_SERIE,
+        ':numero'=>$nNF,
+        ':chave'=>$chave,
+        ':protocolo'=>$nProt,
+        ':status'=>$cStat,
+        ':msg'=>$xMotivo,
+        ':xmlp'=>$proc,
+        ':xmle'=>$nfeAss,
+        ':xmlr'=>$respEnv,
+        ':vtotal'=>number_format((float)($vendaRow['valor_total'] ?? $vProd), 2, '.', '')
+      ]);
+    } catch (Throwable $e2) { /* tabela pode não existir; ignora */ }
   } catch (Throwable $e) { /* log se quiser */ }
 
   // Redirect para DANFE
@@ -352,5 +437,4 @@ if (!empty($stdEnv->cStat) && (int)$stdEnv->cStat === 103 && !empty($stdEnv->inf
 /* ===== Rejeição / retorno inesperado ===== */
 while (ob_get_level() > 0) ob_end_clean();
 echo "<pre>Retorno SEFAZ:\n".htmlspecialchars($respEnv ?? '', ENT_QUOTES, 'UTF-8')."</pre>";
-
 ?>
