@@ -57,7 +57,19 @@ function jok(array $payload): void {
   exit;
 }
 
-/* Sanitizadores SEFAZ */
+/* === introspecção de colunas (para INSERT dinâmico e robusto) === */
+function tableColumns(PDO $pdo, string $table): array {
+  // Funciona em MySQL/MariaDB
+  $cols = [];
+  $stmt = $pdo->query("DESCRIBE `$table`");
+  foreach ($stmt as $r) $cols[] = $r['Field'];
+  return $cols;
+}
+function hasCol(array $cols, string $name): bool {
+  return in_array($name, $cols, true);
+}
+
+/* Sanitizadores SEFAZ (para posterior emissão) */
 function saneEAN(?string $v): string {
   $v = trim((string)$v);
   $d = preg_replace('/\D+/','',$v);
@@ -265,48 +277,64 @@ try {
     $valor_total += ((float)$itens[$k]['preco_unitario'] * (float)$itens[$k]['quantidade']);
   }
 
-  // 3) Vendas
-  $insVenda = $pdo->prepare("
-    INSERT INTO vendas
-      (responsavel, cpf_responsavel, cpf_cliente, forma_pagamento,
-       valor_total, valor_recebido, troco, empresa_id, id_caixa, data_venda,
-       chave_nfce, protocolo_nfce, status_nfce, motivo_nfce)
-    VALUES
-      (:resp,:cpf_resp,:cpf_cli,:forma,:vtotal,:vrec,:troco,:emp,:idc,:data,
-       NULL,NULL,'pendente',NULL)
-  ");
-  $insVenda->execute([
-    ':resp'=>$responsavel, ':cpf_resp'=>$cpf_resp, ':cpf_cli'=>($cpf_cliente ?: null),
-    ':forma'=>$forma_pg, ':vtotal'=>$valor_total, ':vrec'=>$valor_recebido, ':troco'=>$troco,
-    ':emp'=>$empresa_id, ':idc'=>$id_caixa, ':data'=>$data_venda
-  ]);
+  /* ========= INSERT DINÂMICO EM VENDAS ========= */
+  $vCols = tableColumns($pdo, 'vendas');
+  $cols = ['responsavel','cpf_responsavel','cpf_cliente','forma_pagamento','valor_total','valor_recebido','troco','empresa_id','id_caixa','data_venda'];
+  $bind = [
+    ':responsavel'      => $responsavel,
+    ':cpf_responsavel'  => $cpf_resp,
+    ':cpf_cliente'      => ($cpf_cliente ?: null),
+    ':forma_pagamento'  => $forma_pg,
+    ':valor_total'      => $valor_total,
+    ':valor_recebido'   => $valor_recebido,
+    ':troco'            => $troco,
+    ':empresa_id'       => $empresa_id,
+    ':id_caixa'         => $id_caixa,
+    ':data_venda'       => $data_venda,
+  ];
+  // adiciona status_nfce se existir
+  if (hasCol($vCols,'status_nfce')) { $cols[]='status_nfce'; $bind[':status_nfce']='pendente'; }
+  if (hasCol($vCols,'chave_nfce'))  { $cols[]='chave_nfce';  $bind[':chave_nfce']=null; }
+  if (hasCol($vCols,'protocolo_nfce')){ $cols[]='protocolo_nfce'; $bind[':protocolo_nfce']=null; }
+  if (hasCol($vCols,'motivo_nfce')) { $cols[]='motivo_nfce'; $bind[':motivo_nfce']=null; }
+
+  $colList = implode(',', $cols);
+  $parList = implode(',', array_map(fn($c)=>':'.$c, $cols));
+  $sqlVenda = "INSERT INTO vendas ($colList) VALUES ($parList)";
+  // remap dos binds para bater com :nome_coluna
+  $remap = [];
+  foreach ($cols as $c) { $remap[':'.$c] = $bind[':'.$c]; }
+  $insVenda = $pdo->prepare($sqlVenda);
+  $insVenda->execute($remap);
   $venda_id = (int)$pdo->lastInsertId();
 
-  // 4) Itens
-  $insItem = $pdo->prepare("
-    INSERT INTO itens_venda
-      (venda_id, produto_id, produto_nome, quantidade, preco_unitario,
-       ncm, cest, cfop, origem, tributacao, unidade, informacoes_adicionais, codigo_barras)
-    VALUES
-      (:venda_id,:produto_id,:produto_nome,:quantidade,:preco_unitario,
-       :ncm,:cest,:cfop,:origem,:tributacao,:unidade,:info,:codigo_barras)
-  ");
+  /* ========= INSERT DINÂMICO EM ITENS_VENDA ========= */
+  $iCols = tableColumns($pdo, 'itens_venda');
+  $baseCols = ['venda_id','produto_id','produto_nome','quantidade','preco_unitario'];
+  $optCols  = ['ncm','cest','cfop','origem','tributacao','unidade','informacoes_adicionais','codigo_barras'];
+
+  $colsIns = $baseCols;
+  foreach ($optCols as $oc) if (hasCol($iCols,$oc)) $colsIns[] = $oc;
+
+  $colListI = implode(',', $colsIns);
+  $parListI = implode(',', array_map(fn($c)=>':'.$c, $colsIns));
+  $sqlItem  = "INSERT INTO itens_venda ($colListI) VALUES ($parListI)";
+  $insItem  = $pdo->prepare($sqlItem);
+
   foreach ($itens as $it) {
-    $insItem->execute([
-      ':venda_id'=>$venda_id,
-      ':produto_id'=>$it['produto_id'],
-      ':produto_nome'=>$it['produto_nome'],
-      ':quantidade'=>$it['quantidade'],
-      ':preco_unitario'=>$it['preco_unitario'],
-      ':ncm'=>$it['ncm'],
-      ':cest'=>$it['cest'],
-      ':cfop'=>$it['cfop'],
-      ':origem'=>$it['origem'],
-      ':tributacao'=>$it['tributacao'],
-      ':unidade'=>$it['unidade'],
-      ':info'=>$it['informacoes_adicionais'],
-      ':codigo_barras'=>$it['codigo_barras']
-    ]);
+    $bindI = [
+      ':venda_id'       => $venda_id,
+      ':produto_id'     => $it['produto_id'],
+      ':produto_nome'   => $it['produto_nome'],
+      ':quantidade'     => $it['quantidade'],
+      ':preco_unitario' => $it['preco_unitario'],
+    ];
+    foreach ($optCols as $oc) {
+      if (hasCol($iCols,$oc)) {
+        $bindI[':'.$oc] = $it[$oc] ?? null;
+      }
+    }
+    $insItem->execute($bindI);
   }
 
   // 5) Baixar estoque
