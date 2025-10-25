@@ -101,9 +101,7 @@ try {
     $stmtDeleteItens = $pdo->prepare("DELETE FROM itens_venda WHERE venda_id = :venda_id");
     $stmtDeleteItens->execute([':venda_id' => $idVenda]);
 
-    // 6. Excluir venda rápida
-    $stmtDeleteVenda = $pdo->prepare("DELETE FROM venda_rapida WHERE id = :id");
-    $stmtDeleteVenda->execute([':id' => $idVenda]);
+    
 
     $pdo->commit();
 
