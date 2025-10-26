@@ -529,9 +529,9 @@ try {
     <script>
     (function(){
       // AJUSTE: rotas das ações (mantenha se já existirem, ou ajuste para suas rotas)
-      const ROTA_CANCELAR_INTERNO = './actions/cancelarVendaInterna.php';
-      const ROTA_EVENTO_110111    = './actions/nfce_cancelar_110111.php';
-      const ROTA_INUTILIZAR_110112= './actions/nfce_inutilizar_110112.php';
+      const ROTA_CANCELAR_INTERNO = '../nfce/cancelar_venda_processa.php';
+      const ROTA_EVENTO_110111    = '../nfce/cancelar_venda_processa.php';
+      const ROTA_INUTILIZAR_110112= '../nfce/cancelar_venda_processa.php';
 
       function buildUrl(base, params) {
         const u = new URL(base, window.location.origin);
@@ -573,7 +573,7 @@ try {
 
   /* ========= inclui a UI de cancelamento (vários caminhos) ========= */
   $__cv_paths = [
-    __DIR__ . '/cancelar_venda_ui.php',
+    __DIR__ . '../nfce/cancelar_venda_ui.php',
     __DIR__ . '/../nfce/cancelar_venda_ui.php',
     __DIR__ . '/../frentedeloja/caixa/cancelar_venda_ui.php',
     __DIR__ . '/../modals/cancelar_venda_ui.php',
