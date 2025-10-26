@@ -72,7 +72,7 @@ try {
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->Message()) . "'); history.back();</script>";
     exit;
 }
 
@@ -114,7 +114,6 @@ try {
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-    // Não mostra erro para o usuário para não quebrar a página
 }
 
 /* ========= Buscar abertura aberta (opcional, se precisar do id_caixa) ========= */
@@ -139,9 +138,7 @@ try {
     error_log("Erro ao buscar abertura: " . $e->getMessage());
 }
 
-/* ========= Buscar VENDAS (não venda_rapida) da empresa/usuário =========
-   Atenção ao CPF: o banco pode armazenar com máscara. Vamos comparar
-   removendo '.', '-', '/' no banco e usando só dígitos do CPF. */
+/* ========= Buscar VENDAS (não venda_rapida) ========= */
 try {
     $sqlVendas = "
         SELECT id, valor_total, data_venda, forma_pagamento, status_nfce
@@ -174,30 +171,20 @@ try {
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>ERP - PDV</title>
     <meta name="description" content="" />
-    <!-- Favicon da empresa carregado dinamicamente -->
     <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
-        rel="stylesheet" />
-    <!-- Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-    <!-- Core CSS -->
     <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
     <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
-    <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-    <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
-    <!-- Config -->
     <script src="../../assets/js/config.js"></script>
 </head>
 <body>
-    <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             <!-- Menu -->
@@ -210,18 +197,19 @@ try {
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
+
                 <div class="menu-inner-shadow"></div>
+
                 <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
                             <div data-i18n="Analytics">Dashboard</div>
                         </a>
                     </li>
-                    <!-- CAIXA -->
+
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
-                    <!-- Operações de Caixa -->
+
                     <li class="menu-item ">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
@@ -250,21 +238,21 @@ try {
                             </li>
                         </ul>
                     </li>
-                    <!-- Vendas -->
+
                     <li class="menu-item">
                         <a href="./vendaRapida.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-cart-alt"></i>
                             <div data-i18n="Vendas">Venda Rápida</div>
                         </a>
                     </li>
-                    <!-- Cancelamento / Ajustes -->
+
                     <li class="menu-item active">
                         <a href="./cancelarVenda.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-x-circle"></i>
                             <div data-i18n="Cancelamento">Cancelar Venda</div>
                         </a>
                     </li>
-                    <!-- Relatórios -->
+
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt"></i>
@@ -278,7 +266,7 @@ try {
                             </li>
                         </ul>
                     </li>
-                    <!-- Misc -->
+
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../sistemadeponto/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -292,12 +280,10 @@ try {
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
-                    <!--/MISC-->
                 </ul>
             </aside>
             <!-- / Menu -->
 
-            <!-- Layout container -->
             <div class="layout-page">
                 <!-- Navbar -->
                 <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
@@ -308,13 +294,11 @@ try {
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center"></div>
                         </div>
-                        <!-- /Search -->
+
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
@@ -337,18 +321,8 @@ try {
                                         </a>
                                     </li>
                                     <li><div class="dropdown-divider"></div></li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-user me-2"></i>
-                        <span class="align-middle">Minha conta</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Configurações</span>
-                                        </a>
-                                    </li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-user me-2"></i><span class="align-middle">Minha conta</span></a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <span class="d-flex align-items-center align-middle">
@@ -359,15 +333,9 @@ try {
                                         </a>
                                     </li>
                                     <li><div class="dropdown-divider"></div></li>
-                                    <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-power-off me-2"></i>
-                                            <span class="align-middle">Sair</span>
-                                        </a>
-                                    </li>
+                                    <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                                 </ul>
                             </li>
-                            <!--/ User -->
                         </ul>
                     </div>
                 </nav>
@@ -442,12 +410,11 @@ try {
                     </div>
                 </div>
                 <!-- FIM CONTEÚDO PRINCIPAL -->
-
             </div>
         </div>
     </div>
 
-    <!-- Modal Única: 3 opções de cancelamento -->
+    <!-- Modal Única: 3 opções de cancelamento (envio para ../nfce/cancelar_venda_processa.php) -->
     <div class="modal fade" id="modalCancelarVenda" tabindex="-1" aria-labelledby="modalCancelarVendaLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -463,34 +430,53 @@ try {
               Selecione o tipo de cancelamento para a <strong>venda <span id="cv-venda-id-text">-</span></strong>.
             </p>
 
-            <div class="list-group">
-              <!-- Opção 1: Cancelamento interno da venda -->
-              <a href="#" id="cv-op-interna" class="list-group-item list-group-item-action d-flex align-items-start">
-                <i class="bx bx-x-circle fs-3 me-3"></i>
-                <div>
-                  <div class="fw-semibold">Cancelar venda (interno)</div>
-                  <small class="text-muted">Estorna a venda no sistema (estoque/financeiro), sem enviar evento para a SEFAZ.</small>
-                </div>
-              </a>
+            <!-- Opção 1: Interno -->
+            <form id="form-cv-interno" class="mb-2" method="post" action="../nfce/cancelar_venda_processa.php">
+              <input type="hidden" name="id" value="">
+              <input type="hidden" name="venda_id" value="">
+              <input type="hidden" name="acao" value="interno">
+              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                <span class="d-flex align-items-start w-100 p-3">
+                  <i class="bx bx-x-circle fs-3 me-3"></i>
+                  <span>
+                    <span class="fw-semibold d-block">Cancelar venda (interno)</span>
+                    <small class="text-muted">Estorna a venda no sistema (estoque/financeiro), sem evento SEFAZ.</small>
+                  </span>
+                </span>
+              </button>
+            </form>
 
-              <!-- Opção 2: Evento 110111 -->
-              <a href="#" id="cv-op-110111" class="list-group-item list-group-item-action d-flex align-items-start">
-                <i class="bx bx-file-minus fs-3 me-3"></i>
-                <div>
-                  <div class="fw-semibold">Cancelar NFC-e — Evento 110111</div>
-                  <small class="text-muted">Envia o evento oficial de cancelamento da NFC-e autorizada.</small>
-                </div>
-              </a>
+            <!-- Opção 2: Evento 110111 -->
+            <form id="form-cv-110111" class="mb-2" method="post" action="../nfce/cancelar_venda_processa.php">
+              <input type="hidden" name="id" value="">
+              <input type="hidden" name="venda_id" value="">
+              <input type="hidden" name="acao" value="110111">
+              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                <span class="d-flex align-items-start w-100 p-3">
+                  <i class="bx bx-file-minus fs-3 me-3"></i>
+                  <span>
+                    <span class="fw-semibold d-block">Cancelar NFC-e — Evento 110111</span>
+                    <small class="text-muted">Envia o cancelamento oficial da NFC-e autorizada.</small>
+                  </span>
+                </span>
+              </button>
+            </form>
 
-              <!-- Opção 3: Inutilização 110112 -->
-              <a href="#" id="cv-op-110112" class="list-group-item list-group-item-action d-flex align-items-start">
-                <i class="bx bx-block fs-3 me-3"></i>
-                <div>
-                  <div class="fw-semibold">Inutilizar numeração — 110112</div>
-                  <small class="text-muted">Usado quando a numeração ficou “quebrada” (sem uso). Não cancela uma NFC-e já autorizada.</small>
-                </div>
-              </a>
-            </div>
+            <!-- Opção 3: Inutilização 110112 -->
+            <form id="form-cv-110112" method="post" action="../nfce/cancelar_venda_processa.php">
+              <input type="hidden" name="id" value="">
+              <input type="hidden" name="venda_id" value="">
+              <input type="hidden" name="acao" value="110112">
+              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                <span class="d-flex align-items-start w-100 p-3">
+                  <i class="bx bx-block fs-3 me-3"></i>
+                  <span>
+                    <span class="fw-semibold d-block">Inutilizar numeração — 110112</span>
+                    <small class="text-muted">Para numeração sem uso. Não cancela NFC-e já autorizada.</small>
+                  </span>
+                </span>
+              </button>
+            </form>
 
             <div class="alert alert-info mt-3 mb-0" role="alert">
               <i class="bx bx-info-circle me-2"></i>
@@ -528,17 +514,7 @@ try {
 
     <script>
     (function(){
-      // AJUSTE: rotas das ações (mantenha se já existirem, ou ajuste para suas rotas)
-      const ROTA_CANCELAR_INTERNO = '../nfce/cancelar_venda_processa.php';
-      const ROTA_EVENTO_110111    = '../nfce/cancelar_venda_processa.php';
-      const ROTA_INUTILIZAR_110112= '../nfce/cancelar_venda_processa.php';
-
-      function buildUrl(base, params) {
-        const u = new URL(base, window.location.origin);
-        Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
-        return u.toString();
-      }
-
+      // Preenche hidden inputs dos 3 formulários e abre a modal
       document.addEventListener('click', function(ev){
         const btn = ev.target.closest('.btn-cancelar-venda');
         if (!btn) return;
@@ -547,18 +523,21 @@ try {
         const empresaId = btn.getAttribute('data-empresa-id') || '';
         const status    = btn.getAttribute('data-status') || '-';
 
-        // Preenche textos
         document.getElementById('cv-venda-id-badge').textContent = '#' + vendaId;
         document.getElementById('cv-venda-id-text').textContent  = '#' + vendaId;
         document.getElementById('cv-status-nfce').textContent    = status;
 
-        // Define URLs das ações
-        const params = { id: empresaId, venda_id: vendaId };
-        document.getElementById('cv-op-interna').setAttribute('href', buildUrl(ROTA_CANCELAR_INTERNO, params));
-        document.getElementById('cv-op-110111').setAttribute('href', buildUrl(ROTA_EVENTO_110111, params));
-        document.getElementById('cv-op-110112').setAttribute('href', buildUrl(ROTA_INUTILIZAR_110112, params));
+        // Preenche <input hidden> de cada form
+        ['form-cv-interno','form-cv-110111','form-cv-110112'].forEach(function(fid){
+          const f = document.getElementById(fid);
+          if (!f) return;
+          const idInput     = f.querySelector('input[name="id"]');
+          const vendaInput  = f.querySelector('input[name="venda_id"]');
+          if (idInput)    idInput.value = empresaId;
+          if (vendaInput) vendaInput.value = vendaId;
+        });
 
-        // Abre modal (Bootstrap)
+        // Abre modal via Bootstrap
         const modalEl = document.getElementById('modalCancelarVenda');
         const bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
         bsModal.show();
@@ -573,7 +552,7 @@ try {
 
   /* ========= inclui a UI de cancelamento (vários caminhos) ========= */
   $__cv_paths = [
-    __DIR__ . '../nfce/cancelar_venda_ui.php',
+    __DIR__ . '/cancelar_venda_ui.php',
     __DIR__ . '/../nfce/cancelar_venda_ui.php',
     __DIR__ . '/../frentedeloja/caixa/cancelar_venda_ui.php',
     __DIR__ . '/../modals/cancelar_venda_ui.php',
