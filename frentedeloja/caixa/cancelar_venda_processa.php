@@ -31,7 +31,7 @@ function redirVendaRapida($empresaId, $ok, $modelo, $msg = '')
     $empresaId = urlencode((string)$empresaId);
     $modelo    = urlencode((string)$modelo);
     $status    = $ok ? 'ok' : 'erro';
-    $qs = "id={$empresaId}";
+    $qs = "id={$empresaId}&cancel={$status}&modelo={$modelo}";
     if ($msg !== '') $qs .= '&msg=' . urlencode($msg);
     header("Location: ../frentedeloja/caixa/canelarVenda.php?{$qs}");
     exit;
