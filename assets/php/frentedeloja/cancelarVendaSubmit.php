@@ -33,7 +33,7 @@ try {
     }
 
     // 2. Buscar dados da venda rápida (valor total, cpf_responsavel, id_caixa) para atualizar abertura
-    $stmtVenda = $pdo->prepare("SELECT total, cpf_responsavel, id_caixa FROM vendas WHERE id = :id");
+    $stmtVenda = $pdo->prepare("SELECT valor_total, cpf_responsavel, id_caixa FROM vendas WHERE id = :id");
     $stmtVenda->execute([':id' => $idVenda]);
     $venda = $stmtVenda->fetch(PDO::FETCH_ASSOC);
 
