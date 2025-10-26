@@ -463,7 +463,7 @@ try {
             </form>
 
             <!-- Opção 3: Inutilização 110112 -->
-            <form id="form-cv-110112" method="post" action="../nfce/cancelar_venda_processa.php">
+            <form id="form-cv-110112" method="post" action="./cancelar_venda_processa_unico.php">
               <input type="hidden" name="id" value="">
               <input type="hidden" name="venda_id" value="">
               <input type="hidden" name="acao" value="110112">
