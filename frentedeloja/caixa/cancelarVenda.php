@@ -431,7 +431,7 @@ try {
             </p>
 
             <!-- Opção 1: Interno -->
-            <form id="form-cv-interno" class="mb-2" method="post" action="../nfce/cancelar_venda_processa.php">
+            <form id="form-cv-interno" class="mb-2" method="post" action="./cancelar_venda_processa_unico.php">
               <input type="hidden" name="id" value="">
               <input type="hidden" name="venda_id" value="">
               <input type="hidden" name="acao" value="interno">
@@ -447,7 +447,7 @@ try {
             </form>
 
             <!-- Opção 2: Evento 110111 -->
-            <form id="form-cv-110111" class="mb-2" method="post" action="../nfce/cancelar_venda_processa.php">
+            <form id="form-cv-110111" class="mb-2" method="post" action="./cancelar_venda_processa_unico.php">
               <input type="hidden" name="id" value="">
               <input type="hidden" name="venda_id" value="">
               <input type="hidden" name="acao" value="110111">
