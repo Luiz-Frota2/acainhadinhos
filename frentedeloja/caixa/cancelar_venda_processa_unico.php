@@ -68,7 +68,7 @@ $_POST['venda']      = $_POST['venda']      ?? $venda_id;
 
 // Encaminha para o processador já existente
 $alvos = [
-  __DIR__ . '../../nfce/cancelar_venda_processa.php',
+  __DIR__ . '../../../nfce/cancelar_venda_processa.php',
   __DIR__ . '/cancelar_venda_processa.php',
   __DIR__ . '/cancelar_venda_processa', // caso o ambiente trate sem .php
 ];
