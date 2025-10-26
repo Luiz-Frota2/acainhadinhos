@@ -491,7 +491,19 @@ try {
 
     </div>
     <script>
-        function openCancelUiFallback() {
+       
+    
+        document.addEventListener('DOMContentLoaded', function() {
+            const idCaixa = document.getElementById('id_caixa');
+            const form = document.querySelector('table');
+            const aviso = document.getElementById('avisoSemCaixa');
+
+            if (!idCaixa || !idCaixa.value.trim()) {
+                form.style.display = 'none'; // Oculta o formulário
+                aviso.style.display = 'block'; // Exibe o alerta
+            }
+        });
+         function openCancelUiFallback() {
         var overlay = document.getElementById('cv-overlay');
         var modal = document.querySelector('#cv-escolha, #cv-escolha-modal, .cv-modal');
         if (overlay) {
@@ -512,17 +524,6 @@ try {
         }
         openCancelUiFallback();
       });
-    
-        document.addEventListener('DOMContentLoaded', function() {
-            const idCaixa = document.getElementById('id_caixa');
-            const form = document.querySelector('table');
-            const aviso = document.getElementById('avisoSemCaixa');
-
-            if (!idCaixa || !idCaixa.value.trim()) {
-                form.style.display = 'none'; // Oculta o formulário
-                aviso.style.display = 'block'; // Exibe o alerta
-            }
-        });
     </script>
 
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
