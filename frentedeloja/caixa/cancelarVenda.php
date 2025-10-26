@@ -593,6 +593,33 @@ try {
       }
     </script>
   <?php endif; ?>
+   <script>
+      if (typeof window.cvOpen !== 'function') {
+        window.cvOpen = function() {
+          var ov = document.getElementById('cv-overlay');
+          var md = ov ? ov.querySelector('.cv-modal') : null;
+          if (ov) {
+            ov.style.display = 'grid';
+            ov.removeAttribute('aria-hidden');
+          }
+          if (md) {
+            md.style.display = 'block';
+            md.focus && md.focus();
+          }
+        };
+      }
+      if (typeof window.cvClose !== 'function') {
+        window.cvClose = function() {
+          var ov = document.getElementById('cv-overlay');
+          var md = ov ? ov.querySelector('.cv-modal') : null;
+          if (md) md.style.display = 'none';
+          if (ov) {
+            ov.style.display = 'none';
+            ov.setAttribute('aria-hidden', 'true');
+          }
+        };
+      }
+    </script>
 
 </body>
 
