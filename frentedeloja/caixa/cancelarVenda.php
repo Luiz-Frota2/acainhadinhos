@@ -72,7 +72,7 @@ try {
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->Message()) . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
@@ -114,6 +114,7 @@ try {
     }
 } catch (PDOException $e) {
     error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    // Não mostra erro para o usuário para não quebrar a página
 }
 
 /* ========= Buscar abertura aberta (opcional, se precisar do id_caixa) ========= */
@@ -138,7 +139,7 @@ try {
     error_log("Erro ao buscar abertura: " . $e->getMessage());
 }
 
-/* ========= Buscar VENDAS (não venda_rapida) ========= */
+/* ========= Buscar VENDAS (não venda_rapida) da empresa/usuário ========= */
 try {
     $sqlVendas = "
         SELECT id, valor_total, data_venda, forma_pagamento, status_nfce
@@ -171,20 +172,30 @@ try {
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>ERP - PDV</title>
     <meta name="description" content="" />
+    <!-- Favicon da empresa carregado dinamicamente -->
     <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap" rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+        rel="stylesheet" />
+    <!-- Icons. Uncomment required icon fonts -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
+    <!-- Core CSS -->
     <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
     <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
+    <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
+    <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
+    <!-- Config -->
     <script src="../../assets/js/config.js"></script>
 </head>
 <body>
+    <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             <!-- Menu -->
@@ -197,10 +208,9 @@ try {
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
-
                 <div class="menu-inner-shadow"></div>
-
                 <ul class="menu-inner py-1">
+                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
@@ -208,8 +218,11 @@ try {
                         </a>
                     </li>
 
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span></li>
+                    <!-- CAIXA -->
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Frente de Caixa</span>
+                    </li>
 
+                    <!-- Operações de Caixa -->
                     <li class="menu-item ">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
@@ -239,6 +252,7 @@ try {
                         </ul>
                     </li>
 
+                    <!-- Vendas -->
                     <li class="menu-item">
                         <a href="./vendaRapida.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-cart-alt"></i>
@@ -246,6 +260,7 @@ try {
                         </a>
                     </li>
 
+                    <!-- Cancelamento / Ajustes -->
                     <li class="menu-item active">
                         <a href="./cancelarVenda.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-x-circle"></i>
@@ -253,6 +268,7 @@ try {
                         </a>
                     </li>
 
+                    <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt"></i>
@@ -266,7 +282,10 @@ try {
                             </li>
                         </ul>
                     </li>
+                    <!-- END CAIXA -->
 
+                    </li>
+                    <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../sistemadeponto/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -274,19 +293,25 @@ try {
                             <div data-i18n="Authentications">Sistema de Ponto</div>
                         </a>
                     </li>
+
                     <li class="menu-item">
                         <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-support"></i>
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
+                    <!--/MISC-->
                 </ul>
             </aside>
             <!-- / Menu -->
 
+            <!-- Layout container -->
             <div class="layout-page">
                 <!-- Navbar -->
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+
+                <nav
+                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                    id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
                             <i class="bx bx-menu bx-sm"></i>
@@ -294,15 +319,20 @@ try {
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+                        <!-- Search -->
                         <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center"></div>
+                            <div class="nav-item d-flex align-items-center">
+                            </div>
                         </div>
+                        <!-- /Search -->
 
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt class="w-px-40 h-auto rounded-circle" />
+                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
+                                            class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
@@ -311,7 +341,8 @@ try {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" alt
+                                                            class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
@@ -320,9 +351,21 @@ try {
                                             </div>
                                         </a>
                                     </li>
-                                    <li><div class="dropdown-divider"></div></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bx bx-user me-2"></i><span class="align-middle">Minha conta</span></a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#">
+                                            <i class="bx bx-user me-2"></i>
+                                            <span class="align-middle">Minha conta</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#">
+                                            <i class="bx bx-cog me-2"></i>
+                                            <span class="align-middle">Configurações</span>
+                                        </a>
+                                    </li>
                                     <li>
                                         <a class="dropdown-item" href="#">
                                             <span class="d-flex align-items-center align-middle">
@@ -332,11 +375,21 @@ try {
                                             </span>
                                         </a>
                                     </li>
-                                    <li><div class="dropdown-divider"></div></li>
-                                    <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                            <i class="bx bx-power-off me-2"></i>
+                                            <span class="align-middle">Sair</span>
+                                        </a>
+                                    </li>
+
                                 </ul>
                             </li>
+                            <!--/ User -->
                         </ul>
+
                     </div>
                 </nav>
 
@@ -349,6 +402,16 @@ try {
                         Cancelar Venda
                     </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Selecione uma venda para cancelar</h5>
+
+                    <!-- Alertas de retorno do processador -->
+                    <?php
+                      $ok  = isset($_GET['ok']) ? (int)$_GET['ok'] : null;
+                      $msg = isset($_GET['msg']) ? trim((string)$_GET['msg']) : '';
+                      if ($ok !== null) {
+                          $cls = $ok ? 'alert-success' : 'alert-danger';
+                          echo '<div class="alert '.$cls.'">'.$msg.'</div>';
+                      }
+                    ?>
 
                     <div class="card">
                         <div class="card-body">
@@ -379,7 +442,7 @@ try {
                                                     <td>
                                                         <?php
                                                         $status = $venda['status_nfce'] ?: 'Finalizada';
-                                                        $badge = ($status === 'autorizada') ? 'bg-success' : (($status === 'cancelada') ? 'bg-danger' : 'bg-secondary');
+                                                        $badge = ($status === 'autorizada') ? 'bg-success' : (($status === 'cancelada' || $status === 'cancelada_interna') ? 'bg-danger' : 'bg-secondary');
                                                         ?>
                                                         <span class="badge <?= $badge ?>"><?= htmlspecialchars(ucfirst($status)) ?></span>
                                                     </td>
@@ -410,11 +473,14 @@ try {
                     </div>
                 </div>
                 <!-- FIM CONTEÚDO PRINCIPAL -->
+
             </div>
+
         </div>
+
     </div>
 
-    <!-- Modal Única: 3 opções de cancelamento (envio para ../nfce/cancelar_venda_processa.php) -->
+    <!-- Modal Única: 3 opções de cancelamento (envio para cancelar_venda_processa.php) -->
     <div class="modal fade" id="modalCancelarVenda" tabindex="-1" aria-labelledby="modalCancelarVendaLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -431,7 +497,7 @@ try {
             </p>
 
             <!-- Opção 1: Interno -->
-            <form id="form-cv-interno" class="mb-2" method="post" action="./cancelar_venda_processa.php">
+            <form id="form-cv-interno" class="mb-2" method="post" action="cancelar_venda_processa.php">
               <input type="hidden" name="id" value="">
               <input type="hidden" name="venda_id" value="">
               <input type="hidden" name="acao" value="interno">
@@ -447,7 +513,7 @@ try {
             </form>
 
             <!-- Opção 2: Evento 110111 -->
-            <form id="form-cv-110111" class="mb-2" method="post" action="./cancelar_venda_processa.php">
+            <form id="form-cv-110111" class="mb-2" method="post" action="cancelar_venda_processa.php">
               <input type="hidden" name="id" value="">
               <input type="hidden" name="venda_id" value="">
               <input type="hidden" name="acao" value="110111">
@@ -463,7 +529,7 @@ try {
             </form>
 
             <!-- Opção 3: Inutilização 110112 -->
-            <form id="form-cv-110112" method="post" action="./cancelar_venda_processa.php">
+            <form id="form-cv-110112" method="post" action="cancelar_venda_processa.php">
               <input type="hidden" name="id" value="">
               <input type="hidden" name="venda_id" value="">
               <input type="hidden" name="acao" value="110112">
