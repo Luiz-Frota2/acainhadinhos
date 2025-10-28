@@ -360,231 +360,6 @@ $periodoLabel = [
 
 $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
-/* ==================== Helpers ==================== */
-function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
-
-function status_badge_class(string $status): string {
-  // mapeamento para as mesmas cores do layout (Sneat)
-  return match ($status) {
-    'pendente'    => 'bg-label-warning',
-    'aprovada'    => 'bg-label-success',
-    'reprovada'    => 'bg-label-danger',
-    'em_transito' => 'bg-label-info',
-    'entregue'    => 'bg-label-primary',
-    'cancelada'   => 'bg-label-secondary',
-    default       => 'bg-label-secondary',
-  };
-}
-
-function prioridade_badge_class(?string $prioridade): string {
-  // fallback se tabela/coluna de prioridade existir
-  $p = strtolower((string)$prioridade);
-  return match ($p) {
-    'alta'   => 'bg-label-danger',
-    'media'  => 'bg-label-warning',
-    'baixa'  => 'bg-label-success',
-    default  => 'bg-label-secondary',
-  };
-}
-
-function id_to_int(?string $empresaSel): ?int {
-  if (!$empresaSel) return null;
-  if (preg_match('/_(\d+)$/', $empresaSel, $m)) return (int)$m[1];
-  return null;
-}
-
-/* ==================== POST (Aprovar / Reprovar) ==================== */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['pedido_id'])) {
-  $acao     = $_POST['acao'];
-  $pedidoId = (int)$_POST['pedido_id'];
-
-  // Restringe o update ao escopo da empresa atual
-  $filtroColuna = str_starts_with($idSelecionado, 'principal_') ? 'id_matriz' : 'id_solicitante';
-  $filtroValor  = $idSelecionado;
-
-  try {
-    if ($acao === 'aprovar') {
-      $sql = "UPDATE solicitacoes_b2b
-              SET status = 'aprovada', aprovada_em = NOW(), updated_at = NOW()
-              WHERE id = :id AND {$filtroColuna} = :empresa";
-    } elseif ($acao === 'reprovar') {
-      $sql = "UPDATE solicitacoes_b2b
-              SET status = 'reprovada', updated_at = NOW()
-              WHERE id = :id AND {$filtroColuna} = :empresa";
-    } else {
-      throw new RuntimeException('Ação inválida.');
-    }
-    $st = $pdo->prepare($sql);
-    $st->execute([
-      ':id'      => $pedidoId,
-      ':empresa' => $filtroValor
-    ]);
-
-    // Evita reenvio de formulário
-    header("Location: ./produtosSolicitados.php?id=" . urlencode($idSelecionado));
-    exit;
-  } catch (Throwable $e) {
-    echo "<script>alert('Falha ao atualizar status: " . e($e->getMessage()) . "');</script>";
-  }
-}
-
-/* ==================== Descobrir se existe tabela de itens ==================== */
-$temTabelaItens = false;
-try {
-  $chk = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'")->fetchColumn();
-  $temTabelaItens = (bool)$chk;
-} catch (Throwable $e) {
-  $temTabelaItens = false;
-}
-
-/* ==================== Descobrir se existe coluna de itens JSON ==================== */
-$colunaItensJson = null;
-try {
-  $cols = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b")->fetchAll(PDO::FETCH_COLUMN, 0);
-  foreach ($cols as $c) {
-    if (in_array($c, ['itens', 'itens_json'], true)) {
-      $colunaItensJson = $c;
-      break;
-    }
-  }
-} catch (Throwable $e) {
-  $colunaItensJson = null;
-}
-
-/* ==================== Consulta principal (Solicitações) ==================== */
-$filtroColuna = str_starts_with($idSelecionado, 'principal_') ? 's.id_matriz' : 's.id_solicitante';
-$sqlSolic =
-  "SELECT 
-      s.id,
-      s.id_matriz,
-      s.id_solicitante,
-      s.status,
-      s.total_estimado,
-      s.created_at,
-      s.updated_at,
-      s.aprovada_em,
-      s.enviada_em,
-      s.entregue_em
-      " . ($colunaItensJson ? ", s.`{$colunaItensJson}`" : "") . "
-   FROM solicitacoes_b2b s
-   WHERE {$filtroColuna} = :empresa
-   ORDER BY s.created_at DESC";
-
-$solicitacoes = [];
-try {
-  $st = $pdo->prepare($sqlSolic);
-  $st->execute([':empresa' => $idSelecionado]);
-  $solicitacoes = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {
-  $solicitacoes = [];
-}
-
-/* ==================== Resolver nome da Filial/Unidade (unidades.id = número do id_solicitante) ==================== */
-$cacheUnidades = [];
-function nomeUnidade(PDO $pdo, array &$cache, ?string $id_solicitante): string {
-  if (!$id_solicitante) return '—';
-  $num = id_to_int($id_solicitante);
-  if (!$num) return '—';
-  if (isset($cache[$num])) return $cache[$num];
-
-  try {
-    $st = $pdo->prepare("SELECT nome FROM unidades WHERE id = :id LIMIT 1");
-    $st->execute([':id' => $num]);
-    $nome = $st->fetchColumn();
-    $cache[$num] = $nome ?: '—';
-    return $cache[$num];
-  } catch (Throwable $e) {
-    return '—';
-  }
-}
-
-/* ==================== Buscar itens por solicitação ==================== */
-function buscarItensPedido(PDO $pdo, array $rowSolic, bool $temTabelaItens, ?string $colunaItensJson): array {
-  $itens = [];
-
-  if ($temTabelaItens) {
-    try {
-      $sql = "SELECT 
-                i.id,
-                i.solicitacao_id,
-                i.produto_id,
-                i.quantidade,
-                i.prioridade,
-                i.status AS status_item
-              FROM solicitacoes_b2b_itens i
-              WHERE i.solicitacao_id = :sid
-              ORDER BY i.id ASC";
-      $st = $pdo->prepare($sql);
-      $st->execute([':sid' => (int)$rowSolic['id']]);
-      $itens = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-      $itens = [];
-    }
-  } elseif ($colunaItensJson && !empty($rowSolic[$colunaItensJson])) {
-    // fallback: itens em JSON na própria solicitacao
-    try {
-      $json = json_decode((string)$rowSolic[$colunaItensJson], true);
-      if (is_array($json)) {
-        foreach ($json as $j) {
-          $itens[] = [
-            'id'            => $j['id']            ?? null,
-            'solicitacao_id'=> $rowSolic['id'],
-            'produto_id'    => $j['produto_id']    ?? null,
-            'quantidade'    => $j['quantidade']    ?? null,
-            'prioridade'    => $j['prioridade']    ?? null,
-            'status_item'   => $j['status']        ?? null,
-          ];
-        }
-      }
-    } catch (Throwable $e) {
-      $itens = [];
-    }
-  }
-
-  return $itens;
-}
-
-/* ==================== Completar itens com dados do estoque (código/nome) ==================== */
-function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEstoque): array {
-  if (!$itens) return [];
-
-  // coleta ids de produto
-  $ids = array_values(array_unique(array_filter(array_map(
-    fn($x) => isset($x['produto_id']) ? (int)$x['produto_id'] : null, $itens
-  ))));
-
-  $map = [];
-  if ($ids) {
-    try {
-      // estoque.empresa_id = unidade/filial que solicitou
-      $in = implode(',', array_fill(0, count($ids), '?'));
-      $sql = "SELECT id, nome, codigo_produto
-              FROM estoque
-              WHERE empresa_id = ? AND id IN ($in)";
-      $st = $pdo->prepare($sql);
-
-      $bind = array_merge([$empresaDoEstoque], $ids);
-      $st->execute($bind);
-
-      while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-        $map[(int)$r['id']] = [
-          'nome'          => $r['nome'] ?? '—',
-          'codigo_produto'=> $r['codigo_produto'] ?? '—',
-        ];
-      }
-    } catch (Throwable $e) {
-      // silencia
-    }
-  }
-
-  foreach ($itens as &$it) {
-    $pid = isset($it['produto_id']) ? (int)$it['produto_id'] : null;
-    $it['produto_nome']   = $pid && isset($map[$pid]) ? $map[$pid]['nome'] : '—';
-    $it['codigo_produto'] = $pid && isset($map[$pid]) ? $map[$pid]['codigo_produto'] : '—';
-  }
-  unset($it);
-  return $itens;
-}
 
 ?>
 
@@ -934,134 +709,84 @@ function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEsto
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                 <tbody>
-                    <?php if (!$solicitacoes): ?>
-                      <tr>
-                        <td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td>
-                      </tr>
-                    <?php else: ?>
-
-                    <?php foreach ($solicitacoes as $s): 
-                      $filialNome = nomeUnidade($pdo, $cacheUnidades, $s['id_solicitante']);
-                      $statusCls  = status_badge_class((string)$s['status']);
-                      $dataCriado = $s['created_at'] ? date('d/m/Y', strtotime((string)$s['created_at'])) : '—';
-
-                      // Itens da solicitação
-                      $itens = buscarItensPedido($pdo, $s, $temTabelaItens, $colunaItensJson);
-                      $itens = enriquecerItensComEstoque($pdo, $itens, (string)$s['id_solicitante']);
-
-                      // Se não houver itens, ainda assim exibir uma linha do pedido
-                      if (!$itens) {
-                        $itens = [[
-                          'id'              => null,
-                          'solicitacao_id'  => $s['id'],
-                          'produto_id'      => null,
-                          'quantidade'      => null,
-                          'prioridade'      => null,
-                          'status_item'     => null,
-                          'produto_nome'    => '—',
-                          'codigo_produto'  => '—',
-                        ]];
-                      }
-
-                      // modal id único por pedido
-                      $modalId = 'modalDetalhes-' . (int)$s['id'];
-                    ?>
-
-                      <?php foreach ($itens as $idx => $it): 
-                        $prioridadeCls = prioridade_badge_class($it['prioridade'] ?? '');
-                      ?>
-                        <tr>
-                          <td>#<?= (int)$s['id'] ?></td>
-                          <td><strong><?= e($filialNome) ?></strong></td>
-                          <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
-                          <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
-                          <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
-                          <td><span class="badge <?= $prioridadeCls ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
-                          <td><?= e($dataCriado) ?></td>
-                          <td><span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></td>
-                          <td>
-                            <div class="d-flex gap-2">
-                              <form method="post" class="m-0 p-0">
-                                <input type="hidden" name="pedido_id" value="<?= (int)$s['id'] ?>">
-                                <input type="hidden" name="acao" value="aprovar">
-                                <button type="submit" class="btn btn-sm btn-success">Aprovar</button>
-                              </form>
-                              <form method="post" class="m-0 p-0">
-                                <input type="hidden" name="pedido_id" value="<?= (int)$s['id'] ?>">
-                                <input type="hidden" name="acao" value="reprovar">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Reprovar</button>
-                              </form>
-                              <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#<?= e($modalId) ?>">Detalhes</button>
-                            </div>
-                          </td>
-                        </tr>
-                      <?php endforeach; ?>
-
-                      <!-- Modal Detalhes do Pedido -->
-                      <div class="modal fade" id="<?= e($modalId) ?>" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered modal-lg">
-                          <div class="modal-content">
-                            <div class="modal-header">
-                              <h5 class="modal-title">Detalhes do Pedido #<?= (int)$s['id'] ?></h5>
-                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                              <div class="mb-3">
-                                <div><strong>Filial:</strong> <?= e($filialNome) ?></div>
-                                <div><strong>Status:</strong> <span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></div>
-                                <div><strong>Data da Solicitação:</strong> <?= e($dataCriado) ?></div>
-                                <?php if (!empty($s['total_estimado'])): ?>
-                                  <div><strong>Total Estimado:</strong> R$ <?= number_format((float)$s['total_estimado'], 2, ',', '.') ?></div>
-                                <?php endif; ?>
-                              </div>
-                              <div class="table-responsive">
-                                <table class="table table-sm">
-                                  <thead>
+                                <tbody class="table-border-bottom-0">
                                     <tr>
-                                      <th>#</th>
-                                      <th>Código</th>
-                                      <th>Produto</th>
-                                      <th>Qtd</th>
-                                      <th>Prioridade</th>
-                                      <th>Status (item)</th>
+                                        <td># 1</td>
+                                        <td><strong>Filial Centro</strong></td>
+                                        <td>ACA-500</td>
+                                        <td>Polpa Açaí 500g</td>
+                                        <td>120</td>
+                                        <td><span class="badge bg-label-danger status-badge">Alta</span></td>
+                                        <td>25/09/2025</td>
+                                        <td><span class="badge bg-label-warning status-badge">Pendete</span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Aprovar</button>
+                                             <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Reprovar</button>
+                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                                           
+                                        </td>
                                     </tr>
-                                  </thead>
-                                  <tbody>
-                                  <?php foreach ($itens as $k => $it): 
-                                    $pBadge = prioridade_badge_class($it['prioridade'] ?? '');
-                                    $sItem  = $it['status_item'] ?? '—';
-                                    $sItemC = status_badge_class((string)$sItem);
-                                  ?>
-                                    <tr>
-                                      <td><?= (int)$s['id'] ?>-<?= $k+1 ?></td>
-                                      <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
-                                      <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
-                                      <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
-                                      <td><span class="badge <?= $pBadge ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
-                                      <td><span class="badge <?= $sItemC ?> status-badge"><?= e(ucfirst((string)$sItem)) ?></span></td>
-                                    </tr>
-                                  <?php endforeach; ?>
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                            <div class="modal-footer">
-                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <!-- /Modal Detalhes -->
-
-                    <?php endforeach; ?>
-                    <?php endif; ?>
-                  </tbody>
+                               
+                                  
+                                </tbody>
                             </table>
                         </div>
                     </div>
 
-                 
+                    <!-- Modais mock -->
+                    <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Detalhes do Pedido</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <p><strong>Filial:</strong> Filial Centro</p>
+                                            <p><strong>Qr code:</strong> ACA-500</p>
+                                            <p><strong>Produto:</strong> Polpa Açaí 500g</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>Qtd:</strong> 120</p>
+                                            <p><strong>Prioridade:</strong> Alta</p>
+                                            <p><strong>Status:</strong>Pendente</p>
+                                        </div>
+                                        <div class="col-12">
+                                            <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
+                                           
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Cancelar Pedido</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <label class="form-label">Motivo (opcional)</label>
+                                    <textarea class="form-control" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                                    <button class="btn btn-danger">Confirmar Reprovação</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
                 <!-- / Content -->
 
                 <!-- Footer -->
