@@ -725,32 +725,8 @@ $fimTxt = $fim->format('d/m/Y');
                                             <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Cancelar</button>
                                         </td>
                                     </tr>
-                                    <tr>
-                                        <td>PS-3022</td>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>40</td>
-                                        <td><span class="badge bg-label-warning status-badge">Média</span></td>
-                                        <td>24/09/2025</td>
-                                        <td><span class="badge bg-label-info status-badge">Em Separação</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>PS-3023</td>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td>500</td>
-                                        <td><span class="badge bg-label-info status-badge">Baixa</span></td>
-                                        <td>20/09/2025</td>
-                                        <td><span class="badge bg-label-success status-badge">Enviado</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
+                               
+                                  
                                 </tbody>
                             </table>
                         </div>
@@ -778,7 +754,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         </div>
                                         <div class="col-12">
                                             <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
-                                            <p><strong>Anexos:</strong> <span class="text-muted">—</span></p>
+                                           
                                         </div>
                                     </div>
                                 </div>
