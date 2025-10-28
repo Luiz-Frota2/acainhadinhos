@@ -968,16 +968,16 @@ function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEsto
                         $prioridadeCls = prioridade_badge_class($it['prioridade'] ?? '');
                       ?>
                                     <tr>
-                                        <td>#<?= (int)$s['id'] ?></td>
-                                        <td><strong><?= e($filialNome) ?></strong></td>
-                                        <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
-                                        <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
-                                        <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
-                                        <td><span class="badge <?= $prioridadeCls ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
-                                        <td><?= e($dataCriado) ?></td>
-                                        <td><span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></td>
-                                         <td>
-                            <div>
+                          <td>#<?= (int)$s['id'] ?></td>
+                          <td><strong><?= e($filialNome) ?></strong></td>
+                          <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
+                          <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
+                          <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
+                          <td><span class="badge <?= $prioridadeCls ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
+                          <td><?= e($dataCriado) ?></td>
+                          <td><span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></td>
+                          <td>
+                            <div class="d-flex gap-2">
                               <form method="post" class="m-0 p-0">
                                 <input type="hidden" name="pedido_id" value="<?= (int)$s['id'] ?>">
                                 <input type="hidden" name="acao" value="aprovar">
@@ -991,6 +991,7 @@ function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEsto
                               <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#<?= e($modalId) ?>">Detalhes</button>
                             </div>
                           </td>
+                        </tr>
                                     </tr>
                                      <?php endforeach; ?>
                                
