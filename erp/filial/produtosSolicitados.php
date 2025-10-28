@@ -361,228 +361,6 @@ $periodoLabel = [
 $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
 
-function status_badge_class(string $status): string {
-  // mapeamento para as mesmas cores do layout (Sneat)
-  return match ($status) {
-    'pendente'    => 'bg-label-warning',
-    'aprovada'    => 'bg-label-success',
-    'reprovada'    => 'bg-label-danger',
-    'em_transito' => 'bg-label-info',
-    'entregue'    => 'bg-label-primary',
-    'cancelada'   => 'bg-label-secondary',
-    default       => 'bg-label-secondary',
-  };
-}
-
-function prioridade_badge_class(?string $prioridade): string {
-  // fallback se tabela/coluna de prioridade existir
-  $p = strtolower((string)$prioridade);
-  return match ($p) {
-    'alta'   => 'bg-label-danger',
-    'media'  => 'bg-label-warning',
-    'baixa'  => 'bg-label-success',
-    default  => 'bg-label-secondary',
-  };
-}
-
-function id_to_int(?string $empresaSel): ?int {
-  if (!$empresaSel) return null;
-  if (preg_match('/_(\d+)$/', $empresaSel, $m)) return (int)$m[1];
-  return null;
-}
-
-/* ==================== POST (Aprovar / Reprovar) ==================== */
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['pedido_id'])) {
-  $acao     = $_POST['acao'];
-  $pedidoId = (int)$_POST['pedido_id'];
-
-  // Restringe o update ao escopo da empresa atual
-  $filtroColuna = str_starts_with($idSelecionado, 'principal_') ? 'id_matriz' : 'id_solicitante';
-  $filtroValor  = $idSelecionado;
-
-  try {
-    if ($acao === 'aprovar') {
-      $sql = "UPDATE solicitacoes_b2b
-              SET status = 'aprovada', aprovada_em = NOW(), updated_at = NOW()
-              WHERE id = :id AND {$filtroColuna} = :empresa";
-    } elseif ($acao === 'reprovar') {
-      $sql = "UPDATE solicitacoes_b2b
-              SET status = 'reprovada', updated_at = NOW()
-              WHERE id = :id AND {$filtroColuna} = :empresa";
-    } else {
-      throw new RuntimeException('Ação inválida.');
-    }
-    $st = $pdo->prepare($sql);
-    $st->execute([
-      ':id'      => $pedidoId,
-      ':empresa' => $filtroValor
-    ]);
-
-    // Evita reenvio de formulário
-    header("Location: ./produtosSolicitados.php?id=" . urlencode($idSelecionado));
-    exit;
-  } catch (Throwable $e) {
-    echo "<script>alert('Falha ao atualizar status: " . e($e->getMessage()) . "');</script>";
-  }
-}
-
-/* ==================== Descobrir se existe tabela de itens ==================== */
-$temTabelaItens = false;
-try {
-  $chk = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'")->fetchColumn();
-  $temTabelaItens = (bool)$chk;
-} catch (Throwable $e) {
-  $temTabelaItens = false;
-}
-
-/* ==================== Descobrir se existe coluna de itens JSON ==================== */
-$colunaItensJson = null;
-try {
-  $cols = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b")->fetchAll(PDO::FETCH_COLUMN, 0);
-  foreach ($cols as $c) {
-    if (in_array($c, ['itens', 'itens_json'], true)) {
-      $colunaItensJson = $c;
-      break;
-    }
-  }
-} catch (Throwable $e) {
-  $colunaItensJson = null;
-}
-
-/* ==================== Consulta principal (Solicitações) ==================== */
-$filtroColuna = str_starts_with($idSelecionado, 'principal_') ? 's.id_matriz' : 's.id_solicitante';
-$sqlSolic =
-  "SELECT 
-      s.id,
-      s.id_matriz,
-      s.id_solicitante,
-      s.status,
-      s.total_estimado,
-      s.created_at,
-      s.updated_at,
-      s.aprovada_em,
-      s.enviada_em,
-      s.entregue_em
-      " . ($colunaItensJson ? ", s.`{$colunaItensJson}`" : "") . "
-   FROM solicitacoes_b2b s
-   WHERE {$filtroColuna} = :empresa
-   ORDER BY s.created_at DESC";
-
-$solicitacoes = [];
-try {
-  $st = $pdo->prepare($sqlSolic);
-  $st->execute([':empresa' => $idSelecionado]);
-  $solicitacoes = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {
-  $solicitacoes = [];
-}
-
-/* ==================== Resolver nome da Filial/Unidade (unidades.id = número do id_solicitante) ==================== */
-$cacheUnidades = [];
-function nomeUnidade(PDO $pdo, array &$cache, ?string $id_solicitante): string {
-  if (!$id_solicitante) return '—';
-  $num = id_to_int($id_solicitante);
-  if (!$num) return '—';
-  if (isset($cache[$num])) return $cache[$num];
-
-  try {
-    $st = $pdo->prepare("SELECT nome FROM unidades WHERE id = :id LIMIT 1");
-    $st->execute([':id' => $num]);
-    $nome = $st->fetchColumn();
-    $cache[$num] = $nome ?: '—';
-    return $cache[$num];
-  } catch (Throwable $e) {
-    return '—';
-  }
-}
-
-/* ==================== Buscar itens por solicitação ==================== */
-function buscarItensPedido(PDO $pdo, array $rowSolic, bool $temTabelaItens, ?string $colunaItensJson): array {
-  $itens = [];
-
-  if ($temTabelaItens) {
-    try {
-      $sql = "SELECT 
-                i.id,
-                i.solicitacao_id,
-                i.produto_id,
-                i.quantidade,
-                i.prioridade,
-                i.status AS status_item
-              FROM solicitacoes_b2b_itens i
-              WHERE i.solicitacao_id = :sid
-              ORDER BY i.id ASC";
-      $st = $pdo->prepare($sql);
-      $st->execute([':sid' => (int)$rowSolic['id']]);
-      $itens = $st->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Throwable $e) {
-      $itens = [];
-    }
-  } elseif ($colunaItensJson && !empty($rowSolic[$colunaItensJson])) {
-    // fallback: itens em JSON na própria solicitacao
-    try {
-      $json = json_decode((string)$rowSolic[$colunaItensJson], true);
-      if (is_array($json)) {
-        foreach ($json as $j) {
-          $itens[] = [
-            'id'            => $j['id']            ?? null,
-            'solicitacao_id'=> $rowSolic['id'],
-            'produto_id'    => $j['produto_id']    ?? null,
-            'quantidade'    => $j['quantidade']    ?? null,
-            'prioridade'    => $j['prioridade']    ?? null,
-            'status_item'   => $j['status']        ?? null,
-          ];
-        }
-      }
-    } catch (Throwable $e) {
-      $itens = [];
-    }
-  }
-
-  return $itens;
-}
-
-/* ==================== Completar itens com dados do estoque (código/nome) ==================== */
-function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEstoque): array {
-  if (!$itens) return [];
-
-  // coleta ids de produto
-  $ids = array_values(array_unique(array_filter(array_map(
-    fn($x) => isset($x['produto_id']) ? (int)$x['produto_id'] : null, $itens
-  ))));
-
-  $map = [];
-  if ($ids) {
-    try {
-      // estoque.empresa_id = unidade/filial que solicitou
-      $in = implode(',', array_fill(0, count($ids), '?'));
-      $sql = "SELECT id, nome, codigo_produto
-              FROM estoque
-              WHERE empresa_id = ? AND id IN ($in)";
-      $st = $pdo->prepare($sql);
-
-      $bind = array_merge([$empresaDoEstoque], $ids);
-      $st->execute($bind);
-
-      while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-        $map[(int)$r['id']] = [
-          'nome'          => $r['nome'] ?? '—',
-          'codigo_produto'=> $r['codigo_produto'] ?? '—',
-        ];
-      }
-    } catch (Throwable $e) {
-      // silencia
-    }
-  }
-
-  foreach ($itens as &$it) {
-    $pid = isset($it['produto_id']) ? (int)$it['produto_id'] : null;
-    $it['produto_nome']   = $pid && isset($map[$pid]) ? $map[$pid]['nome'] : '—';
-    $it['codigo_produto'] = $pid && isset($map[$pid]) ? $map[$pid]['codigo_produto'] : '—';
-  }
-  unset($it);
-  return $itens;
-}
 ?>
 
 <!DOCTYPE html>
@@ -922,7 +700,7 @@ function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEsto
                                     <tr>
                                         <th># Pedido</th>
                                         <th>Filial</th>
-                                        <th>Qr code</th>
+                                        <th>SKU</th>
                                         <th>Produto</th>
                                         <th>Qtd</th>
                                         <th>Prioridade</th>
@@ -931,133 +709,125 @@ function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEsto
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody class="table-border-bottom-0">
-                                    <?php if (!$solicitacoes): ?>
-                      <tr>
-                        <td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td>
-                      </tr>
-                    <?php else: ?>
-                           <?php foreach ($solicitacoes as $s): 
-                      $filialNome = nomeUnidade($pdo, $cacheUnidades, $s['id_solicitante']);
-                      $statusCls  = status_badge_class((string)$s['status']);
-                      $dataCriado = $s['created_at'] ? date('d/m/Y', strtotime((string)$s['created_at'])) : '—';
-
-                      // Itens da solicitação
-                      $itens = buscarItensPedido($pdo, $s, $temTabelaItens, $colunaItensJson);
-                      $itens = enriquecerItensComEstoque($pdo, $itens, (string)$s['id_solicitante']);
-
-                      // Se não houver itens, ainda assim exibir uma linha do pedido
-                      if (!$itens) {
-                        $itens = [[
-                          'id'              => null,
-                          'solicitacao_id'  => $s['id'],
-                          'produto_id'      => null,
-                          'quantidade'      => null,
-                          'prioridade'      => null,
-                          'status_item'     => null,
-                          'produto_nome'    => '—',
-                          'codigo_produto'  => '—',
-                        ]];
-                      }
-
-                      // modal id único por pedido
-                      $modalId = 'modalDetalhes-' . (int)$s['id'];
-                    ?>
-
-                      <?php foreach ($itens as $idx => $it): 
-                        $prioridadeCls = prioridade_badge_class($it['prioridade'] ?? '');
-                      ?>
+                                <tbody class="table-border-bottom-0" id="tbody-solicitacoes">
                                     <tr>
-                          <td>#<?= (int)$s['id'] ?></td>
-                          <td><strong><?= e($filialNome) ?></strong></td>
-                          <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
-                          <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
-                          <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
-                          <td><span class="badge <?= $prioridadeCls ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
-                          <td><?= e($dataCriado) ?></td>
-                          <td><span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></td>
-                          <td>
-                            <div class="d-flex gap-2">
-                              <form method="post" class="m-0 p-0">
-                                <input type="hidden" name="pedido_id" value="<?= (int)$s['id'] ?>">
-                                <input type="hidden" name="acao" value="aprovar">
-                                <button type="submit" class="btn btn-sm btn-success">Aprovar</button>
-                              </form>
-                              <form method="post" class="m-0 p-0">
-                                <input type="hidden" name="pedido_id" value="<?= (int)$s['id'] ?>">
-                                <input type="hidden" name="acao" value="reprovar">
-                                <button type="submit" class="btn btn-sm btn-outline-danger">Reprovar</button>
-                              </form>
-                              <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#<?= e($modalId) ?>">Detalhes</button>
-                            </div>
-                          </td>
-                        </tr>
+                                        <td>PS-3021</td>
+                                        <td><strong>Filial Centro</strong></td>
+                                        <td>ACA-500</td>
+                                        <td>Polpa Açaí 500g</td>
+                                        <td>120</td>
+                                        <td><span class="badge bg-label-danger status-badge">Alta</span></td>
+                                        <td>25/09/2025</td>
+                                        <td><span class="badge bg-label-warning status-badge">Aguardando</span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Atender</button>
+                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Cancelar</button>
+                                        </td>
                                     </tr>
-                                     <?php endforeach; ?>
-                               
-                                  
+                                    <tr>
+                                        <td>PS-3022</td>
+                                        <td><strong>Filial Norte</strong></td>
+                                        <td>ACA-1KG</td>
+                                        <td>Polpa Açaí 1kg</td>
+                                        <td>40</td>
+                                        <td><span class="badge bg-label-warning status-badge">Média</span></td>
+                                        <td>24/09/2025</td>
+                                        <td><span class="badge bg-label-info status-badge">Em Separação</span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>PS-3023</td>
+                                        <td><strong>Filial Sul</strong></td>
+                                        <td>COPO-300</td>
+                                        <td>Copo 300ml</td>
+                                        <td>500</td>
+                                        <td><span class="badge bg-label-info status-badge">Baixa</span></td>
+                                        <td>20/09/2025</td>
+                                        <td><span class="badge bg-label-success status-badge">Enviado</span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
-   <!-- Modal Detalhes do Pedido -->
-                      <div class="modal fade" id="<?= e($modalId) ?>" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered modal-lg">
-                          <div class="modal-content">
-                            <div class="modal-header">
-                              <h5 class="modal-title">Detalhes do Pedido #<?= (int)$s['id'] ?></h5>
-                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                              <div class="mb-3">
-                                <div><strong>Filial:</strong> <?= e($filialNome) ?></div>
-                                <div><strong>Status:</strong> <span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></div>
-                                <div><strong>Data da Solicitação:</strong> <?= e($dataCriado) ?></div>
-                                <?php if (!empty($s['total_estimado'])): ?>
-                                  <div><strong>Total Estimado:</strong> R$ <?= number_format((float)$s['total_estimado'], 2, ',', '.') ?></div>
-                                <?php endif; ?>
-                              </div>
-                              <div class="table-responsive">
-                                <table class="table table-sm">
-                                  <thead>
-                                    <tr>
-                                      <th>#</th>
-                                      <th>Código</th>
-                                      <th>Produto</th>
-                                      <th>Qtd</th>
-                                      <th>Prioridade</th>
-                                      <th>Status (item)</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                  <?php foreach ($itens as $k => $it): 
-                                    $pBadge = prioridade_badge_class($it['prioridade'] ?? '');
-                                    $sItem  = $it['status_item'] ?? '—';
-                                    $sItemC = status_badge_class((string)$sItem);
-                                  ?>
-                                    <tr>
-                                      <td><?= (int)$s['id'] ?>-<?= $k+1 ?></td>
-                                      <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
-                                      <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
-                                      <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
-                                      <td><span class="badge <?= $pBadge ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
-                                      <td><span class="badge <?= $sItemC ?> status-badge"><?= e(ucfirst((string)$sItem)) ?></span></td>
-                                    </tr>
-                                  <?php endforeach; ?>
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                            <div class="modal-footer">
-                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <!-- /Modal Detalhes -->
 
-                    <?php endforeach; ?>
-                    <?php endif; ?>
+                    <!-- Modais mock -->
+                    <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Detalhes do Pedido</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <p><strong>Filial:</strong> Filial Centro</p>
+                                            <p><strong>SKU:</strong> ACA-500</p>
+                                            <p><strong>Produto:</strong> Polpa Açaí 500g</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>Qtd:</strong> 120</p>
+                                            <p><strong>Prioridade:</strong> Alta</p>
+                                            <p><strong>Status:</strong> Aguardando</p>
+                                        </div>
+                                        <div class="col-12">
+                                            <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
+                                            <p><strong>Anexos:</strong> <span class="text-muted">—</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Atender Pedido</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Iniciar atendimento e separar os itens deste pedido?
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button class="btn btn-primary">Confirmar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Cancelar Pedido</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <label class="form-label">Motivo (opcional)</label>
+                                    <textarea class="form-control" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                                    <button class="btn btn-danger">Confirmar Cancelamento</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <!-- / Content -->
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
@@ -1110,6 +880,160 @@ function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEsto
 
     <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+<script>
+(function(){
+  // Helper to get idSelecionado from URL (?id=...)
+  function getQS(name){
+    const p = new URLSearchParams(window.location.search);
+    return p.get(name) || "";
+  }
+  const idSelecionado = getQS("id") || "";
+
+  async function fetchSolicitacoes() {
+    const url = "api/solicitacoes_b2b_list.php?id=" + encodeURIComponent(idSelecionado);
+    const res = await fetch(url, { credentials: "same-origin" });
+    if (!res.ok) throw new Error("Falha ao carregar lista: " + res.status);
+    return await res.json();
+  }
+
+  function statusBadge(st) {
+    // Map layout badge classes (keep your existing color scheme)
+    switch((st||"").toLowerCase()){
+      case "aprovada": return {label:"Aprovada", cls:"bg-label-success"};
+      case "reprovada": return {label:"Reprovada", cls:"bg-label-danger"};
+      case "em_transito": return {label:"Em Trânsito", cls:"bg-label-info"};
+      case "entregue": return {label:"Entregue", cls:"bg-label-primary"};
+      case "cancelada": return {label:"Cancelada", cls:"bg-label-secondary"};
+      default: return {label:"Pendente", cls:"bg-label-warning"};
+    }
+  }
+
+  function prioridadeBadge(qtd) {
+    const n = Number(qtd||0);
+    if (n >= 100) return {label:"Alta", cls:"bg-label-danger"};
+    if (n >= 50)  return {label:"Média", cls:"bg-label-warning"};
+    return {label:"Baixa", cls:"bg-label-success"};
+  }
+
+  function renderRows(lista){
+    const tbody = document.querySelector("#tbody-solicitacoes") || document.querySelector("tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    if (!Array.isArray(lista) || !lista.length){
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 9;
+      td.textContent = "Nenhuma solicitação encontrada.";
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    for(const s of lista){
+      const tr = document.createElement("tr");
+      tr.dataset.detalhes = JSON.stringify(s.detalhes || {});
+      // Cells: Nº Pedido | Filial | SKU | Produto | Qtd | Prioridade | Data | Status | Ações
+      const cells = [];
+      const codigo = s.codigo || ("PS-" + String(s.id).padStart(4,"0"));
+      const stMap = statusBadge(s.status);
+      const prio = prioridadeBadge(s.qtd_total);
+      const dataBR = s.data_br || "";
+      const sku = s.sku || (s.itens_count>1 ? "Vários" : (s.sku||"—"));
+      const prod = s.produto || (s.itens_count>1 ? ("Diversos ("+s.itens_count+" itens)") : (s.produto||"—"));
+
+      cells.push(codigo);
+      cells.push(s.filial || "Unidade");
+      cells.push(sku);
+      cells.push(prod);
+      cells.push(String(s.qtd_total||0));
+      cells.push(`<span class="badge ${prio.cls} status-badge">${prio.label}</span>`);
+      cells.push(dataBR);
+      cells.push(`<span class="badge ${stMap.cls} status-badge">${stMap.label}</span>`);
+      cells.push(`
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-outline-success js-aprovar" data-id="${s.id}">Atender</button>
+          <button class="btn btn-sm btn-outline-primary btn-detalhes" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+          <button class="btn btn-sm btn-outline-danger js-reprovar" data-id="${s.id}">Cancelar</button>
+        </div>
+      `);
+      for(const html of cells){
+        const td = document.createElement("td");
+        td.innerHTML = html;
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+  }
+
+  async function atualizarLista(){
+    try {
+      const lista = await fetchSolicitacoes();
+      renderRows(lista);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function enviarAcao(id, acao){
+    const res = await fetch("api/solicitacoes_b2b_actions.php?id="+encodeURIComponent(idSelecionado), {
+      method: "POST",
+      headers: {"Content-Type":"application/x-www-form-urlencoded"},
+      body: new URLSearchParams({ solicitacao_id: String(id||""), acao })
+    });
+    const data = await res.json().catch(()=>({ok:false}));
+    if (!res.ok || !data.ok){
+      alert(data.error || "Falha ao aplicar ação.");
+      return;
+    }
+    await atualizarLista();
+  }
+
+  document.addEventListener("click", function(ev){
+    const btnAprovar = ev.target.closest(".js-aprovar");
+    const btnReprovar = ev.target.closest(".js-reprovar");
+    const btnDetalhes = ev.target.closest(".btn-detalhes");
+    if (btnAprovar){
+      enviarAcao(btnAprovar.dataset.id, "aprovar");
+    } else if (btnReprovar){
+      enviarAcao(btnReprovar.dataset.id, "reprovar");
+    } else if (btnDetalhes){
+      const tr = btnDetalhes.closest("tr");
+      const raw = tr && tr.dataset.detalhes;
+      if (!raw) return;
+      try{
+        const det = JSON.parse(raw);
+        const $ = (id)=>document.getElementById(id);
+        if ($("det-codigo")) $("det-codigo").textContent = det.codigo || "—";
+        if ($("det-filial")) $("det-filial").textContent = det.filial || "—";
+        if ($("det-status")) $("det-status").textContent = det.status_label || det.status || "—";
+        if ($("det-data")) $("det-data").textContent = det.criado_em || "—";
+        if ($("det-obs")) $("det-obs").textContent = det.observacao || "";
+        const tbody = document.getElementById("det-itens");
+        if (tbody){
+          tbody.innerHTML = "";
+          if (Array.isArray(det.itens) && det.itens.length){
+            for (const it of det.itens){
+              const tr = document.createElement("tr");
+              const td1 = document.createElement("td"); td1.textContent = it.codigo_produto || "—";
+              const td2 = document.createElement("td"); td2.textContent = it.nome_produto || "—";
+              const td3 = document.createElement("td"); td3.className = "text-end"; td3.textContent = it.quantidade || 0;
+              tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+              tbody.appendChild(tr);
+            }
+          } else {
+            const tr = document.createElement("tr");
+            const td = document.createElement("td"); td.colSpan = 3; td.textContent = "Sem itens.";
+            tr.appendChild(td); tbody.appendChild(tr);
+          }
+        }
+      }catch(e){ console.error(e); }
+    }
+  });
+
+  // Inicializa
+  document.addEventListener("DOMContentLoaded", atualizarLista);
+})();
+</script>
 </body>
 
 </html>
