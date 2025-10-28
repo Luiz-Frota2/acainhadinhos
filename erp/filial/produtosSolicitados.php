@@ -693,7 +693,7 @@ $fimTxt = $fim->format('d/m/Y');
 
                     <!-- Tabela (HTML mock) -->
                     <div class="card">
-                        <h5 class="card-header">Lista de Produtos Solicitados</h5>
+                        <h5 class="card-header"></h5>
                         <div class="table-responsive text-nowrap">
                             <table class="table table-hover">
                                 <thead>
