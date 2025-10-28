@@ -2,844 +2,605 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
+declare(strict_types=1);
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
+/* ==================== Parâmetros & Sessão ==================== */
 $idSelecionado = $_GET['id'] ?? '';
-
 if (!$idSelecionado) {
-    header("Location: .././login.php");
-    exit;
+  header("Location: .././login.php");
+  exit;
 }
 
-// ✅ Verifica se a pessoa está logada
 if (
-    !isset($_SESSION['usuario_logado']) ||
-    !isset($_SESSION['empresa_id']) ||
-    !isset($_SESSION['tipo_empresa']) ||
-    !isset($_SESSION['usuario_id'])
+  !isset($_SESSION['usuario_logado']) ||
+  !isset($_SESSION['empresa_id'])     ||
+  !isset($_SESSION['tipo_empresa'])   ||
+  !isset($_SESSION['usuario_id'])
 ) {
-    header("Location: .././login.php?id=" . urlencode($idSelecionado));
-    exit;
+  header("Location: .././login.php?id=" . urlencode($idSelecionado));
+  exit;
 }
 
-// ✅ Conexão com o banco de dados
+/* ==================== Conexão ==================== */
 require '../../assets/php/conexao.php';
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  http_response_code(500);
+  echo "Erro: conexão indisponível.";
+  exit;
+}
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// ✅ Buscar nome e tipo do usuário logado
+/* ==================== Usuário ==================== */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
 
 try {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($usuario) {
-        $nomeUsuario = $usuario['usuario'] ?? 'Usuário';
-        $tipoUsuario = ucfirst((string)($usuario['nivel'] ?? 'Comum'));
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-        exit;
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
+  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+  $stmt->execute();
+  if ($u = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $nomeUsuario = $u['usuario'] ?? 'Usuário';
+    $tipoUsuario = ucfirst((string)($u['nivel'] ?? 'Comum'));
+  } else {
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . htmlspecialchars($idSelecionado) . "';</script>";
     exit;
+  }
+} catch (PDOException $e) {
+  echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
+  exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido   = false;
-$idEmpresaSession  = $_SESSION['empresa_id'];
-$tipoSession       = $_SESSION['tipo_empresa'];
+/* ==================== Autorização por empresa ==================== */
+$acessoPermitido  = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession      = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
-    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
-    echo "<script>
-          alert('Acesso negado!');
-          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
-        </script>";
+  echo "<script>
+    alert('Acesso negado!');
+    window.location.href = '.././login.php?id=" . htmlspecialchars($idSelecionado) . "';
+  </script>";
+  exit;
+}
+
+/* ==================== Logo da empresa (mantido) ==================== */
+$logoEmpresa = null;
+try {
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
+  $stmt->execute([':id' => $idSelecionado]);
+  $logoEmpresa = $stmt->fetchColumn() ?: null;
+} catch (PDOException $e) {
+  // silencioso
+}
+
+/* ==================== Helpers ==================== */
+function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
+
+function status_badge_class(string $status): string {
+  // mapeamento para as mesmas cores do layout (Sneat)
+  return match ($status) {
+    'pendente'    => 'bg-label-warning',
+    'aprovada'    => 'bg-label-success',
+    'reprovada'    => 'bg-label-danger',
+    'em_transito' => 'bg-label-info',
+    'entregue'    => 'bg-label-primary',
+    'cancelada'   => 'bg-label-secondary',
+    default       => 'bg-label-secondary',
+  };
+}
+
+function prioridade_badge_class(?string $prioridade): string {
+  // fallback se tabela/coluna de prioridade existir
+  $p = strtolower((string)$prioridade);
+  return match ($p) {
+    'alta'   => 'bg-label-danger',
+    'media'  => 'bg-label-warning',
+    'baixa'  => 'bg-label-success',
+    default  => 'bg-label-secondary',
+  };
+}
+
+function id_to_int(?string $empresaSel): ?int {
+  if (!$empresaSel) return null;
+  if (preg_match('/_(\d+)$/', $empresaSel, $m)) return (int)$m[1];
+  return null;
+}
+
+/* ==================== POST (Aprovar / Reprovar) ==================== */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['acao'], $_POST['pedido_id'])) {
+  $acao     = $_POST['acao'];
+  $pedidoId = (int)$_POST['pedido_id'];
+
+  // Restringe o update ao escopo da empresa atual
+  $filtroColuna = str_starts_with($idSelecionado, 'principal_') ? 'id_matriz' : 'id_solicitante';
+  $filtroValor  = $idSelecionado;
+
+  try {
+    if ($acao === 'aprovar') {
+      $sql = "UPDATE solicitacoes_b2b
+              SET status = 'aprovada', aprovada_em = NOW(), updated_at = NOW()
+              WHERE id = :id AND {$filtroColuna} = :empresa";
+    } elseif ($acao === 'reprovar') {
+      $sql = "UPDATE solicitacoes_b2b
+              SET status = 'reprovada', updated_at = NOW()
+              WHERE id = :id AND {$filtroColuna} = :empresa";
+    } else {
+      throw new RuntimeException('Ação inválida.');
+    }
+    $st = $pdo->prepare($sql);
+    $st->execute([
+      ':id'      => $pedidoId,
+      ':empresa' => $filtroValor
+    ]);
+
+    // Evita reenvio de formulário
+    header("Location: ./produtosSolicitados.php?id=" . urlencode($idSelecionado));
     exit;
+  } catch (Throwable $e) {
+    echo "<script>alert('Falha ao atualizar status: " . e($e->getMessage()) . "');</script>";
+  }
 }
 
-// ✅ Buscar logo da empresa
+/* ==================== Descobrir se existe tabela de itens ==================== */
+$temTabelaItens = false;
 try {
-    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
-        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png";
-} catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
+  $chk = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'")->fetchColumn();
+  $temTabelaItens = (bool)$chk;
+} catch (Throwable $e) {
+  $temTabelaItens = false;
 }
 
-/* ==========================================================
-   FILTROS DE PDV (período, caixa, forma, status NFC-e)
-   ========================================================== */
-
-function brToIsoDate($d)
-{
-    // aceita "YYYY-mm-dd" direto; se vier "dd/mm/YYYY", converte
-    if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
-    if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
-        return "{$m[3]}-{$m[2]}-{$m[1]}";
+/* ==================== Descobrir se existe coluna de itens JSON ==================== */
+$colunaItensJson = null;
+try {
+  $cols = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b")->fetchAll(PDO::FETCH_COLUMN, 0);
+  foreach ($cols as $c) {
+    if (in_array($c, ['itens', 'itens_json'], true)) {
+      $colunaItensJson = $c;
+      break;
     }
-    return null;
+  }
+} catch (Throwable $e) {
+  $colunaItensJson = null;
 }
 
-$periodo   = $_GET['periodo'] ?? 'hoje'; // hoje|ontem|ult7|mes|mes_anterior|custom
-$dataIni   = $_GET['data_ini'] ?? '';
-$dataFim   = $_GET['data_fim'] ?? '';
-$caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
-$formaPag  = $_GET['forma_pagamento'] ?? '';
-$statusNf  = $_GET['status_nfce'] ?? '';
+/* ==================== Consulta principal (Solicitações) ==================== */
+$filtroColuna = str_starts_with($idSelecionado, 'principal_') ? 's.id_matriz' : 's.id_solicitante';
+$sqlSolic =
+  "SELECT 
+      s.id,
+      s.id_matriz,
+      s.id_solicitante,
+      s.status,
+      s.total_estimado,
+      s.created_at,
+      s.updated_at,
+      s.aprovada_em,
+      s.enviada_em,
+      s.entregue_em
+      " . ($colunaItensJson ? ", s.`{$colunaItensJson}`" : "") . "
+   FROM solicitacoes_b2b s
+   WHERE {$filtroColuna} = :empresa
+   ORDER BY s.created_at DESC";
 
-$now = new DateTime('now');
-$ini = new DateTime('today');
-$ini->setTime(0, 0, 0);
-$fim = new DateTime('today');
-$fim->setTime(23, 59, 59);
+$solicitacoes = [];
+try {
+  $st = $pdo->prepare($sqlSolic);
+  $st->execute([':empresa' => $idSelecionado]);
+  $solicitacoes = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+  $solicitacoes = [];
+}
 
-switch ($periodo) {
-    case 'ontem':
-        $ini = (new DateTime('yesterday'))->setTime(0, 0, 0);
-        $fim = (new DateTime('yesterday'))->setTime(23, 59, 59);
-        break;
-    case 'ult7':
-        $ini = (new DateTime('today'))->modify('-6 days')->setTime(0, 0, 0);
-        $fim = (new DateTime('today'))->setTime(23, 59, 59);
-        break;
-    case 'mes':
-        $ini = (new DateTime('first day of this month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of this month'))->setTime(23, 59, 59);
-        break;
-    case 'mes_anterior':
-        $ini = (new DateTime('first day of last month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of last month'))->setTime(23, 59, 59);
-        break;
-    case 'custom':
-        $isoIni = brToIsoDate($dataIni);
-        $isoFim = brToIsoDate($dataFim);
-        if ($isoIni && $isoFim) {
-            $ini = new DateTime($isoIni . ' 00:00:00');
-            $fim = new DateTime($isoFim . ' 23:59:59');
+/* ==================== Resolver nome da Filial/Unidade (unidades.id = número do id_solicitante) ==================== */
+$cacheUnidades = [];
+function nomeUnidade(PDO $pdo, array &$cache, ?string $id_solicitante): string {
+  if (!$id_solicitante) return '—';
+  $num = id_to_int($id_solicitante);
+  if (!$num) return '—';
+  if (isset($cache[$num])) return $cache[$num];
+
+  try {
+    $st = $pdo->prepare("SELECT nome FROM unidades WHERE id = :id LIMIT 1");
+    $st->execute([':id' => $num]);
+    $nome = $st->fetchColumn();
+    $cache[$num] = $nome ?: '—';
+    return $cache[$num];
+  } catch (Throwable $e) {
+    return '—';
+  }
+}
+
+/* ==================== Buscar itens por solicitação ==================== */
+function buscarItensPedido(PDO $pdo, array $rowSolic, bool $temTabelaItens, ?string $colunaItensJson): array {
+  $itens = [];
+
+  if ($temTabelaItens) {
+    try {
+      $sql = "SELECT 
+                i.id,
+                i.solicitacao_id,
+                i.produto_id,
+                i.quantidade,
+                i.prioridade,
+                i.status AS status_item
+              FROM solicitacoes_b2b_itens i
+              WHERE i.solicitacao_id = :sid
+              ORDER BY i.id ASC";
+      $st = $pdo->prepare($sql);
+      $st->execute([':sid' => (int)$rowSolic['id']]);
+      $itens = $st->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+      $itens = [];
+    }
+  } elseif ($colunaItensJson && !empty($rowSolic[$colunaItensJson])) {
+    // fallback: itens em JSON na própria solicitacao
+    try {
+      $json = json_decode((string)$rowSolic[$colunaItensJson], true);
+      if (is_array($json)) {
+        foreach ($json as $j) {
+          $itens[] = [
+            'id'            => $j['id']            ?? null,
+            'solicitacao_id'=> $rowSolic['id'],
+            'produto_id'    => $j['produto_id']    ?? null,
+            'quantidade'    => $j['quantidade']    ?? null,
+            'prioridade'    => $j['prioridade']    ?? null,
+            'status_item'   => $j['status']        ?? null,
+          ];
         }
-        break;
-    case 'hoje':
-    default:
-        // já setado
-        break;
+      }
+    } catch (Throwable $e) {
+      $itens = [];
+    }
+  }
+
+  return $itens;
 }
 
-// — Lista de caixas recentes (últimos 60 dias) para o filtro
-$listaCaixas = [];
-try {
-    $st = $pdo->prepare("
-    SELECT id, numero_caixa, responsavel, abertura_datetime, status
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND abertura_datetime >= DATE_SUB(NOW(), INTERVAL 60 DAY)
-  ORDER BY abertura_datetime DESC
-  ");
-    $st->execute([':empresa_id' => $idSelecionado]);
-    $listaCaixas = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
+/* ==================== Completar itens com dados do estoque (código/nome) ==================== */
+function enriquecerItensComEstoque(PDO $pdo, array $itens, string $empresaDoEstoque): array {
+  if (!$itens) return [];
+
+  // coleta ids de produto
+  $ids = array_values(array_unique(array_filter(array_map(
+    fn($x) => isset($x['produto_id']) ? (int)$x['produto_id'] : null, $itens
+  ))));
+
+  $map = [];
+  if ($ids) {
+    try {
+      // estoque.empresa_id = unidade/filial que solicitou
+      $in = implode(',', array_fill(0, count($ids), '?'));
+      $sql = "SELECT id, nome, codigo_produto
+              FROM estoque
+              WHERE empresa_id = ? AND id IN ($in)";
+      $st = $pdo->prepare($sql);
+
+      $bind = array_merge([$empresaDoEstoque], $ids);
+      $st->execute($bind);
+
+      while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+        $map[(int)$r['id']] = [
+          'nome'          => $r['nome'] ?? '—',
+          'codigo_produto'=> $r['codigo_produto'] ?? '—',
+        ];
+      }
+    } catch (Throwable $e) {
+      // silencia
+    }
+  }
+
+  foreach ($itens as &$it) {
+    $pid = isset($it['produto_id']) ? (int)$it['produto_id'] : null;
+    $it['produto_nome']   = $pid && isset($map[$pid]) ? $map[$pid]['nome'] : '—';
+    $it['codigo_produto'] = $pid && isset($map[$pid]) ? $map[$pid]['codigo_produto'] : '—';
+  }
+  unset($it);
+  return $itens;
 }
 
-/* ==========================================================
-   MÉTRICAS PDV (usando os FILTROS)
-   ========================================================== */
-
-$caixaAtual = null; // opcionalmente mostramos info do caixa aberto mais recente
-try {
-    $st = $pdo->prepare("
-    SELECT id, responsavel, numero_caixa, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido,
-           abertura_datetime, fechamento_datetime, quantidade_vendas, status, cpf_responsavel
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND status = 'aberto'
-  ORDER BY abertura_datetime DESC
-     LIMIT 1
-  ");
-    $st->execute([':empresa_id' => $idSelecionado]);
-    $caixaAtual = $st->fetch(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-}
-
-$vendasQtd        = 0;
-$vendasValor      = 0.00;
-$vendasTroco      = 0.00;
-$ticketMedio      = 0.00;
-$pagamentoSeries  = []; // forma_pagamento => total
-$vendasPorHora    = array_fill(0, 24, 0);
-$topProdutos      = [];
-$nfceStatusCont   = [];
-$ultimasVendas    = [];
-
-function bindPeriodo(&$params, DateTime $ini, DateTime $fim)
-{
-    $params[':ini'] = $ini->format('Y-m-d H:i:s');
-    $params[':fim'] = $fim->format('Y-m-d H:i:s');
-}
-
-function mountWhere(string $empresaId, ?int $caixaId, string $forma, string $status, array &$params): string
-{
-    $where = " WHERE empresa_id = :empresa_id AND data_venda BETWEEN :ini AND :fim ";
-    $params[':empresa_id'] = $empresaId;
-    if (!empty($forma)) {
-        $where .= " AND forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $forma;
-    }
-    if (!empty($status)) {
-        $where .= " AND status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $status;
-    }
-    if (!empty($caixaId)) {
-        $where .= " AND id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    return $where;
-}
-
-try {
-    // 1) KPIs gerais do período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-
-    $sql = "SELECT COUNT(*) AS qtd,
-                 COALESCE(SUM(valor_total),0) AS soma_total,
-                 COALESCE(SUM(troco),0) AS soma_troco
-            FROM vendas
-           $whereV";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $r = $st->fetch(PDO::FETCH_ASSOC);
-    $vendasQtd   = (int)($r['qtd'] ?? 0);
-    $vendasValor = (float)($r['soma_total'] ?? 0.0);
-    $vendasTroco = (float)($r['soma_troco'] ?? 0.0);
-    $ticketMedio = $vendasQtd > 0 ? ($vendasValor / $vendasQtd) : 0.0;
-
-    // 2) Formas de pagamento (pizza)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT forma_pagamento, COALESCE(SUM(valor_total),0) AS tot
-            FROM vendas
-           $whereV
-        GROUP BY forma_pagamento";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $fp = $row['forma_pagamento'] ?: 'Outros';
-        $pagamentoSeries[$fp] = (float)$row['tot'];
-    }
-
-    // 3) Vendas por hora
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT HOUR(data_venda) AS h, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY HOUR(data_venda)";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $h = (int)$row['h'];
-        if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
-    }
-
-    // 4) Top produtos por quantidade no período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    // aplica também filtros de forma/status/caixa via tabela vendas
-    $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
-    if (!empty($formaPag)) {
-        $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $formaPag;
-    }
-    if (!empty($statusNf)) {
-        $whereBase .= " AND v.status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $statusNf;
-    }
-    if (!empty($caixaId)) {
-        $whereBase .= " AND v.id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    $params[':empresa_id'] = $idSelecionado;
-
-    $sql = "SELECT iv.produto_nome,
-                 SUM(iv.quantidade) AS qtd,
-                 SUM(iv.quantidade * iv.preco_unitario) AS valor
-            FROM itens_venda iv
-            JOIN vendas v ON v.id = iv.venda_id
-           $whereBase
-        GROUP BY iv.produto_nome
-        ORDER BY qtd DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
-
-    // 5) NFC-e por status no período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT COALESCE(status_nfce,'sem_status') AS st, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY COALESCE(status_nfce,'sem_status')";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $nfceStatusCont[$row['st']] = (int)$row['qtd'];
-    }
-
-    // 6) Últimas vendas do período (5)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT id, responsavel, forma_pagamento, valor_total, data_venda
-            FROM vendas
-           $whereV
-        ORDER BY data_venda DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $ultimasVendas = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    // mantém valores padrão
-}
-
-// ==== Dados para gráficos/labels
-$labelsHoras = [];
-for ($h = 0; $h < 24; $h++) {
-    $labelsHoras[] = sprintf('%02d:00', $h);
-}
-
-$pagtoLabels = array_keys($pagamentoSeries);
-$pagtoValues = array_values($pagamentoSeries);
-
-$nfceLabels = array_keys($nfceStatusCont);
-$nfceValues = array_values($nfceStatusCont);
-
-$topProdLabels = [];
-$topProdQtd    = [];
-foreach ($topProdutos as $p) {
-    $topProdLabels[] = $p['produto_nome'];
-    $topProdQtd[]    = (int)$p['qtd'];
-}
-
-// Formatações úteis
-function moneyBr($v)
-{
-    return 'R$ ' . number_format((float)$v, 2, ',', '.');
-}
-$periodoLabel = [
-    'hoje' => 'Hoje',
-    'ontem' => 'Ontem',
-    'ult7' => 'Últimos 7 dias',
-    'mes' => 'Mês atual',
-    'mes_anterior' => 'Mês anterior',
-    'custom' => 'Personalizado'
-][$periodo] ?? 'Hoje';
-
-$iniTxt = $ini->format('d/m/Y');
-$fimTxt = $fim->format('d/m/Y');
-
+/* ==================== HTML ==================== */
 ?>
-
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
-    data-assets-path="../assets/">
-
+<html lang="pt-BR" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../../assets/" data-template="vertical-menu-template-free">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Produtos Solicitados</title>
 
-    <title>ERP - Filial</title>
+  <!-- FAVICON -->
+  <link rel="icon" type="image/x-icon" href="../../assets/img/favicon/favicon.ico" />
 
-    <meta name="description" content="" />
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;700&display=swap" rel="stylesheet"/>
 
-    <!-- Favicon da empresa carregado dinamicamente -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+  <!-- Icons & Core CSS do template (mantidos) -->
+  <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
+  <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
+  <link rel="stylesheet" href="../../assets/css/demo.css" />
+  <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+  <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
-        rel="stylesheet" />
+  <script src="../../assets/vendor/js/helpers.js"></script>
+  <script src="../../assets/js/config.js"></script>
 
-    <!-- Icons. Uncomment required icon fonts -->
-    <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-
-    <!-- Core CSS -->
-    <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
-    <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
-    <link rel="stylesheet" href="../../assets/css/demo.css" />
-
-    <!-- Vendors CSS -->
-    <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
-    <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-    <!-- Page CSS -->
-
-    <!-- Helpers -->
-    <script src="../../assets/vendor/js/helpers.js"></script>
-
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
-    <script src="../../assets/js/config.js"></script>
-
+  <style>
+    .status-badge { font-weight: 600; }
+    .table-hover tbody tr:hover { background: rgba(0,0,0,0.02); }
+  </style>
 </head>
 
 <body>
-    <!-- Layout wrapper -->
-    <div class="layout-wrapper layout-content-navbar">
-        <div class="layout-container">
-            <!-- Menu -->
+  <!-- Layout wrapper (mantido) -->
+  <div class="layout-wrapper layout-content-navbar">
+    <div class="layout-container">
 
-            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-                <div class="app-brand demo">
-                    <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
-                    </a>
-
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
-                        <i class="bx bx-chevron-left bx-sm align-middle"></i>
-                    </a>
-                </div>
-
-                <div class="menu-inner-shadow"></div>
-
-                <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
-                    <li class="menu-item">
-                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-home-circle"></i>
-                            <div data-i18n="Analytics">Dashboard</div>
-                        </a>
-                    </li>
-
-                    <!-- Administração de Filiais -->
-                    <li class="menu-header small text-uppercase">
-                        <span class="menu-header-text">Administração Filiais</span>
-                    </li>
-
-                    <!-- Adicionar Filial -->
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-building"></i>
-                            <div data-i18n="Adicionar">Filiais</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Filiais">Adicionadas</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-
-                    <li class="menu-item open active">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
-                            <div data-i18n="B2B">B2B - Matriz</div>
-                        </a>
-                        <ul class="menu-sub active">
-                            <!-- Contas das Filiais -->
-                            <li class="menu-item">
-                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Pagamentos Solic.</div>
-                                </a>
-                            </li>
-
-                            <!-- Produtos solicitados pelas filiais -->
-                            <li class="menu-item active">
-                                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Produtos Solicitados</div>
-                                </a>
-                            </li>
-
-                            <!-- Produtos enviados pela matriz -->
-                            <li class="menu-item">
-                                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Produtos Enviados</div>
-                                </a>
-                            </li>
-
-                            <!-- Transferências em andamento -->
-                            <li class="menu-item">
-                                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Transf. Pendentes</div>
-                                </a>
-                            </li>
-
-                            <!-- Histórico de transferências -->
-                            <li class="menu-item">
-                                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Histórico Transf.</div>
-                                </a>
-                            </li>
-
-                            <!-- Gestão de Estoque Central -->
-                            <li class="menu-item">
-                                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Estoque Matriz</div>
-                                </a>
-                            </li>
-
-                            <!-- Relatórios e indicadores B2B -->
-                            <li class="menu-item">
-                                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div>Relatórios B2B</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-
-                    <!-- Relatórios -->
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-                            <div data-i18n="Relatorios">Relatórios</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Vendas">Vendas por Filial</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Pedidos">Vendas por Período</div>
-                                </a>
-                            </li>
-
-                        </ul>
-                    </li>
-
-                    <!--END DELIVERY-->
-
-                    <!-- Misc -->
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-                    <li class="menu-item">
-                        <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-group"></i>
-                            <div data-i18n="Authentications">RH</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-dollar"></i>
-                            <div data-i18n="Authentications">Finanças</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-desktop"></i>
-                            <div data-i18n="Authentications">PDV</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
-                            <div data-i18n="Authentications">Empresa</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-box"></i>
-                            <div data-i18n="Authentications">Estoque</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../franquia/index.php?id=principal_1" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-store"></i>
-                            <div data-i18n="Authentications">Franquias</div>
-                        </a>
-                    </li>
-                    <li class="menu-item">
-                        <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                            <i class="menu-icon tf-icons bx bx-group"></i>
-                            <div data-i18n="Authentications">Usuários </div>
-                        </a>
-                    </li>
-                    <li class="menu-item mb-5">
-                        <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-support"></i>
-                            <div data-i18n="Basic">Suporte</div>
-                        </a>
-                    </li>
-                    <!--/MISC-->
-                </ul>
-            </aside>
-            <!-- / Menu -->
-
-            <!-- Layout container -->
-            <div class="layout-page">
-                <!-- Navbar -->
-
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
-                    id="layout-navbar">
-                    <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                            <i class="bx bx-menu bx-sm"></i>
-                        </a>
-                    </div>
-
-                    <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
-                        <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center">
-                            </div>
-                        </div>
-                        <!-- /Search -->
-
-                        <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- User -->
-                            <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <div class="avatar avatar-online">
-                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
-                                    </div>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <div class="d-flex">
-                                                <div class="flex-shrink-0 me-3">
-                                                    <div class="avatar avatar-online">
-                                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
-                                                    </div>
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
-                                                </div>
-                                            </div>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">Minha Conta</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Configurações</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-power-off me-2"></i>
-                                            <span class="align-middle">Sair</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </li>
-                            <!--/ User -->
-                        </ul>
-
-                    </div>
-                </nav>
-
-                <!-- / Navbar -->
-
-                <!-- Content -->
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="#">Filiais</a>/</span>
-                        Produtos Solicitados
-                    </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Pedidos de produtos enviados pelas Filiais</span>
-                    </h5>
-
-                    <!-- Toolbar / Filtros (HTML estático por enquanto) -->
-
-
-                    <!-- Tabela (HTML mock) -->
-                    <div class="card">
-                        <h5 class="card-header">Lista de Produtos Solicitados</h5>
-                        <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th># Pedido</th>
-                                        <th>Filial</th>
-                                        <th>Qr code</th>
-                                        <th>Produto</th>
-                                        <th>Qtd</th>
-                                        <th>Prioridade</th>
-                                        <th>Solicitado em</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-border-bottom-0">
-                                    <tr>
-                                        <td># 1</td>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>120</td>
-                                        <td><span class="badge bg-label-danger status-badge">Alta</span></td>
-                                        <td>25/09/2025</td>
-                                        <td><span class="badge bg-label-warning status-badge">Pendete</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Aprovar</button>
-                                             <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Reprovar</button>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                           
-                                        </td>
-                                    </tr>
-                               
-                                  
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Modais mock -->
-                    <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Detalhes do Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <p><strong>Filial:</strong> Filial Centro</p>
-                                            <p><strong>Qr code:</strong> ACA-500</p>
-                                            <p><strong>Produto:</strong> Polpa Açaí 500g</p>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <p><strong>Qtd:</strong> 120</p>
-                                            <p><strong>Prioridade:</strong> Alta</p>
-                                            <p><strong>Status:</strong>Pendente</p>
-                                        </div>
-                                        <div class="col-12">
-                                            <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
-                                           
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Cancelar Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <label class="form-label">Motivo (opcional)</label>
-                                    <textarea class="form-control" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                                    <button class="btn btn-danger">Confirmar Reprovação</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-                <!-- / Content -->
-
-                <!-- Footer -->
-                <footer class="content-footer footer bg-footer-theme text-center">
-                    <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-                        <div class="mb-2 mb-md-0">
-                            &copy;
-                            <script>
-                                document.write(new Date().getFullYear());
-                            </script>
-                            , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
-                            Desenvolvido por <strong>CodeGeek</strong>.
-                        </div>
-                    </div>
-                </footer>
-
-                <!-- / Footer -->
-
-                <div class="content-backdrop fade"></div>
-            </div>
-            <!-- Content wrapper -->
+      <!-- Menu lateral (mantido) -->
+      <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+        <div class="app-brand demo">
+          <a href="../dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
+            <span class="app-brand-logo demo">
+              <?php if ($logoEmpresa): ?>
+                <img src="../../upload/<?= e($logoEmpresa) ?>" alt="Logo" style="height:36px;">
+              <?php else: ?>
+                <img src="../../assets/img/logo.svg" alt="Logo" style="height:36px;">
+              <?php endif; ?>
+            </span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2">Painel</span>
+          </a>
         </div>
-        <!-- / Layout page -->
+        <div class="menu-inner-shadow"></div>
 
+        <ul class="menu-inner py-1">
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">B2B</span></li>
+
+          <li class="menu-item active">
+            <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <div>Produtos Solicitados</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <div>Produtos Enviados</div>
+            </a>
+          </li>
+          <li class="menu-item">
+            <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <div>Transf. Pendentes</div>
+            </a>
+          </li>
+        </ul>
+      </aside>
+      <!-- / Menu lateral -->
+
+      <!-- Conteúdo -->
+      <div class="layout-page">
+        <!-- Navbar (mantido) -->
+        <nav class="layout-navbar navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+          <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+            <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
+              <i class="bx bx-menu bx-sm"></i>
+            </a>
+          </div>
+          <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+            <div class="navbar-nav align-items-center">
+              <span class="fw-semibold">Bem-vindo, <?= e($nomeUsuario) ?></span>
+            </div>
+          </div>
+        </nav>
+
+        <!-- Content wrapper -->
+        <div class="content-wrapper">
+          <!-- Content -->
+          <div class="container-xxl flex-grow-1 container-p-y">
+
+            <div class="row mb-4">
+              <div class="col">
+                <h4 class="fw-bold">Produtos Solicitados</h4>
+                <p class="text-muted mb-0">Listagem dinâmica do banco de dados.</p>
+              </div>
+            </div>
+
+            <!-- Card Tabela -->
+            <div class="card">
+              <h5 class="card-header">Lista de Produtos Solicitados</h5>
+              <div class="table-responsive text-nowrap">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th># Pedido</th>
+                      <th>Filial</th>
+                      <th>Qr code</th>
+                      <th>Produto</th>
+                      <th>Qtd</th>
+                      <th>Prioridade</th>
+                      <th>Data</th>
+                      <th>Status</th>
+                      <th style="width:220px">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php if (!$solicitacoes): ?>
+                      <tr>
+                        <td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td>
+                      </tr>
+                    <?php else: ?>
+
+                    <?php foreach ($solicitacoes as $s): 
+                      $filialNome = nomeUnidade($pdo, $cacheUnidades, $s['id_solicitante']);
+                      $statusCls  = status_badge_class((string)$s['status']);
+                      $dataCriado = $s['created_at'] ? date('d/m/Y', strtotime((string)$s['created_at'])) : '—';
+
+                      // Itens da solicitação
+                      $itens = buscarItensPedido($pdo, $s, $temTabelaItens, $colunaItensJson);
+                      $itens = enriquecerItensComEstoque($pdo, $itens, (string)$s['id_solicitante']);
+
+                      // Se não houver itens, ainda assim exibir uma linha do pedido
+                      if (!$itens) {
+                        $itens = [[
+                          'id'              => null,
+                          'solicitacao_id'  => $s['id'],
+                          'produto_id'      => null,
+                          'quantidade'      => null,
+                          'prioridade'      => null,
+                          'status_item'     => null,
+                          'produto_nome'    => '—',
+                          'codigo_produto'  => '—',
+                        ]];
+                      }
+
+                      // modal id único por pedido
+                      $modalId = 'modalDetalhes-' . (int)$s['id'];
+                    ?>
+
+                      <?php foreach ($itens as $idx => $it): 
+                        $prioridadeCls = prioridade_badge_class($it['prioridade'] ?? '');
+                      ?>
+                        <tr>
+                          <td>#<?= (int)$s['id'] ?></td>
+                          <td><strong><?= e($filialNome) ?></strong></td>
+                          <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
+                          <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
+                          <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
+                          <td><span class="badge <?= $prioridadeCls ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
+                          <td><?= e($dataCriado) ?></td>
+                          <td><span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></td>
+                          <td>
+                            <div class="d-flex gap-2">
+                              <form method="post" class="m-0 p-0">
+                                <input type="hidden" name="pedido_id" value="<?= (int)$s['id'] ?>">
+                                <input type="hidden" name="acao" value="aprovar">
+                                <button type="submit" class="btn btn-sm btn-success">Aprovar</button>
+                              </form>
+                              <form method="post" class="m-0 p-0">
+                                <input type="hidden" name="pedido_id" value="<?= (int)$s['id'] ?>">
+                                <input type="hidden" name="acao" value="reprovar">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Reprovar</button>
+                              </form>
+                              <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#<?= e($modalId) ?>">Detalhes</button>
+                            </div>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+
+                      <!-- Modal Detalhes do Pedido -->
+                      <div class="modal fade" id="<?= e($modalId) ?>" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                          <div class="modal-content">
+                            <div class="modal-header">
+                              <h5 class="modal-title">Detalhes do Pedido #<?= (int)$s['id'] ?></h5>
+                              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                              <div class="mb-3">
+                                <div><strong>Filial:</strong> <?= e($filialNome) ?></div>
+                                <div><strong>Status:</strong> <span class="badge <?= $statusCls ?> status-badge"><?= e(ucfirst((string)$s['status'])) ?></span></div>
+                                <div><strong>Data da Solicitação:</strong> <?= e($dataCriado) ?></div>
+                                <?php if (!empty($s['total_estimado'])): ?>
+                                  <div><strong>Total Estimado:</strong> R$ <?= number_format((float)$s['total_estimado'], 2, ',', '.') ?></div>
+                                <?php endif; ?>
+                              </div>
+                              <div class="table-responsive">
+                                <table class="table table-sm">
+                                  <thead>
+                                    <tr>
+                                      <th>#</th>
+                                      <th>Código</th>
+                                      <th>Produto</th>
+                                      <th>Qtd</th>
+                                      <th>Prioridade</th>
+                                      <th>Status (item)</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                  <?php foreach ($itens as $k => $it): 
+                                    $pBadge = prioridade_badge_class($it['prioridade'] ?? '');
+                                    $sItem  = $it['status_item'] ?? '—';
+                                    $sItemC = status_badge_class((string)$sItem);
+                                  ?>
+                                    <tr>
+                                      <td><?= (int)$s['id'] ?>-<?= $k+1 ?></td>
+                                      <td><?= e((string)($it['codigo_produto'] ?? '—')) ?></td>
+                                      <td><?= e((string)($it['produto_nome']   ?? '—')) ?></td>
+                                      <td><?= $it['quantidade'] !== null ? (int)$it['quantidade'] : '—' ?></td>
+                                      <td><span class="badge <?= $pBadge ?> status-badge"><?= e(ucfirst((string)($it['prioridade'] ?? '—'))) ?></span></td>
+                                      <td><span class="badge <?= $sItemC ?> status-badge"><?= e(ucfirst((string)$sItem)) ?></span></td>
+                                    </tr>
+                                  <?php endforeach; ?>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                            <div class="modal-footer">
+                              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- /Modal Detalhes -->
+
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <!-- /Card Tabela -->
+
+          </div>
+          <!-- / Content -->
+
+          <!-- Footer -->
+          <footer class="content-footer footer bg-footer-theme text-center">
+            <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
+              <div class="mb-2 mb-md-0">
+                &copy; <script>document.write(new Date().getFullYear());</script>, <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                Desenvolvido por <strong>Code</strong>.
+              </div>
+            </div>
+          </footer>
+          <!-- / Footer -->
+
+          <div class="content-backdrop fade"></div>
+        </div>
+        <!-- / Content wrapper -->
+      </div>
+      <!-- / Layout page -->
     </div>
+    <!-- / Layout container -->
 
     <!-- Overlay -->
     <div class="layout-overlay layout-menu-toggle"></div>
-    </div>
-    <!-- / Layout wrapper -->
+  </div>
+  <!-- / Layout wrapper -->
 
-    <!-- Core JS -->
-    <!-- build:js assets/vendor/js/core.js -->
-    <script src="../../js/saudacao.js"></script>
-    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-    <script src="../../assets/vendor/libs/popper/popper.js"></script>
-    <script src="../../assets/vendor/js/bootstrap.js"></script>
-    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <!-- Core JS -->
+  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+  <script src="../../assets/vendor/libs/popper/popper.js"></script>
+  <script src="../../assets/vendor/js/bootstrap.js"></script>
+  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+  <script src="../../assets/vendor/js/menu.js"></script>
 
-    <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
+  <!-- Vendors JS -->
+  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
-    <!-- Vendors JS -->
-    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-    <!-- Main JS -->
-    <script src="../../assets/js/main.js"></script>
-
-    <!-- Page JS -->
-    <script src="../../assets/js/dashboards-analytics.js"></script>
-
-    <!-- Place this tag in your head or just before your close body tag. -->
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
+  <!-- Main JS -->
+  <script src="../../assets/js/main.js"></script>
+  <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
-
 </html>
