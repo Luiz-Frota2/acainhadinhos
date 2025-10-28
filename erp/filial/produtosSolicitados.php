@@ -750,7 +750,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <div class="col-md-6">
                                             <p><strong>Qtd:</strong> 120</p>
                                             <p><strong>Prioridade:</strong> Alta</p>
-                                            <p><strong>Status:</strong> Aguardando</p>
+                                            <p><strong>Status:</strong>Pendente</p>
                                         </div>
                                         <div class="col-12">
                                             <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
