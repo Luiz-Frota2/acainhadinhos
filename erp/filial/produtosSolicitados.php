@@ -700,7 +700,7 @@ $fimTxt = $fim->format('d/m/Y');
                                     <tr>
                                         <th># Pedido</th>
                                         <th>Filial</th>
-                                        <th>SKU</th>
+                                        <th>Qr code</th>
                                         <th>Produto</th>
                                         <th>Qtd</th>
                                         <th>Prioridade</th>
