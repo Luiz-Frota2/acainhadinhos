@@ -711,7 +711,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 </thead>
                                 <tbody class="table-border-bottom-0">
                                     <tr>
-                                        <td>PS-3021</td>
+                                        <td># 1</td>
                                         <td><strong>Filial Centro</strong></td>
                                         <td>ACA-500</td>
                                         <td>Polpa Açaí 500g</td>
