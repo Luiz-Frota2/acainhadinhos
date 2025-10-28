@@ -718,7 +718,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td>120</td>
                                         <td><span class="badge bg-label-danger status-badge">Alta</span></td>
                                         <td>25/09/2025</td>
-                                        <td><span class="badge bg-label-warning status-badge">Aguardando</span></td>
+                                        <td><span class="badge bg-label-warning status-badge">Pendete</span></td>
                                         <td>
                                             <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Aprovar</button>
                                              <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Reprovar</button>
