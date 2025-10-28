@@ -700,7 +700,7 @@ $fimTxt = $fim->format('d/m/Y');
                                     <tr>
                                         <th># Pedido</th>
                                         <th>Filial</th>
-                                        <th>SKU</th>
+                                        <th>Qr code</th>
                                         <th>Produto</th>
                                         <th>Qtd</th>
                                         <th>Prioridade</th>
@@ -709,48 +709,25 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody class="table-border-bottom-0" id="tbody-solicitacoes">
+                                <tbody class="table-border-bottom-0">
                                     <tr>
-                                        <td>PS-3021</td>
+                                        <td># 1</td>
                                         <td><strong>Filial Centro</strong></td>
                                         <td>ACA-500</td>
                                         <td>Polpa Açaí 500g</td>
                                         <td>120</td>
                                         <td><span class="badge bg-label-danger status-badge">Alta</span></td>
                                         <td>25/09/2025</td>
-                                        <td><span class="badge bg-label-warning status-badge">Aguardando</span></td>
+                                        <td><span class="badge bg-label-warning status-badge">Pendete</span></td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Atender</button>
+                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Aprovar</button>
+                                             <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Reprovar</button>
                                             <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Cancelar</button>
+                                           
                                         </td>
                                     </tr>
-                                    <tr>
-                                        <td>PS-3022</td>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>40</td>
-                                        <td><span class="badge bg-label-warning status-badge">Média</span></td>
-                                        <td>24/09/2025</td>
-                                        <td><span class="badge bg-label-info status-badge">Em Separação</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>PS-3023</td>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td>500</td>
-                                        <td><span class="badge bg-label-info status-badge">Baixa</span></td>
-                                        <td>20/09/2025</td>
-                                        <td><span class="badge bg-label-success status-badge">Enviado</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
+                               
+                                  
                                 </tbody>
                             </table>
                         </div>
@@ -768,17 +745,17 @@ $fimTxt = $fim->format('d/m/Y');
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <p><strong>Filial:</strong> Filial Centro</p>
-                                            <p><strong>SKU:</strong> ACA-500</p>
+                                            <p><strong>Qr code:</strong> ACA-500</p>
                                             <p><strong>Produto:</strong> Polpa Açaí 500g</p>
                                         </div>
                                         <div class="col-md-6">
                                             <p><strong>Qtd:</strong> 120</p>
                                             <p><strong>Prioridade:</strong> Alta</p>
-                                            <p><strong>Status:</strong> Aguardando</p>
+                                            <p><strong>Status:</strong>Pendente</p>
                                         </div>
                                         <div class="col-12">
                                             <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
-                                            <p><strong>Anexos:</strong> <span class="text-muted">—</span></p>
+                                           
                                         </div>
                                     </div>
                                 </div>
@@ -789,23 +766,6 @@ $fimTxt = $fim->format('d/m/Y');
                         </div>
                     </div>
 
-                    <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Atender Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    Iniciar atendimento e separar os itens deste pedido?
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <button class="btn btn-primary">Confirmar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
@@ -820,7 +780,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 </div>
                                 <div class="modal-footer">
                                     <button class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                                    <button class="btn btn-danger">Confirmar Cancelamento</button>
+                                    <button class="btn btn-danger">Confirmar Reprovação</button>
                                 </div>
                             </div>
                         </div>
@@ -880,160 +840,6 @@ $fimTxt = $fim->format('d/m/Y');
 
     <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
-
-<script>
-(function(){
-  // Helper to get idSelecionado from URL (?id=...)
-  function getQS(name){
-    const p = new URLSearchParams(window.location.search);
-    return p.get(name) || "";
-  }
-  const idSelecionado = getQS("id") || "";
-
-  async function fetchSolicitacoes() {
-    const url = "api/solicitacoes_b2b_list.php?id=" + encodeURIComponent(idSelecionado);
-    const res = await fetch(url, { credentials: "same-origin" });
-    if (!res.ok) throw new Error("Falha ao carregar lista: " + res.status);
-    return await res.json();
-  }
-
-  function statusBadge(st) {
-    // Map layout badge classes (keep your existing color scheme)
-    switch((st||"").toLowerCase()){
-      case "aprovada": return {label:"Aprovada", cls:"bg-label-success"};
-      case "reprovada": return {label:"Reprovada", cls:"bg-label-danger"};
-      case "em_transito": return {label:"Em Trânsito", cls:"bg-label-info"};
-      case "entregue": return {label:"Entregue", cls:"bg-label-primary"};
-      case "cancelada": return {label:"Cancelada", cls:"bg-label-secondary"};
-      default: return {label:"Pendente", cls:"bg-label-warning"};
-    }
-  }
-
-  function prioridadeBadge(qtd) {
-    const n = Number(qtd||0);
-    if (n >= 100) return {label:"Alta", cls:"bg-label-danger"};
-    if (n >= 50)  return {label:"Média", cls:"bg-label-warning"};
-    return {label:"Baixa", cls:"bg-label-success"};
-  }
-
-  function renderRows(lista){
-    const tbody = document.querySelector("#tbody-solicitacoes") || document.querySelector("tbody");
-    if (!tbody) return;
-    tbody.innerHTML = "";
-    if (!Array.isArray(lista) || !lista.length){
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 9;
-      td.textContent = "Nenhuma solicitação encontrada.";
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-      return;
-    }
-    for(const s of lista){
-      const tr = document.createElement("tr");
-      tr.dataset.detalhes = JSON.stringify(s.detalhes || {});
-      // Cells: Nº Pedido | Filial | SKU | Produto | Qtd | Prioridade | Data | Status | Ações
-      const cells = [];
-      const codigo = s.codigo || ("PS-" + String(s.id).padStart(4,"0"));
-      const stMap = statusBadge(s.status);
-      const prio = prioridadeBadge(s.qtd_total);
-      const dataBR = s.data_br || "";
-      const sku = s.sku || (s.itens_count>1 ? "Vários" : (s.sku||"—"));
-      const prod = s.produto || (s.itens_count>1 ? ("Diversos ("+s.itens_count+" itens)") : (s.produto||"—"));
-
-      cells.push(codigo);
-      cells.push(s.filial || "Unidade");
-      cells.push(sku);
-      cells.push(prod);
-      cells.push(String(s.qtd_total||0));
-      cells.push(`<span class="badge ${prio.cls} status-badge">${prio.label}</span>`);
-      cells.push(dataBR);
-      cells.push(`<span class="badge ${stMap.cls} status-badge">${stMap.label}</span>`);
-      cells.push(`
-        <div class="d-flex gap-1">
-          <button class="btn btn-sm btn-outline-success js-aprovar" data-id="${s.id}">Atender</button>
-          <button class="btn btn-sm btn-outline-primary btn-detalhes" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-          <button class="btn btn-sm btn-outline-danger js-reprovar" data-id="${s.id}">Cancelar</button>
-        </div>
-      `);
-      for(const html of cells){
-        const td = document.createElement("td");
-        td.innerHTML = html;
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    }
-  }
-
-  async function atualizarLista(){
-    try {
-      const lista = await fetchSolicitacoes();
-      renderRows(lista);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function enviarAcao(id, acao){
-    const res = await fetch("api/solicitacoes_b2b_actions.php?id="+encodeURIComponent(idSelecionado), {
-      method: "POST",
-      headers: {"Content-Type":"application/x-www-form-urlencoded"},
-      body: new URLSearchParams({ solicitacao_id: String(id||""), acao })
-    });
-    const data = await res.json().catch(()=>({ok:false}));
-    if (!res.ok || !data.ok){
-      alert(data.error || "Falha ao aplicar ação.");
-      return;
-    }
-    await atualizarLista();
-  }
-
-  document.addEventListener("click", function(ev){
-    const btnAprovar = ev.target.closest(".js-aprovar");
-    const btnReprovar = ev.target.closest(".js-reprovar");
-    const btnDetalhes = ev.target.closest(".btn-detalhes");
-    if (btnAprovar){
-      enviarAcao(btnAprovar.dataset.id, "aprovar");
-    } else if (btnReprovar){
-      enviarAcao(btnReprovar.dataset.id, "reprovar");
-    } else if (btnDetalhes){
-      const tr = btnDetalhes.closest("tr");
-      const raw = tr && tr.dataset.detalhes;
-      if (!raw) return;
-      try{
-        const det = JSON.parse(raw);
-        const $ = (id)=>document.getElementById(id);
-        if ($("det-codigo")) $("det-codigo").textContent = det.codigo || "—";
-        if ($("det-filial")) $("det-filial").textContent = det.filial || "—";
-        if ($("det-status")) $("det-status").textContent = det.status_label || det.status || "—";
-        if ($("det-data")) $("det-data").textContent = det.criado_em || "—";
-        if ($("det-obs")) $("det-obs").textContent = det.observacao || "";
-        const tbody = document.getElementById("det-itens");
-        if (tbody){
-          tbody.innerHTML = "";
-          if (Array.isArray(det.itens) && det.itens.length){
-            for (const it of det.itens){
-              const tr = document.createElement("tr");
-              const td1 = document.createElement("td"); td1.textContent = it.codigo_produto || "—";
-              const td2 = document.createElement("td"); td2.textContent = it.nome_produto || "—";
-              const td3 = document.createElement("td"); td3.className = "text-end"; td3.textContent = it.quantidade || 0;
-              tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
-              tbody.appendChild(tr);
-            }
-          } else {
-            const tr = document.createElement("tr");
-            const td = document.createElement("td"); td.colSpan = 3; td.textContent = "Sem itens.";
-            tr.appendChild(td); tbody.appendChild(tr);
-          }
-        }
-      }catch(e){ console.error(e); }
-    }
-  });
-
-  // Inicializa
-  document.addEventListener("DOMContentLoaded", atualizarLista);
-})();
-</script>
 </body>
 
 </html>
