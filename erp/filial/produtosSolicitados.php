@@ -720,9 +720,10 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td>25/09/2025</td>
                                         <td><span class="badge bg-label-warning status-badge">Aguardando</span></td>
                                         <td>
-                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Atender</button>
+                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Aprovar</button>
+                                             <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Reprovar</button>
                                             <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Cancelar</button>
+                                           
                                         </td>
                                     </tr>
                                
@@ -765,23 +766,6 @@ $fimTxt = $fim->format('d/m/Y');
                         </div>
                     </div>
 
-                    <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Atender Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    Iniciar atendimento e separar os itens deste pedido?
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <button class="btn btn-primary">Confirmar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered">
@@ -796,7 +780,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 </div>
                                 <div class="modal-footer">
                                     <button class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                                    <button class="btn btn-danger">Confirmar Cancelamento</button>
+                                    <button class="btn btn-danger">Confirmar Reprovação</button>
                                 </div>
                             </div>
                         </div>
