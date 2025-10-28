@@ -768,7 +768,7 @@ $fimTxt = $fim->format('d/m/Y');
                                     <div class="row g-3">
                                         <div class="col-md-6">
                                             <p><strong>Filial:</strong> Filial Centro</p>
-                                            <p><strong>SKU:</strong> ACA-500</p>
+                                            <p><strong>Qr code:</strong> ACA-500</p>
                                             <p><strong>Produto:</strong> Polpa Açaí 500g</p>
                                         </div>
                                         <div class="col-md-6">
