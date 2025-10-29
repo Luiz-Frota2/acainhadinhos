@@ -218,31 +218,7 @@ try {
             </ul>
           </li>
 
-          <!-- Relatórios -->
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-              <div data-i18n="Relatorios">Relatórios</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item">
-                <a href="./vendas.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Vendas">Vendas por Filial</div>
-                </a>
-              </li>
-              <li class="menu-item">
-                <a href="./maisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="MaisVendidos">Mais Vendidos</div>
-                </a>
-              </li>
-              <li class="menu-item">
-                <a href="./vendasPeriodo.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Pedidos">Vendas por Período</div>
-                </a>
-              </li>
-
-            </ul>
-          </li>
+         
 
           <!--END DELIVERY-->
 
