@@ -26,6 +26,187 @@ if (
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
+/* ====== GATEWAY AJAX ANTES DE QUALQUER HTML ====== */
+
+/* Helpers mínimos só para o AJAX */
+if (!function_exists('json_exit')) {
+    function json_exit(array $payload, int $statusCode = 200): void {
+        while (ob_get_level()) { @ob_end_clean(); } // zera qualquer saída anterior
+        ini_set('display_errors', '0');
+        header_remove('X-Powered-By');
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        http_response_code($statusCode);
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+if (!function_exists('h')) {
+    function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+}
+
+/* Descoberta dinâmica das colunas (reuso do seu código) */
+if (!function_exists('descobrirColunasItens')) {
+    function descobrirColunasItens(PDO $pdo): array {
+        $temItens = false; $cols = [];
+        try { $rs=$pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'"); $temItens=(bool)$rs->fetchColumn(); } catch(Throwable $e){}
+        if (!$temItens) return [false,null,null,null];
+        try {
+            $st=$pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
+            while($c=$st->fetch(PDO::FETCH_ASSOC)) $cols[]=$c['Field'];
+        } catch(Throwable $e){ return [false,null,null,null]; }
+
+        $colCod=null; foreach(['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'] as $c){ if(in_array($c,$cols,true)){ $colCod=$c; break; } }
+        $colQtd=null; foreach(['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'] as $c){ if(in_array($c,$cols,true)){ $colQtd=$c; break; } }
+        $colNome=null; foreach(['nome_produto','descricao_produto','produto_nome'] as $c){ if(in_array($c,$cols,true)){ $colNome=$c; break; } }
+
+        if(!$colCod && !$colQtd && !$colNome) return [false,null,null,null];
+        return [true,$colCod,$colQtd,$colNome];
+    }
+}
+
+/* Função para montar detalhes (HTML puro) */
+if (!function_exists('render_detalhes_pedido')) {
+    function render_detalhes_pedido(PDO $pdo, string $empresaIdMatriz, int $id): string {
+        [$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
+
+        $selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
+        $joins = "";
+        if ($temItens) {
+            $joins .= "
+              LEFT JOIN (
+                SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
+                FROM solicitacoes_b2b_itens si1
+                WHERE si1.solicitacao_id = :id
+                GROUP BY si1.solicitacao_id
+              ) pick ON pick.solicitacao_id = s.id
+              LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+            ";
+            if ($colCod) {
+                $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
+                $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+            } elseif ($colNome) {
+                $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
+                $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+            } else {
+                $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+            }
+        }
+
+        $sql = "
+          SELECT
+            s.id AS pedido_id,
+            s.status,
+            s.prioridade,
+            s.observacao AS obs,
+            s.created_at AS criado_em,
+            u.nome       AS filial_nome,
+            {$selectItem}
+          FROM solicitacoes_b2b s
+          LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+           AND u.empresa_id = s.id_matriz
+          {$joins}
+          WHERE s.id_matriz = :empresa
+            AND s.id = :id
+            AND s.id_solicitante LIKE 'unidade\_%'
+            AND u.tipo = 'filial'
+          LIMIT 1
+        ";
+        $st = $pdo->prepare($sql);
+        $st->execute([':empresa'=>$empresaIdMatriz, ':id'=>$id]);
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$r) return "<div class='text-danger'>Não encontrado.</div>";
+
+        ob_start(); ?>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <p><strong>Filial:</strong> <?=h($r['filial_nome'] ?: '—')?></p>
+            <p><strong>Qr code:</strong> <?=h($r['item_qr_code'] ?: '—')?></p>
+            <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Qtd:</strong> <?= isset($r['item_qtd']) ? (int)$r['item_qtd'] : '—' ?></p>
+            <p><strong>Prioridade:</strong> <?=h($r['prioridade'] ?: '—')?></p>
+            <p><strong>Status:</strong> <?=h(ucfirst($r['status'] ?: '—'))?></p>
+          </div>
+          <div class="col-12">
+            <p><strong>Observações:</strong> <?=h($r['obs'] ?: '—')?></p>
+          </div>
+        </div>
+        <?php
+        return (string)ob_get_clean();
+    }
+}
+
+/* ===== Handlers AJAX ===== */
+$empresaIdMatrizAjax = $_SESSION['empresa_id'] ?? '';
+
+/* Detalhes (GET) – devolve HTML puro, sem cabeçalho/rodapé */
+if (isset($_GET['acao']) && $_GET['acao'] === 'detalhes') {
+    while (ob_get_level()) { @ob_end_clean(); } // garante saída limpa
+    ini_set('display_errors','0');
+
+    if (!$empresaIdMatrizAjax) { http_response_code(401); echo "<div class='text-danger'>Sessão expirada.</div>"; exit; }
+
+    $id = (int)($_GET['id'] ?? 0);
+    if ($id <= 0) { http_response_code(400); echo "<div class='text-danger'>ID inválido.</div>"; exit; }
+
+    echo render_detalhes_pedido($pdo, $empresaIdMatrizAjax, $id);
+    exit;
+}
+
+/* Aprovar/Reprovar (POST) – devolve JSON limpo */
+if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], true)) {
+    $acao = $_POST['acao'];
+    $pedidoId = (int)($_POST['pedido_id'] ?? 0);
+    $motivo = trim((string)($_POST['motivo'] ?? ''));
+
+    if (!$empresaIdMatrizAjax) json_exit(['ok'=>false,'msg'=>'Sessão expirada (empresa).']);
+    if ($pedidoId <= 0)        json_exit(['ok'=>false,'msg'=>'ID inválido.']);
+
+    try {
+        $cols = [];
+        try {
+            $cst = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
+            while ($c = $cst->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
+        } catch (Throwable $e) {}
+
+        $st = $pdo->prepare("SELECT id,status,observacao FROM solicitacoes_b2b WHERE id=:id AND id_matriz=:emp LIMIT 1");
+        $st->execute([':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) json_exit(['ok'=>false,'msg'=>'Solicitação não encontrada para esta empresa.']);
+
+        $statusAtual = strtolower((string)($row['status'] ?? ''));
+        if ($acao==='aprovar' && $statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada']);
+        if ($acao==='reprovar' && $statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.','status'=>'reprovada']);
+
+        $novo = ($acao==='aprovar' ? 'aprovada' : 'reprovada');
+        $set = "status = :novo";
+        $params = [':novo'=>$novo, ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
+
+        if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
+
+        if ($acao==='reprovar' && $motivo!=='' && isset($cols['observacao'])) {
+            $novaObs = trim((string)($row['observacao'] ?? ''));
+            if ($novaObs!=='') $novaObs .= " | ";
+            $novaObs .= "Reprovado: ".$motivo;
+            $set .= ", observacao = :obs";
+            $params[':obs'] = $novaObs;
+        }
+
+        $up = $pdo->prepare("UPDATE solicitacoes_b2b SET $set WHERE id=:id AND id_matriz=:emp LIMIT 1");
+        $up->execute($params);
+
+        json_exit(['ok'=>true,'msg'=>'Atualizado com sucesso.','status'=>$novo]);
+    } catch (Throwable $e) {
+        json_exit(['ok'=>false,'msg'=>'Falha no processamento.']);
+    }
+}
+/* ====== FIM DO GATEWAY AJAX ====== */
+
+
 
 
 // ✅ Buscar nome e tipo do usuário logado
@@ -385,7 +566,7 @@ $fimTxt = $fim->format('d/m/Y');
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
 
     <!-- Icons. Uncomment required icon fonts -->
@@ -949,7 +1130,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <tr>
           <th># Pedido</th>
           <th>Filial</th>
-          <th>Qr code</th>
+          <th>Qr code</</th>
           <th>Produto</th>
           <th>Qtd</th>
           <th>Prioridade</th>
@@ -1123,13 +1304,9 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
       const alvo = document.getElementById('detalhesConteudo');
       alvo.innerHTML = '<div class="text-muted">Carregando...</div>';
       try {
-        const resp = await fetch(`${SELF}${SELF.includes('?')?'&':'?'}acao=detalhes&id=${encodeURIComponent(pedidoId)}`, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const resp = await fetch(`${SELF}${SELF.includes('?')?'&':'?'}acao=detalhes&id=${encodeURIComponent(pedidoId)}`, { credentials: 'same-origin' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const html = await resp.text();
-        if (!resp.ok) {
-          console.error('Detalhes HTTP', resp.status, html);
-          alvo.innerHTML = '<div class="text-danger">Falha ao carregar detalhes.</div>';
-          return;
-        }
         alvo.innerHTML = html;
       } catch (e) {
         alvo.innerHTML = '<div class="text-danger">Falha ao carregar detalhes.</div>';
@@ -1138,37 +1315,16 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     });
   });
 
-  async function postJson(fd) {
-    const resp = await fetch(SELF, {
-      method: 'POST',
-      body: fd,
-      credentials: 'same-origin',
-      headers: {
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      cache: 'no-store'
-    });
-    const text = await resp.text();
-    // Mesmo se resp.ok === false, tentamos parsear para extrair mensagem do backend
-    let json = null;
-    try { json = JSON.parse(text); } catch(e) {}
-    if (!resp.ok) {
-      // Se veio JSON com msg, mostramos; senão mostra status genérico
-      const msg = (json && (json.msg || json.message)) ? (json.msg || json.message) : `Falha (${resp.status})`;
-      throw new Error(msg + ' — ' + text.slice(0, 300));
-    }
-    if (!json) throw new Error('Resposta não-JSON: ' + text.slice(0, 300));
-    return json;
-  }
-
   // Submit Aprovar (POST no mesmo arquivo retornando JSON limpo)
   document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     fd.append('acao', 'aprovar');
     try {
-      const j = await postJson(fd);
+      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const txt = await r.text();
+      const j = parseJsonSafe(txt);
+      if (!j) { console.error('Resposta não-JSON:', txt); alert('Resposta inválida do servidor.'); return; }
       if (j.ok) {
         const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
         setRowStatus(pedidoId, j.status || 'aprovada');
@@ -1178,8 +1334,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         alert(j.msg || 'Não foi possível aprovar.');
       }
     } catch (err) {
-      console.error('Aprovar erro:', err);
-      alert(String(err.message || err));
+      alert('Erro de rede ao aprovar.');
+      console.error(err);
     }
   });
 
@@ -1189,7 +1345,10 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     const fd = new FormData(e.currentTarget);
     fd.append('acao', 'reprovar');
     try {
-      const j = await postJson(fd);
+      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const txt = await r.text();
+      const j = parseJsonSafe(txt);
+      if (!j) { console.error('Resposta não-JSON:', txt); alert('Resposta inválida do servidor.'); return; }
       if (j.ok) {
         const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
         setRowStatus(pedidoId, j.status || 'reprovada');
@@ -1199,8 +1358,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         alert(j.msg || 'Não foi possível reprovar.');
       }
     } catch (err) {
-      console.error('Reprovar erro:', err);
-      alert(String(err.message || err));
+      alert('Erro de rede ao reprovar.');
+      console.error(err);
     }
   });
 })();
