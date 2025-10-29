@@ -87,10 +87,6 @@ $CSRF = $_SESSION['csrf_token'];
 
 /* ============================================================
    ESCOPOS + SOMENTE FRANQUIAS
-   - JOIN com 'unidades u' pelo ID numérico no final de s.id_solicitante
-     u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
-   - Filtrar u.tipo = 'Franquia'
-   - franquia logada vê só suas solicitações (comparando também o número)
    ============================================================ */
 $scopeWhere  = [];
 $scopeParams = [];
@@ -464,11 +460,10 @@ function e(string $v): string
 {
   return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
 }
-function dateBr(?string $dt): string
+function dateOnly(?string $dt): string
 {
-  return $dt ? date('d/m/Y H:i', strtotime($dt)) : '-';
+  return $dt ? date('d/m/Y', strtotime($dt)) : '-';
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -667,8 +662,7 @@ function dateBr(?string $dt): string
           </div>
           <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
             <div class="navbar-nav align-items-center">
-              <div class="nav-item d-flex align-items-center">
-              </div>
+              <div class="nav-item d-flex align-items-center"></div>
             </div>
             <ul class="navbar-nav flex-row align-items-center ms-auto">
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
@@ -798,7 +792,7 @@ function dateBr(?string $dt): string
                       <th>Nome da Unidade</th>
                       <th class="text-end">Itens</th>
                       <th class="text-end">Qtd Total</th>
-                      <th class="text-end">Total (Calc.)</th>
+                      <!-- Removido: Total (Calc.) -->
                       <th class="text-end">Total (Registro)</th>
                       <th>Criado em</th>
                       <th>Status</th>
@@ -808,7 +802,7 @@ function dateBr(?string $dt): string
                   <tbody class="table-border-bottom-0">
                     <?php if (!$rows): ?>
                       <tr>
-                        <td colspan="10" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                        <td colspan="9" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                       </tr>
                       <?php else: foreach ($rows as $r):
                         $sm = $statusMap[$r['status']] ?? ['cls' => 'bg-label-secondary', 'txt' => $r['status']];
@@ -819,9 +813,10 @@ function dateBr(?string $dt): string
                           <td><?= e($r['nome_unidade'] ?: '-') ?></td>
                           <td class="text-end"><?= (int)$r['itens_count'] ?></td>
                           <td class="text-end"><?= (int)$r['qtd_total'] ?></td>
-                          <td class="text-end">R$ <?= number_format((float)$r['subtotal_calc'], 2, ',', '.') ?></td>
+                          <!-- Mantido apenas o Total (Registro) -->
                           <td class="text-end">R$ <?= number_format((float)$r['total_estimado'], 2, ',', '.') ?></td>
-                          <td><?= e(dateBr($r['created_at'])) ?></td>
+                          <!-- Criado em somente data -->
+                          <td><?= e(dateOnly($r['created_at'])) ?></td>
                           <td><span class="badge status-badge <?= e($sm['cls']) ?>"><?= e($sm['txt']) ?></span></td>
                           <td class="sticky-actions">
                             <div class="btn-group btn-group-sm">
@@ -971,7 +966,8 @@ function dateBr(?string $dt): string
       fetch(url.toString(), {
           credentials: 'same-origin'
         })
-        .then(r => r.text()).then(html => body.innerHTML = html)
+        .then(r => r.text())
+        .then(html => body.innerHTML = html)
         .catch(() => body.innerHTML = '<div class="text-danger">Falha ao carregar itens.</div>');
     });
 
