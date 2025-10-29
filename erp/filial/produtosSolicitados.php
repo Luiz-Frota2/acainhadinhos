@@ -690,8 +690,7 @@ $fimTxt = $fim->format('d/m/Y');
 
                     <!-- Toolbar / Filtros (HTML estático por enquanto) -->
 
-
-                   <?php
+<?php
 /* ===== Helpers ===== */
 function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function formatDateBr(?string $dt): string {
@@ -701,8 +700,7 @@ function formatDateBr(?string $dt): string {
 }
 function badgePrioridade(?string $p): string {
   $p = strtolower((string)$p);
-  // normaliza 'Media'/'Média'
-  if ($p === 'alta')  return '<span class="badge bg-label-danger status-badge">Alta</span>';
+  if ($p === 'alta') return '<span class="badge bg-label-danger status-badge">Alta</span>';
   if ($p === 'media' || $p === 'média') return '<span class="badge bg-label-warning status-badge">Média</span>';
   if ($p === 'baixa') return '<span class="badge bg-label-success status-badge">Baixa</span>';
   return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p) ?: '—').'</span>';
@@ -727,48 +725,32 @@ if (!$empresaIdMatriz) {
   return;
 }
 
-/* ===== Detecta existência de tabelas e colunas ===== */
+/* ===== Detecta existência de itens e suas colunas ===== */
 $temItens = false;
 try {
   $rs = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'");
   $temItens = (bool)$rs->fetchColumn();
 } catch (Throwable $e) { $temItens = false; }
 
-/* Descobre colunas da tabela de itens, se existir */
 $colunasItens = [];
 if ($temItens) {
   try {
     $colsStmt = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
-    while ($c = $colsStmt->fetch(PDO::FETCH_ASSOC)) {
-      $colunasItens[] = $c['Field'];
-    }
-  } catch (Throwable $e) {
-    $temItens = false;
-  }
+    while ($c = $colsStmt->fetch(PDO::FETCH_ASSOC)) $colunasItens[] = $c['Field'];
+  } catch (Throwable $e) { $temItens = false; }
 }
-
-/* Resolve nomes reais das colunas de itens (candidatos comuns) */
-$itemColCodigo = null;
-$itemColQtd    = null;
-$itemColNome   = null;
-
+$itemColCodigo = $itemColQtd = $itemColNome = null;
 if ($temItens) {
-  $candidatosCodigo = ['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'];
-  $candidatosQtd    = ['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'];
-  $candidatosNome   = ['nome_produto','descricao_produto','produto_nome'];
-
-  foreach ($candidatosCodigo as $c) if (in_array($c, $colunasItens, true)) { $itemColCodigo = $c; break; }
-  foreach ($candidatosQtd as $c)    if (in_array($c, $colunasItens, true)) { $itemColQtd    = $c; break; }
-  foreach ($candidatosNome as $c)   if (in_array($c, $colunasItens, true)) { $itemColNome   = $c; break; }
-
-  // Se não achou nenhuma coluna útil, desativa o uso de itens para evitar erros 42S22
-  if (!$itemColCodigo && !$itemColQtd && !$itemColNome) {
-    $temItens = false;
-  }
+  foreach (['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'] as $c)
+    if (in_array($c, $colunasItens, true)) { $itemColCodigo = $c; break; }
+  foreach (['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'] as $c)
+    if (in_array($c, $colunasItens, true)) { $itemColQtd = $c; break; }
+  foreach (['nome_produto','descricao_produto','produto_nome'] as $c)
+    if (in_array($c, $colunasItens, true)) { $itemColNome = $c; break; }
+  if (!$itemColCodigo && !$itemColQtd && !$itemColNome) $temItens = false;
 }
 
-/* ===== Monta SQL dinamicamente ===== */
-/* Seleções base */
+/* ===== SELECTs base ===== */
 $selectBase = "
   s.id             AS pedido_id,
   s.id_matriz      AS id_matriz,
@@ -780,15 +762,11 @@ $selectBase = "
   u.nome           AS filial_nome
 ";
 
-/* Seleções de item/estoque (se conseguirmos mapear) */
-$selectItem = "
-  NULL AS item_qr_code,
-  NULL AS item_nome,
-  NULL AS item_qtd
-";
+$selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
 $joins = "";
+
+/* ===== JOIN de ITENS + ESTOQUE (dinâmico) ===== */
 if ($temItens) {
-  // subconsulta pick para pegar 1 item por pedido
   $joins .= "
     LEFT JOIN (
       SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
@@ -798,7 +776,6 @@ if ($temItens) {
     LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
   ";
 
-  // Seleções e JOIN com estoque (preferindo juntar por código do produto)
   if ($itemColCodigo) {
     $joins .= "
       LEFT JOIN estoque e
@@ -811,7 +788,6 @@ if ($temItens) {
       ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
     ";
   } elseif ($itemColNome) {
-    // fallback por nome (menos preciso, mas evita erro)
     $joins .= "
       LEFT JOIN estoque e
              ON e.nome_produto = si.`{$itemColNome}`
@@ -823,7 +799,6 @@ if ($temItens) {
       ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
     ";
   } else {
-    // Sem forma de mapear ao estoque; mostra apenas quantidade se houver
     $selectItem = "
       NULL AS item_qr_code,
       NULL AS item_nome,
@@ -832,16 +807,28 @@ if ($temItens) {
   }
 }
 
-/* SQL final */
+/* ===== JOIN da UNIDADE (filial) =====
+   - Extrai o número final de s.id_solicitante: SUBSTRING_INDEX(..., '_', -1)
+   - Garante mesma matriz: u.empresa_id = s.id_matriz
+   - Filtra apenas tipo = 'filial'
+*/
+$joinUnidade = "
+  LEFT JOIN unidades u
+         ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+        AND u.empresa_id = s.id_matriz
+";
+
+/* ===== SQL final com filtro de filiais ===== */
 $sql = "
   SELECT
     {$selectBase},
     {$selectItem}
   FROM solicitacoes_b2b s
-  LEFT JOIN unidades u
-         ON u.empresa_id = s.id_solicitante
+  {$joinUnidade}
   {$joins}
   WHERE s.id_matriz = :empresa
+    AND s.id_solicitante LIKE 'unidade\_%'
+    AND u.tipo = 'filial'
   ORDER BY s.created_at DESC, s.id DESC
   LIMIT 300
 ";
