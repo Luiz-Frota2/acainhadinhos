@@ -970,10 +970,13 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script>
 (function () {
-  const URL_DETALHES = 'actions/solicitacao_Detalhes.php';
-  const URL_APROVAR  = '/../../assets/php/filial/solicitacao_Aprovar.php';
-  const URL_REPROVAR = '/../../assets/php/filial/solicitacao_Reprovar.php';
+  // === ENDPOINTS fora de /erp, em /assets/php/filial ===
+  const URL_BASE    = '../../assets/php/filial/';
+  const URL_DETALHES = URL_BASE + 'solicitacao_Detalhes.php';
+  const URL_APROVAR  = URL_BASE + 'solicitacao_Aprovar.php';
+  const URL_REPROVAR = URL_BASE + 'solicitacao_Reprovar.php';
 
+  // Abre modal com id do pedido
   document.querySelectorAll('.btn-aprovar').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
@@ -990,38 +993,55 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
       const alvo = document.getElementById('detalhesConteudo');
       alvo.innerHTML = '<div class="text-muted">Carregando...</div>';
       try {
-        const resp = await fetch(`${URL_DETALHES}?id=${encodeURIComponent(pedidoId)}`);
+        const resp = await fetch(`${URL_DETALHES}?id=${encodeURIComponent(pedidoId)}`, { credentials: 'same-origin' });
+        if (!resp.ok) {
+          const t = await resp.text();
+          throw new Error('HTTP ' + resp.status + ' - ' + t);
+        }
         const html = await resp.text();
         alvo.innerHTML = html;
       } catch (e) {
         alvo.innerHTML = '<div class="text-danger">Falha ao carregar detalhes.</div>';
+        console.error(e);
       }
     });
   });
 
+  // Submit Aprovar
   document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     try {
-      const r = await fetch(URL_APROVAR, { method: 'POST', body: fd });
+      const r = await fetch(URL_APROVAR, { method: 'POST', body: fd, credentials: 'same-origin' });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error('HTTP ' + r.status + ' - ' + t);
+      }
       const j = await r.json();
       if (j?.ok) location.reload();
       else alert(j?.msg || 'Não foi possível aprovar.');
     } catch (err) {
       alert('Erro de rede ao aprovar.');
+      console.error(err);
     }
   });
 
+  // Submit Reprovar
   document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     try {
-      const r = await fetch(URL_REPROVAR, { method: 'POST', body: fd });
+      const r = await fetch(URL_REPROVAR, { method: 'POST', body: fd, credentials: 'same-origin' });
+      if (!r.ok) {
+        const t = await r.text();
+        throw new Error('HTTP ' + r.status + ' - ' + t);
+      }
       const j = await r.json();
       if (j?.ok) location.reload();
       else alert(j?.msg || 'Não foi possível reprovar.');
     } catch (err) {
       alert('Erro de rede ao reprovar.');
+      console.error(err);
     }
   });
 })();
