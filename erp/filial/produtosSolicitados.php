@@ -694,7 +694,6 @@ $fimTxt = $fim->format('d/m/Y');
  * Lista + processamento no mesmo arquivo (Aprovar, Reprovar, Detalhes)
  */
 
-declare(strict_types=1);
 
 /* ================= Helpers ================= */
 function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
