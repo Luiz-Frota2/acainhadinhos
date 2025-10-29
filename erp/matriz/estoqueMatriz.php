@@ -66,93 +66,43 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* ==================== Resolver CNPJ da Matriz (via endereco_empresa) ==================== */
-/**
- * Usa a tabela:
- *   CREATE TABLE endereco_empresa (
- *     id INT AI PK,
- *     empresa_id VARCHAR(255) NOT NULL,
- *     cnpj VARCHAR(20) NOT NULL,
- *     ... )
- *
- * Regras:
- *  - Se a página estiver na principal (ex.: principal_1), usa esse empresa_id.
- *  - Caso contrário, busca sempre empresa_id = 'principal_1' (ajuste se sua principal tiver outro identificador).
- */
-function resolveCnpjMatriz(PDO $pdo, string $idSelecionado): ?string {
-    $empresaIdMatriz = str_starts_with($idSelecionado, 'principal_') ? $idSelecionado : 'principal_1';
-    try {
-        $q = $pdo->prepare("SELECT cnpj FROM endereco_empresa WHERE empresa_id = :eid LIMIT 1");
-        $q->execute([':eid' => $empresaIdMatriz]);
-        if ($r = $q->fetch(PDO::FETCH_ASSOC)) {
-            return preg_replace('/\D+/', '', (string)$r['cnpj']); // normaliza para só dígitos
-        }
-    } catch (Throwable $e) {
-        // silencioso: retorna null se não achar
-    }
-    return null;
+/* ==================== Qual empresa usar para o estoque da Matriz? ==================== */
+/* Regra: se já estiver na principal_* usa o próprio; caso contrário, usa 'principal_1' */
+function resolveEmpresaIdMatriz(string $idSelecionado): string {
+    return str_starts_with($idSelecionado, 'principal_') ? $idSelecionado : 'principal_1';
 }
+$empresaIdMatriz = resolveEmpresaIdMatriz($idSelecionado);
 
-$cnpjMatriz = resolveCnpjMatriz($pdo, $idSelecionado);
-
-/* ==================== Buscar estoque da Matriz ====================
-
-Tabelas padrão:
-- produtos_peca (id, empresa_cnpj, sku, nome, unidade, preco_venda, ncm, gtin, categoria_id, ...)
-- mov_estoque_peca (empresa_cnpj, produto_id, mov_tipo ['entrada','saida','ajuste_positivo','ajuste_negativo'], quantidade, mov_data, ...)
-
-Saldo = entradas + ajustes_positivos - saídas - ajustes_negativos
+/* ==================== Buscar itens do estoque (tabela `estoque`) ==================== */
+/* Campos disponíveis (conforme você enviou):
+   id, empresa_id, fornecedor_id, codigo_produto, nome_produto, categoria_produto, quantidade_produto,
+   preco_produto, preco_custo, status_produto, ncm, cest, cfop, origem, tributacao, unidade, codigo_barras,
+   codigo_anp, informacoes_adicionais, peso_bruto, peso_liquido, aliquota_icms, aliquota_pis, aliquota_cofins,
+   created_at, updated_at
 */
-$produtos = []; // array de produtos com saldo
-if ($cnpjMatriz) {
-    try {
-        $sql = "
-            SELECT
-                p.id,
-                p.sku,
-                p.nome,
-                p.unidade,
-                p.preco_venda,
-                p.ncm,
-                p.gtin,
-                p.categoria_id,
-                COALESCE(SUM(
-                    CASE 
-                        WHEN m.mov_tipo = 'entrada'          THEN m.quantidade
-                        WHEN m.mov_tipo = 'ajuste_positivo'  THEN m.quantidade
-                        WHEN m.mov_tipo = 'saida'            THEN -m.quantidade
-                        WHEN m.mov_tipo = 'ajuste_negativo'  THEN -m.quantidade
-                        ELSE 0
-                    END
-                ), 0) AS saldo_atual,
-                MAX(m.mov_data) AS ultima_mov
-            FROM produtos_peca p
-            LEFT JOIN mov_estoque_peca m
-                ON m.produto_id = p.id
-               AND m.empresa_cnpj = :cnpj
-            WHERE p.empresa_cnpj = :cnpj
-            GROUP BY p.id, p.sku, p.nome, p.unidade, p.preco_venda, p.ncm, p.gtin, p.categoria_id
-            ORDER BY p.nome ASC
-        ";
-        $st = $pdo->prepare($sql);
-        $st->execute([':cnpj' => $cnpjMatriz]);
-        while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-            $produtos[] = [
-                'id'          => (int)$r['id'],
-                'sku'         => (string)$r['sku'],
-                'nome'        => (string)$r['nome'],
-                'unidade'     => (string)$r['unidade'],
-                'preco'       => (float)$r['preco_venda'],
-                'ncm'         => (string)$r['ncm'],
-                'gtin'        => (string)$r['gtin'],
-                'categoria_id'=> $r['categoria_id'],
-                'saldo'       => (float)$r['saldo_atual'],
-                'ultima'      => $r['ultima_mov'],
-            ];
-        }
-    } catch (PDOException $e) {
-        // deixa vazio se der erro
+$itens = [];
+try {
+    $sql = "SELECT *
+            FROM estoque
+            WHERE empresa_id = :eid
+            ORDER BY nome_produto ASC";
+    $st  = $pdo->prepare($sql);
+    $st->execute([':eid' => $empresaIdMatriz]);
+
+    while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
+        // normaliza tipos numéricos
+        $r['quantidade_produto'] = (float)$r['quantidade_produto'];
+        $r['preco_produto']      = (float)$r['preco_produto'];
+        $r['preco_custo']        = (float)$r['preco_custo'];
+        $r['aliquota_icms']      = isset($r['aliquota_icms']) ? (float)$r['aliquota_icms'] : null;
+        $r['aliquota_pis']       = isset($r['aliquota_pis']) ? (float)$r['aliquota_pis'] : null;
+        $r['aliquota_cofins']    = isset($r['aliquota_cofins']) ? (float)$r['aliquota_cofins'] : null;
+        $r['peso_bruto']         = isset($r['peso_bruto']) ? (float)$r['peso_bruto'] : null;
+        $r['peso_liquido']       = isset($r['peso_liquido']) ? (float)$r['peso_liquido'] : null;
+        $itens[] = $r;
     }
+} catch (PDOException $e) {
+    // mantém vazio
 }
 
 /* ===== Helpers ===== */
@@ -160,6 +110,14 @@ function badgeQntClass(float $q) {
     if ($q <= 0) return 'badge-danger-soft';
     if ($q <= 5) return 'badge-warning-soft';
     return 'badge-success-soft';
+}
+function badgeStatusClass(string $s) {
+    $s = strtolower(trim($s));
+    return match ($s) {
+        'ativo', 'disponivel', 'disponível' => 'badge-success-soft',
+        'inativo', 'indisponivel', 'indisponível' => 'badge-danger-soft',
+        default => 'badge-secondary-soft',
+    };
 }
 ?>
 <!DOCTYPE html>
@@ -190,10 +148,12 @@ function badgeQntClass(float $q) {
         .badge-success-soft { color:#16a34a; background:#ecfdf5; border-color:#bbf7d0; }
         .badge-warning-soft { color:#a16207; background:#fef3c7; border-color:#fde68a; }
         .badge-danger-soft  { color:#b91c1c; background:#fee2e2; border-color:#fecaca; }
+        .badge-secondary-soft { color:#475569; background:#f1f5f9; border-color:#e2e8f0; }
 
         #paginacao button { margin-right:5px; }
         td.col-nome { max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        td.col-sku  { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        td.col-sku  { max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        td.col-cat  { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     </style>
 </head>
 <body>
@@ -226,7 +186,7 @@ function badgeQntClass(float $q) {
                     </a>
                     <ul class="menu-sub active">
                         <li class="menu-item"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"><div>Produtos Solicitados</div></a></li>
-                        <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>"><div>Status da Tranf.</div></a></li>
+                        <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>"><div>Status da Transf.</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>"><div>Produtos Entregues</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./novaSolicitacao.php?id=<?= urlencode($idSelecionado); ?>"><div>Nova Solicitação</div></a></li>
                         <li class="menu-item open active"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>"><div>Estoque da Matriz</div></a></li>
@@ -266,7 +226,7 @@ function badgeQntClass(float $q) {
                     <div class="navbar-nav align-items-center">
                         <div class="nav-item d-flex align-items-center">
                             <i class="bx bx-search fs-4 lh-0"></i>
-                            <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar por SKU, produto, NCM, GTIN..." />
+                            <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar por SKU, produto, categoria, NCM, GTIN..." />
                         </div>
                     </div>
                     <!-- /Search -->
@@ -304,11 +264,7 @@ function badgeQntClass(float $q) {
             <div class="container-xxl flex-grow-1 container-p-y">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="fw-bold mb-0">Estoque da Matriz</h4>
-                    <?php if (!$cnpjMatriz): ?>
-                        <span class="badge bg-label-danger">CNPJ da Matriz não encontrado (endereco_empresa)</span>
-                    <?php else: ?>
-                        <span class="badge bg-label-primary">Matriz (CNPJ): <?= htmlspecialchars($cnpjMatriz, ENT_QUOTES) ?></span>
-                    <?php endif; ?>
+                    <span class="badge bg-label-primary">Empresa: <?= htmlspecialchars($empresaIdMatriz, ENT_QUOTES) ?></span>
                 </div>
 
                 <div class="card">
@@ -319,36 +275,41 @@ function badgeQntClass(float $q) {
                                     <th>#</th>
                                     <th>SKU</th>
                                     <th>Produto</th>
+                                    <th>Categoria</th>
                                     <th>Unid.</th>
                                     <th class="text-end">Preço</th>
-                                    <th class="text-end">Saldo</th>
-                                    <th>Última Mov.</th>
+                                    <th class="text-end">Custo</th>
+                                    <th class="text-end">Qtde</th>
+                                    <th>Status</th>
+                                    <th>Atualizado</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                            <?php if ($cnpjMatriz && $produtos): foreach ($produtos as $p): ?>
+                            <?php if ($itens): foreach ($itens as $p): ?>
                                 <?php
-                                  $q = (float)$p['saldo'];
-                                  $badge = badgeQntClass($q);
-                                  $ultima = $p['ultima'] ? date('d/m/Y H:i', strtotime($p['ultima'])) : '—';
+                                  $q = (float)$p['quantidade_produto'];
+                                  $badgeQ = badgeQntClass($q);
+                                  $badgeS = badgeStatusClass((string)$p['status_produto']);
+                                  $atual  = !empty($p['updated_at']) ? date('d/m/Y H:i', strtotime($p['updated_at'])) : '—';
                                 ?>
                                 <tr data-pid="<?= (int)$p['id'] ?>">
                                     <td><?= (int)$p['id'] ?></td>
-                                    <td class="col-sku"><?= htmlspecialchars($p['sku'] ?: '—', ENT_QUOTES) ?></td>
-                                    <td class="col-nome"><?= htmlspecialchars($p['nome'] ?: '—', ENT_QUOTES) ?></td>
+                                    <td class="col-sku"><?= htmlspecialchars($p['codigo_produto'] ?: '—', ENT_QUOTES) ?></td>
+                                    <td class="col-nome"><?= htmlspecialchars($p['nome_produto'] ?: '—', ENT_QUOTES) ?></td>
+                                    <td class="col-cat"><?= htmlspecialchars($p['categoria_produto'] ?: '—', ENT_QUOTES) ?></td>
                                     <td><?= htmlspecialchars($p['unidade'] ?: '—', ENT_QUOTES) ?></td>
-                                    <td class="text-end">R$ <?= number_format((float)$p['preco'], 2, ',', '.') ?></td>
-                                    <td class="text-end">
-                                        <span class="status-badge <?= $badge ?>"><?= number_format($q, 2, ',', '.') ?></span>
-                                    </td>
-                                    <td><?= $ultima ?></td>
+                                    <td class="text-end">R$ <?= number_format((float)$p['preco_produto'], 2, ',', '.') ?></td>
+                                    <td class="text-end">R$ <?= number_format((float)$p['preco_custo'], 2, ',', '.') ?></td>
+                                    <td class="text-end"><span class="status-badge <?= $badgeQ ?>"><?= number_format($q, 2, ',', '.') ?></span></td>
+                                    <td><span class="status-badge <?= $badgeS ?>"><?= htmlspecialchars(strtoupper((string)$p['status_produto']), ENT_QUOTES) ?></span></td>
+                                    <td><?= $atual ?></td>
                                     <td>
                                         <button type="button" class="btn btn-sm btn-outline-primary btnDetalhes" data-pid="<?= (int)$p['id'] ?>">Detalhes</button>
                                     </td>
                                 </tr>
                             <?php endforeach; else: ?>
-                                <tr><td colspan="8" class="text-center text-muted py-4">Nenhum item encontrado para a matriz.</td></tr>
+                                <tr><td colspan="11" class="text-center text-muted py-4">Nenhum item encontrado.</td></tr>
                             <?php endif; ?>
                             </tbody>
                         </table>
@@ -376,18 +337,30 @@ function badgeQntClass(float $q) {
                             <div class="mb-2">
                                 <div>SKU: <span id="modalSku"></span></div>
                                 <div>Produto: <span id="modalNome"></span></div>
+                                <div>Categoria: <span id="modalCat"></span></div>
                                 <div>Unidade: <span id="modalUnid"></span></div>
-                                <div>Preço: <span id="modalPreco"></span></div>
+                                <div>Preço venda: <span id="modalPreco"></span></div>
+                                <div>Preço custo: <span id="modalCusto"></span></div>
+                                <div class="mt-2">Quantidade: <span id="modalQtd" class="status-badge"></span></div>
+                                <hr/>
                                 <div>NCM: <span id="modalNcm"></span></div>
-                                <div>GTIN: <span id="modalGtin"></span></div>
-                                <div class="mt-2">Saldo: <span id="modalSaldo"></span></div>
-                                <div>Última Movimentação: <span id="modalUltima"></span></div>
-                            </div>
-                            <div id="modalMovsWrapper" class="mt-3">
-                                <small class="text-muted">Histórico resumido não implementado nesta etapa.</small>
+                                <div>CEST: <span id="modalCest"></span></div>
+                                <div>CFOP: <span id="modalCfop"></span></div>
+                                <div>Origem: <span id="modalOrigem"></span></div>
+                                <div>Tributação: <span id="modalTrib"></span></div>
+                                <div>Código de Barras: <span id="modalBarras"></span></div>
+                                <div>Código ANP: <span id="modalAnp"></span></div>
+                                <div>Peso bruto: <span id="modalPBruto"></span></div>
+                                <div>Peso líquido: <span id="modalPLiquido"></span></div>
+                                <div>Alíquota ICMS: <span id="modalAliqIcms"></span></div>
+                                <div>Alíquota PIS: <span id="modalAliqPis"></span></div>
+                                <div>Alíquota COFINS: <span id="modalAliqCofins"></span></div>
+                                <div class="mt-2">Info. adicionais: <span id="modalInfo"></span></div>
+                                <div class="text-muted mt-2">Atualizado em: <span id="modalAtual"></span></div>
                             </div>
                         </div>
                         <div class="modal-footer">
+                            <!-- ações futuras: solicitar transferência etc -->
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                         </div>
                     </div>
@@ -411,8 +384,8 @@ function badgeQntClass(float $q) {
 <!-- Dados em JSON para detalhes (sem AJAX) -->
 <script id="dadosEstoque" type="application/json">
 <?= json_encode([
-    'cnpj' => $cnpjMatriz,
-    'lista' => array_values($produtos)
+    'empresa' => $empresaIdMatriz,
+    'lista'   => array_values($itens)
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
 </script>
 
@@ -459,7 +432,7 @@ function renderTable() {
     }
 
     document.getElementById('prevPage').disabled = currentPage === 1;
-    document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+    document.getElementById('nextPage').disabled = (currentPage === totalPages || totalPages === 0);
 }
 
 document.getElementById('prevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
@@ -504,23 +477,41 @@ $(document).on('click', '.btnDetalhes', function() {
         $('#modalPid').text('');
         $('#modalSku').text('—');
         $('#modalNome').text('—');
+        $('#modalCat').text('—');
         $('#modalUnid').text('—');
         $('#modalPreco').text('—');
-        $('#modalNcm').text('—');
-        $('#modalGtin').text('—');
-        $('#modalSaldo').attr('class','status-badge badge-danger-soft').text('—');
-        $('#modalUltima').text('—');
+        $('#modalCusto').text('—');
+        $('#modalQtd').attr('class','status-badge badge-danger-soft').text('—');
+        $('#modalNcm').text('—'); $('#modalCest').text('—'); $('#modalCfop').text('—');
+        $('#modalOrigem').text('—'); $('#modalTrib').text('—');
+        $('#modalBarras').text('—'); $('#modalAnp').text('—');
+        $('#modalPBruto').text('—'); $('#modalPLiquido').text('—');
+        $('#modalAliqIcms').text('—'); $('#modalAliqPis').text('—'); $('#modalAliqCofins').text('—');
+        $('#modalInfo').text('—'); $('#modalAtual').text('—');
     } else {
         $('#modalPid').text('#' + pid);
-        $('#modalSku').text(safe(p.sku || '—'));
-        $('#modalNome').text(safe(p.nome || '—'));
+        $('#modalSku').text(safe(p.codigo_produto || '—'));
+        $('#modalNome').text(safe(p.nome_produto || '—'));
+        $('#modalCat').text(safe(p.categoria_produto || '—'));
         $('#modalUnid').text(safe(p.unidade || '—'));
-        $('#modalPreco').text(fmtBRL(p.preco));
+        $('#modalPreco').text(fmtBRL(p.preco_produto));
+        $('#modalCusto').text(fmtBRL(p.preco_custo));
+        const qtd = Number(p.quantidade_produto)||0;
+        $('#modalQtd').attr('class','status-badge ' + badgeQntClass(qtd)).text(qtd.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}));
         $('#modalNcm').text(safe(p.ncm || '—'));
-        $('#modalGtin').text(safe(p.gtin || '—'));
-        const saldo = Number(p.saldo)||0;
-        $('#modalSaldo').attr('class','status-badge ' + badgeQntClass(saldo)).text(saldo.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}));
-        $('#modalUltima').text(fmtDateTime(p.ultima));
+        $('#modalCest').text(safe(p.cest || '—'));
+        $('#modalCfop').text(safe(p.cfop || '—'));
+        $('#modalOrigem').text(safe(p.origem || '—'));
+        $('#modalTrib').text(safe(p.tributacao || '—'));
+        $('#modalBarras').text(safe(p.codigo_barras || '—'));
+        $('#modalAnp').text(safe(p.codigo_anp || '—'));
+        $('#modalPBruto').text((Number(p.peso_bruto)||0).toLocaleString('pt-BR'));
+        $('#modalPLiquido').text((Number(p.peso_liquido)||0).toLocaleString('pt-BR'));
+        $('#modalAliqIcms').text((Number(p.aliquota_icms)||0).toLocaleString('pt-BR') + '%');
+        $('#modalAliqPis').text((Number(p.aliquota_pis)||0).toLocaleString('pt-BR') + '%');
+        $('#modalAliqCofins').text((Number(p.aliquota_cofins)||0).toLocaleString('pt-BR') + '%');
+        $('#modalInfo').text(safe(p.informacoes_adicionais || '—'));
+        $('#modalAtual').text(fmtDateTime(p.updated_at));
     }
 
     const modal = new bootstrap.Modal(document.getElementById('modalDetalhes'));
