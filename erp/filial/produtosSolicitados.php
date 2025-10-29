@@ -691,103 +691,293 @@ $fimTxt = $fim->format('d/m/Y');
                     <!-- Toolbar / Filtros (HTML estático por enquanto) -->
 
 
-                    <!-- Tabela (HTML mock) -->
-                    <div class="card">
-                        <h5 class="card-header">Lista de Produtos Solicitados</h5>
-                        <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th># Pedido</th>
-                                        <th>Filial</th>
-                                        <th>Qr code</th>
-                                        <th>Produto</th>
-                                        <th>Qtd</th>
-                                        <th>Prioridade</th>
-                                        <th>Solicitado em</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-border-bottom-0">
-                                    <tr>
-                                        <td># 1</td>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>120</td>
-                                        <td><span class="badge bg-label-danger status-badge">Alta</span></td>
-                                        <td>25/09/2025</td>
-                                        <td><span class="badge bg-label-warning status-badge">Pendete</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Aprovar</button>
-                                             <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Reprovar</button>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                           
-                                        </td>
-                                    </tr>
-                               
-                                  
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                   <?php
+/* ================= Helpers ================= */
+function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function formatDateBr(?string $dt): string {
+  if (!$dt) return '—';
+  $t = strtotime($dt);
+  return $t ? date('d/m/Y H:i', $t) : '—';
+}
+function badgePrioridade(string $p): string {
+  $p = strtolower($p);
+  if ($p === 'alta')   return '<span class="badge bg-label-danger status-badge">Alta</span>';
+  if ($p === 'media' || $p === 'média') return '<span class="badge bg-label-warning status-badge">Média</span>';
+  if ($p === 'baixa')  return '<span class="badge bg-label-success status-badge">Baixa</span>';
+  return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p)).'</span>';
+}
+function badgeStatus(string $s): string {
+  $s = strtolower($s);
+  return match ($s) {
+    'pendente'    => '<span class="badge bg-label-warning status-badge">Pendente</span>',
+    'aprovada'    => '<span class="badge bg-label-primary status-badge">Aprovada</span>',
+    'reprovada'   => '<span class="badge bg-label-danger status-badge">Reprovada</span>',
+    'em_transito' => '<span class="badge bg-label-info status-badge">Em Trânsito</span>',
+    'entregue'    => '<span class="badge bg-label-success status-badge">Entregue</span>',
+    'cancelada'   => '<span class="badge bg-label-dark status-badge">Cancelada</span>',
+    default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s)).'</span>',
+  };
+}
 
-                    <!-- Modais mock -->
-                    <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Detalhes do Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <p><strong>Filial:</strong> Filial Centro</p>
-                                            <p><strong>Qr code:</strong> ACA-500</p>
-                                            <p><strong>Produto:</strong> Polpa Açaí 500g</p>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <p><strong>Qtd:</strong> 120</p>
-                                            <p><strong>Prioridade:</strong> Alta</p>
-                                            <p><strong>Status:</strong>Pendente</p>
-                                        </div>
-                                        <div class="col-12">
-                                            <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
-                                           
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+/* ================= Filtro empresa (Matriz) ================= */
+$empresaIdMatriz = $_SESSION['empresa_id'] ?? '';
+if (!$empresaIdMatriz) {
+  echo '<div class="alert alert-danger">empresa_id não encontrado na sessão.</div>';
+  return;
+}
 
+/* ================= Descobre se existe itens ================= */
+$temItens = false;
+try {
+  $check = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'");
+  $temItens = (bool)$check->fetchColumn();
+} catch (Throwable $e) { $temItens = false; }
 
-                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Cancelar Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <label class="form-label">Motivo (opcional)</label>
-                                    <textarea class="form-control" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                                    <button class="btn btn-danger">Confirmar Reprovação</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+/* ================= Monta SQL da listagem ================= */
+$sql = "
+  SELECT
+    s.id                          AS pedido_id,
+    s.id_matriz                   AS id_matriz,
+    s.id_solicitante              AS id_solicitante,
+    s.status                      AS status,
+    s.observacao                  AS obs,
+    s.created_at                  AS criado_em,
+    u.nome                        AS filial_nome
+    ".($temItens ? ",
+      si.qr_code                  AS item_qr_code,
+      COALESCE(e.nome_produto, si.nome_produto) AS item_nome,
+      si.quantidade               AS item_qtd,
+      COALESCE(si.prioridade, 'media') AS item_prioridade
+    " : ",
+      NULL AS item_qr_code,
+      NULL AS item_nome,
+      NULL AS item_qtd,
+      NULL AS item_prioridade
+    ")."
+  FROM solicitacoes_b2b s
+  LEFT JOIN unidades u 
+         ON u.empresa_id = s.id_solicitante
+  ".($temItens ? "
+  LEFT JOIN (
+      SELECT
+        si.solicitacao_id,
+        -- Heurística: ‘primeiro’ item como representativo
+        MAX(si.id)                       AS _pick_id
+      FROM solicitacoes_b2b_itens si
+      GROUP BY si.solicitacao_id
+  ) pick ON pick.solicitacao_id = s.id
+  LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+  LEFT JOIN estoque e ON e.codigo_produto = si.produto_codigo AND e.empresa_id = s.id_matriz
+  " : "")."
+  WHERE s.id_matriz = :empresa
+  ORDER BY s.created_at DESC, s.id DESC
+  LIMIT 300
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute([':empresa' => $empresaIdMatriz]);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+?>
 
-                </div>
-                <!-- / Content -->
+<!-- Tabela (HTML mock) -->
+<div class="card">
+  <h5 class="card-header">Lista de Produtos Solicitados</h5>
+  <div class="table-responsive text-nowrap">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th># Pedido</th>
+          <th>Filial</th>
+          <th>Qr code</th>
+          <th>Produto</th>
+          <th>Qtd</th>
+          <th>Prioridade</th>
+          <th>Solicitado em</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody class="table-border-bottom-0">
+        <?php if (!$rows): ?>
+          <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
+        <?php else: foreach ($rows as $r): 
+          $qr   = $r['item_qr_code'] ?: '—';
+          $prod = $r['item_nome']    ?: '—';
+          $qtd  = $r['item_qtd']     ? (int)$r['item_qtd'] : 0;
+          $pri  = $r['item_prioridade'] ?: '—';
+          $sts  = $r['status'] ?: 'pendente';
+          $fil  = $r['filial_nome'] ?: '—';
+          $dt   = formatDateBr($r['criado_em']);
+        ?>
+        <tr>
+          <td># <?= h($r['pedido_id']) ?></td>
+          <td><strong><?= h($fil) ?></strong></td>
+          <td><?= h($qr) ?></td>
+          <td><?= h($prod) ?></td>
+          <td><?= $qtd ?: '—' ?></td>
+          <td><?= $pri === '—' ? '—' : badgePrioridade($pri) ?></td>
+          <td><?= h($dt) ?></td>
+          <td><?= badgeStatus($sts) ?></td>
+          <td>
+            <button 
+              class="btn btn-sm btn-outline-primary btn-aprovar" 
+              data-bs-toggle="modal" 
+              data-bs-target="#modalAtender"
+              data-pedido="<?= h($r['pedido_id']) ?>">
+              Aprovar
+            </button>
+            <button 
+              class="btn btn-sm btn-outline-danger btn-reprovar" 
+              data-bs-toggle="modal" 
+              data-bs-target="#modalCancelar"
+              data-pedido="<?= h($r['pedido_id']) ?>">
+              Reprovar
+            </button>
+            <button 
+              class="btn btn-sm btn-outline-secondary btn-detalhes" 
+              data-bs-toggle="modal" 
+              data-bs-target="#modalDetalhes"
+              data-pedido="<?= h($r['pedido_id']) ?>">
+              Detalhes
+            </button>
+          </td>
+        </tr>
+        <?php endforeach; endif; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Detalhes -->
+<div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalhes do Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Será preenchido via AJAX -->
+        <div id="detalhesConteudo">
+          <div class="text-muted">Carregando...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cancelar / Reprovar -->
+<div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="formReprovar" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cancelar (Reprovar) Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="pedido_id" id="cancelarPedidoId" />
+        <label class="form-label">Motivo (opcional)</label>
+        <textarea class="form-control" name="motivo" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+        <button type="submit" class="btn btn-danger">Confirmar Reprovação</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Aprovar (Atender) - reuso do seu id/modal -->
+<div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="formAprovar" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Aprovar Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="pedido_id" id="aprovarPedidoId" />
+        <p class="mb-0 text-muted">Confirma a aprovação deste pedido?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+        <button type="submit" class="btn btn-primary">Confirmar Aprovação</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  // Endpoints (ajuste os caminhos se usar outra pasta)
+  const URL_DETALHES = 'actions/solicitacao_Detalhes.php';
+  const URL_APROVAR  = 'actions/solicitacao_Aprovar.php';
+  const URL_REPROVAR = 'actions/solicitacao_Reprovar.php';
+
+  // Abre modal com id do pedido
+  document.querySelectorAll('.btn-aprovar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
+    });
+  });
+  document.querySelectorAll('.btn-reprovar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('cancelarPedidoId').value = btn.dataset.pedido;
+    });
+  });
+  document.querySelectorAll('.btn-detalhes').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const pedidoId = btn.dataset.pedido;
+      const alvo = document.getElementById('detalhesConteudo');
+      alvo.innerHTML = '<div class="text-muted">Carregando...</div>';
+      try {
+        const resp = await fetch(`${URL_DETALHES}?id=${encodeURIComponent(pedidoId)}`);
+        const html = await resp.text();
+        alvo.innerHTML = html;
+      } catch (e) {
+        alvo.innerHTML = '<div class="text-danger">Falha ao carregar detalhes.</div>';
+      }
+    });
+  });
+
+  // Submit Aprovar
+  document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    try {
+      const r = await fetch(URL_APROVAR, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j?.ok) {
+        // feedback + recarrega a tabela
+        location.reload();
+      } else {
+        alert(j?.msg || 'Não foi possível aprovar.');
+      }
+    } catch (err) {
+      alert('Erro de rede ao aprovar.');
+    }
+  });
+
+  // Submit Reprovar
+  document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    try {
+      const r = await fetch(URL_REPROVAR, { method: 'POST', body: fd });
+      const j = await r.json();
+      if (j?.ok) {
+        location.reload();
+      } else {
+        alert(j?.msg || 'Não foi possível reprovar.');
+      }
+    } catch (err) {
+      alert('Erro de rede ao reprovar.');
+    }
+  });
+})();
+</script>
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
