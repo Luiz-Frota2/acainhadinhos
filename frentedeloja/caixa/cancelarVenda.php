@@ -139,9 +139,7 @@ try {
     error_log("Erro ao buscar abertura: " . $e->getMessage());
 }
 
-/* ========= Buscar VENDAS (não venda_rapida) da empresa/usuário =========
-   Atenção ao CPF: o banco pode armazenar com máscara. Vamos comparar
-   removendo '.', '-', '/' no banco e usando só dígitos do CPF. */
+/* ========= Buscar VENDAS (não venda_rapida) da empresa/usuário ========= */
 try {
     $sqlVendas = "
         SELECT id, valor_total, data_venda, forma_pagamento, status_nfce
@@ -166,75 +164,51 @@ try {
     exit;
 }
 ?>
-
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
-    data-assets-path="../assets/">
-
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
-
     <title>ERP - PDV</title>
-
     <meta name="description" content="" />
-
     <!-- Favicon da empresa carregado dinamicamente -->
     <link rel="icon" type="image/x-icon" href="../../assets/img/empresa/<?php echo htmlspecialchars($iconeEmpresa); ?>" />
-
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
-
     <!-- Icons. Uncomment required icon fonts -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
-
     <!-- Core CSS -->
     <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
     <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
-
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-    <!-- Page CSS -->
-
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
-
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
+    <!-- Config -->
     <script src="../../assets/js/config.js"></script>
 </head>
-
 <body>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
             <!-- Menu -->
-
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
-                            style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
-
-                    <a href="javascript:void(0);"
-                        class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
-
                 <div class="menu-inner-shadow"></div>
-
                 <ul class="menu-inner py-1">
                     <!-- Dashboard -->
                     <li class="menu-item">
@@ -353,7 +327,6 @@ try {
                         <!-- /Search -->
 
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- Place this tag where you want the button to render. -->
                             <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
@@ -430,6 +403,16 @@ try {
                     </h4>
                     <h5 class="fw-semibold mt-2 mb-4 text-muted">Selecione uma venda para cancelar</h5>
 
+                    <!-- Alertas de retorno do processador -->
+                    <?php
+                      $ok  = isset($_GET['ok']) ? (int)$_GET['ok'] : null;
+                      $msg = isset($_GET['msg']) ? trim((string)$_GET['msg']) : '';
+                      if ($ok !== null) {
+                          $cls = $ok ? 'alert-success' : 'alert-danger';
+                          echo '<div class="alert '.$cls.'">'.$msg.'</div>';
+                      }
+                    ?>
+
                     <div class="card">
                         <div class="card-body">
                             <div class="table-responsive text-nowrap">
@@ -459,54 +442,22 @@ try {
                                                     <td>
                                                         <?php
                                                         $status = $venda['status_nfce'] ?: 'Finalizada';
-                                                        $badge = ($status === 'autorizada') ? 'bg-success' : (($status === 'cancelada') ? 'bg-danger' : 'bg-secondary');
+                                                        $badge = ($status === 'autorizada') ? 'bg-success' : (($status === 'cancelada' || $status === 'cancelada_interna') ? 'bg-danger' : 'bg-secondary');
                                                         ?>
                                                         <span class="badge <?= $badge ?>"><?= htmlspecialchars(ucfirst($status)) ?></span>
                                                     </td>
                                                     <td>
-                                                        <!-- Botão para abrir o modal -->
-                                                        <button type="button" class="btn btn-danger btn-sm"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#modalCancelarVenda<?= (int)$venda['id'] ?>">
+                                                        <!-- Botão para abrir a modal com as 3 opções -->
+                                                        <button 
+                                                            type="button" 
+                                                            class="btn btn-danger btn-cancelar-venda"
+                                                            data-venda-id="<?= (int)$venda['id'] ?>"
+                                                            data-empresa-id="<?= htmlspecialchars($idSelecionado) ?>"
+                                                            data-status="<?= htmlspecialchars($status) ?>"
+                                                            title="Opções de cancelamento (NFC-e / venda interna)">
                                                             Cancelar
                                                         </button>
-
-                                                        <!-- Modal de confirmação -->
-                                                        <div class="modal fade" id="modalCancelarVenda<?= (int)$venda['id'] ?>"
-                                                            tabindex="-1"
-                                                            aria-labelledby="modalCancelarVendaLabel<?= (int)$venda['id'] ?>"
-                                                            aria-hidden="true">
-                                                            <div class="modal-dialog modal-dialog-scrollable" style="margin-top: 1rem;">
-                                                                <div class="modal-content">
-                                                                    <div class="modal-header">
-                                                                        <h5 class="modal-title" id="modalCancelarVendaLabel<?= (int)$venda['id'] ?>">
-                                                                            Confirmar Cancelamento
-                                                                        </h5>
-                                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                                                    </div>
-                                                                    <div class="modal-body">
-                                                                        Tem certeza que deseja cancelar a venda
-                                                                        <strong>#<?= htmlspecialchars($venda['id']) ?></strong>?
-                                                                    </div>
-                                                                    <div class="modal-footer">
-                                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Não</button>
-                                                                        <form method="POST"
-                                                                            action="../../assets/php/frentedeloja/cancelarVendaSubmit.php?id=<?= urlencode($venda['id']) ?>"
-                                                                            style="display:inline;">
-                                                                            <input type="hidden" name="idSelecionado" value="<?= htmlspecialchars($idSelecionado) ?>" />
-                                                                            <input type="hidden" name="id" value="<?= htmlspecialchars($venda['id']) ?>">
-                                                                            <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                                                            <input type="hidden" name="usuario_id" value="<?= (int)$usuario_id ?>">
-                                                                            <?php if (!is_null($idAbertura)): ?>
-                                                                                <input type="hidden" name="id_caixa" value="<?= (int)$idAbertura ?>">
-                                                                            <?php endif; ?>
-                                                                            <button type="submit" class="btn btn-danger">Sim, Cancelar</button>
-                                                                        </form>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <!-- fim modal -->
+                                                        <!-- fim botão -->
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -528,6 +479,85 @@ try {
         </div>
 
     </div>
+
+    <!-- Modal Única: 3 opções de cancelamento (envio para cancelar_venda_processa.php) -->
+    <div class="modal fade" id="modalCancelarVenda" tabindex="-1" aria-labelledby="modalCancelarVendaLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header border-0 pb-0">
+            <h5 class="modal-title fw-bold" id="modalCancelarVendaLabel">
+              Cancelar venda <span id="cv-venda-id-badge" class="badge bg-label-danger ms-1">#</span>
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+          </div>
+
+          <div class="modal-body pt-2">
+            <p class="mb-3 text-muted">
+              Selecione o tipo de cancelamento para a <strong>venda <span id="cv-venda-id-text">-</span></strong>.
+            </p>
+
+            <!-- Opção 1: Interno -->
+            <form id="form-cv-interno" class="mb-2" method="post" action="cancelar_venda_processa.php">
+              <input type="hidden" name="id" value="">
+              <input type="hidden" name="venda_id" value="">
+              <input type="hidden" name="acao" value="interno">
+              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                <span class="d-flex align-items-start w-100 p-3">
+                  <i class="bx bx-x-circle fs-3 me-3"></i>
+                  <span>
+                    <span class="fw-semibold d-block">Cancelar venda (interno)</span>
+                    <small class="text-muted">Estorna a venda no sistema (estoque/financeiro), sem evento SEFAZ.</small>
+                  </span>
+                </span>
+              </button>
+            </form>
+
+            <!-- Opção 2: Evento 110111 -->
+            <form id="form-cv-110111" class="mb-2" method="post" action="cancelar_venda_processa.php">
+              <input type="hidden" name="id" value="">
+              <input type="hidden" name="venda_id" value="">
+              <input type="hidden" name="acao" value="110111">
+              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                <span class="d-flex align-items-start w-100 p-3">
+                  <i class="bx bx-file-minus fs-3 me-3"></i>
+                  <span>
+                    <span class="fw-semibold d-block">Cancelar NFC-e — Evento 110111</span>
+                    <small class="text-muted">Envia o cancelamento oficial da NFC-e autorizada.</small>
+                  </span>
+                </span>
+              </button>
+            </form>
+
+            <!-- Opção 3: Inutilização 110112 -->
+            <form id="form-cv-110112" method="post" action="cancelar_venda_processa.php">
+              <input type="hidden" name="id" value="">
+              <input type="hidden" name="venda_id" value="">
+              <input type="hidden" name="acao" value="110112">
+              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                <span class="d-flex align-items-start w-100 p-3">
+                  <i class="bx bx-block fs-3 me-3"></i>
+                  <span>
+                    <span class="fw-semibold d-block">Inutilizar numeração — 110112</span>
+                    <small class="text-muted">Para numeração sem uso. Não cancela NFC-e já autorizada.</small>
+                  </span>
+                </span>
+              </button>
+            </form>
+
+            <div class="alert alert-info mt-3 mb-0" role="alert">
+              <i class="bx bx-info-circle me-2"></i>
+              <strong>Status NFC-e:</strong> <span id="cv-status-nfce">—</span>
+            </div>
+          </div>
+
+          <div class="modal-footer border-0 pt-0">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /Modal -->
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const idCaixa = document.getElementById('id_caixa');
@@ -535,8 +565,8 @@ try {
             const aviso = document.getElementById('avisoSemCaixa');
 
             if (!idCaixa || !idCaixa.value.trim()) {
-                form.style.display = 'none'; // Oculta o formulário
-                aviso.style.display = 'block'; // Exibe o alerta
+                if (form) form.style.display = 'none';
+                if (aviso) aviso.style.display = 'block';
             }
         });
     </script>
@@ -547,6 +577,101 @@ try {
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="../../assets/vendor/js/menu.js"></script>
     <script src="../../assets/js/main.js"></script>
-</body>
 
+    <script>
+    (function(){
+      // Preenche hidden inputs dos 3 formulários e abre a modal
+      document.addEventListener('click', function(ev){
+        const btn = ev.target.closest('.btn-cancelar-venda');
+        if (!btn) return;
+
+        const vendaId   = btn.getAttribute('data-venda-id') || '';
+        const empresaId = btn.getAttribute('data-empresa-id') || '';
+        const status    = btn.getAttribute('data-status') || '-';
+
+        document.getElementById('cv-venda-id-badge').textContent = '#' + vendaId;
+        document.getElementById('cv-venda-id-text').textContent  = '#' + vendaId;
+        document.getElementById('cv-status-nfce').textContent    = status;
+
+        // Preenche <input hidden> de cada form
+        ['form-cv-interno','form-cv-110111','form-cv-110112'].forEach(function(fid){
+          const f = document.getElementById(fid);
+          if (!f) return;
+          const idInput     = f.querySelector('input[name="id"]');
+          const vendaInput  = f.querySelector('input[name="venda_id"]');
+          if (idInput)    idInput.value = empresaId;
+          if (vendaInput) vendaInput.value = vendaId;
+        });
+
+        // Abre modal via Bootstrap
+        const modalEl = document.getElementById('modalCancelarVenda');
+        const bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
+        bsModal.show();
+      });
+    })();
+    </script>
+
+<?php
+  // Garante que a UI receba empresa_id e venda_id mesmo se vieram de sessão
+  if (!isset($_REQUEST['id']) && !empty($empresaId))   $_REQUEST['id'] = $_GET['id'] = $empresaId;
+  if (!isset($_REQUEST['venda_id']) && !empty($vendaId)) $_REQUEST['venda_id'] = $_GET['venda_id'] = (string)$vendaId;
+
+  /* ========= inclui a UI de cancelamento (vários caminhos) ========= */
+  $__cv_paths = [
+    __DIR__ . '/cancelar_venda_ui.php',
+    __DIR__ . '/../nfce/cancelar_venda_ui.php',
+    __DIR__ . '/../frentedeloja/caixa/cancelar_venda_ui.php',
+    __DIR__ . '/../modals/cancelar_venda_ui.php',
+    __DIR__ . '/modals/cancelar_venda_ui.php',
+  ];
+  $__cv_included = false;
+  foreach ($__cv_paths as $__p) {
+    if (is_file($__p)) {
+      include $__p;
+      $__cv_included = true;
+      break;
+    }
+  }
+
+  /* ========= fallback minimal se o arquivo não existir ========= */
+  if (!$__cv_included): ?>
+    <div id="cv-overlay" class="fallback" style="display:none" aria-hidden="true">
+      <div class="cv-modal" role="dialog" aria-modal="true" style="display:none">
+        <h3>Cancelar venda</h3>
+        <p>Interface de cancelamento padrão não encontrada.</p>
+        <div class="cv-actions">
+          <button type="button" class="btn" onclick="cvClose()">Fechar</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      if (typeof window.cvOpen !== 'function') {
+        window.cvOpen = function() {
+          var ov = document.getElementById('cv-overlay');
+          var md = ov ? ov.querySelector('.cv-modal') : null;
+          if (ov) {
+            ov.style.display = 'grid';
+            ov.removeAttribute('aria-hidden');
+          }
+          if (md) {
+            md.style.display = 'block';
+            md.focus && md.focus();
+          }
+        };
+      }
+      if (typeof window.cvClose !== 'function') {
+        window.cvClose = function() {
+          var ov = document.getElementById('cv-overlay');
+          var md = ov ? ov.querySelector('.cv-modal') : null;
+          if (md) md.style.display = 'none';
+          if (ov) {
+            ov.style.display = 'none';
+            ov.setAttribute('aria-hidden', 'true');
+          }
+        };
+      }
+    </script>
+  <?php endif; ?>
+
+</body>
 </html>

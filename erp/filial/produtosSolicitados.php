@@ -26,6 +26,189 @@ if (
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
+/* ====== GATEWAY AJAX ANTES DE QUALQUER HTML ====== */
+
+/* Helpers mínimos só para o AJAX */
+if (!function_exists('json_exit')) {
+    function json_exit(array $payload, int $statusCode = 200): void {
+        while (ob_get_level()) { @ob_end_clean(); } // zera qualquer saída anterior
+        ini_set('display_errors', '0');
+        header_remove('X-Powered-By');
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Pragma: no-cache');
+        http_response_code($statusCode);
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+if (!function_exists('h')) {
+    function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+}
+
+/* Descoberta dinâmica das colunas (reuso do seu código) */
+if (!function_exists('descobrirColunasItens')) {
+    function descobrirColunasItens(PDO $pdo): array {
+        $temItens = false; $cols = [];
+        try { $rs=$pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'"); $temItens=(bool)$rs->fetchColumn(); } catch(Throwable $e){}
+        if (!$temItens) return [false,null,null,null];
+        try {
+            $st=$pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
+            while($c=$st->fetch(PDO::FETCH_ASSOC)) $cols[]=$c['Field'];
+        } catch(Throwable $e){ return [false,null,null,null]; }
+
+        $colCod=null; foreach(['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'] as $c){ if(in_array($c,$cols,true)){ $colCod=$c; break; } }
+        $colQtd=null; foreach(['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'] as $c){ if(in_array($c,$cols,true)){ $colQtd=$c; break; } }
+        $colNome=null; foreach(['nome_produto','descricao_produto','produto_nome'] as $c){ if(in_array($c,$cols,true)){ $colNome=$c; break; } }
+
+        if(!$colCod && !$colQtd && !$colNome) return [false,null,null,null];
+        return [true,$colCod,$colQtd,$colNome];
+    }
+}
+
+/* Função para montar detalhes (HTML puro) */
+if (!function_exists('render_detalhes_pedido')) {
+    function render_detalhes_pedido(PDO $pdo, string $empresaIdMatriz, int $id): string {
+        [$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
+
+        $selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
+        $joins = "";
+        if ($temItens) {
+            $joins .= "
+              LEFT JOIN (
+                SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
+                FROM solicitacoes_b2b_itens si1
+                WHERE si1.solicitacao_id = :id
+                GROUP BY si1.solicitacao_id
+              ) pick ON pick.solicitacao_id = s.id
+              LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+            ";
+            if ($colCod) {
+                $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
+                $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+            } elseif ($colNome) {
+                $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
+                $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+            } else {
+                $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+            }
+        }
+
+        $sql = "
+          SELECT
+            s.id AS pedido_id,
+            s.status,
+            s.prioridade,
+            s.observacao AS obs,
+            s.created_at AS criado_em,
+            u.nome       AS filial_nome,
+            {$selectItem}
+          FROM solicitacoes_b2b s
+          LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+           AND u.empresa_id = s.id_matriz
+          {$joins}
+          WHERE s.id_matriz = :empresa
+            AND s.id = :id
+            AND s.id_solicitante LIKE 'unidade\_%'
+            AND u.tipo = 'filial'
+          LIMIT 1
+        ";
+        $st = $pdo->prepare($sql);
+        $st->execute([':empresa'=>$empresaIdMatriz, ':id'=>$id]);
+        $r = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$r) return "<div class='text-danger'>Não encontrado.</div>";
+
+        ob_start(); ?>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <p><strong>Filial:</strong> <?=h($r['filial_nome'] ?: '—')?></p>
+            <p><strong>Qr code:</strong> <?=h($r['item_qr_code'] ?: '—')?></p>
+            <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Qtd:</strong> <?= isset($r['item_qtd']) ? (int)$r['item_qtd'] : '—' ?></p>
+            <p><strong>Prioridade:</strong> <?=h($r['prioridade'] ?: '—')?></p>
+            <p><strong>Status:</strong> <?=h(ucfirst($r['status'] ?: '—'))?></p>
+          </div>
+          <div class="col-12">
+            <p><strong>Observações:</strong> <?=h($r['obs'] ?: '—')?></p>
+          </div>
+        </div>
+        <?php
+        return (string)ob_get_clean();
+    }
+}
+
+/* ===== Handlers AJAX ===== */
+$empresaIdMatrizAjax = $_SESSION['empresa_id'] ?? '';
+
+/* Detalhes (GET) – devolve HTML puro, sem cabeçalho/rodapé */
+if (isset($_GET['acao']) && $_GET['acao'] === 'detalhes') {
+    while (ob_get_level()) { @ob_end_clean(); } // garante saída limpa
+    ini_set('display_errors','0');
+
+    if (!$empresaIdMatrizAjax) { http_response_code(401); echo "<div class='text-danger'>Sessão expirada.</div>"; exit; }
+
+    $id = (int)($_GET['id'] ?? 0);
+    if ($id <= 0) { http_response_code(400); echo "<div class='text-danger'>ID inválido.</div>"; exit; }
+
+    echo render_detalhes_pedido($pdo, $empresaIdMatrizAjax, $id);
+    exit;
+}
+
+/* Aprovar/Reprovar (POST) – devolve JSON limpo */
+if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], true)) {
+    $acao = $_POST['acao'];
+    $pedidoId = (int)($_POST['pedido_id'] ?? 0);
+    $motivo = trim((string)($_POST['motivo'] ?? ''));
+
+    if (!$empresaIdMatrizAjax) json_exit(['ok'=>false,'msg'=>'Sessão expirada (empresa).']);
+    if ($pedidoId <= 0)        json_exit(['ok'=>false,'msg'=>'ID inválido.']);
+
+    try {
+        $cols = [];
+        try {
+            $cst = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
+            while ($c = $cst->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
+        } catch (Throwable $e) {}
+
+        $st = $pdo->prepare("SELECT id,status,observacao FROM solicitacoes_b2b WHERE id=:id AND id_matriz=:emp LIMIT 1");
+        $st->execute([':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) json_exit(['ok'=>false,'msg'=>'Solicitação não encontrada para esta empresa.']);
+
+        $statusAtual = strtolower((string)($row['status'] ?? ''));
+        if ($acao==='aprovar' && $statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada']);
+        if ($acao==='reprovar' && $statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.','status'=>'reprovada']);
+
+        $novo = ($acao==='aprovar' ? 'aprovada' : 'reprovada');
+        $set = "status = :novo";
+        $params = [':novo'=>$novo, ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
+
+        if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
+
+        if ($acao==='reprovar' && $motivo!=='' && isset($cols['observacao'])) {
+            $novaObs = trim((string)($row['observacao'] ?? ''));
+            if ($novaObs!=='') $novaObs .= " | ";
+            $novaObs .= "Reprovado: ".$motivo;
+            $set .= ", observacao = :obs";
+            $params[':obs'] = $novaObs;
+        }
+
+        $up = $pdo->prepare("UPDATE solicitacoes_b2b SET $set WHERE id=:id AND id_matriz=:emp LIMIT 1");
+        $up->execute($params);
+
+        json_exit(['ok'=>true,'msg'=>'Atualizado com sucesso.','status'=>$novo]);
+    } catch (Throwable $e) {
+        json_exit(['ok'=>false,'msg'=>'Falha no processamento.']);
+    }
+}
+/* ====== FIM DO GATEWAY AJAX ====== */
+
+
+
+
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
@@ -688,146 +871,500 @@ $fimTxt = $fim->format('d/m/Y');
                         <span class="text-muted fw-light">Pedidos de produtos enviados pelas Filiais</span>
                     </h5>
 
-                    <!-- Toolbar / Filtros (HTML estático por enquanto) -->
+<?php
+/**
+ * /erp/filial/produtosSolicitados.php
+ * Lista + processamento no mesmo arquivo (Aprovar, Reprovar, Detalhes)
+ */
 
 
-                    <!-- Tabela (HTML mock) -->
-                    <div class="card">
-                        <h5 class="card-header">Lista de Produtos Solicitados</h5>
-                        <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th># Pedido</th>
-                                        <th>Filial</th>
-                                        <th>SKU</th>
-                                        <th>Produto</th>
-                                        <th>Qtd</th>
-                                        <th>Prioridade</th>
-                                        <th>Solicitado em</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-border-bottom-0">
-                                    <tr>
-                                        <td>PS-3021</td>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>120</td>
-                                        <td><span class="badge bg-label-danger status-badge">Alta</span></td>
-                                        <td>25/09/2025</td>
-                                        <td><span class="badge bg-label-warning status-badge">Aguardando</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAtender">Atender</button>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                            <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalCancelar">Cancelar</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>PS-3022</td>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>40</td>
-                                        <td><span class="badge bg-label-warning status-badge">Média</span></td>
-                                        <td>24/09/2025</td>
-                                        <td><span class="badge bg-label-info status-badge">Em Separação</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>PS-3023</td>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td>500</td>
-                                        <td><span class="badge bg-label-info status-badge">Baixa</span></td>
-                                        <td>20/09/2025</td>
-                                        <td><span class="badge bg-label-success status-badge">Enviado</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+/* ================= Helpers ================= */
+function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function dtbr(?string $dt): string { if(!$dt) return '—'; $t=strtotime($dt); return $t?date('d/m/Y H:i',$t):'—'; }
+function json_exit(array $payload, int $statusCode = 200): void {
+  // Garante JSON limpo
+  if (ob_get_level()) { @ob_end_clean(); }
+  ini_set('display_errors', '0');
+  header_remove('X-Powered-By');
+  header('Content-Type: application/json; charset=UTF-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
+  http_response_code($statusCode);
+  echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+  exit;
+}
 
-                    <!-- Modais mock -->
-                    <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered modal-lg">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Detalhes do Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <p><strong>Filial:</strong> Filial Centro</p>
-                                            <p><strong>SKU:</strong> ACA-500</p>
-                                            <p><strong>Produto:</strong> Polpa Açaí 500g</p>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <p><strong>Qtd:</strong> 120</p>
-                                            <p><strong>Prioridade:</strong> Alta</p>
-                                            <p><strong>Status:</strong> Aguardando</p>
-                                        </div>
-                                        <div class="col-12">
-                                            <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
-                                            <p><strong>Anexos:</strong> <span class="text-muted">—</span></p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+/* ================= Sessão & Conexão ================= */
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-                    <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Atender Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    Iniciar atendimento e separar os itens deste pedido?
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <button class="btn btn-primary">Confirmar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+/**
+ * Ajuste este require se seu caminho de conexão for diferente.
+ * Considerando este arquivo em /erp/filial/, conexão em /assets/php/conexao.php
+ */
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  require_once __DIR__ . '/../../assets/php/conexao.php';
+}
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Cancelar Pedido</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <label class="form-label">Motivo (opcional)</label>
-                                    <textarea class="form-control" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
-                                </div>
-                                <div class="modal-footer">
-                                    <button class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                                    <button class="btn btn-danger">Confirmar Cancelamento</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+/* ================= Empresa (Matriz) ================= */
+$empresaIdMatriz = $_SESSION['empresa_id'] ?? '';
 
-                </div>
-                <!-- / Content -->
+/* ================= Descoberta dinâmica das colunas de itens ================= */
+function descobrirColunasItens(PDO $pdo): array {
+  $temItens = false; $cols = [];
+  try { $rs=$pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'"); $temItens=(bool)$rs->fetchColumn(); } catch(Throwable $e){}
+  if (!$temItens) return [false,null,null,null];
+  try {
+    $st=$pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
+    while($c=$st->fetch(PDO::FETCH_ASSOC)) $cols[]=$c['Field'];
+  } catch(Throwable $e){ return [false,null,null,null]; }
+
+  $colCod=null; foreach(['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'] as $c){ if(in_array($c,$cols,true)){ $colCod=$c; break; } }
+  $colQtd=null; foreach(['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'] as $c){ if(in_array($c,$cols,true)){ $colQtd=$c; break; } }
+  $colNome=null; foreach(['nome_produto','descricao_produto','produto_nome'] as $c){ if(in_array($c,$cols,true)){ $colNome=$c; break; } }
+
+  if(!$colCod && !$colQtd && !$colNome) return [false,null,null,null];
+  return [true,$colCod,$colQtd,$colNome];
+}
+
+/* ================= Buscar 1 solicitação (para modal Detalhes) ================= */
+function buscarSolicitacaoPorId(PDO $pdo, string $empresaIdMatriz, int $id, array $mapeamento): ?array {
+  [$temItens,$colCod,$colQtd,$colNome] = $mapeamento;
+
+  $selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
+  $joins = "";
+  if ($temItens) {
+    $joins .= "
+      LEFT JOIN (
+        SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
+        FROM solicitacoes_b2b_itens si1
+        WHERE si1.solicitacao_id = :id
+        GROUP BY si1.solicitacao_id
+      ) pick ON pick.solicitacao_id = s.id
+      LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+    ";
+    if ($colCod) {
+      $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
+      $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+    } elseif ($colNome) {
+      $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
+      $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+    } else {
+      $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+    }
+  }
+
+  $sql = "
+    SELECT
+      s.id AS pedido_id,
+      s.status,
+      s.prioridade,
+      s.observacao AS obs,
+      s.created_at AS criado_em,
+      u.nome       AS filial_nome,
+      {$selectItem}
+    FROM solicitacoes_b2b s
+    LEFT JOIN unidades u
+      ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+     AND u.empresa_id = s.id_matriz
+    {$joins}
+    WHERE s.id_matriz = :empresa
+      AND s.id = :id
+      AND s.id_solicitante LIKE 'unidade\_%'
+      AND u.tipo = 'filial'
+    LIMIT 1
+  ";
+  $st = $pdo->prepare($sql);
+  $st->execute([':empresa'=>$empresaIdMatriz, ':id'=>$id]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+  return $row ?: null;
+}
+
+/* ================= Handlers AJAX NO MESMO ARQUIVO ================= */
+if (isset($_GET['acao']) && $_GET['acao']==='detalhes') {
+  if (ob_get_level()) { @ob_end_clean(); }
+  ini_set('display_errors', '0');
+
+  if (!$empresaIdMatriz) { http_response_code(401); echo "<div class='text-danger'>Sessão expirada.</div>"; exit; }
+
+  $id = (int)($_GET['id'] ?? 0);
+  if (!$id) { http_response_code(400); echo "<div class='text-danger'>ID inválido.</div>"; exit; }
+
+  $map = descobrirColunasItens($pdo);
+  $r = buscarSolicitacaoPorId($pdo, $empresaIdMatriz, $id, $map);
+  if (!$r) { echo "<div class='text-danger'>Não encontrado.</div>"; exit; }
+  ?>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <p><strong>Filial:</strong> <?=h($r['filial_nome'] ?: '—')?></p>
+      <p><strong>Qr code:</strong> <?=h($r['item_qr_code'] ?: '—')?></p>
+      <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
+    </div>
+    <div class="col-md-6">
+      <p><strong>Qtd:</strong> <?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></p>
+      <p><strong>Prioridade:</strong> <?=h($r['prioridade'] ?: '—')?></p>
+      <p><strong>Status:</strong> <?=h(ucfirst($r['status'] ?: '—'))?></p>
+    </div>
+    <div class="col-12">
+      <p><strong>Observações:</strong> <?=h($r['obs'] ?: '—')?></p>
+    </div>
+  </div>
+  <?php
+  exit;
+}
+
+if (isset($_POST['acao']) && ($_POST['acao']==='aprovar' || $_POST['acao']==='reprovar')) {
+  if (ob_get_level()) { @ob_end_clean(); }
+  ini_set('display_errors', '0');
+
+  $acao = $_POST['acao'];
+  $pedidoId = (int)($_POST['pedido_id'] ?? 0);
+  $motivo = trim((string)($_POST['motivo'] ?? ''));
+
+  if (!$empresaIdMatriz) json_exit(['ok'=>false,'msg'=>'Sessão expirada (empresa).'], 200);
+  if ($pedidoId<=0)      json_exit(['ok'=>false,'msg'=>'ID inválido.'], 200);
+
+  try {
+    // checa colunas opcionais
+    $cols = [];
+    try {
+      $cst = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
+      while ($c = $cst->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
+    } catch (Throwable $e) {}
+
+    // carrega a solicitação
+    $st = $pdo->prepare("SELECT id,status,observacao FROM solicitacoes_b2b WHERE id=:id AND id_matriz=:emp LIMIT 1");
+    $st->execute([':id'=>$pedidoId, ':emp'=>$empresaIdMatriz]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$row) json_exit(['ok'=>false,'msg'=>'Solicitação não encontrada para esta empresa.'], 200);
+
+    $statusAtual = strtolower((string)($row['status'] ?? ''));
+    if ($acao==='aprovar' && $statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada'], 200);
+    if ($acao==='reprovar' && $statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.','status'=>'reprovada'], 200);
+
+    $novo = ($acao==='aprovar' ? 'aprovada' : 'reprovada');
+    $set = "status = :novo";
+    $params = [':novo'=>$novo, ':id'=>$pedidoId, ':emp'=>$empresaIdMatriz];
+
+    if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
+
+    if ($acao==='reprovar' && $motivo!=='' && isset($cols['observacao'])) {
+      $novaObs = trim((string)($row['observacao'] ?? ''));
+      if ($novaObs!=='') $novaObs .= " | ";
+      $novaObs .= "Reprovado: ".$motivo;
+      $set .= ", observacao = :obs";
+      $params[':obs'] = $novaObs;
+    }
+
+    $up = $pdo->prepare("UPDATE solicitacoes_b2b SET $set WHERE id=:id AND id_matriz=:emp LIMIT 1");
+    $up->execute($params);
+
+    json_exit(['ok'=>true,'msg'=>'Atualizado com sucesso.','status'=>$novo], 200);
+  } catch (Throwable $e) {
+    json_exit(['ok'=>false,'msg'=>'Falha no processamento.'], 200);
+  }
+}
+
+/* ================= Renderização da LISTA ================= */
+
+// Mapeamento itens para a LISTA
+[$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
+
+/* SELECT base + filtro por FILIAIS (tipo='filial') */
+$selectBase = "
+  s.id AS pedido_id,
+  s.status,
+  s.prioridade AS item_prioridade,
+  s.observacao AS obs,
+  s.created_at AS criado_em,
+  u.nome       AS filial_nome
+";
+$selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
+$joins = "LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+           AND u.empresa_id = s.id_matriz";
+
+if ($temItens) {
+  $joins .= "
+    LEFT JOIN (
+      SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
+      FROM solicitacoes_b2b_itens si1
+      GROUP BY si1.solicitacao_id
+    ) pick ON pick.solicitacao_id = s.id
+    LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+  ";
+  if ($colCod) {
+    $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
+    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
+  } elseif ($colNome) {
+    $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
+    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
+  } else {
+    $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
+  }
+}
+
+$sql = "
+  SELECT {$selectBase}, {$selectItem}
+  FROM solicitacoes_b2b s
+  {$joins}
+  WHERE s.id_matriz = :empresa
+    AND s.id_solicitante LIKE 'unidade\_%'
+    AND u.tipo = 'filial'
+  ORDER BY s.created_at DESC, s.id DESC
+  LIMIT 300
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute([':empresa'=>$empresaIdMatriz]);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+?>
+<!-- ================= HTML (mesma estrutura e classes) ================= -->
+
+<!-- Tabela (HTML mock) -->
+<div class="card">
+  <h5 class="card-header">Lista de Produtos Solicitados</h5>
+  <div class="table-responsive text-nowrap">
+    <table class="table table-hover">
+      <thead>
+        <tr>
+          <th># Pedido</th>
+          <th>Filial</th>
+          <th>Qr code</</th>
+          <th>Produto</th>
+          <th>Qtd</th>
+          <th>Prioridade</th>
+          <th>Solicitado em</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody class="table-border-bottom-0">
+        <?php if (!$rows): ?>
+          <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
+        <?php else: foreach ($rows as $r):
+          $pedidoId = (int)$r['pedido_id'];
+          $qr   = $r['item_qr_code'] ?: '—';
+          $prod = $r['item_nome']    ?: '—';
+          $qtd  = isset($r['item_qtd']) && $r['item_qtd']!==null ? (int)$r['item_qtd'] : 0;
+          $pri  = $r['item_prioridade'] ?: 'media';
+          $sts  = strtolower((string)($r['status'] ?? 'pendente'));
+          $fil  = $r['filial_nome'] ?: '—';
+          $dt   = dtbr($r['criado_em']);
+
+          $badgePri = (function($p){
+            $p = strtolower($p);
+            if ($p==='alta')   return '<span class="badge bg-label-danger status-badge">Alta</span>';
+            if ($p==='media'||$p==='média') return '<span class="badge bg-label-warning status-badge">Média</span>';
+            if ($p==='baixa')  return '<span class="badge bg-label-success status-badge">Baixa</span>';
+            return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p)).'</span>';
+          })($pri);
+
+          $badgeSts = (function($s){
+            return match ($s) {
+              'pendente'    => '<span class="badge bg-label-warning status-badge">Pendente</span>',
+              'aprovada'    => '<span class="badge bg-label-primary status-badge">Aprovada</span>',
+              'reprovada'   => '<span class="badge bg-label-danger status-badge">Reprovada</span>',
+              'em_transito' => '<span class="badge bg-label-info status-badge">Em Trânsito</span>',
+              'entregue'    => '<span class="badge bg-label-success status-badge">Entregue</span>',
+              'cancelada'   => '<span class="badge bg-label-dark status-badge">Cancelada</span>',
+              default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s)).'</span>',
+            };
+          })($sts);
+        ?>
+        <tr data-pedido="<?= $pedidoId ?>">
+          <td># <?= h((string)$pedidoId) ?></td>
+          <td><strong><?= h($fil) ?></strong></td>
+          <td><?= h($qr) ?></td>
+          <td><?= h($prod) ?></td>
+          <td><?= $qtd ?: '—' ?></td>
+          <td><?= $badgePri ?></td>
+          <td><?= h($dt) ?></td>
+          <td class="td-status"><?= $badgeSts ?></td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary btn-aprovar"
+                    data-bs-toggle="modal" data-bs-target="#modalAtender"
+                    data-pedido="<?= $pedidoId ?>">Aprovar</button>
+
+            <button class="btn btn-sm btn-outline-danger btn-reprovar"
+                    data-bs-toggle="modal" data-bs-target="#modalCancelar"
+                    data-pedido="<?= $pedidoId ?>">Reprovar</button>
+
+            <button class="btn btn-sm btn-outline-secondary btn-detalhes"
+                    data-bs-toggle="modal" data-bs-target="#modalDetalhes"
+                    data-pedido="<?= $pedidoId ?>">Detalhes</button>
+          </td>
+        </tr>
+        <?php endforeach; endif; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Detalhes -->
+<div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalhes do Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="detalhesConteudo"><div class="text-muted">Carregando...</div></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cancelar / Reprovar -->
+<div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="formReprovar" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cancelar (Reprovar) Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="pedido_id" id="cancelarPedidoId" />
+        <label class="form-label">Motivo (opcional)</label>
+        <textarea class="form-control" name="motivo" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+        <button type="submit" class="btn btn-danger">Confirmar Reprovação</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Aprovar -->
+<div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="formAprovar" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Aprovar Pedido</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="pedido_id" id="aprovarPedidoId" />
+        <p class="mb-0 text-muted">Confirma a aprovação deste pedido?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+        <button type="submit" class="btn btn-primary">Confirmar Aprovação</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const SELF = window.location.pathname + window.location.search;
+
+  function parseJsonSafe(txt) {
+    try { return JSON.parse(txt); } catch (e) { return null; }
+  }
+
+  function setRowStatus(pedidoId, novoStatus) {
+    const tr = document.querySelector(`tr[data-pedido="${pedidoId}"]`);
+    if (!tr) return;
+    const tdStatus = tr.querySelector('.td-status');
+    let badge = '';
+    switch (novoStatus) {
+      case 'aprovada':    badge = '<span class="badge bg-label-primary status-badge">Aprovada</span>'; break;
+      case 'reprovada':   badge = '<span class="badge bg-label-danger status-badge">Reprovada</span>'; break;
+      case 'pendente':    badge = '<span class="badge bg-label-warning status-badge">Pendente</span>'; break;
+      case 'entregue':    badge = '<span class="badge bg-label-success status-badge">Entregue</span>'; break;
+      case 'em_transito': badge = '<span class="badge bg-label-info status-badge">Em Trânsito</span>'; break;
+      default:            badge = '<span class="badge bg-label-secondary status-badge">'+(novoStatus||'—')+'</span>';
+    }
+    if (tdStatus) tdStatus.innerHTML = badge;
+    tr.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(b => { b.setAttribute('disabled','disabled'); b.classList.add('disabled'); });
+  }
+
+  // Amarra os botões para preencher os inputs hidden
+  document.querySelectorAll('.btn-aprovar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
+    });
+  });
+  document.querySelectorAll('.btn-reprovar').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('cancelarPedidoId').value = btn.dataset.pedido;
+    });
+  });
+
+  // Modal Detalhes (GET no mesmo arquivo)
+  document.querySelectorAll('.btn-detalhes').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const pedidoId = btn.dataset.pedido;
+      const alvo = document.getElementById('detalhesConteudo');
+      alvo.innerHTML = '<div class="text-muted">Carregando...</div>';
+      try {
+        const resp = await fetch(`${SELF}${SELF.includes('?')?'&':'?'}acao=detalhes&id=${encodeURIComponent(pedidoId)}`, { credentials: 'same-origin' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const html = await resp.text();
+        alvo.innerHTML = html;
+      } catch (e) {
+        alvo.innerHTML = '<div class="text-danger">Falha ao carregar detalhes.</div>';
+        console.error(e);
+      }
+    });
+  });
+
+  // Submit Aprovar (POST no mesmo arquivo retornando JSON limpo)
+  document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    fd.append('acao', 'aprovar');
+    try {
+      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const txt = await r.text();
+      const j = parseJsonSafe(txt);
+      if (!j) { console.error('Resposta não-JSON:', txt); alert('Resposta inválida do servidor.'); return; }
+      if (j.ok) {
+        const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+        setRowStatus(pedidoId, j.status || 'aprovada');
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalAtender'));
+        modal?.hide();
+      } else {
+        alert(j.msg || 'Não foi possível aprovar.');
+      }
+    } catch (err) {
+      alert('Erro de rede ao aprovar.');
+      console.error(err);
+    }
+  });
+
+  // Submit Reprovar (POST no mesmo arquivo retornando JSON limpo)
+  document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    fd.append('acao', 'reprovar');
+    try {
+      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const txt = await r.text();
+      const j = parseJsonSafe(txt);
+      if (!j) { console.error('Resposta não-JSON:', txt); alert('Resposta inválida do servidor.'); return; }
+      if (j.ok) {
+        const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+        setRowStatus(pedidoId, j.status || 'reprovada');
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalCancelar'));
+        modal?.hide();
+      } else {
+        alert(j.msg || 'Não foi possível reprovar.');
+      }
+    } catch (err) {
+      alert('Erro de rede ao reprovar.');
+      console.error(err);
+    }
+  });
+})();
+</script>
+
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">

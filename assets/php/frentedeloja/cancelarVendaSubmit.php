@@ -33,7 +33,7 @@ try {
     }
 
     // 2. Buscar dados da venda rápida (valor total, cpf_responsavel, id_caixa) para atualizar abertura
-    $stmtVenda = $pdo->prepare("SELECT total, cpf_responsavel, id_caixa FROM venda_rapida WHERE id = :id");
+    $stmtVenda = $pdo->prepare("SELECT valor_total, cpf_responsavel, id_caixa FROM vendas WHERE id = :id");
     $stmtVenda->execute([':id' => $idVenda]);
     $venda = $stmtVenda->fetch(PDO::FETCH_ASSOC);
 
@@ -102,7 +102,7 @@ try {
     $stmtDeleteItens->execute([':venda_id' => $idVenda]);
 
     // 6. Excluir venda rápida
-    $stmtDeleteVenda = $pdo->prepare("DELETE FROM venda_rapida WHERE id = :id");
+    $stmtDeleteVenda = $pdo->prepare("DELETE FROM vendas WHERE id = :id");
     $stmtDeleteVenda->execute([':id' => $idVenda]);
 
     $pdo->commit();
