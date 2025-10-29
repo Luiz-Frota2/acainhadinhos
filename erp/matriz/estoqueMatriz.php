@@ -66,61 +66,46 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* ==================== Resolver CNPJ da Matriz ==================== */
+/* ==================== Resolver CNPJ da Matriz (via endereco_empresa) ==================== */
 /**
- * Tenta obter o CNPJ da matriz por:
- * 1) empresas_peca.identificador == 'principal_1' (ou == $idSelecionado se já for principal)
- * 2) empresas_peca.id_selecionado == 'principal_1'
- * 3) config_empresa (chave 'principal_cnpj' ou tipo = 'principal')
+ * Usa a tabela:
+ *   CREATE TABLE endereco_empresa (
+ *     id INT AI PK,
+ *     empresa_id VARCHAR(255) NOT NULL,
+ *     cnpj VARCHAR(20) NOT NULL,
+ *     ... )
+ *
+ * Regras:
+ *  - Se a página estiver na principal (ex.: principal_1), usa esse empresa_id.
+ *  - Caso contrário, busca sempre empresa_id = 'principal_1' (ajuste se sua principal tiver outro identificador).
  */
 function resolveCnpjMatriz(PDO $pdo, string $idSelecionado): ?string {
-    // se já está na principal, usar esse identificador
-    $ident = str_starts_with($idSelecionado, 'principal_') ? $idSelecionado : 'principal_1';
-
-    // 1) empresas_peca.identificador
+    $empresaIdMatriz = str_starts_with($idSelecionado, 'principal_') ? $idSelecionado : 'principal_1';
     try {
-        $q = $pdo->prepare("SELECT cnpj FROM empresas_peca WHERE identificador = :ident LIMIT 1");
-        $q->execute([':ident' => $ident]);
-        if ($r = $q->fetch(PDO::FETCH_ASSOC)) return preg_replace('/\D+/', '', (string)$r['cnpj']);
-    } catch (Throwable $e) {}
-
-    // 2) empresas_peca.id_selecionado
-    try {
-        $q = $pdo->prepare("SELECT cnpj FROM empresas_peca WHERE id_selecionado = :ident LIMIT 1");
-        $q->execute([':ident' => $ident]);
-        if ($r = $q->fetch(PDO::FETCH_ASSOC)) return preg_replace('/\D+/', '', (string)$r['cnpj']);
-    } catch (Throwable $e) {}
-
-    // 3) config_empresa: chave ou tipo
-    try {
-        $q = $pdo->query("SELECT valor FROM config_empresa WHERE chave = 'principal_cnpj' LIMIT 1");
-        if ($r = $q->fetch(PDO::FETCH_ASSOC)) return preg_replace('/\D+/', '', (string)$r['valor']);
-    } catch (Throwable $e) {}
-    try {
-        $q = $pdo->query("SELECT cnpj FROM config_empresa WHERE tipo = 'principal' LIMIT 1");
-        if ($r = $q->fetch(PDO::FETCH_ASSOC)) return preg_replace('/\D+/', '', (string)$r['cnpj']);
-    } catch (Throwable $e) {}
-
-    return null; // não encontrado
+        $q = $pdo->prepare("SELECT cnpj FROM endereco_empresa WHERE empresa_id = :eid LIMIT 1");
+        $q->execute([':eid' => $empresaIdMatriz]);
+        if ($r = $q->fetch(PDO::FETCH_ASSOC)) {
+            return preg_replace('/\D+/', '', (string)$r['cnpj']); // normaliza para só dígitos
+        }
+    } catch (Throwable $e) {
+        // silencioso: retorna null se não achar
+    }
+    return null;
 }
 
 $cnpjMatriz = resolveCnpjMatriz($pdo, $idSelecionado);
 
 /* ==================== Buscar estoque da Matriz ====================
 
-Tabelas-alvo padrão do seu projeto:
-- produtos_peca (campos usuais: id, empresa_cnpj, sku, nome, unidade, preco_venda, ncm, cest, gtin, ... )
-- mov_estoque_peca (campos: id, empresa_cnpj, produto_id, mov_tipo, quantidade, mov_data, obs, documento_ref, ...)
+Tabelas padrão:
+- produtos_peca (id, empresa_cnpj, sku, nome, unidade, preco_venda, ncm, gtin, categoria_id, ...)
+- mov_estoque_peca (empresa_cnpj, produto_id, mov_tipo ['entrada','saida','ajuste_positivo','ajuste_negativo'], quantidade, mov_data, ...)
 
-Regras de saldo:
-saldo = entradas + ajustes_positivos - saídas - ajustes_negativos
-
-mov_tipo esperado: 'entrada','saida','ajuste_positivo','ajuste_negativo'
+Saldo = entradas + ajustes_positivos - saídas - ajustes_negativos
 */
 $produtos = []; // array de produtos com saldo
 if ($cnpjMatriz) {
     try {
-        // Busca os produtos da matriz
         $sql = "
             SELECT
                 p.id,
@@ -241,7 +226,7 @@ function badgeQntClass(float $q) {
                     </a>
                     <ul class="menu-sub active">
                         <li class="menu-item"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"><div>Produtos Solicitados</div></a></li>
-                        <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>"><div>Status da Transf.</div></a></li>
+                        <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>"><div>Status da Tranf.</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>"><div>Produtos Entregues</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./novaSolicitacao.php?id=<?= urlencode($idSelecionado); ?>"><div>Nova Solicitação</div></a></li>
                         <li class="menu-item open active"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>"><div>Estoque da Matriz</div></a></li>
@@ -320,9 +305,9 @@ function badgeQntClass(float $q) {
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="fw-bold mb-0">Estoque da Matriz</h4>
                     <?php if (!$cnpjMatriz): ?>
-                        <span class="badge bg-label-danger">CNPJ da Matriz não encontrado</span>
+                        <span class="badge bg-label-danger">CNPJ da Matriz não encontrado (endereco_empresa)</span>
                     <?php else: ?>
-                        <span class="badge bg-label-primary">Matriz: <?= htmlspecialchars($cnpjMatriz, ENT_QUOTES) ?></span>
+                        <span class="badge bg-label-primary">Matriz (CNPJ): <?= htmlspecialchars($cnpjMatriz, ENT_QUOTES) ?></span>
                     <?php endif; ?>
                 </div>
 
@@ -399,12 +384,10 @@ function badgeQntClass(float $q) {
                                 <div>Última Movimentação: <span id="modalUltima"></span></div>
                             </div>
                             <div id="modalMovsWrapper" class="mt-3">
-                                <!-- (opcional) aqui poderia carregar últimas movimentações via AJAX no futuro -->
-                                <small class="text-muted">Histórico resumido não implementado (somente listagem/visão geral nesta etapa).</small>
+                                <small class="text-muted">Histórico resumido não implementado nesta etapa.</small>
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <!-- Ações futuras (solicitar transferência, etc.) -->
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
                         </div>
                     </div>
