@@ -774,7 +774,7 @@ $sql = "
   LIMIT 300
 ";
 $stmt = $pdo->prepare($sql);
-$stmt->execute([':empresa' => $empresaIdMatriz]);
+$stmt->execute([':empresa' => $idSelecionado]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
