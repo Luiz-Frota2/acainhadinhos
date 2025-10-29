@@ -376,7 +376,7 @@ function badge_soft_class_pagamento($status)
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h4 class="fw-bold mb-0">Solicitações de Pagamento</h4>
-                      
+
                     </div>
 
                     <div class="card">
@@ -436,6 +436,13 @@ function badge_soft_class_pagamento($status)
                             </div>
                         </div>
                     </div>
+                    <!-- Adicionar novo funcionário -->
+                    <div id="addsetor" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
+                        onclick="window.location.href='novaSolicitacaoPagamento.php?id=<?= $idSelecionado ?>';"
+                        style="cursor: pointer;">
+                        <i class="tf-icons bx bx-plus me-2"></i>
+                        <span>Solicitar novo Pagamento</span>
+                    </div>
                 </div>
 
                 <!-- MODAL DETALHES -->
@@ -481,13 +488,7 @@ function badge_soft_class_pagamento($status)
                         </div>
                     </div>
                 </div>
-                <!-- Adicionar novo funcionário -->
-                <div id="addsetor" class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
-                    onclick="window.location.href='novaSolicitacaoPagamento.php?id=<?= $idSelecionado ?>';"
-                    style="cursor: pointer;">
-                    <i class="tf-icons bx bx-plus me-2"></i>
-                    <span>Solicitar novo Pagamento</span>
-                </div>
+
 
                 <!-- /MODAL -->
 
