@@ -691,7 +691,7 @@ $fimTxt = $fim->format('d/m/Y');
                     <!-- Toolbar / Filtros (HTML estático por enquanto) -->
 
 
-                 <?php
+                   <?php
 /* ===== Helpers ===== */
 function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function formatDateBr(?string $dt): string {
@@ -699,15 +699,16 @@ function formatDateBr(?string $dt): string {
   $t = strtotime($dt);
   return $t ? date('d/m/Y H:i', $t) : '—';
 }
-function badgePrioridade(string $p): string {
-  $p = strtolower($p);
-  if ($p === 'alta')   return '<span class="badge bg-label-danger status-badge">Alta</span>';
+function badgePrioridade(?string $p): string {
+  $p = strtolower((string)$p);
+  // normaliza 'Media'/'Média'
+  if ($p === 'alta')  return '<span class="badge bg-label-danger status-badge">Alta</span>';
   if ($p === 'media' || $p === 'média') return '<span class="badge bg-label-warning status-badge">Média</span>';
-  if ($p === 'baixa')  return '<span class="badge bg-label-success status-badge">Baixa</span>';
-  return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p)).'</span>';
+  if ($p === 'baixa') return '<span class="badge bg-label-success status-badge">Baixa</span>';
+  return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p) ?: '—').'</span>';
 }
-function badgeStatus(string $s): string {
-  $s = strtolower($s);
+function badgeStatus(?string $s): string {
+  $s = strtolower((string)$s);
   return match ($s) {
     'pendente'    => '<span class="badge bg-label-warning status-badge">Pendente</span>',
     'aprovada'    => '<span class="badge bg-label-primary status-badge">Aprovada</span>',
@@ -715,7 +716,7 @@ function badgeStatus(string $s): string {
     'em_transito' => '<span class="badge bg-label-info status-badge">Em Trânsito</span>',
     'entregue'    => '<span class="badge bg-label-success status-badge">Entregue</span>',
     'cancelada'   => '<span class="badge bg-label-dark status-badge">Cancelada</span>',
-    default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s)).'</span>',
+    default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s) ?: '—').'</span>',
   };
 }
 
@@ -726,58 +727,129 @@ if (!$empresaIdMatriz) {
   return;
 }
 
-/* ===== Existe itens? ===== */
+/* ===== Detecta existência de tabelas e colunas ===== */
 $temItens = false;
 try {
-  $check = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'");
-  $temItens = (bool)$check->fetchColumn();
+  $rs = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'");
+  $temItens = (bool)$rs->fetchColumn();
 } catch (Throwable $e) { $temItens = false; }
 
-/* ===== Listagem ===== */
-$sql = "
-  SELECT
-    s.id                AS pedido_id,
-    s.id_matriz         AS id_matriz,
-    s.id_solicitante    AS id_solicitante,
-    s.status            AS status,
-    s.prioridade        AS item_prioridade,   -- PRIORIDADE VEM DA SOLICITAÇÃO
-    s.observacao        AS obs,
-    s.created_at        AS criado_em,
-    u.nome              AS filial_nome
-    ".($temItens ? ",
-      e.codigo_produto  AS item_qr_code,      -- QR code do ESTOQUE
-      e.nome_produto    AS item_nome,
-      si.quantidade     AS item_qtd
-    " : ",
-      NULL AS item_qr_code,
-      NULL AS item_nome,
-      NULL AS item_qtd
-    ")."
-  FROM solicitacoes_b2b s
-  LEFT JOIN unidades u 
-         ON u.empresa_id = s.id_solicitante
-  ".($temItens ? "
-    -- 1 item representativo por pedido
+/* Descobre colunas da tabela de itens, se existir */
+$colunasItens = [];
+if ($temItens) {
+  try {
+    $colsStmt = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
+    while ($c = $colsStmt->fetch(PDO::FETCH_ASSOC)) {
+      $colunasItens[] = $c['Field'];
+    }
+  } catch (Throwable $e) {
+    $temItens = false;
+  }
+}
+
+/* Resolve nomes reais das colunas de itens (candidatos comuns) */
+$itemColCodigo = null;
+$itemColQtd    = null;
+$itemColNome   = null;
+
+if ($temItens) {
+  $candidatosCodigo = ['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'];
+  $candidatosQtd    = ['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'];
+  $candidatosNome   = ['nome_produto','descricao_produto','produto_nome'];
+
+  foreach ($candidatosCodigo as $c) if (in_array($c, $colunasItens, true)) { $itemColCodigo = $c; break; }
+  foreach ($candidatosQtd as $c)    if (in_array($c, $colunasItens, true)) { $itemColQtd    = $c; break; }
+  foreach ($candidatosNome as $c)   if (in_array($c, $colunasItens, true)) { $itemColNome   = $c; break; }
+
+  // Se não achou nenhuma coluna útil, desativa o uso de itens para evitar erros 42S22
+  if (!$itemColCodigo && !$itemColQtd && !$itemColNome) {
+    $temItens = false;
+  }
+}
+
+/* ===== Monta SQL dinamicamente ===== */
+/* Seleções base */
+$selectBase = "
+  s.id             AS pedido_id,
+  s.id_matriz      AS id_matriz,
+  s.id_solicitante AS id_solicitante,
+  s.status         AS status,
+  s.prioridade     AS item_prioridade,
+  s.observacao     AS obs,
+  s.created_at     AS criado_em,
+  u.nome           AS filial_nome
+";
+
+/* Seleções de item/estoque (se conseguirmos mapear) */
+$selectItem = "
+  NULL AS item_qr_code,
+  NULL AS item_nome,
+  NULL AS item_qtd
+";
+$joins = "";
+if ($temItens) {
+  // subconsulta pick para pegar 1 item por pedido
+  $joins .= "
     LEFT JOIN (
       SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
       FROM solicitacoes_b2b_itens si1
       GROUP BY si1.solicitacao_id
     ) pick ON pick.solicitacao_id = s.id
     LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
-    -- Junta no estoque para puxar codigo/nome do produto
-    LEFT JOIN estoque e 
-           ON e.codigo_produto = si.produto_codigo
-          AND e.empresa_id    = s.id_matriz
-  " : "")."
+  ";
+
+  // Seleções e JOIN com estoque (preferindo juntar por código do produto)
+  if ($itemColCodigo) {
+    $joins .= "
+      LEFT JOIN estoque e
+             ON e.codigo_produto = si.`{$itemColCodigo}`
+            AND e.empresa_id     = s.id_matriz
+    ";
+    $selectItem = "
+      e.codigo_produto AS item_qr_code,
+      e.nome_produto   AS item_nome,
+      ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
+    ";
+  } elseif ($itemColNome) {
+    // fallback por nome (menos preciso, mas evita erro)
+    $joins .= "
+      LEFT JOIN estoque e
+             ON e.nome_produto = si.`{$itemColNome}`
+            AND e.empresa_id   = s.id_matriz
+    ";
+    $selectItem = "
+      e.codigo_produto AS item_qr_code,
+      e.nome_produto   AS item_nome,
+      ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
+    ";
+  } else {
+    // Sem forma de mapear ao estoque; mostra apenas quantidade se houver
+    $selectItem = "
+      NULL AS item_qr_code,
+      NULL AS item_nome,
+      ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
+    ";
+  }
+}
+
+/* SQL final */
+$sql = "
+  SELECT
+    {$selectBase},
+    {$selectItem}
+  FROM solicitacoes_b2b s
+  LEFT JOIN unidades u
+         ON u.empresa_id = s.id_solicitante
+  {$joins}
   WHERE s.id_matriz = :empresa
   ORDER BY s.created_at DESC, s.id DESC
   LIMIT 300
 ";
+
 $stmt = $pdo->prepare($sql);
 $stmt->execute([':empresa' => $empresaIdMatriz]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
- 
 
 <!-- Tabela (HTML mock) -->
 <div class="card">
@@ -800,12 +872,12 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
       <tbody class="table-border-bottom-0">
         <?php if (!$rows): ?>
           <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
-        <?php else: foreach ($rows as $r): 
-          $qr   = $r['item_qr_code'] ?: '—';        // agora vem de estoque.codigo_produto
-          $prod = $r['item_nome']    ?: '—';
-          $qtd  = isset($r['item_qtd']) ? (int)$r['item_qtd'] : 0;
-          $pri  = $r['item_prioridade'] ?: '—';
-          $sts  = $r['status'] ?: 'pendente';
+        <?php else: foreach ($rows as $r):
+          $qr   = $r['item_qr_code'] ?: '—';          // de estoque.codigo_produto (quando mapeado)
+          $prod = $r['item_nome']    ?: '—';          // de estoque.nome_produto (quando mapeado)
+          $qtd  = isset($r['item_qtd']) && $r['item_qtd'] !== null ? (int)$r['item_qtd'] : 0;
+          $pri  = $r['item_prioridade'] ?? 'Media';
+          $sts  = $r['status'] ?? 'pendente';
           $fil  = $r['filial_nome'] ?: '—';
           $dt   = formatDateBr($r['criado_em']);
         ?>
@@ -815,27 +887,27 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           <td><?= h($qr) ?></td>
           <td><?= h($prod) ?></td>
           <td><?= $qtd ?: '—' ?></td>
-          <td><?= $pri === '—' ? '—' : badgePrioridade($pri) ?></td>
+          <td><?= badgePrioridade($pri) ?></td>
           <td><?= h($dt) ?></td>
           <td><?= badgeStatus($sts) ?></td>
           <td>
-            <button 
-              class="btn btn-sm btn-outline-primary btn-aprovar" 
-              data-bs-toggle="modal" 
+            <button
+              class="btn btn-sm btn-outline-primary btn-aprovar"
+              data-bs-toggle="modal"
               data-bs-target="#modalAtender"
               data-pedido="<?= h($r['pedido_id']) ?>">
               Aprovar
             </button>
-            <button 
-              class="btn btn-sm btn-outline-danger btn-reprovar" 
-              data-bs-toggle="modal" 
+            <button
+              class="btn btn-sm btn-outline-danger btn-reprovar"
+              data-bs-toggle="modal"
               data-bs-target="#modalCancelar"
               data-pedido="<?= h($r['pedido_id']) ?>">
               Reprovar
             </button>
-            <button 
-              class="btn btn-sm btn-outline-secondary btn-detalhes" 
-              data-bs-toggle="modal" 
+            <button
+              class="btn btn-sm btn-outline-secondary btn-detalhes"
+              data-bs-toggle="modal"
               data-bs-target="#modalDetalhes"
               data-pedido="<?= h($r['pedido_id']) ?>">
               Detalhes
