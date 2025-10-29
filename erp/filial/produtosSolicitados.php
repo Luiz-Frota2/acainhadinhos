@@ -689,83 +689,200 @@ $fimTxt = $fim->format('d/m/Y');
                     </h5>
 
                     <!-- Toolbar / Filtros (HTML estático por enquanto) -->
-
 <?php
-/* ===== Helpers ===== */
+/* ==========================
+   BLOCO PHP (processo + lista no MESMO arquivo)
+   ========================== */
+
+/* === Helpers === */
 function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
-function formatDateBr(?string $dt): string {
-  if (!$dt) return '—';
-  $t = strtotime($dt);
-  return $t ? date('d/m/Y H:i', $t) : '—';
-}
-function badgePrioridade(?string $p): string {
-  $p = strtolower((string)$p);
-  if ($p === 'alta') return '<span class="badge bg-label-danger status-badge">Alta</span>';
-  if ($p === 'media' || $p === 'média') return '<span class="badge bg-label-warning status-badge">Média</span>';
-  if ($p === 'baixa') return '<span class="badge bg-label-success status-badge">Baixa</span>';
-  return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p) ?: '—').'</span>';
-}
-function badgeStatus(?string $s): string {
-  $s = strtolower((string)$s);
-  return match ($s) {
-    'pendente'    => '<span class="badge bg-label-warning status-badge">Pendente</span>',
-    'aprovada'    => '<span class="badge bg-label-primary status-badge">Aprovada</span>',
-    'reprovada'   => '<span class="badge bg-label-danger status-badge">Reprovada</span>',
-    'em_transito' => '<span class="badge bg-label-info status-badge">Em Trânsito</span>',
-    'entregue'    => '<span class="badge bg-label-success status-badge">Entregue</span>',
-    'cancelada'   => '<span class="badge bg-label-dark status-badge">Cancelada</span>',
-    default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s) ?: '—').'</span>',
-  };
+function dtbr(?string $dt): string { if(!$dt) return '—'; $t=strtotime($dt); return $t?date('d/m/Y H:i',$t):'—'; }
+function json_exit(array $payload): void {
+  header('Content-Type: application/json; charset=UTF-8');
+  echo json_encode($payload); exit;
 }
 
-/* ===== Filtro empresa (Matriz) ===== */
+/* === Sessão + Conexão === */
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+  // ajuste o caminho de conexão conforme seu projeto
+  require_once __DIR__ . '/../../assets/php/conexao.php';
+}
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+/* === Empresa (matriz) === */
 $empresaIdMatriz = $_SESSION['empresa_id'] ?? '';
 if (!$empresaIdMatriz) {
-  echo '<div class="alert alert-danger">empresa_id não encontrado na sessão.</div>';
-  return;
+  // se a chamada for AJAX, responda JSON; se não, mostre alerta na renderização
+  if (($_POST['acao'] ?? '') || ($_GET['acao'] ?? '')) {
+    json_exit(['ok'=>false,'msg'=>'Sessão expirada (empresa).']);
+  }
 }
 
-/* ===== Detecta existência de itens e suas colunas ===== */
-$temItens = false;
-try {
-  $rs = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'");
-  $temItens = (bool)$rs->fetchColumn();
-} catch (Throwable $e) { $temItens = false; }
-
-$colunasItens = [];
-if ($temItens) {
+/* === Descobrir estrutura de itens dinamicamente === */
+function descobrirColunasItens(PDO $pdo): array {
+  $temItens = false; $cols = [];
+  try { $rs=$pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'"); $temItens=(bool)$rs->fetchColumn(); } catch(Throwable $e){}
+  if (!$temItens) return [false,null,null,null];
   try {
-    $colsStmt = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
-    while ($c = $colsStmt->fetch(PDO::FETCH_ASSOC)) $colunasItens[] = $c['Field'];
-  } catch (Throwable $e) { $temItens = false; }
-}
-$itemColCodigo = $itemColQtd = $itemColNome = null;
-if ($temItens) {
-  foreach (['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'] as $c)
-    if (in_array($c, $colunasItens, true)) { $itemColCodigo = $c; break; }
-  foreach (['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'] as $c)
-    if (in_array($c, $colunasItens, true)) { $itemColQtd = $c; break; }
-  foreach (['nome_produto','descricao_produto','produto_nome'] as $c)
-    if (in_array($c, $colunasItens, true)) { $itemColNome = $c; break; }
-  if (!$itemColCodigo && !$itemColQtd && !$itemColNome) $temItens = false;
+    $st=$pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
+    while($c=$st->fetch(PDO::FETCH_ASSOC)) $cols[]=$c['Field'];
+  } catch(Throwable $e){ return [false,null,null,null]; }
+
+  $colCod=null; foreach(['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'] as $c){ if(in_array($c,$cols,true)){ $colCod=$c; break; } }
+  $colQtd=null; foreach(['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'] as $c){ if(in_array($c,$cols,true)){ $colQtd=$c; break; } }
+  $colNome=null; foreach(['nome_produto','descricao_produto','produto_nome'] as $c){ if(in_array($c,$cols,true)){ $colNome=$c; break; } }
+
+  if(!$colCod && !$colQtd && !$colNome) return [false,null,null,null];
+  return [true,$colCod,$colQtd,$colNome];
 }
 
-/* ===== SELECTs base ===== */
+/* === Função que busca UMA solicitação (para render/uso no detalhe) === */
+function buscarSolicitacaoPorId(PDO $pdo, string $empresaIdMatriz, int $id, array $mapeamento): ?array {
+  [$temItens,$colCod,$colQtd,$colNome] = $mapeamento;
+
+  $selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
+  $joins = "";
+  if ($temItens) {
+    $joins .= "
+      LEFT JOIN (
+        SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
+        FROM solicitacoes_b2b_itens si1
+        WHERE si1.solicitacao_id = :id
+        GROUP BY si1.solicitacao_id
+      ) pick ON pick.solicitacao_id = s.id
+      LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+    ";
+    if ($colCod) {
+      $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
+      $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+    } elseif ($colNome) {
+      $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
+      $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+    } else {
+      $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
+    }
+  }
+
+  $sql = "
+    SELECT
+      s.id AS pedido_id,
+      s.status,
+      s.prioridade,
+      s.observacao AS obs,
+      s.created_at AS criado_em,
+      u.nome       AS filial_nome,
+      {$selectItem}
+    FROM solicitacoes_b2b s
+    LEFT JOIN unidades u
+      ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+     AND u.empresa_id = s.id_matriz
+    {$joins}
+    WHERE s.id_matriz = :empresa
+      AND s.id = :id
+      AND s.id_solicitante LIKE 'unidade\_%'
+      AND u.tipo = 'filial'
+    LIMIT 1
+  ";
+  $st = $pdo->prepare($sql);
+  $st->execute([':empresa'=>$empresaIdMatriz, ':id'=>$id]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+  return $row ?: null;
+}
+
+/* === HANDLERS AJAX NO MESMO ARQUIVO === */
+if (isset($_GET['acao']) && $_GET['acao']==='detalhes') {
+  $id = (int)($_GET['id'] ?? 0);
+  if (!$id) { http_response_code(400); echo "<div class='text-danger'>ID inválido.</div>"; exit; }
+  $map = descobrirColunasItens($pdo);
+  $r = buscarSolicitacaoPorId($pdo, $empresaIdMatriz, $id, $map);
+  if (!$r) { echo "<div class='text-danger'>Não encontrado.</div>"; exit; }
+  // fragmento HTML da modal
+  ?>
+  <div class="row g-3">
+    <div class="col-md-6">
+      <p><strong>Filial:</strong> <?=h($r['filial_nome'] ?: '—')?></p>
+      <p><strong>Qr code:</strong> <?=h($r['item_qr_code'] ?: '—')?></p>
+      <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
+    </div>
+    <div class="col-md-6">
+      <p><strong>Qtd:</strong> <?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></p>
+      <p><strong>Prioridade:</strong> <?=h($r['prioridade'] ?: '—')?></p>
+      <p><strong>Status:</strong> <?=h(ucfirst($r['status'] ?: '—'))?></p>
+    </div>
+    <div class="col-12">
+      <p><strong>Observações:</strong> <?=h($r['obs'] ?: '—')?></p>
+    </div>
+  </div>
+  <?php
+  exit;
+}
+
+if (isset($_POST['acao']) && ($_POST['acao']==='aprovar' || $_POST['acao']==='reprovar')) {
+  $acao = $_POST['acao'];
+  $pedidoId = (int)($_POST['pedido_id'] ?? 0);
+  $motivo = trim((string)($_POST['motivo'] ?? ''));
+
+  if ($pedidoId<=0) json_exit(['ok'=>false,'msg'=>'ID inválido.']);
+
+  // checa colunas opcionais da tabela
+  $cols = [];
+  try {
+    $cst = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
+    while ($c = $cst->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
+  } catch (Throwable $e) {}
+
+  // carrega a solicitação
+  $st = $pdo->prepare("SELECT id,status,observacao FROM solicitacoes_b2b WHERE id=:id AND id_matriz=:emp LIMIT 1");
+  $st->execute([':id'=>$pedidoId, ':emp'=>$empresaIdMatriz]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+  if (!$row) json_exit(['ok'=>false,'msg'=>'Solicitação não encontrada para esta empresa.']);
+
+  $statusAtual = strtolower((string)($row['status'] ?? ''));
+  if ($acao==='aprovar' && $statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.']);
+  if ($acao==='reprovar' && $statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.']);
+
+  $set = "status = :novo";
+  $params = [
+    ':novo' => ($acao==='aprovar' ? 'aprovada' : 'reprovada'),
+    ':id'   => $pedidoId,
+    ':emp'  => $empresaIdMatriz
+  ];
+  if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
+
+  if ($acao==='reprovar' && $motivo!=='' && isset($cols['observacao'])) {
+    $novaObs = trim((string)($row['observacao'] ?? ''));
+    if ($novaObs!=='') $novaObs .= " | ";
+    $novaObs .= "Reprovado: ".$motivo;
+    $set .= ", observacao = :obs";
+    $params[':obs'] = $novaObs;
+  }
+
+  $up = $pdo->prepare("UPDATE solicitacoes_b2b SET $set WHERE id=:id AND id_matriz=:emp LIMIT 1");
+  $up->execute($params);
+
+  json_exit(['ok'=>true,'msg'=>'Atualizado com sucesso.','status'=>$params[':novo']]);
+}
+
+/* === A partir daqui é a RENDERIZAÇÃO da LISTA normal (GET sem acao) === */
+
+/* Mapeamento itens para a LISTA */
+[$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
+
+/* SELECT base + filtro por FILIAIS (tipo='filial') */
 $selectBase = "
-  s.id             AS pedido_id,
-  s.id_matriz      AS id_matriz,
-  s.id_solicitante AS id_solicitante,
-  s.status         AS status,
-  s.prioridade     AS item_prioridade,
-  s.observacao     AS obs,
-  s.created_at     AS criado_em,
-  u.nome           AS filial_nome
+  s.id AS pedido_id,
+  s.status,
+  s.prioridade AS item_prioridade,
+  s.observacao AS obs,
+  s.created_at AS criado_em,
+  u.nome       AS filial_nome
 ";
-
 $selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
-$joins = "";
+$joins = "LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+           AND u.empresa_id = s.id_matriz";
 
-/* ===== JOIN de ITENS + ESTOQUE (dinâmico) ===== */
 if ($temItens) {
   $joins .= "
     LEFT JOIN (
@@ -775,56 +892,20 @@ if ($temItens) {
     ) pick ON pick.solicitacao_id = s.id
     LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
   ";
-
-  if ($itemColCodigo) {
-    $joins .= "
-      LEFT JOIN estoque e
-             ON e.codigo_produto = si.`{$itemColCodigo}`
-            AND e.empresa_id     = s.id_matriz
-    ";
-    $selectItem = "
-      e.codigo_produto AS item_qr_code,
-      e.nome_produto   AS item_nome,
-      ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
-    ";
-  } elseif ($itemColNome) {
-    $joins .= "
-      LEFT JOIN estoque e
-             ON e.nome_produto = si.`{$itemColNome}`
-            AND e.empresa_id   = s.id_matriz
-    ";
-    $selectItem = "
-      e.codigo_produto AS item_qr_code,
-      e.nome_produto   AS item_nome,
-      ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
-    ";
+  if ($colCod) {
+    $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
+    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
+  } elseif ($colNome) {
+    $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
+    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
   } else {
-    $selectItem = "
-      NULL AS item_qr_code,
-      NULL AS item_nome,
-      ".($itemColQtd ? "si.`{$itemColQtd}`" : "NULL")." AS item_qtd
-    ";
+    $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
   }
 }
 
-/* ===== JOIN da UNIDADE (filial) =====
-   - Extrai o número final de s.id_solicitante: SUBSTRING_INDEX(..., '_', -1)
-   - Garante mesma matriz: u.empresa_id = s.id_matriz
-   - Filtra apenas tipo = 'filial'
-*/
-$joinUnidade = "
-  LEFT JOIN unidades u
-         ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
-        AND u.empresa_id = s.id_matriz
-";
-
-/* ===== SQL final com filtro de filiais ===== */
 $sql = "
-  SELECT
-    {$selectBase},
-    {$selectItem}
+  SELECT {$selectBase}, {$selectItem}
   FROM solicitacoes_b2b s
-  {$joinUnidade}
   {$joins}
   WHERE s.id_matriz = :empresa
     AND s.id_solicitante LIKE 'unidade\_%'
@@ -832,11 +913,15 @@ $sql = "
   ORDER BY s.created_at DESC, s.id DESC
   LIMIT 300
 ";
-
 $stmt = $pdo->prepare($sql);
-$stmt->execute([':empresa' => $empresaIdMatriz]);
+$stmt->execute([':empresa'=>$empresaIdMatriz]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+/* ========================== */
 ?>
+<!-- ==========================
+     BLOCO HTML (mesma estrutura e classes)
+     ========================== -->
 
 <!-- Tabela (HTML mock) -->
 <div class="card">
@@ -860,45 +945,57 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php if (!$rows): ?>
           <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
         <?php else: foreach ($rows as $r):
-          $qr   = $r['item_qr_code'] ?: '—';          // de estoque.codigo_produto (quando mapeado)
-          $prod = $r['item_nome']    ?: '—';          // de estoque.nome_produto (quando mapeado)
-          $qtd  = isset($r['item_qtd']) && $r['item_qtd'] !== null ? (int)$r['item_qtd'] : 0;
-          $pri  = $r['item_prioridade'] ?? 'Media';
-          $sts  = $r['status'] ?? 'pendente';
+          $pedidoId = (int)$r['pedido_id'];
+          $qr   = $r['item_qr_code'] ?: '—';
+          $prod = $r['item_nome']    ?: '—';
+          $qtd  = isset($r['item_qtd']) && $r['item_qtd']!==null ? (int)$r['item_qtd'] : 0;
+          $pri  = $r['item_prioridade'] ?: 'media';
+          $sts  = strtolower((string)($r['status'] ?? 'pendente'));
           $fil  = $r['filial_nome'] ?: '—';
-          $dt   = formatDateBr($r['criado_em']);
+          $dt   = dtbr($r['criado_em']);
+
+          // badge helpers no HTML
+          $badgePri = (function($p){
+            $p = strtolower($p);
+            if ($p==='alta')   return '<span class="badge bg-label-danger status-badge">Alta</span>';
+            if ($p==='media'||$p==='média') return '<span class="badge bg-label-warning status-badge">Média</span>';
+            if ($p==='baixa')  return '<span class="badge bg-label-success status-badge">Baixa</span>';
+            return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p)).'</span>';
+          })($pri);
+
+          $badgeSts = (function($s){
+            return match ($s) {
+              'pendente'    => '<span class="badge bg-label-warning status-badge">Pendente</span>',
+              'aprovada'    => '<span class="badge bg-label-primary status-badge">Aprovada</span>',
+              'reprovada'   => '<span class="badge bg-label-danger status-badge">Reprovada</span>',
+              'em_transito' => '<span class="badge bg-label-info status-badge">Em Trânsito</span>',
+              'entregue'    => '<span class="badge bg-label-success status-badge">Entregue</span>',
+              'cancelada'   => '<span class="badge bg-label-dark status-badge">Cancelada</span>',
+              default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s)).'</span>',
+            };
+          })($sts);
         ?>
-        <tr>
-          <td># <?= h($r['pedido_id']) ?></td>
+        <tr data-pedido="<?= $pedidoId ?>">
+          <td># <?= h((string)$pedidoId) ?></td>
           <td><strong><?= h($fil) ?></strong></td>
           <td><?= h($qr) ?></td>
           <td><?= h($prod) ?></td>
           <td><?= $qtd ?: '—' ?></td>
-          <td><?= badgePrioridade($pri) ?></td>
+          <td><?= $badgePri ?></td>
           <td><?= h($dt) ?></td>
-          <td><?= badgeStatus($sts) ?></td>
+          <td class="td-status"><?= $badgeSts ?></td>
           <td>
-            <button
-              class="btn btn-sm btn-outline-primary btn-aprovar"
-              data-bs-toggle="modal"
-              data-bs-target="#modalAtender"
-              data-pedido="<?= h($r['pedido_id']) ?>">
-              Aprovar
-            </button>
-            <button
-              class="btn btn-sm btn-outline-danger btn-reprovar"
-              data-bs-toggle="modal"
-              data-bs-target="#modalCancelar"
-              data-pedido="<?= h($r['pedido_id']) ?>">
-              Reprovar
-            </button>
-            <button
-              class="btn btn-sm btn-outline-secondary btn-detalhes"
-              data-bs-toggle="modal"
-              data-bs-target="#modalDetalhes"
-              data-pedido="<?= h($r['pedido_id']) ?>">
-              Detalhes
-            </button>
+            <button class="btn btn-sm btn-outline-primary btn-aprovar"
+                    data-bs-toggle="modal" data-bs-target="#modalAtender"
+                    data-pedido="<?= $pedidoId ?>">Aprovar</button>
+
+            <button class="btn btn-sm btn-outline-danger btn-reprovar"
+                    data-bs-toggle="modal" data-bs-target="#modalCancelar"
+                    data-pedido="<?= $pedidoId ?>">Reprovar</button>
+
+            <button class="btn btn-sm btn-outline-secondary btn-detalhes"
+                    data-bs-toggle="modal" data-bs-target="#modalDetalhes"
+                    data-pedido="<?= $pedidoId ?>">Detalhes</button>
           </td>
         </tr>
         <?php endforeach; endif; ?>
@@ -916,9 +1013,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
       </div>
       <div class="modal-body">
-        <div id="detalhesConteudo">
-          <div class="text-muted">Carregando...</div>
-        </div>
+        <div id="detalhesConteudo"><div class="text-muted">Carregando...</div></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -970,10 +1065,31 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script>
 (function () {
-  const URL_DETALHES = 'actions/solicitacao_Detalhes.php';
-  const URL_APROVAR  = './solicitacao_Aprovar.php';
-  const URL_REPROVAR = './assets/php/filial/solicitacao_Reprovar.php';
+  const SELF = window.location.pathname + window.location.search;
 
+  function setRowStatus(pedidoId, novoStatus) {
+    const tr = document.querySelector(`tr[data-pedido="${pedidoId}"]`);
+    if (!tr) return;
+    const tdStatus = tr.querySelector('.td-status');
+    let badge = '';
+    switch (novoStatus) {
+      case 'aprovada':   badge = '<span class="badge bg-label-primary status-badge">Aprovada</span>'; break;
+      case 'reprovada':  badge = '<span class="badge bg-label-danger status-badge">Reprovada</span>'; break;
+      case 'pendente':   badge = '<span class="badge bg-label-warning status-badge">Pendente</span>'; break;
+      case 'entregue':   badge = '<span class="badge bg-label-success status-badge">Entregue</span>'; break;
+      case 'em_transito':badge = '<span class="badge bg-label-info status-badge">Em Trânsito</span>'; break;
+      default:           badge = '<span class="badge bg-label-secondary status-badge">'+(novoStatus||'—')+'</span>';
+    }
+    if (tdStatus) tdStatus.innerHTML = badge;
+
+    // Opcional: desabilitar botões depois da ação
+    tr.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(b => {
+      b.setAttribute('disabled','disabled');
+      b.classList.add('disabled');
+    });
+  }
+
+  // Abre modal com id do pedido
   document.querySelectorAll('.btn-aprovar').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
@@ -990,42 +1106,66 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
       const alvo = document.getElementById('detalhesConteudo');
       alvo.innerHTML = '<div class="text-muted">Carregando...</div>';
       try {
-        const resp = await fetch(`${URL_DETALHES}?id=${encodeURIComponent(pedidoId)}`);
+        const resp = await fetch(`${SELF}${SELF.includes('?')?'&':'?'}acao=detalhes&id=${encodeURIComponent(pedidoId)}`, { credentials: 'same-origin' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const html = await resp.text();
         alvo.innerHTML = html;
       } catch (e) {
         alvo.innerHTML = '<div class="text-danger">Falha ao carregar detalhes.</div>';
+        console.error(e);
       }
     });
   });
 
+  // Submit Aprovar (no mesmo arquivo)
   document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    fd.append('acao', 'aprovar');
     try {
-      const r = await fetch(URL_APROVAR, { method: 'POST', body: fd });
+      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
-      if (j?.ok) location.reload();
-      else alert(j?.msg || 'Não foi possível aprovar.');
+      if (j?.ok) {
+        const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+        setRowStatus(pedidoId, j.status || 'aprovada');
+        // fecha modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalAtender'));
+        modal?.hide();
+      } else {
+        alert(j?.msg || 'Não foi possível aprovar.');
+      }
     } catch (err) {
       alert('Erro de rede ao aprovar.');
+      console.error(err);
     }
   });
 
+  // Submit Reprovar (no mesmo arquivo)
   document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    fd.append('acao', 'reprovar');
     try {
-      const r = await fetch(URL_REPROVAR, { method: 'POST', body: fd });
+      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
-      if (j?.ok) location.reload();
-      else alert(j?.msg || 'Não foi possível reprovar.');
+      if (j?.ok) {
+        const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+        setRowStatus(pedidoId, j.status || 'reprovada');
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalCancelar'));
+        modal?.hide();
+      } else {
+        alert(j?.msg || 'Não foi possível reprovar.');
+      }
     } catch (err) {
       alert('Erro de rede ao reprovar.');
+      console.error(err);
     }
   });
 })();
 </script>
+
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
