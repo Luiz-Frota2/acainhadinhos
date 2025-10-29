@@ -726,27 +726,28 @@ if (!$empresaIdMatriz) {
   return;
 }
 
-/* ================= Descobre se existe itens ================= */
+/* ================= Detecta itens ================= */
 $temItens = false;
 try {
   $check = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'");
   $temItens = (bool)$check->fetchColumn();
 } catch (Throwable $e) { $temItens = false; }
 
-/* ================= Monta SQL da listagem ================= */
+/* ================= Listagem ================= */
 $sql = "
   SELECT
-    s.id                          AS pedido_id,
-    s.id_matriz                   AS id_matriz,
-    s.id_solicitante              AS id_solicitante,
-    s.status                      AS status,
-    s.observacao                  AS obs,
-    s.created_at                  AS criado_em,
-    u.nome                        AS filial_nome
+    s.id                AS pedido_id,
+    s.id_matriz         AS id_matriz,
+    s.id_solicitante    AS id_solicitante,
+    s.status            AS status,
+    s.observacao        AS obs,
+    s.created_at        AS criado_em,
+    u.nome              AS filial_nome
     ".($temItens ? ",
-      si.qr_code                  AS item_qr_code,
+      -- QR code deve vir do estoque.codigo_produto
+      e.codigo_produto  AS item_qr_code,
       COALESCE(e.nome_produto, si.nome_produto) AS item_nome,
-      si.quantidade               AS item_qtd,
+      si.quantidade     AS item_qtd,
       COALESCE(si.prioridade, 'media') AS item_prioridade
     " : ",
       NULL AS item_qr_code,
@@ -758,23 +759,24 @@ $sql = "
   LEFT JOIN unidades u 
          ON u.empresa_id = s.id_solicitante
   ".($temItens ? "
-  LEFT JOIN (
-      SELECT
-        si.solicitacao_id,
-        -- Heurística: ‘primeiro’ item como representativo
-        MAX(si.id)                       AS _pick_id
-      FROM solicitacoes_b2b_itens si
-      GROUP BY si.solicitacao_id
-  ) pick ON pick.solicitacao_id = s.id
-  LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
-  LEFT JOIN estoque e ON e.codigo_produto = si.produto_codigo AND e.empresa_id = s.id_matriz
+    -- Escolhe 1 item representativo por pedido
+    LEFT JOIN (
+      SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
+      FROM solicitacoes_b2b_itens si1
+      GROUP BY si1.solicitacao_id
+    ) pick ON pick.solicitacao_id = s.id
+    LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+    -- Junta no estoque para puxar o codigo_produto como 'QR code'
+    LEFT JOIN estoque e 
+           ON e.codigo_produto = si.produto_codigo
+          AND e.empresa_id    = s.id_matriz
   " : "")."
   WHERE s.id_matriz = :empresa
   ORDER BY s.created_at DESC, s.id DESC
   LIMIT 300
 ";
 $stmt = $pdo->prepare($sql);
-$stmt->execute([':empresa' => $idSelecionado]);
+$stmt->execute([':empresa' => $empresaIdMatriz]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
@@ -800,9 +802,9 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php if (!$rows): ?>
           <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
         <?php else: foreach ($rows as $r): 
-          $qr   = $r['item_qr_code'] ?: '—';
+          $qr   = $r['item_qr_code'] ?: '—';        // agora vem de estoque.codigo_produto
           $prod = $r['item_nome']    ?: '—';
-          $qtd  = $r['item_qtd']     ? (int)$r['item_qtd'] : 0;
+          $qtd  = isset($r['item_qtd']) ? (int)$r['item_qtd'] : 0;
           $pri  = $r['item_prioridade'] ?: '—';
           $sts  = $r['status'] ?: 'pendente';
           $fil  = $r['filial_nome'] ?: '—';
@@ -856,7 +858,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
       </div>
       <div class="modal-body">
-        <!-- Será preenchido via AJAX -->
         <div id="detalhesConteudo">
           <div class="text-muted">Carregando...</div>
         </div>
@@ -889,7 +890,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
   </div>
 </div>
 
-<!-- Modal Aprovar (Atender) - reuso do seu id/modal -->
+<!-- Modal Aprovar -->
 <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <form id="formAprovar" class="modal-content">
@@ -911,12 +912,10 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <script>
 (function () {
-  // Endpoints (ajuste os caminhos se usar outra pasta)
   const URL_DETALHES = 'actions/solicitacao_Detalhes.php';
   const URL_APROVAR  = 'actions/solicitacao_Aprovar.php';
   const URL_REPROVAR = 'actions/solicitacao_Reprovar.php';
 
-  // Abre modal com id do pedido
   document.querySelectorAll('.btn-aprovar').forEach(btn => {
     btn.addEventListener('click', () => {
       document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
@@ -942,36 +941,27 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     });
   });
 
-  // Submit Aprovar
   document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     try {
       const r = await fetch(URL_APROVAR, { method: 'POST', body: fd });
       const j = await r.json();
-      if (j?.ok) {
-        // feedback + recarrega a tabela
-        location.reload();
-      } else {
-        alert(j?.msg || 'Não foi possível aprovar.');
-      }
+      if (j?.ok) location.reload();
+      else alert(j?.msg || 'Não foi possível aprovar.');
     } catch (err) {
       alert('Erro de rede ao aprovar.');
     }
   });
 
-  // Submit Reprovar
   document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     try {
       const r = await fetch(URL_REPROVAR, { method: 'POST', body: fd });
       const j = await r.json();
-      if (j?.ok) {
-        location.reload();
-      } else {
-        alert(j?.msg || 'Não foi possível reprovar.');
-      }
+      if (j?.ok) location.reload();
+      else alert(j?.msg || 'Não foi possível reprovar.');
     } catch (err) {
       alert('Erro de rede ao reprovar.');
     }
