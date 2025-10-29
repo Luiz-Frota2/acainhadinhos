@@ -971,8 +971,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <script>
 (function () {
   const URL_DETALHES = 'actions/solicitacao_Detalhes.php';
-  const URL_APROVAR  = '.../assets/php/filial/solicitacao_Aprovar.php';
-  const URL_REPROVAR = '.../assets/php/filial/solicitacao_Reprovar.php';
+  const URL_APROVAR  = '../../assets/php/filial/solicitacao_Aprovar.php';
+  const URL_REPROVAR = '../../assets/php/filial/solicitacao_Reprovar.php';
 
   document.querySelectorAll('.btn-aprovar').forEach(btn => {
     btn.addEventListener('click', () => {
