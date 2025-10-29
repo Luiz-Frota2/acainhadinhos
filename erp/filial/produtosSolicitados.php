@@ -691,8 +691,8 @@ $fimTxt = $fim->format('d/m/Y');
                     <!-- Toolbar / Filtros (HTML estático por enquanto) -->
 
 
-                   <?php
-/* ================= Helpers ================= */
+                 <?php
+/* ===== Helpers ===== */
 function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function formatDateBr(?string $dt): string {
   if (!$dt) return '—';
@@ -719,54 +719,52 @@ function badgeStatus(string $s): string {
   };
 }
 
-/* ================= Filtro empresa (Matriz) ================= */
+/* ===== Filtro empresa (Matriz) ===== */
 $empresaIdMatriz = $_SESSION['empresa_id'] ?? '';
 if (!$empresaIdMatriz) {
   echo '<div class="alert alert-danger">empresa_id não encontrado na sessão.</div>';
   return;
 }
 
-/* ================= Detecta itens ================= */
+/* ===== Existe itens? ===== */
 $temItens = false;
 try {
   $check = $pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'");
   $temItens = (bool)$check->fetchColumn();
 } catch (Throwable $e) { $temItens = false; }
 
-/* ================= Listagem ================= */
+/* ===== Listagem ===== */
 $sql = "
   SELECT
     s.id                AS pedido_id,
     s.id_matriz         AS id_matriz,
     s.id_solicitante    AS id_solicitante,
     s.status            AS status,
+    s.prioridade        AS item_prioridade,   -- PRIORIDADE VEM DA SOLICITAÇÃO
     s.observacao        AS obs,
     s.created_at        AS criado_em,
     u.nome              AS filial_nome
     ".($temItens ? ",
-      -- QR code deve vir do estoque.codigo_produto
-      e.codigo_produto  AS item_qr_code,
-      COALESCE(e.nome_produto, si.nome_produto) AS item_nome,
-      si.quantidade     AS item_qtd,
-      COALESCE(si.prioridade, 'media') AS item_prioridade
+      e.codigo_produto  AS item_qr_code,      -- QR code do ESTOQUE
+      e.nome_produto    AS item_nome,
+      si.quantidade     AS item_qtd
     " : ",
       NULL AS item_qr_code,
       NULL AS item_nome,
-      NULL AS item_qtd,
-      NULL AS item_prioridade
+      NULL AS item_qtd
     ")."
   FROM solicitacoes_b2b s
   LEFT JOIN unidades u 
          ON u.empresa_id = s.id_solicitante
   ".($temItens ? "
-    -- Escolhe 1 item representativo por pedido
+    -- 1 item representativo por pedido
     LEFT JOIN (
       SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
       FROM solicitacoes_b2b_itens si1
       GROUP BY si1.solicitacao_id
     ) pick ON pick.solicitacao_id = s.id
     LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
-    -- Junta no estoque para puxar o codigo_produto como 'QR code'
+    -- Junta no estoque para puxar codigo/nome do produto
     LEFT JOIN estoque e 
            ON e.codigo_produto = si.produto_codigo
           AND e.empresa_id    = s.id_matriz
@@ -779,6 +777,7 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute([':empresa' => $empresaIdMatriz]);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
+ 
 
 <!-- Tabela (HTML mock) -->
 <div class="card">
