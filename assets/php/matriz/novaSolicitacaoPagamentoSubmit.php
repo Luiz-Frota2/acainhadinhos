@@ -152,7 +152,7 @@ try {
     }
 
     // Sucesso: alerta + redirect com id selecionado na URL
-    js_alert_and_redirect('Solicitação registrada com sucesso!', '../../../public/b2b/solicitarPagamentoConta.php?id=' . urlencode($id_solicitante));
+    js_alert_and_redirect('Solicitação registrada com sucesso!', '../../../erp/matriz/novaSolicitacaoPagamento.php?id=' . urlencode($id_solicitante));
 } catch (Throwable $e) {
     js_alert_and_back('Erro: ' . $e->getMessage());
 }
