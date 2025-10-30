@@ -50,7 +50,6 @@ $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-  // Matriz acessa suas solicitações
   $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
   $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
@@ -75,6 +74,12 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
+/* ==================== CSRF para mudança de status ==================== */
+if (empty($_SESSION['csrf_pagto_status'])) {
+  $_SESSION['csrf_pagto_status'] = bin2hex(random_bytes(32));
+}
+$csrfStatus = $_SESSION['csrf_pagto_status'];
+
 /* ==================== Filtros ==================== */
 $status     = $_GET['status']     ?? '';       // pendente/aprovado/reprovado
 $tipoUnidade = $_GET['tipo']       ?? '';       // Franquia/Filial
@@ -85,19 +90,14 @@ $q          = trim($_GET['q']     ?? '');      // texto livre
 $params = [':id_matriz' => $idSelecionado];
 $where  = ["sp.id_matriz = :id_matriz"];
 
-// status
 if ($status !== '' && in_array($status, ['pendente', 'aprovado', 'reprovado'], true)) {
   $where[] = "sp.status = :status";
   $params[':status'] = $status;
 }
-
-// tipo (Franquia/Filial) — vem da tabela unidades
 if ($tipoUnidade !== '' && in_array($tipoUnidade, ['Franquia', 'Filial'], true)) {
   $where[] = "u.tipo = :tipo";
   $params[':tipo'] = $tipoUnidade;
 }
-
-// intervalo de vencimento
 if ($dtIni !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dtIni)) {
   $where[] = "sp.vencimento >= :vini";
   $params[':vini'] = $dtIni;
@@ -106,14 +106,11 @@ if ($dtFim !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dtFim)) {
   $where[] = "sp.vencimento <= :vfim";
   $params[':vfim'] = $dtFim;
 }
-
-// busca textual
 if ($q !== '') {
-  $where[] = "(sp.fornecedor LIKE :q OR sp.documento LIKE :q OR sp.descricao LIKE :q)";
+  $where[] = "(sp.fornecedor LIKE :q OR sp.documento LIKE :q OR sp.descricao LIKE :q OR sp.id_solicitante LIKE :q)";
   $params[':q'] = "%$q%";
 }
 
-// monta SQL
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
 $sql = "
@@ -150,13 +147,12 @@ try {
   exit;
 }
 
-// função helper para badge
 function badgeStatus(string $s): string
 {
   $s = strtolower($s);
-  if ($s === 'aprovado')  return '<span class="badge bg-label-success status-badge">Aprovado</span>';
-  if ($s === 'reprovado') return '<span class="badge bg-label-danger status-badge">Reprovado</span>';
-  return '<span class="badge bg-label-warning status-badge">Pendente</span>';
+  if ($s === 'aprovado')  return '<span class="badge bg-label-success status-badge">APROVADO</span>';
+  if ($s === 'reprovado') return '<span class="badge bg-label-danger status-badge">REPROVADO</span>';
+  return '<span class="badge bg-label-warning status-badge">PENDENTE</span>';
 }
 ?>
 <!DOCTYPE html>
@@ -197,12 +193,20 @@ function badgeStatus(string $s): string
     }
 
     .truncate {
-      max-width: 360px;
+      max-width: 320px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       display: inline-block;
       vertical-align: bottom;
+    }
+
+    .col-actions .btn {
+      margin-right: .25rem;
+    }
+
+    .muted {
+      color: #6b7280;
     }
   </style>
 </head>
@@ -210,7 +214,7 @@ function badgeStatus(string $s): string
 <body>
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
-      <!-- ====== ASIDE ====== -->
+      <!-- ASIDE (igual ao seu) -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -220,9 +224,7 @@ function badgeStatus(string $s): string
             <i class="bx bx-chevron-left bx-sm align-middle"></i>
           </a>
         </div>
-
         <div class="menu-inner-shadow"></div>
-
         <ul class="menu-inner py-1">
           <li class="menu-item">
             <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
@@ -232,10 +234,7 @@ function badgeStatus(string $s): string
           </li>
 
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Franquias</span></li>
-
-          <li class="menu-item">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-building"></i>
+          <li class="menu-item"><a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-building"></i>
               <div>Franquias</div>
             </a>
             <ul class="menu-sub">
@@ -246,16 +245,13 @@ function badgeStatus(string $s): string
           </li>
 
           <li class="menu-item active open">
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-              <i class="menu-icon tf-icons bx bx-briefcase"></i>
+            <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div>B2B - Matriz</div>
             </a>
             <ul class="menu-sub">
-              <li class="menu-item active">
-                <a href="#" class="menu-link">
+              <li class="menu-item active"><a href="#" class="menu-link">
                   <div>Pagamentos Solic.</div>
-                </a>
-              </li>
+                </a></li>
               <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a></li>
@@ -304,7 +300,7 @@ function badgeStatus(string $s): string
             </a></li>
         </ul>
       </aside>
-      <!-- ====== /ASIDE ====== -->
+      <!-- /ASIDE -->
 
       <div class="layout-page">
         <!-- Navbar -->
@@ -396,16 +392,19 @@ function badgeStatus(string $s): string
                   <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control">
                 </div>
 
-                <div class="col-auto">
-                  <label class="form-label mb-1">Busca</label>
-                  <input type="text" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control" placeholder="fornecedor, doc, descrição">
+                <div class="col-auto" style="min-width:280px;">
+                  <label class="form-label mb-1">Buscar</label>
+                  <input type="text" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control" placeholder="fornecedor, doc, descrição, unidade_1...">
                 </div>
 
                 <div class="col-auto">
-                  <button class="btn btn-primary"><i class="bx bx-search"></i> Filtrar</button>
+                  <button class="btn btn-primary"><i class="bx bx-filter-alt"></i> Filtrar</button>
                   <a class="btn btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-reset"></i> Limpar</a>
                 </div>
               </form>
+              <div class="mt-2 muted">
+                Encontradas <strong><?= count($rows) ?></strong> solicitações<?= $tipoUnidade ? " (somente <strong>$tipoUnidade</strong>)" : "" ?>.
+              </div>
             </div>
           </div>
 
@@ -413,7 +412,7 @@ function badgeStatus(string $s): string
           <div class="card">
             <h5 class="card-header">Lista de Pagamentos Solicitados</h5>
             <div class="table-responsive text-nowrap">
-              <table class="table table-hover">
+              <table class="table table-hover align-middle">
                 <thead>
                   <tr>
                     <th>ID</th>
@@ -426,50 +425,70 @@ function badgeStatus(string $s): string
                     <th>Anexo</th>
                     <th>Status</th>
                     <th>Criado em</th>
+                    <th class="text-end">Ações</th>
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
                   <?php if (!$rows): ?>
                     <tr>
-                      <td colspan="10" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                      <td colspan="11" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                     </tr>
                   <?php else: ?>
                     <?php foreach ($rows as $r): ?>
+                      <?php
+                      $dataCriado = $r['created_at'] ? date('d/m/Y', strtotime($r['created_at'])) : '—';
+                      $venc = $r['vencimento'] ? date('d/m/Y', strtotime($r['vencimento'])) : '—';
+                      $valorFmt = 'R$ ' . number_format((float)$r['valor'], 2, ',', '.');
+                      ?>
                       <tr>
                         <td><?= (int)$r['ID'] ?></td>
                         <td>
-                          <?php
-                          $unNome = $r['unidade_nome'] ?: '—';
-                          $idSol  = $r['id_solicitante'];
-                          echo '<strong>' . htmlspecialchars($unNome, ENT_QUOTES) . '</strong>';
-                          echo '<div class="text-muted small">' . htmlspecialchars($idSol, ENT_QUOTES) . '</div>';
-                          ?>
+                          <strong><?= htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES) ?></strong>
+                          <div class="text-muted small"><?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?></div>
                         </td>
                         <td><?= htmlspecialchars($r['unidade_tipo'] ?? '—', ENT_QUOTES) ?></td>
                         <td class="truncate" title="<?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?>"><?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?></td>
                         <td class="truncate" title="<?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?>"><?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?></td>
-                        <td><?php
-                            $v = (float)$r['valor'];
-                            echo 'R$ ' . number_format($v, 2, ',', '.');
-                            ?></td>
-                        <td><?php
-                            $venc = $r['vencimento'];
-                            echo $venc ? date('d/m/Y', strtotime($venc)) : '—';
-                            ?></td>
+                        <td><?= $valorFmt ?></td>
+                        <td><?= $venc ?></td>
                         <td>
                           <?php if (!empty($r['comprovante_url'])): ?>
-                            <a href="<?= htmlspecialchars($r['comprovante_url'], ENT_QUOTES) ?>" target="_blank" class="text-primary">
-                              abrir
-                            </a>
+                            <a href="<?= htmlspecialchars($r['comprovante_url'], ENT_QUOTES) ?>" target="_blank" class="text-primary">abrir</a>
                           <?php else: ?>
                             <span class="text-muted">—</span>
                           <?php endif; ?>
                         </td>
                         <td><?= badgeStatus($r['status']) ?></td>
-                        <td><?php
-                            $c = $r['created_at'];
-                            echo $c ? date('d/m/Y H:i', strtotime($c)) : '—';
-                            ?></td>
+                        <td><?= $dataCriado ?></td>
+                        <td class="text-end col-actions">
+                          <button
+                            class="btn btn-sm btn-outline-secondary btn-detalhes"
+                            data-bs-toggle="modal" data-bs-target="#modalDetalhes"
+                            data-id="<?= (int)$r['ID'] ?>"
+                            data-unidade="<?= htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES) ?>"
+                            data-unidadeid="<?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?>"
+                            data-tipo="<?= htmlspecialchars($r['unidade_tipo'] ?? '—', ENT_QUOTES) ?>"
+                            data-fornecedor="<?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?>"
+                            data-documento="<?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?>"
+                            data-descricao="<?= htmlspecialchars($r['descricao'] ?: '—', ENT_QUOTES) ?>"
+                            data-valor="<?= $valorFmt ?>"
+                            data-venc="<?= $venc ?>"
+                            data-anexo="<?= htmlspecialchars($r['comprovante_url'] ?: '—', ENT_QUOTES) ?>"
+                            data-status="<?= htmlspecialchars(strtoupper($r['status']), ENT_QUOTES) ?>"
+                            data-criado="<?= $dataCriado ?>">
+                            <i class="bx bx-detail"></i> Detalhes
+                          </button>
+
+                          <button
+                            class="btn btn-sm btn-outline-primary btn-status"
+                            data-bs-toggle="modal" data-bs-target="#modalStatus"
+                            data-id="<?= (int)$r['ID'] ?>"
+                            data-status="<?= htmlspecialchars($r['status'], ENT_QUOTES) ?>"
+                            data-fornecedor="<?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?>"
+                            data-documento="<?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?>">
+                            Mudar Status
+                          </button>
+                        </td>
                       </tr>
                     <?php endforeach; ?>
                   <?php endif; ?>
@@ -483,6 +502,86 @@ function badgeStatus(string $s): string
     </div><!-- /layout-container -->
   </div>
 
+  <!-- Modais -->
+  <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Detalhes da Solicitação</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <p><strong>ID:</strong> <span id="det-id">—</span></p>
+              <p><strong>Unidade:</strong> <span id="det-unidade">—</span> (<span id="det-unidadeid">—</span>)</p>
+              <p><strong>Tipo:</strong> <span id="det-tipo">—</span></p>
+              <p><strong>Status:</strong> <span id="det-status">—</span></p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Fornecedor:</strong> <span id="det-fornecedor">—</span></p>
+              <p><strong>Documento:</strong> <span id="det-documento">—</span></p>
+              <p><strong>Valor:</strong> <span id="det-valor">—</span></p>
+              <p><strong>Vencimento:</strong> <span id="det-venc">—</span></p>
+            </div>
+            <div class="col-12">
+              <p><strong>Descrição:</strong></p>
+              <div id="det-descricao" class="border rounded p-2" style="min-height:60px; white-space:pre-wrap;"></div>
+            </div>
+            <div class="col-12">
+              <p><strong>Anexo:</strong> <span id="det-anexo">—</span></p>
+            </div>
+            <div class="col-12">
+              <p class="text-muted">Criado em: <span id="det-criado">—</span></p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalStatus" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" method="post" action="../../assets/php/matriz/solicitacaoPagamentoStatus.php">
+        <div class="modal-header">
+          <h5 class="modal-title">Mudar status da solicitação</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="csrf" value="<?= htmlspecialchars($csrfStatus, ENT_QUOTES) ?>">
+          <input type="hidden" name="id" id="st-id">
+          <input type="hidden" name="id_matriz" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
+
+          <div class="mb-2 text-muted small">
+            <span id="st-info">—</span>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Ação</label>
+            <select name="acao" id="st-acao" class="form-select" required>
+              <option value="">Selecionar...</option>
+              <option value="aprovado">Aprovar</option>
+              <option value="reprovado">Reprovar</option>
+            </select>
+            <div class="form-text">As opções dependem do status atual da solicitação.</div>
+          </div>
+
+          <div class="mb-3 d-none" id="st-obs-wrap">
+            <label class="form-label">Comentário (obrigatório ao reprovar)</label>
+            <textarea name="obs" id="st-obs" rows="3" class="form-control" placeholder="Explique o motivo da reprovação..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- JS -->
   <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../../assets/vendor/libs/popper/popper.js"></script>
@@ -490,6 +589,70 @@ function badgeStatus(string $s): string
   <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
   <script src="../../assets/vendor/js/menu.js"></script>
   <script src="../../assets/js/main.js"></script>
+
+  <script>
+    (function() {
+      // Preenche modal de detalhes
+      document.querySelectorAll('.btn-detalhes').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const g = (k) => btn.getAttribute('data-' + k) || '—';
+
+          document.getElementById('det-id').textContent = g('id');
+          document.getElementById('det-unidade').textContent = g('unidade');
+          document.getElementById('det-unidadeid').textContent = g('unidadeid');
+          document.getElementById('det-tipo').textContent = g('tipo');
+          document.getElementById('det-status').textContent = g('status');
+          document.getElementById('det-fornecedor').textContent = g('fornecedor');
+          document.getElementById('det-documento').textContent = g('documento');
+          document.getElementById('det-valor').textContent = g('valor');
+          document.getElementById('det-venc').textContent = g('venc');
+          document.getElementById('det-descricao').textContent = g('descricao');
+          const anexo = g('anexo');
+          document.getElementById('det-anexo').innerHTML = (anexo && anexo !== '—') ?
+            `<a href="${anexo}" target="_blank">abrir</a>` : '—';
+          document.getElementById('det-criado').textContent = g('criado');
+        });
+      });
+
+      // Preenche modal de status
+      const wrapObs = document.getElementById('st-obs-wrap');
+      const selAcao = document.getElementById('st-acao');
+      const txtObs = document.getElementById('st-obs');
+
+      const toggleObs = () => {
+        if (selAcao.value === 'reprovado') {
+          wrapObs.classList.remove('d-none');
+          txtObs.setAttribute('required', 'required');
+        } else {
+          wrapObs.classList.add('d-none');
+          txtObs.removeAttribute('required');
+          txtObs.value = '';
+        }
+      };
+      selAcao.addEventListener('change', toggleObs);
+
+      document.querySelectorAll('.btn-status').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('st-id').value = btn.getAttribute('data-id');
+          const info = `#${btn.getAttribute('data-id')} · ${btn.getAttribute('data-fornecedor')} · Doc.: ${btn.getAttribute('data-documento')} · Status atual: ${btn.getAttribute('data-status')}`;
+          document.getElementById('st-info').textContent = info;
+
+          // trava opções conforme status atual (ex.: se já reprovado, só permitir aprovar; se aprovado, só permitir reprovar)
+          const atual = (btn.getAttribute('data-status') || '').toLowerCase();
+          [...selAcao.options].forEach(o => o.disabled = false);
+          if (atual === 'aprovado') {
+            // pode reprovar
+          } else if (atual === 'reprovado') {
+            // pode aprovar
+          } else {
+            // pendente: pode ambos
+          }
+          selAcao.value = '';
+          toggleObs();
+        });
+      });
+    })();
+  </script>
 </body>
 
 </html>
