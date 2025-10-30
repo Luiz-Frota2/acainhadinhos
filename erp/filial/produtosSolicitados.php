@@ -167,49 +167,81 @@ if (isset($_GET['acao']) && $_GET['acao'] === 'detalhes') {
     exit;
 }
 
-/* Aprovar/Reprovar (POST) – devolve JSON limpo */
-if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], true)) {
-    $acao = $_POST['acao'];
+/* Utilitários de introspecção para cancelar() */
+function table_exists(PDO $pdo, string $table): bool {
+    try { $q = $pdo->prepare("SHOW TABLES LIKE :t"); $q->execute([':t'=>$table]); return (bool)$q->fetchColumn(); }
+    catch(Throwable $e){ return false; }
+}
+function column_exists(PDO $pdo, string $table, string $column): bool {
+    try { $q = $pdo->prepare("SHOW COLUMNS FROM {$table} LIKE :c"); $q->execute([':c'=>$column]); return (bool)$q->fetchColumn(); }
+    catch(Throwable $e){ return false; }
+}
+
+/* Aprovar/Reprovar/Cancelar (POST) – devolve JSON limpo */
+if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar','cancelar'], true)) {
+    $acao     = $_POST['acao'];
     $pedidoId = (int)($_POST['pedido_id'] ?? 0);
-    $motivo = trim((string)($_POST['motivo'] ?? ''));
+    $motivo   = trim((string)($_POST['motivo'] ?? ''));
 
     if (!$empresaIdMatrizAjax) json_exit(['ok'=>false,'msg'=>'Sessão expirada (empresa).']);
     if ($pedidoId <= 0)        json_exit(['ok'=>false,'msg'=>'ID inválido.']);
 
     try {
-        $cols = [];
-        try {
-            $cst = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
-            while ($c = $cst->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
-        } catch (Throwable $e) {}
-
+        // Lê registro principal
         $st = $pdo->prepare("SELECT id,status,observacao FROM solicitacoes_b2b WHERE id=:id AND id_matriz=:emp LIMIT 1");
         $st->execute([':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) json_exit(['ok'=>false,'msg'=>'Solicitação não encontrada para esta empresa.']);
 
         $statusAtual = strtolower((string)($row['status'] ?? ''));
-        if ($acao==='aprovar' && $statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada']);
-        if ($acao==='reprovar' && $statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.','status'=>'reprovada']);
 
-        $novo = ($acao==='aprovar' ? 'aprovada' : 'reprovada');
-        $set = "status = :novo";
-        $params = [':novo'=>$novo, ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
-
-        if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
-
-        if ($acao==='reprovar' && $motivo!=='' && isset($cols['observacao'])) {
-            $novaObs = trim((string)($row['observacao'] ?? ''));
-            if ($novaObs!=='') $novaObs .= " | ";
-            $novaObs .= "Reprovado: ".$motivo;
-            $set .= ", observacao = :obs";
-            $params[':obs'] = $novaObs;
+        if ($acao==='aprovar') {
+            if ($statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada']);
+            $set = "status = :novo";
+            $params = [':novo'=>'aprovada', ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
+            if (column_exists($pdo,'solicitacoes_b2b','updated_at')) $set .= ", updated_at = NOW()";
+            $up = $pdo->prepare("UPDATE solicitacoes_b2b SET {$set} WHERE id=:id AND id_matriz=:emp LIMIT 1");
+            $up->execute($params);
+            json_exit(['ok'=>true,'msg'=>'Aprovada com sucesso.','status'=>'aprovada']);
         }
 
-        $up = $pdo->prepare("UPDATE solicitacoes_b2b SET $set WHERE id=:id AND id_matriz=:emp LIMIT 1");
-        $up->execute($params);
+        if ($acao==='reprovar') {
+            if ($statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.','status'=>'reprovada']);
+            $set = "status = :novo";
+            $params = [':novo'=>'reprovada', ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
+            if (column_exists($pdo,'solicitacoes_b2b','updated_at')) $set .= ", updated_at = NOW()";
+            // concatena motivo em solicitacoes_b2b.observacao (se houver)
+            if ($motivo !== '' && column_exists($pdo,'solicitacoes_b2b','observacao')) {
+                $novaObs = trim((string)($row['observacao'] ?? ''));
+                if ($novaObs!=='') $novaObs .= " | ";
+                $novaObs .= "Reprovado: ".$motivo;
+                $set .= ", observacao = :obs";
+                $params[':obs'] = $novaObs;
+            }
+            $up = $pdo->prepare("UPDATE solicitacoes_b2b SET {$set} WHERE id=:id AND id_matriz=:emp LIMIT 1");
+            $up->execute($params);
+            json_exit(['ok'=>true,'msg'=>'Reprovada com sucesso.','status'=>'reprovada']);
+        }
 
-        json_exit(['ok'=>true,'msg'=>'Atualizado com sucesso.','status'=>$novo]);
+        if ($acao==='cancelar') {
+            if ($statusAtual==='cancelada') json_exit(['ok'=>true,'msg'=>'Já cancelada.','status'=>'cancelada']);
+            // Atualiza status principal em solicitacoes_b2b
+            $set = "status = :novo";
+            $params = [':novo'=>'cancelada', ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
+            if (column_exists($pdo,'solicitacoes_b2b','updated_at')) $set .= ", updated_at = NOW()";
+            $up = $pdo->prepare("UPDATE solicitacoes_b2b SET {$set} WHERE id=:id AND id_matriz=:emp LIMIT 1");
+            $up->execute($params);
+
+            // Atualiza observação específica na tabela solicitacao_b2b.coluna observao (SE existir)
+            if ($motivo !== '' && table_exists($pdo,'solicitacao_b2b') && column_exists($pdo,'solicitacao_b2b','observao')) {
+                // se existir um vínculo por id (assumindo mesma PK 'id')
+                $up2 = $pdo->prepare("UPDATE solicitacao_b2b SET observao = :obs WHERE id = :id LIMIT 1");
+                $up2->execute([':obs'=>$motivo, ':id'=>$pedidoId]);
+            }
+            json_exit(['ok'=>true,'msg'=>'Cancelada com sucesso.','status'=>'cancelada']);
+        }
+
+        json_exit(['ok'=>false,'msg'=>'Ação não reconhecida.']);
     } catch (Throwable $e) {
         json_exit(['ok'=>false,'msg'=>'Falha no processamento.']);
     }
@@ -912,11 +944,15 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                               <td class="td-status"><?= $badgeSts ?></td>
                               <td>
                                 <button class="btn btn-sm btn-outline-primary btn-aprovar"
-                                        data-bs-toggle="modal" data-bs-target="#modalAtender"
+                                        data-bs-toggle="modal" data-bs-target="#modalAprovar"
                                         data-pedido="<?= $pedidoId ?>">Aprovar</button>
 
-                                <button class="btn btn-sm btn-outline-danger btn-reprovar"
+                                <button class="btn btn-sm btn-outline-dark btn-cancelar"
                                         data-bs-toggle="modal" data-bs-target="#modalCancelar"
+                                        data-pedido="<?= $pedidoId ?>">Cancelar</button>
+
+                                <button class="btn btn-sm btn-outline-danger btn-reprovar"
+                                        data-bs-toggle="modal" data-bs-target="#modalReprovar"
                                         data-pedido="<?= $pedidoId ?>">Reprovar</button>
 
                                 <button class="btn btn-sm btn-outline-secondary btn-detalhes"
@@ -948,29 +984,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                       </div>
                     </div>
 
-                    <!-- Modal Cancelar / Reprovar -->
-                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
-                      <div class="modal-dialog modal-dialog-centered">
-                        <form id="formReprovar" class="modal-content">
-                          <div class="modal-header">
-                            <h5 class="modal-title">Cancelar (Reprovar) Pedido</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                          </div>
-                          <div class="modal-body">
-                            <input type="hidden" name="pedido_id" id="cancelarPedidoId" />
-                            <label class="form-label">Motivo (opcional)</label>
-                            <textarea class="form-control" name="motivo" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
-                          </div>
-                          <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                            <button type="submit" class="btn btn-danger">Confirmar Reprovação</button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-
                     <!-- Modal Aprovar -->
-                    <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
+                    <div class="modal fade" id="modalAprovar" tabindex="-1" aria-hidden="true">
                       <div class="modal-dialog modal-dialog-centered">
                         <form id="formAprovar" class="modal-content">
                           <div class="modal-header">
@@ -984,6 +999,48 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                           <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
                             <button type="submit" class="btn btn-primary">Confirmar Aprovação</button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+
+                    <!-- Modal Cancelar -->
+                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog modal-dialog-centered">
+                        <form id="formCancelar" class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title">Cancelar Pedido</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                          </div>
+                          <div class="modal-body">
+                            <input type="hidden" name="pedido_id" id="cancelarPedidoId" />
+                            <label class="form-label">Observação (obrigatória)</label>
+                            <textarea class="form-control" name="motivo" rows="3" placeholder="Descreva o motivo do cancelamento..." required></textarea>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                            <button type="submit" class="btn btn-dark">Confirmar Cancelamento</button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+
+                    <!-- Modal Reprovar -->
+                    <div class="modal fade" id="modalReprovar" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog modal-dialog-centered">
+                        <form id="formReprovar" class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title">Reprovar Pedido</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                          </div>
+                          <div class="modal-body">
+                            <input type="hidden" name="pedido_id" id="reprovarPedidoId" />
+                            <label class="form-label">Motivo (opcional)</label>
+                            <textarea class="form-control" name="motivo" rows="3" placeholder="Descreva o motivo da reprovação (opcional)..."></textarea>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+                            <button type="submit" class="btn btn-danger">Confirmar Reprovação</button>
                           </div>
                         </form>
                       </div>
@@ -1045,16 +1102,16 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           case 'pendente':    badge = '<span class="badge bg-label-warning status-badge">Pendente</span>'; break;
           case 'entregue':    badge = '<span class="badge bg-label-success status-badge">Entregue</span>'; break;
           case 'em_transito': badge = '<span class="badge bg-label-info status-badge">Em Trânsito</span>'; break;
+          case 'cancelada':   badge = '<span class="badge bg-label-dark status-badge">Cancelada</span>'; break;
           default:            badge = '<span class="badge bg-label-secondary status-badge">'+(novoStatus||'—')+'</span>';
         }
         if (tdStatus) tdStatus.innerHTML = badge;
-        tr.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(b => { b.setAttribute('disabled','disabled'); b.classList.add('disabled'); });
+        tr.querySelectorAll('.btn-aprovar, .btn-reprovar, .btn-cancelar').forEach(b => { b.setAttribute('disabled','disabled'); b.classList.add('disabled'); });
       }
 
       function hideModalById(id) {
         const el = document.getElementById(id);
         if (!el) return;
-        // Fecha com Bootstrap se disponível; senão, simula um clique no botão de fechar
         if (window.bootstrap && bootstrap.Modal && typeof bootstrap.Modal.getOrCreateInstance === 'function') {
           bootstrap.Modal.getOrCreateInstance(el).hide();
         } else {
@@ -1068,9 +1125,14 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
         });
       });
-      document.querySelectorAll('.btn-reprovar').forEach(btn => {
+      document.querySelectorAll('.btn-cancelar').forEach(btn => {
         btn.addEventListener('click', () => {
           document.getElementById('cancelarPedidoId').value = btn.dataset.pedido;
+        });
+      });
+      document.querySelectorAll('.btn-reprovar').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('reprovarPedidoId').value = btn.dataset.pedido;
         });
       });
 
@@ -1095,7 +1157,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         });
       });
 
-      // POST helper (separa erros de rede de erros de aplicação)
+      // POST helper
       async function postForm(formEl, extra) {
         const fd = new FormData(formEl);
         Object.entries(extra || {}).forEach(([k,v]) => fd.append(k, v));
@@ -1117,22 +1179,43 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return j;
       }
 
-      // ✅ APROVAR: fecha modal, atualiza linha e recarrega a página (para refletir filtros/ordenação)
+      // ✅ APROVAR
       document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const j = await postForm(e.currentTarget, { acao: 'aprovar' });
-        if (!j) return; // já tratado
+        if (!j) return;
         if (j.ok) {
           const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
           setRowStatus(pedidoId, j.status || 'aprovada');
-          hideModalById('modalAtender');
-          setTimeout(() => { window.location.reload(); }, 350); // 🔁 recarrega após fechar a modal
+          hideModalById('modalAprovar');
+          setTimeout(() => { window.location.reload(); }, 350);
         } else {
           alert(j.msg || 'Não foi possível aprovar.');
         }
       });
 
-      // ✅ REPROVAR: fecha modal, atualiza linha e recarrega a página (para refletir filtros/ordenação)
+      // ✅ CANCELAR (observação obrigatória)
+      document.getElementById('formCancelar')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ta = e.currentTarget.querySelector('textarea[name="motivo"]');
+        if (!ta.value.trim()) {
+          ta.focus();
+          alert('Informe a observação do cancelamento.');
+          return;
+        }
+        const j = await postForm(e.currentTarget, { acao: 'cancelar' });
+        if (!j) return;
+        if (j.ok) {
+          const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+          setRowStatus(pedidoId, j.status || 'cancelada');
+          hideModalById('modalCancelar');
+          setTimeout(() => { window.location.reload(); }, 350);
+        } else {
+          alert(j.msg || 'Não foi possível cancelar.');
+        }
+      });
+
+      // ✅ REPROVAR
       document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const j = await postForm(e.currentTarget, { acao: 'reprovar' });
@@ -1140,8 +1223,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (j.ok) {
           const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
           setRowStatus(pedidoId, j.status || 'reprovada');
-          hideModalById('modalCancelar');
-          setTimeout(() => { window.location.reload(); }, 350); // 🔁 recarrega após fechar a modal
+          hideModalById('modalReprovar');
+          setTimeout(() => { window.location.reload(); }, 350);
         } else {
           alert(j.msg || 'Não foi possível reprovar.');
         }
