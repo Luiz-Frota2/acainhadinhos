@@ -282,7 +282,6 @@ try {
 
 function brToIsoDate($d)
 {
-    // aceita "YYYY-mm-dd" direto; se vier "dd/mm/YYYY", converte
     if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
     if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
         return "{$m[3]}-{$m[2]}-{$m[1]}";
@@ -290,7 +289,7 @@ function brToIsoDate($d)
     return null;
 }
 
-$periodo   = $_GET['periodo'] ?? 'hoje'; // hoje|ontem|ult7|mes|mes_anterior|custom
+$periodo   = $_GET['periodo'] ?? 'hoje';
 $dataIni   = $_GET['data_ini'] ?? '';
 $dataFim   = $_GET['data_fim'] ?? '';
 $caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
@@ -298,10 +297,8 @@ $formaPag  = $_GET['forma_pagamento'] ?? '';
 $statusNf  = $_GET['status_nfce'] ?? '';
 
 $now = new DateTime('now');
-$ini = new DateTime('today');
-$ini->setTime(0, 0, 0);
-$fim = new DateTime('today');
-$fim->setTime(23, 59, 59);
+$ini = new DateTime('today'); $ini->setTime(0, 0, 0);
+$fim = new DateTime('today'); $fim->setTime(23, 59, 59);
 
 switch ($periodo) {
     case 'ontem':
@@ -330,7 +327,6 @@ switch ($periodo) {
         break;
     case 'hoje':
     default:
-        // já setado
         break;
 }
 
@@ -357,7 +353,7 @@ $vendasQtd        = 0;
 $vendasValor      = 0.00;
 $vendasTroco      = 0.00;
 $ticketMedio      = 0.00;
-$pagamentoSeries  = []; // forma_pagamento => total
+$pagamentoSeries  = [];
 $vendasPorHora    = array_fill(0, 24, 0);
 $topProdutos      = [];
 $nfceStatusCont   = [];
@@ -437,10 +433,9 @@ try {
         if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
     }
 
-    // 4) Top produtos por quantidade no período
+    // 4) Top produtos (qtd)
     $params = [];
     bindPeriodo($params, $ini, $fim);
-    // aplica também filtros de forma/status/caixa via tabela vendas
     $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
     if (!empty($formaPag)) {
         $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
@@ -469,7 +464,7 @@ try {
     $st->execute($params);
     $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
 
-    // 5) NFC-e por status no período
+    // 5) NFC-e por status
     $params = [];
     bindPeriodo($params, $ini, $fim);
     $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
@@ -483,7 +478,7 @@ try {
         $nfceStatusCont[$row['st']] = (int)$row['qtd'];
     }
 
-    // 6) Últimas vendas do período (5)
+    // 6) Últimas vendas
     $params = [];
     bindPeriodo($params, $ini, $fim);
     $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
@@ -499,17 +494,13 @@ try {
     // mantém valores padrão
 }
 
-// ==== Dados para gráficos/labels (se usados na página)
+// ==== Dados de gráficos/labels
 $labelsHoras = [];
-for ($h = 0; $h < 24; $h++) {
-    $labelsHoras[] = sprintf('%02d:00', $h);
-}
-
+for ($h = 0; $h < 24; $h++) $labelsHoras[] = sprintf('%02d:00', $h);
 $pagtoLabels = array_keys($pagamentoSeries);
 $pagtoValues = array_values($pagamentoSeries);
-
-$nfceLabels = array_keys($nfceStatusCont);
-$nfceValues = array_values($nfceStatusCont);
+$nfceLabels  = array_keys($nfceStatusCont);
+$nfceValues  = array_values($nfceStatusCont);
 
 $topProdLabels = [];
 $topProdQtd    = [];
@@ -519,28 +510,18 @@ foreach ($topProdutos as $p) {
 }
 
 // Formatações úteis
-function moneyBr($v)
-{
-    return 'R$ ' . number_format((float)$v, 2, ',', '.');
-}
+function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
 $periodoLabel = [
-    'hoje' => 'Hoje',
-    'ontem' => 'Ontem',
-    'ult7' => 'Últimos 7 dias',
-    'mes' => 'Mês atual',
-    'mes_anterior' => 'Mês anterior',
-    'custom' => 'Personalizado'
+    'hoje'=>'Hoje','ontem'=>'Ontem','ult7'=>'Últimos 7 dias',
+    'mes'=>'Mês atual','mes_anterior'=>'Mês anterior','custom'=>'Personalizado'
 ][$periodo] ?? 'Hoje';
 
 $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
 
 /* ================= Renderização da LISTA ================= */
-
-// Mapeamento itens para a LISTA
 [$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
 
-/* SELECT base + filtro por FILIAIS (tipo='filial') */
 $selectBase = "
   s.id AS pedido_id,
   s.status,
@@ -612,7 +593,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
 
-    <!-- Icons. Uncomment required icon fonts -->
+    <!-- Icons -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
 
     <!-- Core CSS -->
@@ -622,27 +603,24 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
-
 </head>
 
 <body>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- Menu -->
 
+            <!-- Menu -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
                         <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
                     </a>
-
                     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
@@ -651,7 +629,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <div class="menu-inner-shadow"></div>
 
                 <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
@@ -659,12 +636,10 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         </a>
                     </li>
 
-                    <!-- Administração de Filiais -->
                     <li class="menu-header small text-uppercase">
                         <span class="menu-header-text">Administração Filiais</span>
                     </li>
 
-                    <!-- Adicionar Filial -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-building"></i>
@@ -685,49 +660,42 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub active">
-                            <!-- Contas das Filiais -->
                             <li class="menu-item">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
                                 </a>
                             </li>
 
-                            <!-- Produtos solicitados pelas filiais -->
                             <li class="menu-item active">
                                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
                             </li>
 
-                            <!-- Produtos enviados pela matriz -->
                             <li class="menu-item">
                                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
                             </li>
 
-                            <!-- Transferências em andamento -->
                             <li class="menu-item">
                                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
                                 </a>
                             </li>
 
-                            <!-- Histórico de transferências -->
                             <li class="menu-item">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
                             </li>
 
-                            <!-- Gestão de Estoque Central -->
                             <li class="menu-item">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a>
                             </li>
 
-                            <!-- Relatórios e indicadores B2B -->
                             <li class="menu-item">
                                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
@@ -736,7 +704,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         </ul>
                     </li>
 
-                    <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -758,11 +725,9 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                     <div data-i18n="Pedidos">Vendas por Período</div>
                                 </a>
                             </li>
-
                         </ul>
                     </li>
 
-                    <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -812,7 +777,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
-                    <!--/MISC-->
                 </ul>
             </aside>
             <!-- / Menu -->
@@ -820,7 +784,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <!-- Layout page -->
             <div class="layout-page">
                 <!-- Navbar -->
-
                 <nav
                     class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
@@ -831,15 +794,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
-                        <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center">
-                            </div>
-                        </div>
-                        <!-- /Search -->
-
+                        <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
@@ -870,26 +826,19 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Configurações</span>
-                                        </a>
+                                        <a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a>
                                     </li>
                                     <li><div class="dropdown-divider"></div></li>
                                     <li>
                                         <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-power-off me-2"></i>
-                                            <span class="align-middle">Sair</span>
+                                            <i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span>
                                         </a>
                                     </li>
                                 </ul>
                             </li>
-                            <!--/ User -->
                         </ul>
-
                     </div>
                 </nav>
-
                 <!-- / Navbar -->
 
                 <!-- Content -->
@@ -902,258 +851,152 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <span class="text-muted fw-light">Pedidos de produtos enviados pelas Filiais</span>
                     </h5>
 
-<!-- ================= HTML (mesma estrutura e classes) ================= -->
+                    <!-- Tabela -->
+                    <div class="card">
+                      <h5 class="card-header">Lista de Produtos Solicitados</h5>
+                      <div class="table-responsive text-nowrap">
+                        <table class="table table-hover">
+                          <thead>
+                            <tr>
+                              <th># Pedido</th>
+                              <th>Filial</th>
+                              <th>Qr code</th>
+                              <th>Produto</th>
+                              <th>Qtd</th>
+                              <th>Prioridade</th>
+                              <th>Solicitado em</th>
+                              <th>Status</th>
+                              <th>Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody class="table-border-bottom-0">
+                            <?php if (!$rows): ?>
+                              <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
+                            <?php else: foreach ($rows as $r):
+                              $pedidoId = (int)$r['pedido_id'];
+                              $qr   = $r['item_qr_code'] ?? null;
+                              $prod = $r['item_nome'] ?? null;
+                              $pri  = $r['item_prioridade'] ?: 'media';
+                              $sts  = strtolower((string)($r['status'] ?? 'pendente'));
+                              $fil  = $r['filial_nome'] ?: '—';
+                              $dt   = dtbr($r['criado_em']);
 
-<!-- Tabela -->
-<div class="card">
-  <h5 class="card-header">Lista de Produtos Solicitados</h5>
-  <div class="table-responsive text-nowrap">
-    <table class="table table-hover">
-      <thead>
-        <tr>
-          <th># Pedido</th>
-          <th>Filial</th>
-          <th>Qr code</th>
-          <th>Produto</th>
-          <th>Qtd</th>
-          <th>Prioridade</th>
-          <th>Solicitado em</th>
-          <th>Status</th>
-          <th>Ações</th>
-        </tr>
-      </thead>
-      <tbody class="table-border-bottom-0">
-        <?php if (!$rows): ?>
-          <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
-        <?php else: foreach ($rows as $r):
-          $pedidoId = (int)$r['pedido_id'];
-          $qr   = $r['item_qr_code'] ?? null;
-          $prod = $r['item_nome'] ?? null;
-          $pri  = $r['item_prioridade'] ?: 'media';
-          $sts  = strtolower((string)($r['status'] ?? 'pendente'));
-          $fil  = $r['filial_nome'] ?: '—';
-          $dt   = dtbr($r['criado_em']);
+                              $badgePri = (function($p){
+                                $p = strtolower($p);
+                                if ($p==='alta')   return '<span class="badge bg-label-danger status-badge">Alta</span>';
+                                if ($p==='media'||$p==='média') return '<span class="badge bg-label-warning status-badge">Média</span>';
+                                if ($p==='baixa')  return '<span class="badge bg-label-success status-badge">Baixa</span>';
+                                return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p)).'</span>';
+                              })($pri);
 
-          $badgePri = (function($p){
-            $p = strtolower($p);
-            if ($p==='alta')   return '<span class="badge bg-label-danger status-badge">Alta</span>';
-            if ($p==='media'||$p==='média') return '<span class="badge bg-label-warning status-badge">Média</span>';
-            if ($p==='baixa')  return '<span class="badge bg-label-success status-badge">Baixa</span>';
-            return '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($p)).'</span>';
-          })($pri);
+                              $badgeSts = (function($s){
+                                return match ($s) {
+                                  'pendente'    => '<span class="badge bg-label-warning status-badge">Pendente</span>',
+                                  'aprovada'    => '<span class="badge bg-label-primary status-badge">Aprovada</span>',
+                                  'reprovada'   => '<span class="badge bg-label-danger status-badge">Reprovada</span>',
+                                  'em_transito' => '<span class="badge bg-label-info status-badge">Em Trânsito</span>',
+                                  'entregue'    => '<span class="badge bg-label-success status-badge">Entregue</span>',
+                                  'cancelada'   => '<span class="badge bg-label-dark status-badge">Cancelada</span>',
+                                  default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s)).'</span>',
+                                };
+                              })($sts);
+                            ?>
+                            <tr data-pedido="<?= $pedidoId ?>">
+                              <td># <?= h((string)$pedidoId) ?></td>
+                              <td><strong><?= h($fil) ?></strong></td>
+                              <td><?= $qr !== null && $qr !== '' ? h($qr) : '—' ?></td>
+                              <td><?= $prod !== null && $prod !== '' ? h($prod) : '—' ?></td>
+                              <td><?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></td>
+                              <td><?= $badgePri ?></td>
+                              <td><?= h($dt) ?></td>
+                              <td class="td-status"><?= $badgeSts ?></td>
+                              <td>
+                                <button class="btn btn-sm btn-outline-primary btn-aprovar"
+                                        data-bs-toggle="modal" data-bs-target="#modalAtender"
+                                        data-pedido="<?= $pedidoId ?>">Aprovar</button>
 
-          $badgeSts = (function($s){
-            return match ($s) {
-              'pendente'    => '<span class="badge bg-label-warning status-badge">Pendente</span>',
-              'aprovada'    => '<span class="badge bg-label-primary status-badge">Aprovada</span>',
-              'reprovada'   => '<span class="badge bg-label-danger status-badge">Reprovada</span>',
-              'em_transito' => '<span class="badge bg-label-info status-badge">Em Trânsito</span>',
-              'entregue'    => '<span class="badge bg-label-success status-badge">Entregue</span>',
-              'cancelada'   => '<span class="badge bg-label-dark status-badge">Cancelada</span>',
-              default       => '<span class="badge bg-label-secondary status-badge">'.h(ucfirst($s)).'</span>',
-            };
-          })($sts);
-        ?>
-        <tr data-pedido="<?= $pedidoId ?>">
-          <td># <?= h((string)$pedidoId) ?></td>
-          <td><strong><?= h($fil) ?></strong></td>
-          <td><?= $qr !== null && $qr !== '' ? h($qr) : '—' ?></td>
-          <td><?= $prod !== null && $prod !== '' ? h($prod) : '—' ?></td>
-          <td><?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></td>
-          <td><?= $badgePri ?></td>
-          <td><?= h($dt) ?></td>
-          <td class="td-status"><?= $badgeSts ?></td>
-          <td>
-            <button class="btn btn-sm btn-outline-primary btn-aprovar"
-                    data-bs-toggle="modal" data-bs-target="#modalAtender"
-                    data-pedido="<?= $pedidoId ?>">Aprovar</button>
+                                <button class="btn btn-sm btn-outline-danger btn-reprovar"
+                                        data-bs-toggle="modal" data-bs-target="#modalCancelar"
+                                        data-pedido="<?= $pedidoId ?>">Reprovar</button>
 
-            <button class="btn btn-sm btn-outline-danger btn-reprovar"
-                    data-bs-toggle="modal" data-bs-target="#modalCancelar"
-                    data-pedido="<?= $pedidoId ?>">Reprovar</button>
+                                <button class="btn btn-sm btn-outline-secondary btn-detalhes"
+                                        data-bs-toggle="modal" data-bs-target="#modalDetalhes"
+                                        data-pedido="<?= $pedidoId ?>">Detalhes</button>
+                              </td>
+                            </tr>
+                            <?php endforeach; endif; ?>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
 
-            <button class="btn btn-sm btn-outline-secondary btn-detalhes"
-                    data-bs-toggle="modal" data-bs-target="#modalDetalhes"
-                    data-pedido="<?= $pedidoId ?>">Detalhes</button>
-          </td>
-        </tr>
-        <?php endforeach; endif; ?>
-      </tbody>
-    </table>
-  </div>
-</div>
+                    <!-- Modal Detalhes -->
+                    <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title">Detalhes do Pedido</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                          </div>
+                          <div class="modal-body">
+                            <div id="detalhesConteudo"><div class="text-muted">Carregando...</div></div>
+                          </div>
+                          <div class="modal-footer">
+                            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-<!-- Modal Detalhes -->
-<div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Detalhes do Pedido</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-      </div>
-      <div class="modal-body">
-        <div id="detalhesConteudo"><div class="text-muted">Carregando...</div></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-      </div>
-    </div>
-  </div>
-</div>
+                    <!-- Modal Cancelar / Reprovar -->
+                    <div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog modal-dialog-centered">
+                        <form id="formReprovar" class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title">Cancelar (Reprovar) Pedido</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                          </div>
+                          <div class="modal-body">
+                            <input type="hidden" name="pedido_id" id="cancelarPedidoId" />
+                            <label class="form-label">Motivo (opcional)</label>
+                            <textarea class="form-control" name="motivo" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
+                            <button type="submit" class="btn btn-danger">Confirmar Reprovação</button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
 
-<!-- Modal Cancelar / Reprovar -->
-<div class="modal fade" id="modalCancelar" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <form id="formReprovar" class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Cancelar (Reprovar) Pedido</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" name="pedido_id" id="cancelarPedidoId" />
-        <label class="form-label">Motivo (opcional)</label>
-        <textarea class="form-control" name="motivo" rows="3" placeholder="Descreva o motivo do cancelamento..."></textarea>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-        <button type="submit" class="btn btn-danger">Confirmar Reprovação</button>
-      </div>
-    </form>
-  </div>
-</div>
+                    <!-- Modal Aprovar -->
+                    <div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
+                      <div class="modal-dialog modal-dialog-centered">
+                        <form id="formAprovar" class="modal-content">
+                          <div class="modal-header">
+                            <h5 class="modal-title">Aprovar Pedido</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                          </div>
+                          <div class="modal-body">
+                            <input type="hidden" name="pedido_id" id="aprovarPedidoId" />
+                            <p class="mb-0 text-muted">Confirma a aprovação deste pedido?</p>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
+                            <button type="submit" class="btn btn-primary">Confirmar Aprovação</button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
 
-<!-- Modal Aprovar -->
-<div class="modal fade" id="modalAtender" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <form id="formAprovar" class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Aprovar Pedido</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" name="pedido_id" id="aprovarPedidoId" />
-        <p class="mb-0 text-muted">Confirma a aprovação deste pedido?</p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
-        <button type="submit" class="btn btn-primary">Confirmar Aprovação</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<script>
-(function () {
-  const SELF = window.location.pathname + window.location.search;
-
-  function parseJsonSafe(txt) {
-    try { return JSON.parse(txt); } catch (e) { return null; }
-  }
-
-  function setRowStatus(pedidoId, novoStatus) {
-    const tr = document.querySelector(`tr[data-pedido="${pedidoId}"]`);
-    if (!tr) return;
-    const tdStatus = tr.querySelector('.td-status');
-    let badge = '';
-    switch (novoStatus) {
-      case 'aprovada':    badge = '<span class="badge bg-label-primary status-badge">Aprovada</span>'; break;
-      case 'reprovada':   badge = '<span class="badge bg-label-danger status-badge">Reprovada</span>'; break;
-      case 'pendente':    badge = '<span class="badge bg-label-warning status-badge">Pendente</span>'; break;
-      case 'entregue':    badge = '<span class="badge bg-label-success status-badge">Entregue</span>'; break;
-      case 'em_transito': badge = '<span class="badge bg-label-info status-badge">Em Trânsito</span>'; break;
-      default:            badge = '<span class="badge bg-label-secondary status-badge">'+(novoStatus||'—')+'</span>';
-    }
-    if (tdStatus) tdStatus.innerHTML = badge;
-    tr.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(b => { b.setAttribute('disabled','disabled'); b.classList.add('disabled'); });
-  }
-
-  // Amarra os botões para preencher os inputs hidden
-  document.querySelectorAll('.btn-aprovar').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
-    });
-  });
-  document.querySelectorAll('.btn-reprovar').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.getElementById('cancelarPedidoId').value = btn.dataset.pedido;
-    });
-  });
-
-  // Modal Detalhes (GET no mesmo arquivo)
-  document.querySelectorAll('.btn-detalhes').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const pedidoId = btn.dataset.pedido;
-      const alvo = document.getElementById('detalhesConteudo');
-      alvo.innerHTML = '<div class="text-muted">Carregando...</div>';
-      try {
-        const resp = await fetch(`${SELF}${SELF.includes('?')?'&':'?'}acao=detalhes&id=${encodeURIComponent(pedidoId)}`, { credentials: 'same-origin' });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const html = await resp.text();
-        alvo.innerHTML = html;
-      } catch (e) {
-        alvo.innerHTML = '<div class="text-danger">Falha ao carregar detalhes.</div>';
-        console.error(e);
-      }
-    });
-  });
-
-  // Submit Aprovar (POST no mesmo arquivo retornando JSON limpo)
-  document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    fd.append('acao', 'aprovar');
-    try {
-      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
-      const txt = await r.text();
-      const j = parseJsonSafe(txt);
-      if (!j) { console.error('Resposta não-JSON:', txt); alert('Resposta inválida do servidor.'); return; }
-      if (j.ok) {
-        const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
-        setRowStatus(pedidoId, j.status || 'aprovada');
-        const modal = bootstrap.Modal.getInstance(document.getElementById('modalAtender'));
-        modal?.hide();
-      } else {
-        alert(j.msg || 'Não foi possível aprovar.');
-      }
-    } catch (err) {
-      alert('Erro de rede ao aprovar.');
-      console.error(err);
-    }
-  });
-
-  // Submit Reprovar (POST no mesmo arquivo retornando JSON limpo)
-  document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    fd.append('acao', 'reprovar');
-    try {
-      const r = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
-      const txt = await r.text();
-      const j = parseJsonSafe(txt);
-      if (!j) { console.error('Resposta não-JSON:', txt); alert('Resposta inválida do servidor.'); return; }
-      if (j.ok) {
-        const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
-        setRowStatus(pedidoId, j.status || 'reprovada');
-        const modal = bootstrap.Modal.getInstance(document.getElementById('modalCancelar'));
-        modal?.hide();
-      } else {
-        alert(j.msg || 'Não foi possível reprovar.');
-      }
-    } catch (err) {
-      alert('Erro de rede ao reprovar.');
-      console.error(err);
-    }
-  });
-})();
-</script>
+                </div> <!-- /container -->
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
-                    <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
+                    <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
-                            &copy;
-                            <script>document.write(new Date().getFullYear());</script>
-                            , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                            &copy; <script>document.write(new Date().getFullYear());</script>,
+                            <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
                             Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
@@ -1167,24 +1010,142 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="layout-overlay layout-menu-toggle"></div>
     </div> <!-- / Layout wrapper -->
 
-    <!-- Core JS -->
-    <!-- build:js assets/vendor/js/core.js -->
+    <!-- Core JS (Agora carrega ANTES do seu script inline) -->
     <script src="../../js/saudacao.js"></script>
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
 
     <!-- Vendors JS -->
     <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
-
-    <!-- Page JS -->
     <script src="../../assets/js/dashboards-analytics.js"></script>
+
+    <!-- Seu script inline (DEPOIS dos vendors) -->
+    <script>
+    (function () {
+      const SELF = window.location.pathname + window.location.search;
+
+      function parseJsonSafe(txt) {
+        try { return JSON.parse(txt); } catch { return null; }
+      }
+
+      function setRowStatus(pedidoId, novoStatus) {
+        const tr = document.querySelector(`tr[data-pedido="${pedidoId}"]`);
+        if (!tr) return;
+        const tdStatus = tr.querySelector('.td-status');
+        let badge = '';
+        switch (novoStatus) {
+          case 'aprovada':    badge = '<span class="badge bg-label-primary status-badge">Aprovada</span>'; break;
+          case 'reprovada':   badge = '<span class="badge bg-label-danger status-badge">Reprovada</span>'; break;
+          case 'pendente':    badge = '<span class="badge bg-label-warning status-badge">Pendente</span>'; break;
+          case 'entregue':    badge = '<span class="badge bg-label-success status-badge">Entregue</span>'; break;
+          case 'em_transito': badge = '<span class="badge bg-label-info status-badge">Em Trânsito</span>'; break;
+          default:            badge = '<span class="badge bg-label-secondary status-badge">'+(novoStatus||'—')+'</span>';
+        }
+        if (tdStatus) tdStatus.innerHTML = badge;
+        tr.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(b => { b.setAttribute('disabled','disabled'); b.classList.add('disabled'); });
+      }
+
+      function hideModalById(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Fecha com Bootstrap se disponível; senão, simula um clique no botão de fechar
+        if (window.bootstrap && bootstrap.Modal && typeof bootstrap.Modal.getOrCreateInstance === 'function') {
+          bootstrap.Modal.getOrCreateInstance(el).hide();
+        } else {
+          el.querySelector('[data-bs-dismiss="modal"]')?.click();
+        }
+      }
+
+      // Amarra botões -> inputs hidden
+      document.querySelectorAll('.btn-aprovar').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
+        });
+      });
+      document.querySelectorAll('.btn-reprovar').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('cancelarPedidoId').value = btn.dataset.pedido;
+        });
+      });
+
+      // Modal Detalhes (GET)
+      document.querySelectorAll('.btn-detalhes').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const pedidoId = btn.dataset.pedido;
+          const alvo = document.getElementById('detalhesConteudo');
+          alvo.innerHTML = '<div class="text-muted">Carregando...</div>';
+          try {
+            const resp = await fetch(`${SELF}${SELF.includes('?')?'&':'?'}acao=detalhes&id=${encodeURIComponent(pedidoId)}`, { credentials: 'same-origin' });
+            if (!resp.ok) {
+              alvo.innerHTML = `<div class="text-danger">Falha ao carregar detalhes (HTTP ${resp.status}).</div>`;
+              return;
+            }
+            const html = await resp.text();
+            alvo.innerHTML = html;
+          } catch (e) {
+            alvo.innerHTML = '<div class="text-danger">Falha de rede ao carregar detalhes.</div>';
+            console.error(e);
+          }
+        });
+      });
+
+      // POST helper (separa erros de rede de erros de aplicação)
+      async function postForm(formEl, extra) {
+        const fd = new FormData(formEl);
+        Object.entries(extra || {}).forEach(([k,v]) => fd.append(k, v));
+        let resp;
+        try {
+          resp = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+        } catch (netErr) {
+          alert('Erro de rede. Verifique sua conexão.');
+          console.error(netErr);
+          return null;
+        }
+        const txt = await resp.text();
+        const j = parseJsonSafe(txt);
+        if (!j) {
+          console.error('Resposta não-JSON:', txt);
+          alert(`Resposta inválida do servidor (HTTP ${resp.status}).`);
+          return null;
+        }
+        return j;
+      }
+
+      // Submit Aprovar
+      document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const j = await postForm(e.currentTarget, { acao: 'aprovar' });
+        if (!j) return; // já tratado
+        if (j.ok) {
+          const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+          setRowStatus(pedidoId, j.status || 'aprovada');
+          hideModalById('modalAtender');
+        } else {
+          alert(j.msg || 'Não foi possível aprovar.');
+        }
+      });
+
+      // Submit Reprovar
+      document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const j = await postForm(e.currentTarget, { acao: 'reprovar' });
+        if (!j) return;
+        if (j.ok) {
+          const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+          setRowStatus(pedidoId, j.status || 'reprovada');
+          hideModalById('modalCancelar');
+        } else {
+          alert(j.msg || 'Não foi possível reprovar.');
+        }
+      });
+    })();
+    </script>
 
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
