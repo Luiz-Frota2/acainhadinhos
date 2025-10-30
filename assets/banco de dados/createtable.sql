@@ -640,3 +640,22 @@ CREATE TABLE solicitacoes_b2b_itens (
     INDEX idx_itens_produto (produto_id),
     INDEX idx_itens_sol_prod (solicitacao_id, produto_id)
 );
+
+-- =======================
+-- Tabela: SOLICITACOES_PAGAMENTO
+-- =======================
+CREATE TABLE solicitacoes_pagamento (
+    ID                                      INT AUTO_INCREMENT PRIMARY KEY,
+    id_matriz                               VARCHAR(50) NOT NULL,
+    id_solicitante                          VARCHAR(50) NOT NULL,
+    status                                  ENUM('pendente','aprovado','reprovado') DEFAULT 'pendente',
+    fornecedor                              VARCHAR(150) NOT NULL,
+    documento                               VARCHAR(80),
+    descricao                               TEXT,
+    vencimento                              DATE NOT NULL,
+    valor                                   DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    comprovante_url                         VARCHAR(300),
+    created_at                              DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at                              DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
+);
+
