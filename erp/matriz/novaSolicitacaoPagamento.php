@@ -258,7 +258,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <li class="menu-item"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>"><div>Solicitar Pagamento</div></a></li>
                         <li class="menu-item open active">
                             <a class="menu-link" href="./novaSolicitacaoPagamento.php?id=<?= urlencode($idSelecionado); ?>">
-                                <i class="menu-icon tf-icons bx bx-money"></i>
                                 <div>Nova Solicitação de Pagamento</div>
                             </a>
                         </li>
