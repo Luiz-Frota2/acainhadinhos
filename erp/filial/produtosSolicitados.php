@@ -817,7 +817,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </aside>
             <!-- / Menu -->
 
-            <!-- Layout container -->
+            <!-- Layout page -->
             <div class="layout-page">
                 <!-- Navbar -->
 
@@ -1160,17 +1160,12 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </footer>
 
                 <div class="content-backdrop fade"></div>
-            </div>
-            <!-- Content wrapper -->
-        </div>
-        <!-- / Layout page -->
+            </div> <!-- / Layout page -->
+        </div> <!-- / Layout container -->
 
-    </div>
-
-    <!-- Overlay -->
-    <div class="layout-overlay layout-menu-toggle"></div>
-    </div>
-    <!-- / Layout wrapper -->
+        <!-- Overlay -->
+        <div class="layout-overlay layout-menu-toggle"></div>
+    </div> <!-- / Layout wrapper -->
 
     <!-- Core JS -->
     <!-- build:js assets/vendor/js/core.js -->
