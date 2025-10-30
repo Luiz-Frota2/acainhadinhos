@@ -257,7 +257,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <li class="menu-item"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>"><div>Estoque da Matriz</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>"><div>Solicitar Pagamento</div></a></li>
                         <li class="menu-item open active">
-                            <a class="menu-link" href="./novaSolicitacaoPagamento.php?id=<?= urlencode($idSelecionado); ?>">
+                            <a class="menu-link" href="#">
                                 <div>Nova Solicitação de Pagamento</div>
                             </a>
                         </li>
