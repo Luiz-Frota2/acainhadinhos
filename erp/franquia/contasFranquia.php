@@ -44,7 +44,7 @@ try {
   exit;
 }
 
-/* ==================== Permissão (Matriz) ==================== */
+/* ==================== Permissão ==================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -74,29 +74,24 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* ==================== CSRF para mudança de status ==================== */
+/* ==================== CSRF (mudar status) ==================== */
 if (empty($_SESSION['csrf_pagto_status'])) {
   $_SESSION['csrf_pagto_status'] = bin2hex(random_bytes(32));
 }
 $csrfStatus = $_SESSION['csrf_pagto_status'];
 
-/* ==================== Filtros ==================== */
-$status     = $_GET['status']     ?? '';       // pendente/aprovado/reprovado
-$tipoUnidade = $_GET['tipo']       ?? '';       // Franquia/Filial
-$dtIni      = $_GET['venc_ini']   ?? '';       // YYYY-MM-DD
-$dtFim      = $_GET['venc_fim']   ?? '';       // YYYY-MM-DD
-$q          = trim($_GET['q']     ?? '');      // texto livre
+/* ==================== Filtros (apenas os necessários) ==================== */
+$status = $_GET['status']   ?? '';              // pendente/aprovado/reprovado
+$dtIni  = $_GET['venc_ini'] ?? '';             // YYYY-MM-DD
+$dtFim  = $_GET['venc_fim'] ?? '';             // YYYY-MM-DD
+$q      = trim($_GET['q']   ?? '');            // texto livre
 
-$params = [':id_matriz' => $idSelecionado];
-$where  = ["sp.id_matriz = :id_matriz"];
+$params = [':id_matriz' => $idSelecionado, ':tipo' => 'Franquia'];
+$where  = ["sp.id_matriz = :id_matriz", "u.tipo = :tipo"]; // <-- SOMENTE FRANQUIA
 
 if ($status !== '' && in_array($status, ['pendente', 'aprovado', 'reprovado'], true)) {
   $where[] = "sp.status = :status";
   $params[':status'] = $status;
-}
-if ($tipoUnidade !== '' && in_array($tipoUnidade, ['Franquia', 'Filial'], true)) {
-  $where[] = "u.tipo = :tipo";
-  $params[':tipo'] = $tipoUnidade;
 }
 if ($dtIni !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dtIni)) {
   $where[] = "sp.vencimento >= :vini";
@@ -107,16 +102,15 @@ if ($dtFim !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dtFim)) {
   $params[':vfim'] = $dtFim;
 }
 if ($q !== '') {
-  $where[] = "(sp.fornecedor LIKE :q OR sp.documento LIKE :q OR sp.descricao LIKE :q OR sp.id_solicitante LIKE :q)";
+  $where[] = "(sp.fornecedor LIKE :q OR sp.documento LIKE :q OR sp.descricao LIKE :q OR sp.id_solicitante LIKE :q OR u.nome LIKE :q)";
   $params[':q'] = "%$q%";
 }
 
-$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+$whereSql = 'WHERE ' . implode(' AND ', $where);
 
 $sql = "
   SELECT
     sp.ID,
-    sp.id_matriz,
     sp.id_solicitante,
     sp.status,
     sp.fornecedor,
@@ -136,7 +130,6 @@ $sql = "
   $whereSql
   ORDER BY sp.created_at DESC, sp.ID DESC
 ";
-
 $rows = [];
 try {
   $st = $pdo->prepare($sql);
@@ -174,6 +167,26 @@ function badgeStatus(string $s): string
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
   <style>
+    .toolbar {
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      align-items: end;
+    }
+
+    .toolbar .form-select,
+    .toolbar .form-control {
+      min-width: 180px;
+    }
+
+    .toolbar .btn {
+      height: 38px;
+    }
+
+    .muted {
+      color: #6b7280;
+    }
+
     .table thead th {
       white-space: nowrap;
     }
@@ -182,31 +195,20 @@ function badgeStatus(string $s): string
       font-size: .78rem;
     }
 
-    .toolbar {
-      gap: .5rem;
-      flex-wrap: wrap;
-    }
-
-    .toolbar .form-select,
-    .toolbar .form-control {
-      max-width: 220px;
-    }
-
     .truncate {
-      max-width: 320px;
+      max-width: 260px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       display: inline-block;
-      vertical-align: bottom;
     }
 
     .col-actions .btn {
-      margin-right: .25rem;
+      margin-right: .35rem;
     }
 
-    .muted {
-      color: #6b7280;
+    .card-header {
+      padding-bottom: .25rem;
     }
   </style>
 </head>
@@ -214,7 +216,7 @@ function badgeStatus(string $s): string
 <body>
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
-      <!-- ASIDE (igual ao seu) -->
+      <!-- ====== ASIDE resumido igual seu layout ====== -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -226,24 +228,11 @@ function badgeStatus(string $s): string
         </div>
         <div class="menu-inner-shadow"></div>
         <ul class="menu-inner py-1">
-          <li class="menu-item">
-            <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-home-circle"></i>
+          <li class="menu-item"><a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div>Dashboard</div>
-            </a>
-          </li>
+            </a></li>
 
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Franquias</span></li>
-          <li class="menu-item"><a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-building"></i>
-              <div>Franquias</div>
-            </a>
-            <ul class="menu-sub">
-              <li class="menu-item"><a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Adicionadas</div>
-                </a></li>
-            </ul>
-          </li>
-
           <li class="menu-item active open">
             <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div>B2B - Matriz</div>
@@ -252,55 +241,55 @@ function badgeStatus(string $s): string
               <li class="menu-item active"><a href="#" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a></li>
-              <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>">
                   <div>Produtos Solicitados</div>
                 </a></li>
-              <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a class="menu-link" href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>">
                   <div>Produtos Enviados</div>
                 </a></li>
-              <li class="menu-item"><a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a class="menu-link" href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>">
                   <div>Transf. Pendentes</div>
                 </a></li>
-              <li class="menu-item"><a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a class="menu-link" href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>">
                   <div>Histórico Transf.</div>
                 </a></li>
-              <li class="menu-item"><a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>">
                   <div>Estoque Matriz</div>
                 </a></li>
-              <li class="menu-item"><a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+              <li class="menu-item"><a class="menu-link" href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>">
                   <div>Relatórios B2B</div>
                 </a></li>
             </ul>
           </li>
 
           <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-          <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+          <li class="menu-item"><a class="menu-link" href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-group"></i>
               <div>RH</div>
             </a></li>
-          <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i>
+          <li class="menu-item"><a class="menu-link" href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-dollar"></i>
               <div>Finanças</div>
             </a></li>
-          <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i>
+          <li class="menu-item"><a class="menu-link" href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-desktop"></i>
               <div>PDV</div>
             </a></li>
-          <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
+          <li class="menu-item"><a class="menu-link" href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div>Empresa</div>
             </a></li>
-          <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i>
+          <li class="menu-item"><a class="menu-link" href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-box"></i>
               <div>Estoque</div>
             </a></li>
-          <li class="menu-item"><a href="../filial/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-building"></i>
+          <li class="menu-item"><a class="menu-link" href="../filial/index.php?id=principal_1"><i class="menu-icon tf-icons bx bx-building"></i>
               <div>Filial</div>
             </a></li>
-          <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+          <li class="menu-item"><a class="menu-link" href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-group"></i>
               <div>Usuários</div>
             </a></li>
-          <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
+          <li class="menu-item"><a class="menu-link" target="_blank" href="https://wa.me/92991515710"><i class="menu-icon tf-icons bx bx-support"></i>
               <div>Suporte</div>
             </a></li>
         </ul>
       </aside>
-      <!-- /ASIDE -->
+      <!-- ====== /ASIDE ====== -->
 
       <div class="layout-page">
         <!-- Navbar -->
@@ -350,6 +339,7 @@ function badgeStatus(string $s): string
         <!-- /Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
+
           <h4 class="fw-bold mb-0">
             <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
             Pagamentos Solicitados
@@ -358,22 +348,13 @@ function badgeStatus(string $s): string
             <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das unidades</span>
           </h5>
 
-          <!-- Toolbar / Filtros -->
+          <!-- Filtros (somente o que pediu) -->
           <div class="card mb-3">
             <div class="card-body">
-              <form class="row g-2 align-items-end toolbar" method="get">
+              <form class="toolbar" method="get">
                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
 
-                <div class="col-auto">
-                  <label class="form-label mb-1">Tipo</label>
-                  <select name="tipo" class="form-select">
-                    <option value="">Todos</option>
-                    <option value="Franquia" <?= $tipoUnidade === 'Franquia' ? 'selected' : ''; ?>>Franquia</option>
-                    <option value="Filial" <?= $tipoUnidade === 'Filial'  ? 'selected' : ''; ?>>Filial</option>
-                  </select>
-                </div>
-
-                <div class="col-auto">
+                <div>
                   <label class="form-label mb-1">Status</label>
                   <select name="status" class="form-select">
                     <option value="">Todos</option>
@@ -383,32 +364,34 @@ function badgeStatus(string $s): string
                   </select>
                 </div>
 
-                <div class="col-auto">
+                <div>
                   <label class="form-label mb-1">Venc. de</label>
                   <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control">
                 </div>
-                <div class="col-auto">
+
+                <div>
                   <label class="form-label mb-1">até</label>
                   <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control">
                 </div>
 
-                <div class="col-auto" style="min-width:280px;">
+                <div style="min-width:320px;">
                   <label class="form-label mb-1">Buscar</label>
                   <input type="text" name="q" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control" placeholder="fornecedor, doc, descrição, unidade_1...">
                 </div>
 
-                <div class="col-auto">
+                <div>
                   <button class="btn btn-primary"><i class="bx bx-filter-alt"></i> Filtrar</button>
                   <a class="btn btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-reset"></i> Limpar</a>
                 </div>
               </form>
+
               <div class="mt-2 muted">
-                Encontradas <strong><?= count($rows) ?></strong> solicitações<?= $tipoUnidade ? " (somente <strong>$tipoUnidade</strong>)" : "" ?>.
+                Encontradas <strong><?= count($rows) ?></strong> solicitações (somente <strong>Franquias</strong>).
               </div>
             </div>
           </div>
 
-          <!-- Tabela -->
+          <!-- Tabela (colunas essenciais) -->
           <div class="card">
             <h5 class="card-header">Lista de Pagamentos Solicitados</h5>
             <div class="table-responsive text-nowrap">
@@ -417,7 +400,6 @@ function badgeStatus(string $s): string
                   <tr>
                     <th>ID</th>
                     <th>Unidade</th>
-                    <th>Tipo</th>
                     <th>Fornecedor</th>
                     <th>Documento</th>
                     <th>Valor</th>
@@ -431,7 +413,7 @@ function badgeStatus(string $s): string
                 <tbody class="table-border-bottom-0">
                   <?php if (!$rows): ?>
                     <tr>
-                      <td colspan="11" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
+                      <td colspan="10" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                     </tr>
                   <?php else: ?>
                     <?php foreach ($rows as $r): ?>
@@ -446,7 +428,6 @@ function badgeStatus(string $s): string
                           <strong><?= htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES) ?></strong>
                           <div class="text-muted small"><?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?></div>
                         </td>
-                        <td><?= htmlspecialchars($r['unidade_tipo'] ?? '—', ENT_QUOTES) ?></td>
                         <td class="truncate" title="<?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?>"><?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?></td>
                         <td class="truncate" title="<?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?>"><?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?></td>
                         <td><?= $valorFmt ?></td>
@@ -467,7 +448,6 @@ function badgeStatus(string $s): string
                             data-id="<?= (int)$r['ID'] ?>"
                             data-unidade="<?= htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES) ?>"
                             data-unidadeid="<?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?>"
-                            data-tipo="<?= htmlspecialchars($r['unidade_tipo'] ?? '—', ENT_QUOTES) ?>"
                             data-fornecedor="<?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?>"
                             data-documento="<?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?>"
                             data-descricao="<?= htmlspecialchars($r['descricao'] ?: '—', ENT_QUOTES) ?>"
@@ -502,7 +482,7 @@ function badgeStatus(string $s): string
     </div><!-- /layout-container -->
   </div>
 
-  <!-- Modais -->
+  <!-- ======= Modais ======= -->
   <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
@@ -515,7 +495,6 @@ function badgeStatus(string $s): string
             <div class="col-md-6">
               <p><strong>ID:</strong> <span id="det-id">—</span></p>
               <p><strong>Unidade:</strong> <span id="det-unidade">—</span> (<span id="det-unidadeid">—</span>)</p>
-              <p><strong>Tipo:</strong> <span id="det-tipo">—</span></p>
               <p><strong>Status:</strong> <span id="det-status">—</span></p>
             </div>
             <div class="col-md-6">
@@ -566,7 +545,7 @@ function badgeStatus(string $s): string
               <option value="aprovado">Aprovar</option>
               <option value="reprovado">Reprovar</option>
             </select>
-            <div class="form-text">As opções dependem do status atual da solicitação.</div>
+            <div class="form-text">Ao reprovar, informe o comentário.</div>
           </div>
 
           <div class="mb-3 d-none" id="st-obs-wrap">
@@ -592,15 +571,13 @@ function badgeStatus(string $s): string
 
   <script>
     (function() {
-      // Preenche modal de detalhes
+      // Detalhes
       document.querySelectorAll('.btn-detalhes').forEach(btn => {
         btn.addEventListener('click', () => {
           const g = (k) => btn.getAttribute('data-' + k) || '—';
-
           document.getElementById('det-id').textContent = g('id');
           document.getElementById('det-unidade').textContent = g('unidade');
           document.getElementById('det-unidadeid').textContent = g('unidadeid');
-          document.getElementById('det-tipo').textContent = g('tipo');
           document.getElementById('det-status').textContent = g('status');
           document.getElementById('det-fornecedor').textContent = g('fornecedor');
           document.getElementById('det-documento').textContent = g('documento');
@@ -614,7 +591,7 @@ function badgeStatus(string $s): string
         });
       });
 
-      // Preenche modal de status
+      // Status
       const wrapObs = document.getElementById('st-obs-wrap');
       const selAcao = document.getElementById('st-acao');
       const txtObs = document.getElementById('st-obs');
@@ -637,16 +614,6 @@ function badgeStatus(string $s): string
           const info = `#${btn.getAttribute('data-id')} · ${btn.getAttribute('data-fornecedor')} · Doc.: ${btn.getAttribute('data-documento')} · Status atual: ${btn.getAttribute('data-status')}`;
           document.getElementById('st-info').textContent = info;
 
-          // trava opções conforme status atual (ex.: se já reprovado, só permitir aprovar; se aprovado, só permitir reprovar)
-          const atual = (btn.getAttribute('data-status') || '').toLowerCase();
-          [...selAcao.options].forEach(o => o.disabled = false);
-          if (atual === 'aprovado') {
-            // pode reprovar
-          } else if (atual === 'reprovado') {
-            // pode aprovar
-          } else {
-            // pendente: pode ambos
-          }
           selAcao.value = '';
           toggleObs();
         });
