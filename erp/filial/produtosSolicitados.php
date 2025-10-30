@@ -144,7 +144,7 @@ if (!function_exists('render_detalhes_pedido')) {
           <div class="col-md-6">
             <p><strong>Filial:</strong> <?=h($r['filial_nome'] ?: '—')?></p>
             <p><strong>Qr code:</strong> <?=h($r['item_qr_code'] ?: '—')?></p>
-                <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
+            <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
           </div>
           <div class="col-md-6">
             <p><strong>Qtd:</strong> <?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></p>
@@ -991,7 +991,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                           </div>
                           <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Voltar</button>
-                            <button type="submit" class="btn btn-danger">Confirmar Reprovação</button>
+                            <button type="button" id="btnConfirmReprovar" class="btn btn-danger">Confirmar Reprovação</button>
                           </div>
                         </form>
                       </div>
@@ -1011,7 +1011,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                           </div>
                           <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Voltar</button>
-                            <button type="submit" class="btn btn-primary">Confirmar Aprovação</button>
+                            <button type="button" id="btnConfirmAprovar" class="btn btn-primary">Confirmar Aprovação</button>
                           </div>
                         </form>
                       </div>
@@ -1089,7 +1089,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
       }
 
-      // Amarra botões -> inputs hidden
+      // Botões da tabela -> setam IDs ocultos nas modais
       document.querySelectorAll('.btn-aprovar').forEach(btn => {
         btn.addEventListener('click', () => {
           document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
@@ -1122,13 +1122,16 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         });
       });
 
-      // POST helper (separa erros de rede de erros de aplicação)
-      async function postForm(formEl, extra) {
-        const fd = new FormData(formEl);
-        Object.entries(extra || {}).forEach(([k,v]) => fd.append(k, v));
+      // POST helper
+      async function postAjax(data) {
         let resp;
         try {
-          resp = await fetch(SELF, { method: 'POST', body: fd, credentials: 'same-origin' });
+          resp = await fetch(SELF, {
+            method: 'POST',
+            body: data,
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          });
         } catch (netErr) {
           alert('Erro de rede. Verifique sua conexão.');
           console.error(netErr);
@@ -1144,33 +1147,58 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return j;
       }
 
-      // ✅ APROVAR: fecha modal, atualiza linha e recarrega a página
-      document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const j = await postForm(e.currentTarget, { acao: 'aprovar' });
-        if (!j) return;
-        if (j.ok) {
-          const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+      // ===== CONFIRMAR APROVAÇÃO (clique) =====
+      document.getElementById('btnConfirmAprovar')?.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const form = document.getElementById('formAprovar');
+        const pedidoId = form.querySelector('[name="pedido_id"]').value || '';
+        if (!pedidoId) { alert('Pedido inválido.'); return; }
+
+        btn.disabled = true;
+        btn.classList.add('disabled');
+
+        const fd = new FormData();
+        fd.append('acao', 'aprovar');
+        fd.append('pedido_id', pedidoId);
+
+        const j = await postAjax(fd);
+        if (j && j.ok) {
           setRowStatus(pedidoId, j.status || 'aprovada');
           hideModalById('modalAtender');
           window.location.reload();
         } else {
-          alert(j.msg || 'Não foi possível aprovar.');
+          alert((j && j.msg) || 'Não foi possível aprovar.');
+          btn.disabled = false;
+          btn.classList.remove('disabled');
         }
       });
 
-      // ✅ REPROVAR: fecha modal, atualiza linha e recarrega a página
-      document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const j = await postForm(e.currentTarget, { acao: 'reprovar' });
-        if (!j) return;
-        if (j.ok) {
-          const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
+      // ===== CONFIRMAR REPROVAÇÃO (clique) =====
+      document.getElementById('btnConfirmReprovar')?.addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        const form = document.getElementById('formReprovar');
+        const pedidoId = form.querySelector('[name="pedido_id"]').value || '';
+        const motivo   = form.querySelector('[name="motivo"]').value || '';
+
+        if (!pedidoId) { alert('Pedido inválido.'); return; }
+
+        btn.disabled = true;
+        btn.classList.add('disabled');
+
+        const fd = new FormData();
+        fd.append('acao', 'reprovar');
+        fd.append('pedido_id', pedidoId);
+        fd.append('motivo', motivo);
+
+        const j = await postAjax(fd);
+        if (j && j.ok) {
           setRowStatus(pedidoId, j.status || 'reprovada');
           hideModalById('modalCancelar');
           window.location.reload();
         } else {
-          alert(j.msg || 'Não foi possível reprovar.');
+          alert((j && j.msg) || 'Não foi possível reprovar.');
+          btn.disabled = false;
+          btn.classList.remove('disabled');
         }
       });
     })();
