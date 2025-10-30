@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // pasta de destino
-            $destDir = __DIR__ . '/../../assets/uploads/pagamentos';
+            $destDir = __DIR__ . '/../../assets/uploads/pagamentos/';
             if (!is_dir($destDir)) {
                 if (!mkdir($destDir, 0755, true)) {
                     throw new RuntimeException('Não foi possível criar diretório de uploads.');
