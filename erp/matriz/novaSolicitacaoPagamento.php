@@ -220,8 +220,6 @@ $csrf = $_SESSION['csrf_pagamento'];
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
-                                <i class="bx bx-file fs-4 lh-0"></i>
-                                <span class="ms-2">Nova Solicitação de Pagamento</span>
                             </div>
                         </div>
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
@@ -267,6 +265,11 @@ $csrf = $_SESSION['csrf_pagamento'];
                         </div>
                         <?php unset($_SESSION['flash_msg']); ?>
                     <?php endif; ?>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="fw-bold mb-0">Solicitações de Pagamento</h4>
+
+                    </div>
 
                     <div class="card">
                         <div class="card-body">
