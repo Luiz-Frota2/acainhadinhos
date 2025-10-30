@@ -212,7 +212,7 @@ try {
               <!-- Solicitar pagamento de conta -->
               <li class="menu-item">
                 <a href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div>Pagamentos Solicitados</div>
+                  <div>Pag. Solicitados</div>
                 </a>
               </li>
             </ul>
