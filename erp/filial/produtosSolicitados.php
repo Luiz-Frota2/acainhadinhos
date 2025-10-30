@@ -3,6 +3,7 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 session_start();
+date_default_timezone_set('America/Manaus');
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
@@ -23,8 +24,14 @@ if (
     exit;
 }
 
-// ✅ Conexão com o banco de dados
-require '../../assets/php/conexao.php';
+// ✅ Conexão com o banco de dados (robusto com __DIR__)
+require_once __DIR__ . '/../../assets/php/conexao.php';
+if (!isset($pdo) || !($pdo instanceof PDO)) {
+    http_response_code(500);
+    echo "Erro: conexão indisponível.";
+    exit;
+}
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 /* ====== GATEWAY AJAX ANTES DE QUALQUER HTML ====== */
 
@@ -44,6 +51,9 @@ if (!function_exists('json_exit')) {
 }
 if (!function_exists('h')) {
     function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+}
+if (!function_exists('dtbr')) {
+    function dtbr(?string $dt): string { if(!$dt) return '—'; $t=strtotime($dt); return $t?date('d/m/Y H:i',$t):'—'; }
 }
 
 /* Descoberta dinâmica das colunas (reuso do seu código) */
@@ -110,7 +120,7 @@ if (!function_exists('render_detalhes_pedido')) {
           {$joins}
           WHERE s.id_matriz = :empresa
             AND s.id = :id
-            AND s.id_solicitante LIKE 'unidade\_%'
+            AND s.id_solicitante LIKE 'unidade\\_%'
             AND u.tipo = 'filial'
           LIMIT 1
         ";
@@ -127,7 +137,7 @@ if (!function_exists('render_detalhes_pedido')) {
             <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
           </div>
           <div class="col-md-6">
-            <p><strong>Qtd:</strong> <?= isset($r['item_qtd']) ? (int)$r['item_qtd'] : '—' ?></p>
+            <p><strong>Qtd:</strong> <?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></p>
             <p><strong>Prioridade:</strong> <?=h($r['prioridade'] ?: '—')?></p>
             <p><strong>Status:</strong> <?=h(ucfirst($r['status'] ?: '—'))?></p>
           </div>
@@ -205,9 +215,6 @@ if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], tr
     }
 }
 /* ====== FIM DO GATEWAY AJAX ====== */
-
-
-
 
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
@@ -345,22 +352,6 @@ try {
 /* ==========================================================
    MÉTRICAS PDV (usando os FILTROS)
    ========================================================== */
-
-$caixaAtual = null; // opcionalmente mostramos info do caixa aberto mais recente
-try {
-    $st = $pdo->prepare("
-    SELECT id, responsavel, numero_caixa, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido,
-           abertura_datetime, fechamento_datetime, quantidade_vendas, status, cpf_responsavel
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND status = 'aberto'
-  ORDER BY abertura_datetime DESC
-     LIMIT 1
-  ");
-    $st->execute([':empresa_id' => $idSelecionado]);
-    $caixaAtual = $st->fetch(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-}
 
 $vendasQtd        = 0;
 $vendasValor      = 0.00;
@@ -508,7 +499,7 @@ try {
     // mantém valores padrão
 }
 
-// ==== Dados para gráficos/labels
+// ==== Dados para gráficos/labels (se usados na página)
 $labelsHoras = [];
 for ($h = 0; $h < 24; $h++) {
     $labelsHoras[] = sprintf('%02d:00', $h);
@@ -544,8 +535,60 @@ $periodoLabel = [
 $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
 
-?>
+/* ================= Renderização da LISTA ================= */
 
+// Mapeamento itens para a LISTA
+[$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
+
+/* SELECT base + filtro por FILIAIS (tipo='filial') */
+$selectBase = "
+  s.id AS pedido_id,
+  s.status,
+  s.prioridade AS item_prioridade,
+  s.observacao AS obs,
+  s.created_at AS criado_em,
+  u.nome       AS filial_nome
+";
+$selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
+$joins = "LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+           AND u.empresa_id = s.id_matriz";
+
+if ($temItens) {
+  $joins .= "
+    LEFT JOIN (
+      SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
+      FROM solicitacoes_b2b_itens si1
+      GROUP BY si1.solicitacao_id
+    ) pick ON pick.solicitacao_id = s.id
+    LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
+  ";
+  if ($colCod) {
+    $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
+    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
+  } elseif ($colNome) {
+    $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
+    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
+  } else {
+    $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
+  }
+}
+
+$sql = "
+  SELECT {$selectBase}, {$selectItem}
+  FROM solicitacoes_b2b s
+  {$joins}
+  WHERE s.id_matriz = :empresa
+    AND s.id_solicitante LIKE 'unidade\\_%'
+    AND u.tipo = 'filial'
+  ORDER BY s.created_at DESC, s.id DESC
+  LIMIT 300
+";
+$stmt = $pdo->prepare($sql);
+$stmt->execute([':empresa'=>$idEmpresaSession]);
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
@@ -582,13 +625,8 @@ $fimTxt = $fim->format('d/m/Y');
 
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
-    <!-- Page CSS -->
-
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
-
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
     <script src="../../assets/js/config.js"></script>
 
 </head>
@@ -602,7 +640,6 @@ $fimTxt = $fim->format('d/m/Y');
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
                         <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
                     </a>
 
@@ -725,8 +762,6 @@ $fimTxt = $fim->format('d/m/Y');
                         </ul>
                     </li>
 
-                    <!--END DELIVERY-->
-
                     <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
@@ -827,9 +862,7 @@ $fimTxt = $fim->format('d/m/Y');
                                             </div>
                                         </a>
                                     </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
+                                    <li><div class="dropdown-divider"></div></li>
                                     <li>
                                         <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-user me-2"></i>
@@ -842,9 +875,7 @@ $fimTxt = $fim->format('d/m/Y');
                                             <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
+                                    <li><div class="dropdown-divider"></div></li>
                                     <li>
                                         <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
@@ -871,257 +902,9 @@ $fimTxt = $fim->format('d/m/Y');
                         <span class="text-muted fw-light">Pedidos de produtos enviados pelas Filiais</span>
                     </h5>
 
-<?php
-/**
- * /erp/filial/produtosSolicitados.php
- * Lista + processamento no mesmo arquivo (Aprovar, Reprovar, Detalhes)
- */
-
-
-/* ================= Helpers ================= */
-function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
-function dtbr(?string $dt): string { if(!$dt) return '—'; $t=strtotime($dt); return $t?date('d/m/Y H:i',$t):'—'; }
-function json_exit(array $payload, int $statusCode = 200): void {
-  // Garante JSON limpo
-  if (ob_get_level()) { @ob_end_clean(); }
-  ini_set('display_errors', '0');
-  header_remove('X-Powered-By');
-  header('Content-Type: application/json; charset=UTF-8');
-  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-  header('Pragma: no-cache');
-  http_response_code($statusCode);
-  echo json_encode($payload, JSON_UNESCAPED_UNICODE);
-  exit;
-}
-
-/* ================= Sessão & Conexão ================= */
-if (session_status() !== PHP_SESSION_ACTIVE) session_start();
-
-/**
- * Ajuste este require se seu caminho de conexão for diferente.
- * Considerando este arquivo em /erp/filial/, conexão em /assets/php/conexao.php
- */
-if (!isset($pdo) || !($pdo instanceof PDO)) {
-  require_once __DIR__ . '/../../assets/php/conexao.php';
-}
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-/* ================= Empresa (Matriz) ================= */
-$empresaIdMatriz = $_SESSION['empresa_id'] ?? '';
-
-/* ================= Descoberta dinâmica das colunas de itens ================= */
-function descobrirColunasItens(PDO $pdo): array {
-  $temItens = false; $cols = [];
-  try { $rs=$pdo->query("SHOW TABLES LIKE 'solicitacoes_b2b_itens'"); $temItens=(bool)$rs->fetchColumn(); } catch(Throwable $e){}
-  if (!$temItens) return [false,null,null,null];
-  try {
-    $st=$pdo->query("SHOW COLUMNS FROM solicitacoes_b2b_itens");
-    while($c=$st->fetch(PDO::FETCH_ASSOC)) $cols[]=$c['Field'];
-  } catch(Throwable $e){ return [false,null,null,null]; }
-
-  $colCod=null; foreach(['produto_codigo','codigo_produto','sku','codigo','qr_code','cod_produto','id_produto'] as $c){ if(in_array($c,$cols,true)){ $colCod=$c; break; } }
-  $colQtd=null; foreach(['quantidade','qtd','qtde','quantidade_solicitada','qtd_solicitada'] as $c){ if(in_array($c,$cols,true)){ $colQtd=$c; break; } }
-  $colNome=null; foreach(['nome_produto','descricao_produto','produto_nome'] as $c){ if(in_array($c,$cols,true)){ $colNome=$c; break; } }
-
-  if(!$colCod && !$colQtd && !$colNome) return [false,null,null,null];
-  return [true,$colCod,$colQtd,$colNome];
-}
-
-/* ================= Buscar 1 solicitação (para modal Detalhes) ================= */
-function buscarSolicitacaoPorId(PDO $pdo, string $empresaIdMatriz, int $id, array $mapeamento): ?array {
-  [$temItens,$colCod,$colQtd,$colNome] = $mapeamento;
-
-  $selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
-  $joins = "";
-  if ($temItens) {
-    $joins .= "
-      LEFT JOIN (
-        SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
-        FROM solicitacoes_b2b_itens si1
-        WHERE si1.solicitacao_id = :id
-        GROUP BY si1.solicitacao_id
-      ) pick ON pick.solicitacao_id = s.id
-      LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
-    ";
-    if ($colCod) {
-      $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
-      $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
-    } elseif ($colNome) {
-      $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
-      $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
-    } else {
-      $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd? "si.`{$colQtd}`":"NULL")." AS item_qtd ";
-    }
-  }
-
-  $sql = "
-    SELECT
-      s.id AS pedido_id,
-      s.status,
-      s.prioridade,
-      s.observacao AS obs,
-      s.created_at AS criado_em,
-      u.nome       AS filial_nome,
-      {$selectItem}
-    FROM solicitacoes_b2b s
-    LEFT JOIN unidades u
-      ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
-     AND u.empresa_id = s.id_matriz
-    {$joins}
-    WHERE s.id_matriz = :empresa
-      AND s.id = :id
-      AND s.id_solicitante LIKE 'unidade\_%'
-      AND u.tipo = 'filial'
-    LIMIT 1
-  ";
-  $st = $pdo->prepare($sql);
-  $st->execute([':empresa'=>$empresaIdMatriz, ':id'=>$id]);
-  $row = $st->fetch(PDO::FETCH_ASSOC);
-  return $row ?: null;
-}
-
-/* ================= Handlers AJAX NO MESMO ARQUIVO ================= */
-if (isset($_GET['acao']) && $_GET['acao']==='detalhes') {
-  if (ob_get_level()) { @ob_end_clean(); }
-  ini_set('display_errors', '0');
-
-  if (!$empresaIdMatriz) { http_response_code(401); echo "<div class='text-danger'>Sessão expirada.</div>"; exit; }
-
-  $id = (int)($_GET['id'] ?? 0);
-  if (!$id) { http_response_code(400); echo "<div class='text-danger'>ID inválido.</div>"; exit; }
-
-  $map = descobrirColunasItens($pdo);
-  $r = buscarSolicitacaoPorId($pdo, $empresaIdMatriz, $id, $map);
-  if (!$r) { echo "<div class='text-danger'>Não encontrado.</div>"; exit; }
-  ?>
-  <div class="row g-3">
-    <div class="col-md-6">
-      <p><strong>Filial:</strong> <?=h($r['filial_nome'] ?: '—')?></p>
-      <p><strong>Qr code:</strong> <?=h($r['item_qr_code'] ?: '—')?></p>
-      <p><strong>Produto:</strong> <?=h($r['item_nome'] ?: '—')?></p>
-    </div>
-    <div class="col-md-6">
-      <p><strong>Qtd:</strong> <?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></p>
-      <p><strong>Prioridade:</strong> <?=h($r['prioridade'] ?: '—')?></p>
-      <p><strong>Status:</strong> <?=h(ucfirst($r['status'] ?: '—'))?></p>
-    </div>
-    <div class="col-12">
-      <p><strong>Observações:</strong> <?=h($r['obs'] ?: '—')?></p>
-    </div>
-  </div>
-  <?php
-  exit;
-}
-
-if (isset($_POST['acao']) && ($_POST['acao']==='aprovar' || $_POST['acao']==='reprovar')) {
-  if (ob_get_level()) { @ob_end_clean(); }
-  ini_set('display_errors', '0');
-
-  $acao = $_POST['acao'];
-  $pedidoId = (int)($_POST['pedido_id'] ?? 0);
-  $motivo = trim((string)($_POST['motivo'] ?? ''));
-
-  if (!$empresaIdMatriz) json_exit(['ok'=>false,'msg'=>'Sessão expirada (empresa).'], 200);
-  if ($pedidoId<=0)      json_exit(['ok'=>false,'msg'=>'ID inválido.'], 200);
-
-  try {
-    // checa colunas opcionais
-    $cols = [];
-    try {
-      $cst = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
-      while ($c = $cst->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
-    } catch (Throwable $e) {}
-
-    // carrega a solicitação
-    $st = $pdo->prepare("SELECT id,status,observacao FROM solicitacoes_b2b WHERE id=:id AND id_matriz=:emp LIMIT 1");
-    $st->execute([':id'=>$pedidoId, ':emp'=>$empresaIdMatriz]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
-    if (!$row) json_exit(['ok'=>false,'msg'=>'Solicitação não encontrada para esta empresa.'], 200);
-
-    $statusAtual = strtolower((string)($row['status'] ?? ''));
-    if ($acao==='aprovar' && $statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada'], 200);
-    if ($acao==='reprovar' && $statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.','status'=>'reprovada'], 200);
-
-    $novo = ($acao==='aprovar' ? 'aprovada' : 'reprovada');
-    $set = "status = :novo";
-    $params = [':novo'=>$novo, ':id'=>$pedidoId, ':emp'=>$empresaIdMatriz];
-
-    if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
-
-    if ($acao==='reprovar' && $motivo!=='' && isset($cols['observacao'])) {
-      $novaObs = trim((string)($row['observacao'] ?? ''));
-      if ($novaObs!=='') $novaObs .= " | ";
-      $novaObs .= "Reprovado: ".$motivo;
-      $set .= ", observacao = :obs";
-      $params[':obs'] = $novaObs;
-    }
-
-    $up = $pdo->prepare("UPDATE solicitacoes_b2b SET $set WHERE id=:id AND id_matriz=:emp LIMIT 1");
-    $up->execute($params);
-
-    json_exit(['ok'=>true,'msg'=>'Atualizado com sucesso.','status'=>$novo], 200);
-  } catch (Throwable $e) {
-    json_exit(['ok'=>false,'msg'=>'Falha no processamento.'], 200);
-  }
-}
-
-/* ================= Renderização da LISTA ================= */
-
-// Mapeamento itens para a LISTA
-[$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
-
-/* SELECT base + filtro por FILIAIS (tipo='filial') */
-$selectBase = "
-  s.id AS pedido_id,
-  s.status,
-  s.prioridade AS item_prioridade,
-  s.observacao AS obs,
-  s.created_at AS criado_em,
-  u.nome       AS filial_nome
-";
-$selectItem = "NULL AS item_qr_code, NULL AS item_nome, NULL AS item_qtd";
-$joins = "LEFT JOIN unidades u
-            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
-           AND u.empresa_id = s.id_matriz";
-
-if ($temItens) {
-  $joins .= "
-    LEFT JOIN (
-      SELECT si1.solicitacao_id, MAX(si1.id) AS _pick_id
-      FROM solicitacoes_b2b_itens si1
-      GROUP BY si1.solicitacao_id
-    ) pick ON pick.solicitacao_id = s.id
-    LEFT JOIN solicitacoes_b2b_itens si ON si.id = pick._pick_id
-  ";
-  if ($colCod) {
-    $joins .= " LEFT JOIN estoque e ON e.codigo_produto = si.`{$colCod}` AND e.empresa_id = s.id_matriz ";
-    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
-  } elseif ($colNome) {
-    $joins .= " LEFT JOIN estoque e ON e.nome_produto = si.`{$colNome}` AND e.empresa_id = s.id_matriz ";
-    $selectItem = " e.codigo_produto AS item_qr_code, e.nome_produto AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
-  } else {
-    $selectItem = " NULL AS item_qr_code, NULL AS item_nome, ".($colQtd?"si.`{$colQtd}`":"NULL")." AS item_qtd ";
-  }
-}
-
-$sql = "
-  SELECT {$selectBase}, {$selectItem}
-  FROM solicitacoes_b2b s
-  {$joins}
-  WHERE s.id_matriz = :empresa
-    AND s.id_solicitante LIKE 'unidade\_%'
-    AND u.tipo = 'filial'
-  ORDER BY s.created_at DESC, s.id DESC
-  LIMIT 300
-";
-$stmt = $pdo->prepare($sql);
-$stmt->execute([':empresa'=>$empresaIdMatriz]);
-$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-?>
 <!-- ================= HTML (mesma estrutura e classes) ================= -->
 
-<!-- Tabela (HTML mock) -->
+<!-- Tabela -->
 <div class="card">
   <h5 class="card-header">Lista de Produtos Solicitados</h5>
   <div class="table-responsive text-nowrap">
@@ -1130,7 +913,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <tr>
           <th># Pedido</th>
           <th>Filial</th>
-          <th>Qr code</</th>
+          <th>Qr code</th>
           <th>Produto</th>
           <th>Qtd</th>
           <th>Prioridade</th>
@@ -1144,9 +927,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
         <?php else: foreach ($rows as $r):
           $pedidoId = (int)$r['pedido_id'];
-          $qr   = $r['item_qr_code'] ?: '—';
-          $prod = $r['item_nome']    ?: '—';
-          $qtd  = isset($r['item_qtd']) && $r['item_qtd']!==null ? (int)$r['item_qtd'] : 0;
+          $qr   = $r['item_qr_code'] ?? null;
+          $prod = $r['item_nome'] ?? null;
           $pri  = $r['item_prioridade'] ?: 'media';
           $sts  = strtolower((string)($r['status'] ?? 'pendente'));
           $fil  = $r['filial_nome'] ?: '—';
@@ -1175,9 +957,9 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <tr data-pedido="<?= $pedidoId ?>">
           <td># <?= h((string)$pedidoId) ?></td>
           <td><strong><?= h($fil) ?></strong></td>
-          <td><?= h($qr) ?></td>
-          <td><?= h($prod) ?></td>
-          <td><?= $qtd ?: '—' ?></td>
+          <td><?= $qr !== null && $qr !== '' ? h($qr) : '—' ?></td>
+          <td><?= $prod !== null && $prod !== '' ? h($prod) : '—' ?></td>
+          <td><?= $r['item_qtd']!==null ? (int)$r['item_qtd'] : '—' ?></td>
           <td><?= $badgePri ?></td>
           <td><?= h($dt) ?></td>
           <td class="td-status"><?= $badgeSts ?></td>
@@ -1365,22 +1147,17 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 })();
 </script>
 
-
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
                             &copy;
-                            <script>
-                                document.write(new Date().getFullYear());
-                            </script>
+                            <script>document.write(new Date().getFullYear());</script>
                             , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
                             Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
                 </footer>
-
-                <!-- / Footer -->
 
                 <div class="content-backdrop fade"></div>
             </div>
@@ -1402,7 +1179,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
     <script src="../../assets/vendor/js/menu.js"></script>
     <!-- endbuild -->
 
@@ -1415,8 +1191,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <!-- Page JS -->
     <script src="../../assets/js/dashboards-analytics.js"></script>
 
-    <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
-
 </html>
