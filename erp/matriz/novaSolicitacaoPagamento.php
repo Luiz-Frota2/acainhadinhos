@@ -160,11 +160,11 @@ $csrf = $_SESSION['csrf_pagamento'];
                                     <div>Estoque da Matriz</div>
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Solicitar Pagamento</div>
+                                    <div>Pagamentos Solicitados</div>
                                 </a></li>
                             <li class="menu-item open active">
                                 <a class="menu-link" href="#">
-                                    <div>Nova Solicitação de Pagamento</div>
+                                    <div>Solicitar Pagamento</div>
                                 </a>
                             </li>
                         </ul>

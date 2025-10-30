@@ -260,7 +260,7 @@ try {
                                     <div>Estoque da Matriz</div>
                                 </a></li>
                             <li class="menu-item"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Solicitar Pagamento</div>
+                                    <div>Pagamentos Solicitados</div>
                                 </a></li>
                         </ul>
                     </li>

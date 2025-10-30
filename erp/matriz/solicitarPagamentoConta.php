@@ -277,7 +277,7 @@ function badge_soft_class_pagamento($status)
                                     <div>Estoque da Matriz</div>
                                 </a></li>
                             <li class="menu-item active"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Solicitar Pagamento</div>
+                                    <div>Pagamentos Solicitados</div>
                                 </a></li>
                         </ul>
                     </li>
