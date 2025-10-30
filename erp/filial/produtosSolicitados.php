@@ -1117,7 +1117,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return j;
       }
 
-      // Submit Aprovar
+      // ✅ APROVAR: fecha modal, atualiza linha e recarrega a página (para refletir filtros/ordenação)
       document.getElementById('formAprovar')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const j = await postForm(e.currentTarget, { acao: 'aprovar' });
@@ -1126,12 +1126,13 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
           setRowStatus(pedidoId, j.status || 'aprovada');
           hideModalById('modalAtender');
+          setTimeout(() => { window.location.reload(); }, 350); // 🔁 recarrega após fechar a modal
         } else {
           alert(j.msg || 'Não foi possível aprovar.');
         }
       });
 
-      // Submit Reprovar
+      // ✅ REPROVAR: fecha modal, atualiza linha e recarrega a página (para refletir filtros/ordenação)
       document.getElementById('formReprovar')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const j = await postForm(e.currentTarget, { acao: 'reprovar' });
@@ -1140,6 +1141,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           const pedidoId = e.currentTarget.querySelector('[name="pedido_id"]').value;
           setRowStatus(pedidoId, j.status || 'reprovada');
           hideModalById('modalCancelar');
+          setTimeout(() => { window.location.reload(); }, 350); // 🔁 recarrega após fechar a modal
         } else {
           alert(j.msg || 'Não foi possível reprovar.');
         }
