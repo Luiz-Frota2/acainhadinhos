@@ -253,9 +253,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <li class="menu-item"><a class="menu-link" href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>"><div>Produtos Solicitados</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./statusTransferencia.php?id=<?= urlencode($idSelecionado); ?>"><div>Status da Transf.</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./produtosRecebidos.php?id=<?= urlencode($idSelecionado); ?>"><div>Produtos Entregues</div></a></li>
-                        <li class="menu-item open active"><a class="menu-link" href="./novaSolicitacaoPagamento.php?id=<?= urlencode($idSelecionado); ?>"><div>Nova Solicitação</div></a></li>
+                        <li class="menu-item"><a class="menu-link" href="./novaSolicitacaoPagamento.php?id=<?= urlencode($idSelecionado); ?>"><div>Nova Solicitação</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>"><div>Estoque da Matriz</div></a></li>
                         <li class="menu-item"><a class="menu-link" href="./solicitarPagamentoConta.php?id=<?= urlencode($idSelecionado); ?>"><div>Solicitar Pagamento</div></a></li>
+                        <li class="menu-item open active">
+                            <a class="menu-link" href="./novaSolicitacaoPagamento.php?id=<?= urlencode($idSelecionado); ?>">
+                                <i class="menu-icon tf-icons bx bx-money"></i>
+                                <div>Nova Solicitação de Pagamento</div>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
