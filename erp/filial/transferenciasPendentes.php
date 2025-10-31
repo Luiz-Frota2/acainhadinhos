@@ -388,7 +388,7 @@ try {
 
         WHERE
             (s.id_matriz = :empresa OR s.id_matriz = :empresaSessao)
-            AND s.status LIKE 'aprovad%'
+            AND s.status LIKE 'aprovada'
 
         GROUP BY s.id, s.id_matriz, s.id_solicitante, s.status, s.created_at, u.nome
         ORDER BY s.created_at DESC, s.id DESC
