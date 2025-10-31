@@ -383,7 +383,7 @@ try {
         LEFT JOIN usuarios_peca u
                ON u.empresa_cnpj = s.id_solicitante OR u.id = s.id_solicitante
         WHERE s.id_matriz = :empresa
-          AND s.status    = 'Aprovado'
+          AND s.status    = 'Aprovada'
         GROUP BY s.id, s.id_matriz, s.id_solicitante, s.status, s.created_at, u.nome
         ORDER BY s.created_at DESC, s.id DESC
         LIMIT 300
