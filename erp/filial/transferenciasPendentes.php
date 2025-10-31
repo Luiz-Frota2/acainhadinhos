@@ -576,5 +576,4 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
     </script>
 
     <script async defer src="https://buttons.github.io/buttons.js"></script>
-</body>
-</html>
+</
