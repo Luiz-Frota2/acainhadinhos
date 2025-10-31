@@ -565,15 +565,4 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
           const status = btn.getAttribute('data-status') || '-';
 
           document.getElementById('det-codigo').textContent = codigo;
-          document.getElementById('det-filial').textContent = filial;
-          document.getElementById('det-status').textContent = status;
-
-          const tbody = document.getElementById('det-itens');
-          tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens carregados (implementar AJAX se necessário).</td></tr>';
-          document.getElementById('det-obs').textContent = '—';
-        });
-      }
-    </script>
-
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
-</
+          
