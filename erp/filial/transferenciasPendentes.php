@@ -127,7 +127,7 @@ try {
 
     $st = $pdo->prepare($sqlListagem);
     $st->execute([
-        ':empresa'       => $idSelecionado,
+        ':empresa'       => $idEmpresaSession,
         ':empresaSessao' => $_SESSION['empresa_id'] ?? $idSelecionado,
     ]);
     $linhas = $st->fetchAll(PDO::FETCH_ASSOC);
