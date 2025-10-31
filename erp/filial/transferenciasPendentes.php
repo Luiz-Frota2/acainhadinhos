@@ -25,6 +25,7 @@ if (
 
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
@@ -87,282 +88,58 @@ try {
 }
 
 /* ==========================================================
-   FILTROS DE PDV (período, caixa, forma, status NFC-e)
+   🟢 LISTAGEM — Solicitações aprovadas de Filiais c/ estoque
+   - status = 'aprovada'
+   - id_matriz = empresa (sessão/URL)
+   - solicitante é Filial da mesma empresa (unidades.tipo = 'Filial')
+   - id_solicitante no formato 'unidade_{id}'
+   - deve haver estoque para o id_solicitante
+   - agrega itens e quantidade via solicitacoes_b2b_itens
    ========================================================== */
-
-function brToIsoDate($d)
-{
-    // aceita "YYYY-mm-dd" direto; se vier "dd/mm/YYYY", converte
-    if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
-    if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
-        return "{$m[3]}-{$m[2]}-{$m[1]}";
-    }
-    return null;
-}
-
-$periodo   = $_GET['periodo'] ?? 'hoje'; // hoje|ontem|ult7|mes|mes_anterior|custom
-$dataIni   = $_GET['data_ini'] ?? '';
-$dataFim   = $_GET['data_fim'] ?? '';
-$caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
-$formaPag  = $_GET['forma_pagamento'] ?? '';
-$statusNf  = $_GET['status_nfce'] ?? '';
-
-$now = new DateTime('now');
-$ini = new DateTime('today');
-$ini->setTime(0, 0, 0);
-$fim = new DateTime('today');
-$fim->setTime(23, 59, 59);
-
-switch ($periodo) {
-    case 'ontem':
-        $ini = (new DateTime('yesterday'))->setTime(0, 0, 0);
-        $fim = (new DateTime('yesterday'))->setTime(23, 59, 59);
-        break;
-    case 'ult7':
-        $ini = (new DateTime('today'))->modify('-6 days')->setTime(0, 0, 0);
-        $fim = (new DateTime('today'))->setTime(23, 59, 59);
-        break;
-    case 'mes':
-        $ini = (new DateTime('first day of this month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of this month'))->setTime(23, 59, 59);
-        break;
-    case 'mes_anterior':
-        $ini = (new DateTime('first day of last month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of last month'))->setTime(23, 59, 59);
-        break;
-    case 'custom':
-        $isoIni = brToIsoDate($dataIni);
-        $isoFim = brToIsoDate($dataFim);
-        if ($isoIni && $isoFim) {
-            $ini = new DateTime($isoIni . ' 00:00:00');
-            $fim = new DateTime($isoFim . ' 23:59:59');
-        }
-        break;
-    case 'hoje':
-    default:
-        // já setado
-        break;
-}
-
-// — Lista de caixas recentes (últimos 60 dias) para o filtro
-$listaCaixas = [];
+$solicitacoes = [];
 try {
-    $st = $pdo->prepare("
-    SELECT id, numero_caixa, responsavel, abertura_datetime, status
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND abertura_datetime >= DATE_SUB(NOW(), INTERVAL 60 DAY)
-  ORDER BY abertura_datetime DESC
-  ");
+    $sql = "
+        SELECT
+            s.id,
+            s.id_solicitante,
+            u.nome AS filial_nome,
+            s.created_at,
+            s.aprovada_em,
+            COUNT(i.id)                            AS itens,
+            COALESCE(SUM(i.quantidade), 0)         AS qtd_total
+        FROM solicitacoes_b2b s
+        /* Garante que o solicitante é uma Filial desta empresa */
+        JOIN unidades u
+          ON u.id = CAST(REPLACE(s.id_solicitante, 'unidade_', '') AS UNSIGNED)
+         AND u.tipo = 'Filial'
+         AND u.empresa_id = :empresa_id
+        /* Itens da solicitação para agregações */
+        LEFT JOIN solicitacoes_b2b_itens i
+          ON i.solicitacao_id = s.id
+        WHERE s.status = 'aprovada'
+          AND s.id_matriz = :empresa_id
+          AND EXISTS (
+                SELECT 1
+                  FROM estoque e
+                 WHERE e.empresa_id = s.id_solicitante
+          )
+        GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.aprovada_em
+        ORDER BY s.aprovada_em DESC, s.created_at DESC, s.id DESC
+    ";
+    $st = $pdo->prepare($sql);
     $st->execute([':empresa_id' => $idSelecionado]);
-    $listaCaixas = $st->fetchAll(PDO::FETCH_ASSOC);
+    $solicitacoes = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
+    $solicitacoes = [];
 }
 
-/* ==========================================================
-   MÉTRICAS PDV (usando os FILTROS)
-   ========================================================== */
-
-$caixaAtual = null; // opcionalmente mostramos info do caixa aberto mais recente
-try {
-    $st = $pdo->prepare("
-    SELECT id, responsavel, numero_caixa, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido,
-           abertura_datetime, fechamento_datetime, quantidade_vendas, status, cpf_responsavel
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND status = 'aberto'
-  ORDER BY abertura_datetime DESC
-     LIMIT 1
-  ");
-    $st->execute([':empresa_id' => $idSelecionado]);
-    $caixaAtual = $st->fetch(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
+// Helpers simples
+function dtBr(?string $dt) {
+    if (!$dt) return '-';
+    $t = strtotime($dt); if (!$t) return '-';
+    return date('d/m/Y H:i', $t);
 }
-
-$vendasQtd        = 0;
-$vendasValor      = 0.00;
-$vendasTroco      = 0.00;
-$ticketMedio      = 0.00;
-$pagamentoSeries  = []; // forma_pagamento => total
-$vendasPorHora    = array_fill(0, 24, 0);
-$topProdutos      = [];
-$nfceStatusCont   = [];
-$ultimasVendas    = [];
-
-function bindPeriodo(&$params, DateTime $ini, DateTime $fim)
-{
-    $params[':ini'] = $ini->format('Y-m-d H:i:s');
-    $params[':fim'] = $fim->format('Y-m-d H:i:s');
-}
-
-function mountWhere(string $empresaId, ?int $caixaId, string $forma, string $status, array &$params): string
-{
-    $where = " WHERE empresa_id = :empresa_id AND data_venda BETWEEN :ini AND :fim ";
-    $params[':empresa_id'] = $empresaId;
-    if (!empty($forma)) {
-        $where .= " AND forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $forma;
-    }
-    if (!empty($status)) {
-        $where .= " AND status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $status;
-    }
-    if (!empty($caixaId)) {
-        $where .= " AND id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    return $where;
-}
-
-try {
-    // 1) KPIs gerais do período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-
-    $sql = "SELECT COUNT(*) AS qtd,
-                 COALESCE(SUM(valor_total),0) AS soma_total,
-                 COALESCE(SUM(troco),0) AS soma_troco
-            FROM vendas
-           $whereV";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $r = $st->fetch(PDO::FETCH_ASSOC);
-    $vendasQtd   = (int)($r['qtd'] ?? 0);
-    $vendasValor = (float)($r['soma_total'] ?? 0.0);
-    $vendasTroco = (float)($r['soma_troco'] ?? 0.0);
-    $ticketMedio = $vendasQtd > 0 ? ($vendasValor / $vendasQtd) : 0.0;
-
-    // 2) Formas de pagamento (pizza)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT forma_pagamento, COALESCE(SUM(valor_total),0) AS tot
-            FROM vendas
-           $whereV
-        GROUP BY forma_pagamento";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $fp = $row['forma_pagamento'] ?: 'Outros';
-        $pagamentoSeries[$fp] = (float)$row['tot'];
-    }
-
-    // 3) Vendas por hora
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT HOUR(data_venda) AS h, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY HOUR(data_venda)";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $h = (int)$row['h'];
-        if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
-    }
-
-    // 4) Top produtos por quantidade no período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    // aplica também filtros de forma/status/caixa via tabela vendas
-    $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
-    if (!empty($formaPag)) {
-        $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $formaPag;
-    }
-    if (!empty($statusNf)) {
-        $whereBase .= " AND v.status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $statusNf;
-    }
-    if (!empty($caixaId)) {
-        $whereBase .= " AND v.id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    $params[':empresa_id'] = $idSelecionado;
-
-    $sql = "SELECT iv.produto_nome,
-                 SUM(iv.quantidade) AS qtd,
-                 SUM(iv.quantidade * iv.preco_unitario) AS valor
-            FROM itens_venda iv
-            JOIN vendas v ON v.id = iv.venda_id
-           $whereBase
-        GROUP BY iv.produto_nome
-        ORDER BY qtd DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
-
-    // 5) NFC-e por status no período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT COALESCE(status_nfce,'sem_status') AS st, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY COALESCE(status_nfce,'sem_status')";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $nfceStatusCont[$row['st']] = (int)$row['qtd'];
-    }
-
-    // 6) Últimas vendas do período (5)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT id, responsavel, forma_pagamento, valor_total, data_venda
-            FROM vendas
-           $whereV
-        ORDER BY data_venda DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $ultimasVendas = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    // mantém valores padrão
-}
-
-// ==== Dados para gráficos/labels
-$labelsHoras = [];
-for ($h = 0; $h < 24; $h++) {
-    $labelsHoras[] = sprintf('%02d:00', $h);
-}
-
-$pagtoLabels = array_keys($pagamentoSeries);
-$pagtoValues = array_values($pagamentoSeries);
-
-$nfceLabels = array_keys($nfceStatusCont);
-$nfceValues = array_values($nfceStatusCont);
-
-$topProdLabels = [];
-$topProdQtd    = [];
-foreach ($topProdutos as $p) {
-    $topProdLabels[] = $p['produto_nome'];
-    $topProdQtd[]    = (int)$p['qtd'];
-}
-
-// Formatações úteis
-function moneyBr($v)
-{
-    return 'R$ ' . number_format((float)$v, 2, ',', '.');
-}
-$periodoLabel = [
-    'hoje' => 'Hoje',
-    'ontem' => 'Ontem',
-    'ult7' => 'Últimos 7 dias',
-    'mes' => 'Mês atual',
-    'mes_anterior' => 'Mês anterior',
-    'custom' => 'Personalizado'
-][$periodo] ?? 'Hoje';
-
-$iniTxt = $ini->format('d/m/Y');
-$fimTxt = $fim->format('d/m/Y');
-
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
@@ -399,13 +176,10 @@ $fimTxt = $fim->format('d/m/Y');
 
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
-    <!-- Page CSS -->
-
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
 
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
+    <!-- Config -->
     <script src="../../assets/js/config.js"></script>
 
 </head>
@@ -747,119 +521,59 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th class="text-end">Ações</th>
                                     </tr>
                                 </thead>
+
+                                <?php // 🔽🔽🔽 A PARTIR DAQUI — SOMENTE A LISTAGEM (tbody) ATUALIZADA ?>
                                 <tbody class="table-border-bottom-0">
-
-                                    <!-- Exemplo quando não há registros -->
-                                    <!--
-
-
-                                    <!-- Linha de exemplo 1 -->
+                                <?php if (empty($solicitacoes)): ?>
                                     <tr>
-                                        <td><strong>TR-1024</strong></td>
-                                        <td>Filial Centro</td>
-                                        <td>5</td>
-                                        <td>120</td>
-                                        <td>26/09/2025 09:20</td>
-                                        <td><span class="badge bg-label-secondary status-badge">Aguardando</span></td>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            Nenhuma solicitação aprovada encontrada.
+                                        </td>
+                                    </tr>
+                                <?php else: foreach ($solicitacoes as $row): ?>
+                                    <tr>
+                                        <td><strong><?= (int)$row['id'] ?></strong></td>
+                                        <td><?= htmlspecialchars($row['filial_nome'] ?? '-') ?></td>
+                                        <td><?= (int)$row['itens'] ?></td>
+                                        <td><?= (int)$row['qtd_total'] ?></td>
+                                        <td><?= dtBr($row['created_at']) ?></td>
+                                        <td><span class="badge bg-label-success status-badge">Aguardando</span></td>
                                         <td class="text-end actions">
                                             <button
                                                 class="btn btn-sm btn-outline-secondary"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalDetalhes"
-                                                data-id="1024"
-                                                data-codigo="TR-1024"
-                                                data-filial="Franquia Centro"
-                                                data-status="Aguardando">
+                                                data-id="<?= (int)$row['id'] ?>"
+                                                data-codigo="TR-<?= (int)$row['id'] ?>"
+                                                data-filial="<?= htmlspecialchars($row['filial_nome'] ?? '-') ?>"
+                                                data-status="Aprovada">
                                                 Detalhes
                                             </button>
 
                                             <form class="d-inline" method="post" action="#">
                                                 <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1024">
+                                                <input type="hidden" name="transferencia_id" value="<?= (int)$row['id'] ?>">
                                                 <input type="hidden" name="acao" value="confirmar_envio">
                                                 <button class="btn btn-sm btn-warning">Confirmar envio</button>
                                             </form>
 
                                             <form class="d-inline" method="post" action="#">
                                                 <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1024">
+                                                <input type="hidden" name="transferencia_id" value="<?= (int)$row['id'] ?>">
                                                 <input type="hidden" name="acao" value="cancelar">
                                                 <button class="btn btn-sm btn-outline-danger">Cancelar</button>
                                             </form>
                                         </td>
                                     </tr>
-
-                                    <!-- Linha de exemplo 2 -->
-                                    <tr>
-                                        <td><strong>TR-1025</strong></td>
-                                        <td>Filial Norte</td>
-                                        <td>3</td>
-                                        <td>40</td>
-                                        <td>25/09/2025 15:10</td>
-                                        <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
-                                        <td class="text-end actions">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalDetalhes"
-                                                data-id="1025"
-                                                data-codigo="TR-1025"
-                                                data-filial="Franquia Norte"
-                                                data-status="Enviado">
-                                                Detalhes
-                                            </button>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1025">
-                                                <input type="hidden" name="acao" value="confirmar_envio">
-                                                <button class="btn btn-sm btn-warning">Confirmar envio</button>
-                                            </form>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1025">
-                                                <input type="hidden" name="acao" value="cancelar">
-                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Linha de exemplo 3 -->
-                                    <tr>
-                                        <td><strong>TR-1026</strong></td>
-                                        <td>Filial Sul</td>
-                                        <td>2</td>
-                                        <td>500</td>
-                                        <td>20/09/2025 10:00</td>
-                                        <td><span class="badge bg-label-info status-badge">Em trânsito</span></td>
-                                        <td class="text-end actions">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalDetalhes"
-                                                data-id="1026"
-                                                data-codigo="TR-1026"
-                                                data-filial="Franquia Sul"
-                                                data-status="Em trânsito">
-                                                Detalhes
-                                            </button>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1026">
-                                                <input type="hidden" name="acao" value="cancelar">
-                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-
+                                <?php endforeach; endif; ?>
                                 </tbody>
+                                <?php // 🔼🔼🔼 FIM DA LISTAGEM ATUALIZADA ?>
+
                             </table>
                         </div>
                     </div>
 
-                    <!-- Modal Detalhes -->
+                    <!-- Modal Detalhes (mantido) -->
                     <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered modal-lg">
                             <div class="modal-content">
