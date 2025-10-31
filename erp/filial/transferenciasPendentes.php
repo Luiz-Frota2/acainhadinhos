@@ -743,7 +743,6 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th>Itens</th>
                                         <th>Qtd</th>
                                         <th>Criado</th>
-                                        <th>Envio</th>
                                         <th>Status</th>
                                         <th class="text-end">Ações</th>
                                     </tr>
@@ -761,7 +760,6 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td>5</td>
                                         <td>120</td>
                                         <td>26/09/2025 09:20</td>
-                                        <td>-</td>
                                         <td><span class="badge bg-label-secondary status-badge">Aguardando</span></td>
                                         <td class="text-end actions">
                                             <button
@@ -798,7 +796,6 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td>3</td>
                                         <td>40</td>
                                         <td>25/09/2025 15:10</td>
-                                        <td>25/09/2025 18:00</td>
                                         <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
                                         <td class="text-end actions">
                                             <button
@@ -822,13 +819,6 @@ $fimTxt = $fim->format('d/m/Y');
                                             <form class="d-inline" method="post" action="#">
                                                 <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
                                                 <input type="hidden" name="transferencia_id" value="1025">
-                                                <input type="hidden" name="acao" value="confirmar_recebimento">
-                                                <button class="btn btn-sm btn-success">Marcar recebido</button>
-                                            </form>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1025">
                                                 <input type="hidden" name="acao" value="cancelar">
                                                 <button class="btn btn-sm btn-outline-danger">Cancelar</button>
                                             </form>
@@ -842,7 +832,6 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td>2</td>
                                         <td>500</td>
                                         <td>20/09/2025 10:00</td>
-                                        <td>21/09/2025 08:30</td>
                                         <td><span class="badge bg-label-info status-badge">Em trânsito</span></td>
                                         <td class="text-end actions">
                                             <button
@@ -855,13 +844,6 @@ $fimTxt = $fim->format('d/m/Y');
                                                 data-status="Em trânsito">
                                                 Detalhes
                                             </button>
-
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="1026">
-                                                <input type="hidden" name="acao" value="confirmar_recebimento">
-                                                <button class="btn btn-sm btn-success">Marcar recebido</button>
-                                            </form>
 
                                             <form class="d-inline" method="post" action="#">
                                                 <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
@@ -902,7 +884,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <table class="table">
                                             <thead>
                                                 <tr>
-                                                    <th>SKU</th>
+                                                    <th>codigo do produto</th>
                                                     <th>Produto</th>
                                                     <th>Qtd</th>
                                                 </tr>
