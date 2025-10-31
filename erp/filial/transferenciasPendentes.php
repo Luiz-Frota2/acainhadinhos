@@ -362,7 +362,8 @@ $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
 
 /* ==========================================================
-   >>> LISTAGEM: SOMENTE APROVADAS (Qtd/Total da tabela de itens)
+   >>> LISTAGEM: SOMENTE APROVADAS (tolerante) — TABELA solicitacoes_b2b
+   >>> Qtd/Total somados da TABELA solicitacoes_b2b_itens
    ========================================================== */
 $linhas = [];
 try {
@@ -374,22 +375,31 @@ try {
             s.status,
             s.created_at,
             u.nome AS nome_solicitante,
-            COUNT(i.id)                        AS total_itens,
-            COALESCE(SUM(i.quantidade), 0)     AS total_qtd,
-            COALESCE(SUM(i.subtotal),  0.00)   AS total_valor
+
+            COUNT(i.id)                      AS total_itens,
+            COALESCE(SUM(i.quantidade), 0)   AS total_qtd,
+            COALESCE(SUM(i.subtotal),  0.0)  AS total_valor
+
         FROM solicitacoes_b2b s
         LEFT JOIN solicitacoes_b2b_itens i
                ON i.solicitacao_id = s.id
         LEFT JOIN usuarios_peca u
-               ON u.empresa_cnpj = s.id_solicitante OR u.id = s.id_solicitante
-        WHERE s.id_matriz = :empresa
-          AND s.status    = 'aprovada'
+               ON (u.empresa_cnpj = s.id_solicitante OR u.id = s.id_solicitante)
+
+        WHERE
+            (s.id_matriz = :empresa OR s.id_matriz = :empresaSessao)
+            AND s.status LIKE 'aprovad%'
+
         GROUP BY s.id, s.id_matriz, s.id_solicitante, s.status, s.created_at, u.nome
         ORDER BY s.created_at DESC, s.id DESC
         LIMIT 300
     ";
+
     $st = $pdo->prepare($sqlListagem);
-    $st->execute([':empresa' => $idSelecionado]);
+    $st->execute([
+        ':empresa'       => $idSelecionado,
+        ':empresaSessao' => $_SESSION['empresa_id'] ?? $idSelecionado
+    ]);
     $linhas = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $linhas = [];
@@ -556,7 +566,7 @@ try {
                             </li>
 
                             <!-- Produtos enviados pela matriz -->
-                            <li class="menu-item">
+                            <li a class="menu-item">
                                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
@@ -830,7 +840,7 @@ try {
 
                                                     <!-- REMOVIDO: botão "Marcar recebido" -->
 
-                                                    <!-- Mantenho Cancelar se você já usa -->
+                                                    <!-- (Opcional) Cancelar -->
                                                     <form class="d-inline" method="post" action="./transferenciaAcao.php?id=<?= urlencode($idSelecionado) ?>">
                                                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                                                         <input type="hidden" name="transferencia_id" value="<?= (int)$r['id'] ?>">
@@ -965,8 +975,7 @@ try {
           document.getElementById('det-filial').textContent = filial;
           document.getElementById('det-status').textContent = status;
 
-          // Se quiser carregar itens via AJAX, faça aqui um fetch para um endpoint
-          // que retorne os itens da transferência por ID.
+          // Se quiser carregar itens via AJAX, implemente a chamada aqui.
           const tbody = document.getElementById('det-itens');
           tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens carregados (implemente AJAX se desejar).</td></tr>';
           document.getElementById('det-obs').textContent = '—';
