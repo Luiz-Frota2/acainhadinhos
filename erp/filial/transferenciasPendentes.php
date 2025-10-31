@@ -6,7 +6,6 @@ session_start();
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
-
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
@@ -36,7 +35,6 @@ try {
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
     $stmt->execute();
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'] ?? 'Usuário';
         $tipoUsuario = ucfirst((string)($usuario['nivel'] ?? 'Comum'));
@@ -78,7 +76,6 @@ try {
     $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
     $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
         : "../../assets/img/favicon/logo.png";
@@ -87,11 +84,13 @@ try {
 }
 
 /* ==========================================================
-   LISTAGEM — SOMENTE APROVADAS (status = 'aprovada')
-   Mantém o mesmo filtro: empresa pode ser id_matriz OU id_solicitante
-   Qtd/Total vindos de solicitacoes_b2b_itens
+   LISTAGEM — SOMENTE APROVADAS
+   Mantém o MESMO filtro do seu original:
+   - Considera a empresa atual pela URL E pela sessão
+   - Casa tanto em id_matriz quanto em id_solicitante
+   - Status normalizado para 'aprovada'
+   - Quantidade e total vindos de solicitacoes_b2b_itens
    ========================================================== */
-
 $linhas = [];
 try {
     $sqlListagem = "
@@ -114,8 +113,12 @@ try {
                ON (u.empresa_cnpj = s.id_solicitante OR u.id = s.id_solicitante)
 
         WHERE
-            (s.id_matriz = :empresa OR s.id_solicitante = :empresa)
-            AND s.status = 'aprovada'
+            (
+              s.id_matriz IN (:empresa, :empresaSessao)
+              OR
+              s.id_solicitante IN (:empresa, :empresaSessao)
+            )
+            AND LOWER(TRIM(s.status)) = 'aprovada'
 
         GROUP BY s.id, s.id_matriz, s.id_solicitante, s.status, s.created_at, u.nome
         ORDER BY s.created_at DESC, s.id DESC
@@ -124,7 +127,8 @@ try {
 
     $st = $pdo->prepare($sqlListagem);
     $st->execute([
-        ':empresa' => $idSelecionado
+        ':empresa'       => $idSelecionado,
+        ':empresaSessao' => $_SESSION['empresa_id'] ?? $idSelecionado,
     ]);
     $linhas = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -157,7 +161,7 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
 
-    <!-- Icons. Uncomment required icon fonts -->
+    <!-- Icons -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
 
     <!-- Core CSS -->
@@ -167,12 +171,10 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
-
     <script src="../../assets/js/config.js"></script>
 
     <style>
@@ -201,7 +203,6 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
                 <div class="menu-inner-shadow"></div>
 
                 <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
@@ -209,7 +210,6 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
                         </a>
                     </li>
 
-                    <!-- Administração de Filiais -->
                     <li class="menu-header small text-uppercase">
                         <span class="menu-header-text">Administração Filiais</span>
                     </li>
@@ -272,7 +272,6 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
                         </ul>
                     </li>
 
-                    <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -329,7 +328,9 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
             <!-- Layout container -->
             <div class="layout-page">
                 <!-- Navbar -->
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+                <nav
+                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                    id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
                             <i class="bx bx-menu bx-sm"></i>
@@ -394,7 +395,7 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
                                         <th>Qtd</th>
                                         <th>Total (R$)</th>
                                         <th>Criado</th>
-                                        <!-- REMOVIDO: <th>Envio</th> -->
+                                        <!-- REMOVIDO: Envio -->
                                         <th>Status</th>
                                         <th class="text-end">Ações</th>
                                     </tr>
@@ -422,8 +423,6 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
                                                     ?>
                                                 </td>
 
-                                                <!-- REMOVIDO: célula "Envio" -->
-
                                                 <td><span class="badge bg-label-secondary status-badge">Aguardando</span></td>
 
                                                 <td class="text-end actions">
@@ -439,7 +438,7 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
                                                         Detalhes
                                                     </button>
 
-                                                    <!-- Mantém: Confirmar envio (se fizer parte do seu fluxo) -->
+                                                    <!-- Confirmar envio (mantido) -->
                                                     <form class="d-inline" method="post" action="./transferenciaAcao.php?id=<?= urlencode($idSelecionado) ?>">
                                                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
                                                         <input type="hidden" name="transferencia_id" value="<?= (int)$r['id'] ?>">
@@ -447,7 +446,7 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
                                                         <button class="btn btn-sm btn-warning">Confirmar envio</button>
                                                     </form>
 
-                                                    <!-- REMOVIDO: botão "Marcar recebido" -->
+                                                    <!-- REMOVIDO: botão “Marcar recebido” -->
 
                                                     <!-- Cancelar -->
                                                     <form class="d-inline" method="post" action="./transferenciaAcao.php?id=<?= urlencode($idSelecionado) ?>">
@@ -550,12 +549,10 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="../../assets/vendor/js/menu.js"></script>
-
     <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
     <script src="../../assets/js/main.js"></script>
     <script src="../../assets/js/dashboards-analytics.js"></script>
 
-    <!-- Modal: preencher dados -->
     <script>
       const modal = document.getElementById('modalDetalhes');
       if (modal) {
@@ -571,7 +568,6 @@ function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
           document.getElementById('det-filial').textContent = filial;
           document.getElementById('det-status').textContent = status;
 
-          // TODO: Carregar itens via AJAX se desejar
           const tbody = document.getElementById('det-itens');
           tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens carregados (implementar AJAX se necessário).</td></tr>';
           document.getElementById('det-obs').textContent = '—';
