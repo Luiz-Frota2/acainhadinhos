@@ -122,13 +122,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
 
 /* ==========================================================
    🟠/🟢 LISTAGEM — PRODUTOS EM TRÂNSITO OU ENTREGUES
-   - s.status IN ('em_transito','entregue')
-   - id_matriz = empresa (sessão/URL)
-   - solicitante é Filial desta empresa (unidades.tipo = 'Filial')
-   - deve haver estoque para o id_solicitante
-   - agrega itens e quantidade via solicitacoes_b2b_itens
-   - pega o PRIMEIRO item para preencher SKU/Produto da tabela
-   - data exibida = COALESCE(entregue_em, enviada_em, updated_at, aprovada_em, created_at)
    ========================================================== */
 $envios = [];
 try {
@@ -138,7 +131,6 @@ try {
         s.id_solicitante,
         u.nome AS filial_nome,
         s.status,
-        /* data de movimento (entrega preferencialmente) */
         COALESCE(s.entregue_em, s.enviada_em, s.updated_at, s.aprovada_em, s.created_at) AS mov_em,
         COUNT(i.id)                               AS itens,
         COALESCE(SUM(i.quantidade),0)             AS qtd_total,
@@ -151,7 +143,6 @@ try {
      AND u.empresa_id = :empresa_id
     LEFT JOIN solicitacoes_b2b_itens i
       ON i.solicitacao_id = s.id
-    /* primeiro item por solicitação (menor id) */
     LEFT JOIN (
         SELECT ii.solicitacao_id,
                SUBSTRING_INDEX(GROUP_CONCAT(ii.codigo_produto ORDER BY ii.id ASC SEPARATOR '||'), '||', 1) AS codigo_produto,
@@ -480,13 +471,20 @@ function dtBr(?string $dt) {
                                             $nome .= " <span class='text-muted'>(+ " . ($itens-1) . ")</span>";
                                         }
                                         $status = strtolower((string)$row['status']);
-                                        // Badge por status
+
+                                        // 🔁 Mapeamento visual do status:
+                                        // - entregue   => badge verde "Entregue"
+                                        // - em_transito=> badge "Enviado" (substitui o texto "Em Trânsito")
                                         if ($status === 'entregue') {
                                             $badgeHtml = '<span class="badge bg-label-success status-badge">Entregue</span>';
                                             $detStatus = 'Entregue';
-                                        } else { // em_transito
-                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Em Trânsito</span>';
-                                            $detStatus = 'Em Trânsito';
+                                        } elseif ($status === 'em_transito') {
+                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Enviado</span>';
+                                            $detStatus = 'Enviado';
+                                        } else {
+                                            // fallback (caso venha algo inesperado)
+                                            $badgeHtml = '<span class="badge bg-label-secondary status-badge">'.htmlspecialchars($row['status']).'</span>';
+                                            $detStatus = ucfirst(str_replace('_',' ', (string)$row['status']));
                                         }
                                     ?>
                                     <tr data-row-id="<?= (int)$row['id'] ?>">
