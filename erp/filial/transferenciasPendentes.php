@@ -88,8 +88,7 @@ try {
 }
 
 /* ============================================
-   🔸 MODO AJAX (DETALHES & ALTERAR STATUS)
-   - Mantido no MESMO arquivo para não criar rotas novas
+   🔸 MODO AJAX (DETALHES & ALTERAR STATUS + ESTOQUE)
    ============================================ */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
     header('Content-Type: application/json; charset=utf-8');
@@ -101,7 +100,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
     }
 
     try {
-        // 1) Tenta pegar direto dos itens (campos típicos)
         $sqlItens = "
             SELECT 
                 COALESCE(i.codigo_produto, '') AS codigo_produto,
@@ -115,7 +113,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
         $st->execute([':sid' => $sid]);
         $itens = $st->fetchAll(PDO::FETCH_ASSOC);
 
-        // Se não houver nome_produto, o front mostra "—"
         echo json_encode(['ok' => true, 'itens' => $itens]);
     } catch (PDOException $e) {
         echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
@@ -137,17 +134,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
     $novoStatus = $acao === 'confirmar_envio' ? 'em_transito' : 'cancelar';
 
     try {
-        // Atualiza SOMENTE se estiver aprovada (mantém a regra de “aguardando” nesta tela)
-        $up = $pdo->prepare("UPDATE solicitacoes_b2b SET status = :st WHERE id = :id AND status = 'aprovada'");
-        $up->execute([':st' => $novoStatus, ':id' => $sid]);
+        $pdo->beginTransaction();
 
-        if ($up->rowCount() === 0) {
-            echo json_encode(['ok' => false, 'erro' => 'Solicitação não está mais aprovada ou não encontrada.']);
-            exit;
+        // 🔒 Bloqueia linha e carrega matriz/solicitante + status atual
+        $sel = $pdo->prepare("SELECT id_matriz, id_solicitante, status FROM solicitacoes_b2b WHERE id = :id FOR UPDATE");
+        $sel->execute([':id' => $sid]);
+        $cab = $sel->fetch(PDO::FETCH_ASSOC);
+        if (!$cab) {
+            throw new RuntimeException('Solicitação não encontrada.');
         }
 
-        echo json_encode(['ok' => true, 'status' => $novoStatus]);
-    } catch (PDOException $e) {
+        $statusAtual     = $cab['status'] ?? '';
+        $idMatriz        = $cab['id_matriz'] ?? '';
+        $idSolicitante   = $cab['id_solicitante'] ?? '';
+
+        // Só permite a ação a partir de 'aprovada' (mantendo seu critério de Aguardando)
+        if ($statusAtual !== 'aprovada') {
+            throw new RuntimeException('Solicitação não está aprovada ou já foi processada.');
+        }
+
+        // Atualiza status
+        $up = $pdo->prepare("UPDATE solicitacoes_b2b SET status = :st, enviada_em = NOW() WHERE id = :id");
+        $up->execute([':st' => $novoStatus, ':id' => $sid]);
+        if ($up->rowCount() === 0) {
+            throw new RuntimeException('Falha ao atualizar status.');
+        }
+
+        // Se for confirmar envio → movimenta estoque (MATRIZ - , FILIAL +)
+        $movCount = 0;
+        if ($acao === 'confirmar_envio') {
+            // Itens da solicitação
+            $stI = $pdo->prepare("
+                SELECT COALESCE(codigo_produto,'') AS codigo_produto,
+                       COALESCE(quantidade,0)      AS quantidade
+                FROM solicitacoes_b2b_itens
+                WHERE solicitacao_id = :sid
+                ORDER BY id ASC
+            ");
+            $stI->execute([':sid' => $sid]);
+            $itens = $stI->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($itens as $it) {
+                $cod = trim((string)$it['codigo_produto']);
+                $qtd = (int)$it['quantidade'];
+                if ($qtd <= 0 || $cod === '') continue;
+
+                // 🟣 Ajuste aqui se o nome da coluna no estoque NÃO for codigo_produto (ex.: sku)
+                // MATRIZ: decrementa
+                $upMat = $pdo->prepare("
+                    UPDATE estoque 
+                       SET quantidade = CASE 
+                           WHEN quantidade >= :qtd THEN quantidade - :qtd 
+                           ELSE 0 END
+                     WHERE empresa_id = :emp AND codigo_produto = :cod
+                     LIMIT 1
+                ");
+                $upMat->execute([
+                    ':qtd' => $qtd,
+                    ':emp' => $idMatriz,
+                    ':cod' => $cod
+                ]);
+
+                // FILIAL: incrementa (update ou insert)
+                $upFil = $pdo->prepare("
+                    UPDATE estoque 
+                       SET quantidade = quantidade + :qtd
+                     WHERE empresa_id = :emp AND codigo_produto = :cod
+                     LIMIT 1
+                ");
+                $upFil->execute([
+                    ':qtd' => $qtd,
+                    ':emp' => $idSolicitante,
+                    ':cod' => $cod
+                ]);
+
+                if ($upFil->rowCount() === 0) {
+                    // não existia — cria com a quantidade
+                    $insFil = $pdo->prepare("
+                        INSERT INTO estoque (empresa_id, codigo_produto, quantidade)
+                        VALUES (:emp, :cod, :qtd)
+                    ");
+                    $insFil->execute([
+                        ':emp' => $idSolicitante,
+                        ':cod' => $cod,
+                        ':qtd' => $qtd
+                    ]);
+                }
+
+                $movCount++;
+            }
+        }
+
+        $pdo->commit();
+
+        echo json_encode([
+            'ok' => true,
+            'status' => $novoStatus,
+            'movimentos' => $movCount
+        ]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
     }
     exit;
@@ -158,7 +244,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
    - status = 'aprovada'
    - id_matriz = empresa (sessão/URL)
    - solicitante é Filial da mesma empresa (unidades.tipo = 'Filial')
-   - id_solicitante no formato 'unidade_{id}'
    - deve haver estoque para o id_solicitante
    - agrega itens e quantidade via solicitacoes_b2b_itens
    ========================================================== */
@@ -488,7 +573,6 @@ function dtBr(?string $dt) {
                                     </tr>
                                 </thead>
 
-                                <?php // 🔽🔽🔽 A PARTIR DAQUI — SOMENTE A LISTAGEM (tbody) ATUALIZADA ?>
                                 <tbody class="table-border-bottom-0">
                                 <?php if (empty($solicitacoes)): ?>
                                     <tr>
@@ -543,12 +627,11 @@ function dtBr(?string $dt) {
                                     </tr>
                                 <?php endforeach; endif; ?>
                                 </tbody>
-                                <?php // 🔼🔼🔼 FIM DA LISTAGEM ATUALIZADA ?>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Modal Detalhes (mantido) -->
+                    <!-- Modal Detalhes -->
                     <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered modal-lg">
                             <div class="modal-content">
@@ -598,10 +681,9 @@ function dtBr(?string $dt) {
                         </div>
                     </div>
 
-                    <!-- 🔽🔽🔽 JS da LISTAGEM (carrega detalhes e envia ações) -->
+                    <!-- JS da LISTAGEM: carrega detalhes e envia ações -->
                     <script>
                         (function(){
-                            const idSelecionado = <?= json_encode($idSelecionado) ?>;
                             const tabela = document.getElementById('tabela-transferencias');
 
                             // Abrir modal com detalhes
@@ -611,7 +693,7 @@ function dtBr(?string $dt) {
                                     const btn = event.relatedTarget;
                                     if (!btn) return;
 
-                                    const id = btn.getAttribute('data-id');
+                                    const id  = btn.getAttribute('data-id');
                                     const cod = btn.getAttribute('data-codigo') || '-';
                                     const fil = btn.getAttribute('data-filial') || '-';
                                     const sts = btn.getAttribute('data-status') || '-';
@@ -623,7 +705,6 @@ function dtBr(?string $dt) {
                                     const tbody = document.getElementById('det-itens');
                                     tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
 
-                                    // Chama o próprio arquivo em modo AJAX
                                     const url = new URL(window.location.href);
                                     url.searchParams.set('ajax', 'detalhes');
                                     url.searchParams.set('solicitacao_id', id);
@@ -640,7 +721,7 @@ function dtBr(?string $dt) {
                                             tbody.innerHTML = itens.map(it => {
                                                 const cod = (it.codigo_produto || '—');
                                                 const nome = (it.nome_produto || '—');
-                                                const qtd = (it.quantidade || 0);
+                                                const qtd  = (it.quantidade || 0);
                                                 return `<tr>
                                                     <td>${cod}</td>
                                                     <td>${nome}</td>
@@ -679,31 +760,30 @@ function dtBr(?string $dt) {
                                 })
                                 .then(r => r.json())
                                 .then(data => {
-                                    if (!data.ok) throw new Error(data.erro || 'Falha ao atualizar status');
+                                    if (!data.ok) throw new Error(data.erro || 'Falha ao atualizar');
 
                                     // Remove a linha da tabela (deixou de ser "aprovada")
                                     const tr = e.target.closest('tr');
                                     if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
 
-                                    alert(acao === 'confirmar_envio'
-                                        ? 'Status atualizado para "em_transito".'
-                                        : 'Status atualizado para "cancelar".'
-                                    );
+                                    if (acao === 'confirmar_envio') {
+                                        alert('Status atualizado para "em_transito" e estoque movimentado.');
+                                    } else {
+                                        alert('Status atualizado para "cancelar".');
+                                    }
                                 })
                                 .catch(err => {
                                     alert('Erro: ' + err.message);
                                 });
                             });
 
-                            // Botão "Detalhes" (sem submit)
+                            // Botão "Detalhes"
                             tabela?.addEventListener('click', function(e){
                                 const btnDet = e.target.closest('.btn-detalhes');
                                 if (!btnDet) return;
-                                // nada aqui — o show da modal é tratado acima (show.bs.modal)
                             });
                         })();
                     </script>
-                    <!-- 🔼🔼🔼 FIM do JS da LISTAGEM -->
 
                 </div>
                 <!-- / Content -->
