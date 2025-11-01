@@ -88,7 +88,7 @@ try {
 }
 
 /* ============================================
-   🔸 MODO AJAX (DETALHES & ALTERAR STATUS)
+   🔸 MODO AJAX (DETALHES)
    ============================================ */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
     header('Content-Type: application/json; charset=utf-8');
@@ -100,7 +100,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
     }
 
     try {
-        // cabeçalho da solicitação
+        // Cabeçalho
         $cab = $pdo->prepare("
             SELECT s.id, s.id_matriz, s.id_solicitante, s.status, s.observacao,
                    s.created_at, s.aprovada_em, s.enviada_em, s.entregue_em,
@@ -114,7 +114,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
         $cab->execute([':sid' => $sid]);
         $cabecalho = $cab->fetch(PDO::FETCH_ASSOC);
 
-        // itens
+        // Itens
         $sqlItens = "
             SELECT 
                 COALESCE(i.codigo_produto, '') AS codigo_produto,
@@ -136,11 +136,14 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
     exit;
 }
 
-/* 
-   POST AJAX: atualizar status
-   - confirmar_envio → status = em_transito + baixa de estoque na MATRIZ (empresa = idSelecionado)
-   - cancelar       → status = cancelada
-*/
+/* ============================================
+   🔸 POST AJAX: atualizar status
+   - confirmar_envio: status = em_transito
+       ➜ baixa estoque MATRIZ (empresa_id = $idSelecionado)
+       ➜ entrada estoque FILIAL (empresa_id = id_solicitante)
+         • se não existir o produto na filial, faz INSERT copiando TODOS os campos do produto da matriz
+   - cancelar: status = cancelada
+   ============================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -152,13 +155,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
         exit;
     }
 
-    // Mapeia o novo status conforme schema real
-    $novoStatus = $acao === 'confirmar_envio' ? 'em_transito' : 'cancelada';
-
     try {
         // 1) Verifica se ainda está 'aprovada' e pertence à matriz atual
         $chk = $pdo->prepare("
-            SELECT id, id_matriz, status
+            SELECT id, id_matriz, id_solicitante, status
               FROM solicitacoes_b2b
              WHERE id = :id
                AND id_matriz = :matriz
@@ -191,49 +191,168 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
                 exit;
             }
 
-            // 3) Transação: baixa estoque da MATRIZ (empresa_id = idSelecionado)
+            // 3) Filial solicitante (empresa_id da filial)
+            $idFilial = $sol['id_solicitante'];
+            if (!$idFilial) {
+                echo json_encode(['ok' => false, 'erro' => 'Filial solicitante não identificada.']);
+                exit;
+            }
+
+            // 4) Transação: baixa matriz + entrada filial
             $pdo->beginTransaction();
 
-            // checa saldo e baixa
             foreach ($itens as $ix) {
-                $codigo = (string)$ix['codigo_produto'];
+                $codigo = trim((string)$ix['codigo_produto']);
                 $qtd    = (int)$ix['quantidade'];
 
-                // saldo atual
-                $q = $pdo->prepare("
+                if ($qtd <= 0) {
+                    $pdo->rollBack();
+                    echo json_encode(['ok' => false, 'erro' => "Quantidade inválida para o produto {$codigo}."]);
+                    exit;
+                }
+
+                // 4.1) Carrega o produto COMPLETO na MATRIZ (para copiar os campos no insert da filial)
+                $qM = $pdo->prepare("
+                    SELECT *
+                      FROM estoque
+                     WHERE empresa_id = :emp
+                       AND codigo_produto = :cod
+                     LIMIT 1
+                ");
+                $qM->execute([':emp' => $idSelecionado, ':cod' => $codigo]);
+                $rowMatriz = $qM->fetch(PDO::FETCH_ASSOC);
+
+                if (!$rowMatriz) {
+                    $pdo->rollBack();
+                    echo json_encode(['ok' => false, 'erro' => "Produto {$codigo} não encontrado no estoque da matriz."]);
+                    exit;
+                }
+
+                $saldoMatriz = (int)$rowMatriz['quantidade_produto'];
+                if ($saldoMatriz < $qtd) {
+                    $pdo->rollBack();
+                    echo json_encode(['ok' => false, 'erro' => "Saldo insuficiente do produto {$codigo}. Saldo: {$saldoMatriz}, solicitado: {$qtd}."]);
+                    exit;
+                }
+
+                // 4.2) Baixa da MATRIZ
+                $updM = $pdo->prepare("
+                    UPDATE estoque
+                       SET quantidade_produto = quantidade_produto - :qtd,
+                           updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id
+                ");
+                $updM->execute([':qtd' => $qtd, ':id' => (int)$rowMatriz['id']]);
+
+                // 4.3) Entrada na FILIAL
+                // Tenta encontrar o mesmo codigo_produto na filial
+                $qF = $pdo->prepare("
                     SELECT id, quantidade_produto
                       FROM estoque
                      WHERE empresa_id = :emp
                        AND codigo_produto = :cod
                      LIMIT 1
                 ");
-                $q->execute([':emp' => $idSelecionado, ':cod' => $codigo]);
-                $row = $q->fetch(PDO::FETCH_ASSOC);
+                $qF->execute([':emp' => $idFilial, ':cod' => $codigo]);
+                $rowFilial = $qF->fetch(PDO::FETCH_ASSOC);
 
-                if (!$row) {
-                    $pdo->rollBack();
-                    echo json_encode(['ok' => false, 'erro' => "Produto {$codigo} não encontrado no estoque da matriz."]);
-                    exit;
+                if ($rowFilial) {
+                    // Já existe → soma quantidade
+                    $updF = $pdo->prepare("
+                        UPDATE estoque
+                           SET quantidade_produto = quantidade_produto + :qtd,
+                               updated_at = CURRENT_TIMESTAMP
+                         WHERE id = :id
+                    ");
+                    $updF->execute([':qtd' => $qtd, ':id' => (int)$rowFilial['id']]);
+                } else {
+                    // Não existe → INSERT copiando todos os campos do produto da matriz
+                    // Campos esperados pela sua tabela estoque.sql
+                    $insF = $pdo->prepare("
+                        INSERT INTO estoque (
+                            empresa_id,
+                            fornecedor_id,
+                            codigo_produto,
+                            nome_produto,
+                            categoria_produto,
+                            quantidade_produto,
+                            preco_produto,
+                            preco_custo,
+                            status_produto,
+                            ncm,
+                            cest,
+                            cfop,
+                            origem,
+                            tributacao,
+                            unidade,
+                            codigo_barras,
+                            codigo_anp,
+                            informacoes_adicionais,
+                            peso_bruto,
+                            peso_liquido,
+                            aliquota_icms,
+                            aliquota_pis,
+                            aliquota_cofins,
+                            created_at,
+                            updated_at
+                        ) VALUES (
+                            :empresa_id,
+                            :fornecedor_id,
+                            :codigo_produto,
+                            :nome_produto,
+                            :categoria_produto,
+                            :quantidade_produto,
+                            :preco_produto,
+                            :preco_custo,
+                            :status_produto,
+                            :ncm,
+                            :cest,
+                            :cfop,
+                            :origem,
+                            :tributacao,
+                            :unidade,
+                            :codigo_barras,
+                            :codigo_anp,
+                            :informacoes_adicionais,
+                            :peso_bruto,
+                            :peso_liquido,
+                            :aliquota_icms,
+                            :aliquota_pis,
+                            :aliquota_cofins,
+                            NOW(),
+                            NOW()
+                        )
+                    ");
+
+                    $insF->execute([
+                        ':empresa_id'             => $idFilial,
+                        ':fornecedor_id'          => $rowMatriz['fornecedor_id'] ?? null,
+                        ':codigo_produto'         => $rowMatriz['codigo_produto'],
+                        ':nome_produto'           => $rowMatriz['nome_produto'] ?? $ix['nome_produto'] ?? 'Produto transferido',
+                        ':categoria_produto'      => $rowMatriz['categoria_produto'] ?? null,
+                        ':quantidade_produto'     => $qtd,
+                        ':preco_produto'          => $rowMatriz['preco_produto'] ?? null,
+                        ':preco_custo'            => $rowMatriz['preco_custo'] ?? null,
+                        ':status_produto'         => $rowMatriz['status_produto'] ?? 'ativo',
+                        ':ncm'                    => $rowMatriz['ncm'] ?? null,
+                        ':cest'                   => $rowMatriz['cest'] ?? null,
+                        ':cfop'                   => $rowMatriz['cfop'] ?? null,
+                        ':origem'                 => $rowMatriz['origem'] ?? null,
+                        ':tributacao'             => $rowMatriz['tributacao'] ?? null,
+                        ':unidade'                => $rowMatriz['unidade'] ?? 'UN',
+                        ':codigo_barras'          => $rowMatriz['codigo_barras'] ?? null,
+                        ':codigo_anp'             => $rowMatriz['codigo_anp'] ?? null,
+                        ':informacoes_adicionais' => $rowMatriz['informacoes_adicionais'] ?? null,
+                        ':peso_bruto'             => $rowMatriz['peso_bruto'] ?? null,
+                        ':peso_liquido'           => $rowMatriz['peso_liquido'] ?? null,
+                        ':aliquota_icms'          => $rowMatriz['aliquota_icms'] ?? null,
+                        ':aliquota_pis'           => $rowMatriz['aliquota_pis'] ?? null,
+                        ':aliquota_cofins'        => $rowMatriz['aliquota_cofins'] ?? null,
+                    ]);
                 }
-
-                $saldo = (int)$row['quantidade_produto'];
-                if ($saldo < $qtd) {
-                    $pdo->rollBack();
-                    echo json_encode(['ok' => false, 'erro' => "Saldo insuficiente do produto {$codigo}. Saldo: {$saldo}, solicitado: {$qtd}."]);
-                    exit;
-                }
-
-                // baixa
-                $upd = $pdo->prepare("
-                    UPDATE estoque
-                       SET quantidade_produto = quantidade_produto - :qtd,
-                           updated_at = CURRENT_TIMESTAMP
-                     WHERE id = :id
-                ");
-                $upd->execute([':qtd' => $qtd, ':id' => (int)$row['id']]);
             }
 
-            // 4) Atualiza status para em_transito + enviada_em
+            // 4.4) Atualiza status para em_transito + enviada_em
             $up = $pdo->prepare("
                 UPDATE solicitacoes_b2b
                    SET status = 'em_transito',
@@ -253,6 +372,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
             $pdo->commit();
             echo json_encode(['ok' => true, 'status' => 'em_transito']);
             exit;
+
         } else {
             // cancelar → apenas muda status para cancelada
             $up = $pdo->prepare("
@@ -508,8 +628,6 @@ function dtBr(?string $dt) {
                         </ul>
                     </li>
 
-                    <!--END DELIVERY-->
-
                     <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
@@ -645,7 +763,6 @@ function dtBr(?string $dt) {
                                     </tr>
                                 </thead>
 
-                                <?php // 🔽🔽🔽 SOMENTE A LISTAGEM (tbody) ATUALIZADA ?>
                                 <tbody class="table-border-bottom-0">
                                 <?php if (empty($solicitacoes)): ?>
                                     <tr>
@@ -655,9 +772,9 @@ function dtBr(?string $dt) {
                                     </tr>
                                 <?php else: foreach ($solicitacoes as $row): ?>
                                     <?php
-                                        // status no banco é 'aprovada' → mostrar "Aguardando" cinza
+                                        // status no banco é 'aprovada' → mostrar "Aguardando" (cinza)
                                         $statusTexto  = 'Aguardando';
-                                        $statusClasse = 'bg-label-secondary'; // cinza do tema
+                                        $statusClasse = 'bg-label-secondary';
                                     ?>
                                     <tr data-row-id="<?= (int)$row['id'] ?>">
                                         <td><strong><?= (int)$row['id'] ?></strong></td>
@@ -700,7 +817,6 @@ function dtBr(?string $dt) {
                                     </tr>
                                 <?php endforeach; endif; ?>
                                 </tbody>
-                                <?php // 🔼🔼🔼 FIM DA LISTAGEM ATUALIZADA ?>
                             </table>
                         </div>
                     </div>
@@ -779,7 +895,6 @@ function dtBr(?string $dt) {
                                     const tbody = document.getElementById('det-itens');
                                     tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
 
-                                    // chama o próprio arquivo em modo AJAX
                                     const url = new URL(window.location.href);
                                     url.searchParams.set('ajax', 'detalhes');
                                     url.searchParams.set('solicitacao_id', id);
@@ -789,7 +904,6 @@ function dtBr(?string $dt) {
                                         .then(data => {
                                             if (!data.ok) throw new Error(data.erro || 'Falha ao carregar itens');
 
-                                            // itens
                                             const itens = data.itens || [];
                                             if (!itens.length) {
                                                 tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens para esta solicitação.</td></tr>';
@@ -806,7 +920,6 @@ function dtBr(?string $dt) {
                                                 }).join('');
                                             }
 
-                                            // observação
                                             const obs = (data.cabecalho && data.cabecalho.observacao) ? data.cabecalho.observacao : '—';
                                             document.getElementById('det-obs').textContent = obs;
                                         })
@@ -843,13 +956,12 @@ function dtBr(?string $dt) {
                                 .then(data => {
                                     if (!data.ok) throw new Error(data.erro || 'Falha ao atualizar');
 
-                                    // remove a linha (deixou de ser "aprovada")
                                     const tr = e.target.closest('tr');
                                     if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
 
                                     alert(
                                         data.status === 'em_transito'
-                                          ? 'Status atualizado para "em_transito" e estoque baixado.'
+                                          ? 'Status atualizado para "em_transito", estoque baixado na matriz e adicionado na filial.'
                                           : 'Status atualizado para "cancelada".'
                                     );
                                 })
@@ -857,8 +969,6 @@ function dtBr(?string $dt) {
                                     alert('Erro: ' + err.message);
                                 });
                             });
-
-                            // Botão "Detalhes" não precisa de JS extra
                         })();
                     </script>
 
