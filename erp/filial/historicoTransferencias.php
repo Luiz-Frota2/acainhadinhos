@@ -705,7 +705,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th>Qtd</th>
                                         <th>Criado</th>
                                         <th>Envio</th>
-                                        <th>Recebido/Cancelado</th>
+                                        <th>Entregue/Cancelado</th>
                                         <th>Status Final</th>
                                         <th class="text-end">Ações</th>
                                     </tr>
@@ -748,7 +748,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td>10/09/2025 15:22</td>
                                         <td>10/09/2025 18:00</td>
                                         <td>11/09/2025 10:35</td>
-                                        <td><span class="badge bg-label-success status-badge">Recebido</span></td>
+                                        <td><span class="badge bg-label-success status-badge">Entregue</span></td>
                                         <td class="text-end">
                                             <button
                                                 class="btn btn-sm btn-outline-secondary"
@@ -787,30 +787,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         </td>
                                     </tr>
 
-                                    <!-- Exemplo: concluída/recebida -->
-                                    <tr>
-                                        <td><strong>TR-0987</strong></td>
-                                        <td>Filial Leste</td>
-                                        <td>6</td>
-                                        <td>320</td>
-                                        <td>05/09/2025 14:12</td>
-                                        <td>05/09/2025 17:00</td>
-                                        <td>06/09/2025 08:55</td>
-                                        <td><span class="badge bg-label-success status-badge">Recebido</span></td>
-                                        <td class="text-end">
-                                            <button
-                                                class="btn btn-sm btn-outline-secondary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalHistDetalhes"
-                                                data-id="987"
-                                                data-codigo="TR-0987"
-                                                data-filial="Franquia Leste"
-                                                data-status="Recebido">
-                                                Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-
+                                 
                                 </tbody>
                             </table>
                         </div>
@@ -847,7 +824,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <table class="table">
                                             <thead>
                                                 <tr>
-                                                    <th>SKU</th>
+                                                    <th>codigo</th>
                                                     <th>Produto</th>
                                                     <th>Qtd</th>
                                                 </tr>
@@ -873,7 +850,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <ul class="mb-0">
                                             <li><span class="text-muted">Criado:</span> <span id="hist-criado">—</span></li>
                                             <li><span class="text-muted">Enviado:</span> <span id="hist-enviado">—</span></li>
-                                            <li><span class="text-muted">Recebido/Cancelado:</span> <span id="hist-final">—</span></li>
+                                            <li><span class="text-muted">Entregue/Cancelado:</span> <span id="hist-final">—</span></li>
                                         </ul>
                                     </div>
 
