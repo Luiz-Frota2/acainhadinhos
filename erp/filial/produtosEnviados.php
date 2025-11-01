@@ -121,24 +121,25 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
 }
 
 /* ==========================================================
-   🟠 LISTAGEM — PRODUTOS ENVIADOS (status = 'em_transito')
-   - s.status = 'em_transito'
+   🟠/🟢 LISTAGEM — PRODUTOS EM TRÂNSITO OU ENTREGUES
+   - s.status IN ('em_transito','entregue')
    - id_matriz = empresa (sessão/URL)
    - solicitante é Filial desta empresa (unidades.tipo = 'Filial')
    - deve haver estoque para o id_solicitante
    - agrega itens e quantidade via solicitacoes_b2b_itens
    - pega o PRIMEIRO item para preencher SKU/Produto da tabela
+   - data exibida = COALESCE(entregue_em, enviada_em, updated_at, aprovada_em, created_at)
    ========================================================== */
-$enviados = [];
+$envios = [];
 try {
-    // Subselect para pegar o primeiro item de cada solicitação
     $sql = "
     SELECT
         s.id,
         s.id_solicitante,
         u.nome AS filial_nome,
         s.status,
-        COALESCE(s.enviada_em, s.updated_at, s.aprovada_em, s.created_at) AS enviada_em,
+        /* data de movimento (entrega preferencialmente) */
+        COALESCE(s.entregue_em, s.enviada_em, s.updated_at, s.aprovada_em, s.created_at) AS mov_em,
         COUNT(i.id)                               AS itens,
         COALESCE(SUM(i.quantidade),0)             AS qtd_total,
         fi.codigo_produto AS primeiro_sku,
@@ -158,17 +159,17 @@ try {
         FROM solicitacoes_b2b_itens ii
         GROUP BY ii.solicitacao_id
     ) fi ON fi.solicitacao_id = s.id
-    WHERE s.status = 'em_transito'
+    WHERE s.status IN ('em_transito','entregue')
       AND s.id_matriz = :empresa_id
       AND EXISTS (SELECT 1 FROM estoque e WHERE e.empresa_id = s.id_solicitante)
-    GROUP BY s.id, s.id_solicitante, u.nome, s.status, enviada_em, fi.codigo_produto, fi.nome_produto
-    ORDER BY enviada_em DESC, s.id DESC
+    GROUP BY s.id, s.id_solicitante, u.nome, s.status, mov_em, fi.codigo_produto, fi.nome_produto
+    ORDER BY mov_em DESC, s.id DESC
     ";
     $st = $pdo->prepare($sql);
     $st->execute([':empresa_id' => $idSelecionado]);
-    $enviados = $st->fetchAll(PDO::FETCH_ASSOC);
+    $envios = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $enviados = [];
+    $envios = [];
 }
 
 // Helpers
@@ -198,7 +199,7 @@ function dtBr(?string $dt) {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600;1,700&display=swap"
         rel="stylesheet" />
 
     <!-- Icons. Uncomment required icon fonts -->
@@ -445,7 +446,7 @@ function dtBr(?string $dt) {
                         Produtos Enviados
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Produtos Enviados para as Filiais</span>
+                        <span class="text-muted fw-light">Produtos em trânsito e entregues para as Filiais</span>
                     </h5>
 
                     <!-- Tabela -->
@@ -460,24 +461,32 @@ function dtBr(?string $dt) {
                                         <th>SKU</th>
                                         <th>Produto</th>
                                         <th>Qtd</th>
-                                        <th>Enviado em</th>
+                                        <th>Movimentado em</th>
                                         <th>Status</th>
                                         <th class="text-end">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                <?php if (empty($enviados)): ?>
+                                <?php if (empty($envios)): ?>
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">Nenhum envio em trânsito.</td>
+                                        <td colspan="8" class="text-center text-muted py-4">Nenhum envio em trânsito ou entregue.</td>
                                     </tr>
-                                <?php else: foreach ($enviados as $row): ?>
+                                <?php else: foreach ($envios as $row): ?>
                                     <?php
                                         $sku   = $row['primeiro_sku']  ?: '—';
                                         $nome  = $row['primeiro_nome'] ?: '—';
                                         $itens = (int)$row['itens'];
-                                        // Se tiver mais de 1 item, indica na coluna produto
                                         if ($itens > 1 && $nome !== '—') {
                                             $nome .= " <span class='text-muted'>(+ " . ($itens-1) . ")</span>";
+                                        }
+                                        $status = strtolower((string)$row['status']);
+                                        // Badge por status
+                                        if ($status === 'entregue') {
+                                            $badgeHtml = '<span class="badge bg-label-success status-badge">Entregue</span>';
+                                            $detStatus = 'Entregue';
+                                        } else { // em_transito
+                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Em Trânsito</span>';
+                                            $detStatus = 'Em Trânsito';
                                         }
                                     ?>
                                     <tr data-row-id="<?= (int)$row['id'] ?>">
@@ -486,8 +495,8 @@ function dtBr(?string $dt) {
                                         <td><?= htmlspecialchars($sku) ?></td>
                                         <td><?= $nome ?></td>
                                         <td><?= (int)$row['qtd_total'] ?></td>
-                                        <td><?= dtBr($row['enviada_em']) ?></td>
-                                        <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
+                                        <td><?= dtBr($row['mov_em']) ?></td>
+                                        <td><?= $badgeHtml ?></td>
                                         <td class="text-end">
                                             <button
                                                 type="button"
@@ -497,7 +506,7 @@ function dtBr(?string $dt) {
                                                 data-id="<?= (int)$row['id'] ?>"
                                                 data-codigo="PS-<?= (int)$row['id'] ?>"
                                                 data-filial="<?= htmlspecialchars($row['filial_nome'] ?? '-') ?>"
-                                                data-status="Enviado">
+                                                data-status="<?= $detStatus ?>">
                                                 Detalhes
                                             </button>
                                         </td>
