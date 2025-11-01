@@ -5,7 +5,7 @@ session_start();
 date_default_timezone_set('America/Manaus');
 
 /* ==========================================================
-   Helpers gerais
+   Helpers
    ========================================================== */
 function json_out(array $payload, int $statusCode = 200) {
     while (ob_get_level() > 0) { ob_end_clean(); }
@@ -25,7 +25,7 @@ function e(string $v): string {
 }
 
 /* ==========================================================
-   Sinaliza se é chamada AJAX de detalhes
+   Flag de chamada AJAX de detalhes
    ========================================================== */
 $IS_AJAX_DET = (
     (isset($_GET['ajax'])  && $_GET['ajax']  === 'detalhes') ||
@@ -129,12 +129,13 @@ try {
 
 /* ==========================================================
    ENDPOINT AJAX — Detalhes (sempre JSON)
-   Aceita: ?ajax=detalhes&solicitacao_id=ID  (ou &id=ID)
+   Aceita: ?ajax=detalhes&solicitacao_id=ID
    ========================================================== */
 if ($IS_AJAX_DET) {
     try {
-        $sid = (int)($_GET['solicitacao_id'] ?? $_GET['id'] ?? $_POST['solicitacao_id'] ?? $_POST['id'] ?? 0);
-        if ($sid <= 0) json_out(['ok'=>false,'erro'=>'ID inválido.'], 400);
+        // ⚠️ Aceita SOMENTE solicitacao_id para não conflitar com ?id=empresa
+        $sid = (int)($_GET['solicitacao_id'] ?? $_POST['solicitacao_id'] ?? 0);
+        if ($sid <= 0) json_out(['ok'=>false,'erro'=>'solicitacao_id inválido.'], 400);
 
         // Cabeçalho: apenas da matriz corrente, somente filiais, e status final (entregue/cancelada)
         $cab = $pdo->prepare("
@@ -283,41 +284,13 @@ try {
                         <div data-i18n="B2B">B2B - Matriz</div>
                     </a>
                     <ul class="menu-sub active">
-                        <li class="menu-item">
-                            <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Pagamentos Solic.</div>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Produtos Solicitados</div>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Produtos Enviados</div>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Transf. Pendentes</div>
-                            </a>
-                        </li>
-                        <li class="menu-item active">
-                            <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Histórico Transf.</div>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Estoque Matriz</div>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Relatórios B2B</div>
-                            </a>
-                        </li>
+                        <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Pagamentos Solic.</div></a></li>
+                        <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Solicitados</div></a></li>
+                        <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Enviados</div></a></li>
+                        <li class="menu-item"><a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Transf. Pendentes</div></a></li>
+                        <li class="menu-item active"><a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Histórico Transf.</div></a></li>
+                        <li class="menu-item"><a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Estoque Matriz</div></a></li>
+                        <li class="menu-item"><a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Relatórios B2B</div></a></li>
                     </ul>
                 </li>
 
@@ -327,15 +300,9 @@ try {
                         <div data-i18n="Relatorios">Relatórios</div>
                     </a>
                     <ul class="menu-sub">
-                        <li class="menu-item">
-                            <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Vendas por Filial</div></a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Mais Vendidos</div></a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Vendas por Período</div></a>
-                        </li>
+                        <li class="menu-item"><a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Vendas por Filial</div></a></li>
+                        <li class="menu-item"><a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Mais Vendidos</div></a></li>
+                        <li class="menu-item"><a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Vendas por Período</div></a></li>
                     </ul>
                 </li>
 
@@ -531,7 +498,7 @@ try {
 <script src="../../assets/js/dashboards-analytics.js"></script>
 <script async defer src="https://buttons.github.io/buttons.js"></script>
 
-<!-- JS Modal: fetch seguro (valida JSON) -->
+<!-- JS Modal: fetch seguro (mantém ?id=empresa e usa solicitacao_id) -->
 <script>
 (function(){
   const modalEl = document.getElementById('modalHistDetalhes');
@@ -541,7 +508,7 @@ try {
     const btn = event.relatedTarget;
     if (!btn) return;
 
-    const id  = btn.getAttribute('data-id');
+    const idSol  = btn.getAttribute('data-id');
     const cod = btn.getAttribute('data-codigo') || '—';
     const fil = btn.getAttribute('data-filial') || '—';
     const sts = btn.getAttribute('data-status') || '—';
@@ -555,7 +522,8 @@ try {
 
     const url = new URL(window.location.href);
     url.searchParams.set('ajax', 'detalhes');
-    url.searchParams.set('id', id);
+    // ⚠️ NÃO alterar 'id' (empresa). Usar apenas 'solicitacao_id':
+    url.searchParams.set('solicitacao_id', idSol);
 
     fetch(url.toString(), { credentials: 'same-origin' })
       .then(async (r) => {
@@ -583,14 +551,14 @@ try {
         document.getElementById('hist-itens').textContent   = String(itens.length || 0);
 
         if (!itens.length) {
-          tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens.</td></tr>';
         } else {
-          tbody.innerHTML = itens.map(it => {
-            const cod = it.codigo_produto || '—';
-            const nm  = it.nome_produto || '—';
-            const qt  = it.quantidade ?? 0;
-            return `<tr><td>${escapeHtml(cod)}</td><td>${escapeHtml(nm)}</td><td>${qt}</td></tr>`;
-          }).join('');
+            tbody.innerHTML = itens.map(it => {
+                const cod = it.codigo_produto || '—';
+                const nm  = it.nome_produto || '—';
+                const qt  = it.quantidade ?? 0;
+                return `<tr><td>${escapeHtml(cod)}</td><td>${escapeHtml(nm)}</td><td>${qt}</td></tr>`;
+            }).join('');
         }
       })
       .catch(err => {
