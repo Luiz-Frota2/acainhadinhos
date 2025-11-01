@@ -1,15 +1,43 @@
 <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-
 session_start();
 date_default_timezone_set('America/Manaus');
 
-/* =========================
-   Sessão / Parâmetros
-   ========================= */
+/* ==========================================================
+   Helpers gerais
+   ========================================================== */
+function json_out(array $payload, int $statusCode = 200) {
+    while (ob_get_level() > 0) { ob_end_clean(); }
+    http_response_code($statusCode);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+function dtBr(?string $dt) {
+    if (!$dt) return '—';
+    $t = strtotime($dt);
+    if (!$t) return '—';
+    return date('d/m/Y H:i', $t);
+}
+function e(string $v): string {
+    return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
+}
+
+/* ==========================================================
+   Sinaliza se é chamada AJAX de detalhes
+   ========================================================== */
+$IS_AJAX_DET = (
+    (isset($_GET['ajax'])  && $_GET['ajax']  === 'detalhes') ||
+    (isset($_POST['ajax']) && $_POST['ajax'] === 'detalhes')
+);
+
+/* ==========================================================
+   Sessão / parâmetros
+   ========================================================== */
 $idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
+    if ($IS_AJAX_DET) json_out(['ok'=>false,'erro'=>'Identificador ausente (id).'], 400);
     header("Location: .././login.php");
     exit;
 }
@@ -20,47 +48,51 @@ if (
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
+    if ($IS_AJAX_DET) json_out(['ok'=>false,'erro'=>'Sessão expirada. Faça login novamente.'], 401);
     header("Location: .././login.php?id=" . urlencode($idSelecionado));
     exit;
 }
 
-/* =========================
+/* ==========================================================
    Conexão
-   ========================= */
+   ========================================================== */
 require '../../assets/php/conexao.php';
 if (!isset($pdo) || !($pdo instanceof PDO)) {
+    if ($IS_AJAX_DET) json_out(['ok'=>false,'erro'=>'Conexão indisponível.'], 500);
     http_response_code(500);
     echo "Erro: conexão indisponível.";
     exit;
 }
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-/* =========================
-   Usuário logado (nome/tipo)
-   ========================= */
+/* ==========================================================
+   Usuário logado
+   ========================================================== */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
-
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
     $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
     $stmt->execute();
-    if ($u = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $u = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($u) {
         $nomeUsuario = $u['usuario'] ?? 'Usuário';
         $tipoUsuario = ucfirst((string)($u['nivel'] ?? 'Comum'));
     } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        if ($IS_AJAX_DET) json_out(['ok'=>false,'erro'=>'Usuário não encontrado.'], 403);
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . e($idSelecionado) . "';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
+    if ($IS_AJAX_DET) json_out(['ok'=>false,'erro'=>'Erro ao carregar usuário: '.$e->getMessage()], 500);
+    echo "<script>alert('Erro ao carregar usuário.'); history.back();</script>";
     exit;
 }
 
-/* =========================
+/* ==========================================================
    Validação de acesso
-   ========================= */
+   ========================================================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -74,17 +106,16 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
+
 if (!$acessoPermitido) {
-    echo "<script>
-          alert('Acesso negado!');
-          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
-        </script>";
+    if ($IS_AJAX_DET) json_out(['ok'=>false,'erro'=>'Acesso negado.'], 403);
+    echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=" . e($idSelecionado) . "';</script>";
     exit;
 }
 
-/* =========================
+/* ==========================================================
    Logo da empresa
-   ========================= */
+   ========================================================== */
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
     $stmt->execute([':id' => $idSelecionado]);
@@ -97,52 +128,41 @@ try {
 }
 
 /* ==========================================================
-   AJAX de Detalhes (mesmo arquivo)
-   GET ?ajax=detalhes&id=123  → JSON com cabeçalho + itens
+   ENDPOINT AJAX — Detalhes (sempre JSON)
+   Aceita: ?ajax=detalhes&solicitacao_id=ID  (ou &id=ID)
    ========================================================== */
-if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
-    header('Content-Type: application/json; charset=utf-8');
-    $sid = (int)($_GET['id'] ?? 0);
-    if ($sid <= 0) {
-        echo json_encode(['ok' => false, 'erro' => 'ID inválido']);
-        exit;
-    }
+if ($IS_AJAX_DET) {
     try {
-        // Cabeçalho (apenas entregues ou canceladas, e origem precisa ser Filial)
+        $sid = (int)($_GET['solicitacao_id'] ?? $_GET['id'] ?? $_POST['solicitacao_id'] ?? $_POST['id'] ?? 0);
+        if ($sid <= 0) json_out(['ok'=>false,'erro'=>'ID inválido.'], 400);
+
+        // Cabeçalho: apenas da matriz corrente, somente filiais, e status final (entregue/cancelada)
         $cab = $pdo->prepare("
-            SELECT
-                s.id,
-                s.id_matriz,
-                s.id_solicitante,
-                s.status,
-                s.observacao,
-                s.created_at,
-                s.enviada_em,
-                s.entregue_em,
+            SELECT 
+                s.id, s.id_matriz, s.id_solicitante, s.status, s.observacao,
+                s.created_at, s.aprovada_em, s.enviada_em, s.entregue_em,
                 u.nome AS filial_nome
             FROM solicitacoes_b2b s
             JOIN unidades u
               ON u.id = CAST(REPLACE(s.id_solicitante,'unidade_','') AS UNSIGNED)
-             AND u.empresa_id = s.id_matriz
+             AND u.tipo = 'Filial'
+             AND u.empresa_id = :matriz
             WHERE s.id = :sid
-              AND s.id_matriz = :empresa
-              AND LOWER(u.tipo) = 'filial'
+              AND s.id_matriz = :matriz
               AND s.status IN ('entregue','cancelada')
             LIMIT 1
         ");
-        $cab->execute([':sid' => $sid, ':empresa' => $idSelecionado]);
+        $cab->execute([':sid' => $sid, ':matriz' => $idSelecionado]);
         $cabecalho = $cab->fetch(PDO::FETCH_ASSOC);
-        if (!$cabecalho) {
-            echo json_encode(['ok' => false, 'erro' => 'Registro não encontrado para esta matriz/filial.']);
-            exit;
-        }
+        if (!$cabecalho) json_out(['ok'=>false,'erro'=>'Registro não encontrado.'], 404);
 
         // Itens
         $it = $pdo->prepare("
-            SELECT
+            SELECT 
                 COALESCE(i.codigo_produto,'') AS codigo_produto,
                 COALESCE(i.nome_produto,'')   AS nome_produto,
-                COALESCE(i.quantidade,0)      AS quantidade
+                COALESCE(i.quantidade,0)      AS quantidade,
+                COALESCE(i.unidade,'UN')      AS unidade
             FROM solicitacoes_b2b_itens i
             WHERE i.solicitacao_id = :sid
             ORDER BY i.id ASC
@@ -150,15 +170,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
         $it->execute([':sid' => $sid]);
         $itens = $it->fetchAll(PDO::FETCH_ASSOC);
 
-        echo json_encode(['ok' => true, 'cabecalho' => $cabecalho, 'itens' => $itens], JSON_UNESCAPED_UNICODE);
-    } catch (PDOException $e) {
-        echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
+        json_out(['ok'=>true,'cabecalho'=>$cabecalho,'itens'=>$itens]);
+    } catch (Throwable $e) {
+        json_out(['ok'=>false,'erro'=>$e->getMessage()], 500);
     }
-    exit;
 }
 
 /* ==========================================================
-   LISTAGEM — SOMENTE Filial + (entregue | cancelada)
+   LISTAGEM — Histórico apenas de Filiais com status final:
+   'entregue' ou 'cancelada'
    ========================================================== */
 $historico = [];
 try {
@@ -166,30 +186,24 @@ try {
         SELECT
             s.id,
             s.id_solicitante,
-            u.nome                         AS filial_nome,
+            u.nome AS filial_nome,
             s.created_at,
             s.enviada_em,
             s.entregue_em,
             s.status,
-            COUNT(i.id)                    AS itens,
-            COALESCE(SUM(i.quantidade),0)  AS qtd_total
+            COUNT(i.id)                   AS itens,
+            COALESCE(SUM(i.quantidade),0) AS qtd_total
         FROM solicitacoes_b2b s
         JOIN unidades u
           ON u.id = CAST(REPLACE(s.id_solicitante,'unidade_','') AS UNSIGNED)
-         AND u.empresa_id = s.id_matriz
+         AND u.tipo = 'Filial'
+         AND u.empresa_id = :empresa_id
         LEFT JOIN solicitacoes_b2b_itens i
           ON i.solicitacao_id = s.id
         WHERE s.id_matriz = :empresa_id
-          AND LOWER(u.tipo) = 'filial'
           AND s.status IN ('entregue','cancelada')
-        GROUP BY
-            s.id, s.id_solicitante, u.nome, s.created_at, s.enviada_em, s.entregue_em, s.status
-        ORDER BY
-            -- entregues mais recentes primeiro, depois canceladas
-            FIELD(s.status,'entregue','cancelada'),
-            COALESCE(s.entregue_em, s.created_at) DESC,
-            s.id DESC
-        LIMIT 500
+        GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.enviada_em, s.entregue_em, s.status
+        ORDER BY s.entregue_em DESC, s.enviada_em DESC, s.created_at DESC, s.id DESC
     ";
     $st = $pdo->prepare($sql);
     $st->execute([':empresa_id' => $idSelecionado]);
@@ -197,50 +211,35 @@ try {
 } catch (PDOException $e) {
     $historico = [];
 }
-
-/* =========================
-   Helpers
-   ========================= */
-function dtBr(?string $dt): string {
-    if (!$dt) return '—';
-    $t = strtotime($dt);
-    return $t ? date('d/m/Y H:i', $t) : '—';
-}
-function e(string $v): string {
-    return htmlspecialchars($v, ENT_QUOTES, 'UTF-8');
-}
 ?>
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
-      data-assets-path="../assets/">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>ERP - Filial</title>
     <meta name="description" content="" />
     <link rel="icon" type="image/x-icon" href="<?= e($logoEmpresa) ?>" />
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-    <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css"/>
-    <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css"/>
-    <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css"/>
-    <link rel="stylesheet" href="../../assets/css/demo.css"/>
-    <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css"/>
-    <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
+    <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
+    <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
+    <link rel="stylesheet" href="../../assets/css/demo.css" />
+    <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+    <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
     <style>
-        .status-badge { font-size: .78rem; }
-        .table thead th { white-space: nowrap; }
-        .text-end { text-align: end; }
+        .table thead th{white-space:nowrap;}
+        .status-badge{font-size:.78rem;}
+        .table-responsive{overflow:auto;}
     </style>
 </head>
 <body>
 <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
-
         <!-- Menu -->
         <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
             <div class="app-brand demo">
@@ -251,9 +250,7 @@ function e(string $v): string {
                     <i class="bx bx-chevron-left bx-sm align-middle"></i>
                 </a>
             </div>
-
             <div class="menu-inner-shadow"></div>
-
             <ul class="menu-inner py-1">
                 <li class="menu-item">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
@@ -331,107 +328,48 @@ function e(string $v): string {
                     </a>
                     <ul class="menu-sub">
                         <li class="menu-item">
-                            <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div data-i18n="Vendas">Vendas por Filial</div>
-                            </a>
+                            <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Vendas por Filial</div></a>
                         </li>
                         <li class="menu-item">
-                            <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div data-i18n="MaisVendidos">Mais Vendidos</div>
-                            </a>
+                            <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Mais Vendidos</div></a>
                         </li>
                         <li class="menu-item">
-                            <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div data-i18n="Pedidos">Vendas por Período</div>
-                            </a>
+                            <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Vendas por Período</div></a>
                         </li>
                     </ul>
                 </li>
 
                 <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-                <li class="menu-item">
-                    <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                        <i class="menu-icon tf-icons bx bx-group"></i>
-                        <div data-i18n="Authentications">RH</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                        <i class="menu-icon tf-icons bx bx-dollar"></i>
-                        <div data-i18n="Authentications">Finanças</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                        <i class="menu-icon tf-icons bx bx-desktop"></i>
-                        <div data-i18n="Authentications">PDV</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                        <i class="menu-icon tf-icons bx bx-briefcase"></i>
-                        <div data-i18n="Authentications">Empresa</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                        <i class="menu-icon tf-icons bx bx-box"></i>
-                        <div data-i18n="Authentications">Estoque</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../franquia/index.php?id=principal_1" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-store"></i>
-                        <div data-i18n="Authentications">Franquias</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
-                        <i class="menu-icon tf-icons bx bx-group"></i>
-                        <div data-i18n="Authentications">Usuários </div>
-                    </a>
-                </li>
-                <li class="menu-item mb-5">
-                    <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-support"></i>
-                        <div data-i18n="Basic">Suporte</div>
-                    </a>
-                </li>
+                <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-group"></i><div>RH</div></a></li>
+                <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-dollar"></i><div>Finanças</div></a></li>
+                <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-desktop"></i><div>PDV</div></a></li>
+                <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-briefcase"></i><div>Empresa</div></a></li>
+                <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-box"></i><div>Estoque</div></a></li>
+                <li class="menu-item"><a href="../franquia/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-store"></i><div>Franquias</div></a></li>
+                <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-group"></i><div>Usuários</div></a></li>
+                <li class="menu-item mb-5"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i><div>Suporte</div></a></li>
             </ul>
         </aside>
         <!-- / Menu -->
 
-        <!-- Layout page -->
         <div class="layout-page">
             <!-- Navbar -->
-            <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
-                 id="layout-navbar">
+            <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
                 <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-                    <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                        <i class="bx bx-menu bx-sm"></i>
-                    </a>
+                    <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
                 </div>
-
                 <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                    <div class="navbar-nav align-items-center">
-                        <div class="nav-item d-flex align-items-center"></div>
-                    </div>
+                    <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
                     <ul class="navbar-nav flex-row align-items-center ms-auto">
                         <li class="nav-item navbar-dropdown dropdown-user dropdown">
                             <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
-                                <div class="avatar avatar-online">
-                                    <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle"/>
-                                </div>
+                                <div class="avatar avatar-online"><img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" /></div>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                                 <li>
                                     <a class="dropdown-item" href="#">
                                         <div class="d-flex">
-                                            <div class="flex-shrink-0 me-3">
-                                                <div class="avatar avatar-online">
-                                                    <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle"/>
-                                                </div>
-                                            </div>
+                                            <div class="flex-shrink-0 me-3"><div class="avatar avatar-online"><img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" /></div></div>
                                             <div class="flex-grow-1">
                                                 <span class="fw-semibold d-block"><?= e($nomeUsuario) ?></span>
                                                 <small class="text-muted"><?= e($tipoUsuario) ?></small>
@@ -457,66 +395,55 @@ function e(string $v): string {
                     <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
                     Histórico de Transferências
                 </h4>
-                <h5 class="fw-bold mt-3 mb-3">
-                    <span class="text-muted fw-light">Somente Filiais — Status: Entregue ou Cancelada</span>
+                <h5 class="fw-bold mt-3 mb-3 custor-font">
+                    <span class="text-muted fw-light">Produtos enviados para as Filiais (somente Entregues/Canceladas)</span>
                 </h5>
 
+                <!-- Histórico -->
                 <div class="card">
                     <h5 class="card-header">Histórico de Transferências</h5>
                     <div class="table-responsive text-nowrap">
-                        <table class="table table-hover" id="tabela-historico">
+                        <table class="table table-hover">
                             <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Filial</th>
-                                <th>Itens</th>
-                                <th>Qtd</th>
-                                <th>Criado</th>
-                                <th>Enviado</th>
-                                <th>Entregue/Cancelado</th>
-                                <th>Status Final</th>
-                                <th class="text-end">Ações</th>
-                            </tr>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Filial</th>
+                                    <th>Itens</th>
+                                    <th>Qtd</th>
+                                    <th>Criado</th>
+                                    <th>Envio</th>
+                                    <th>Entregue/Cancelado</th>
+                                    <th>Status Final</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
                             </thead>
                             <tbody class="table-border-bottom-0">
                             <?php if (empty($historico)): ?>
                                 <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">
-                                        Nenhum registro encontrado (Filial + Entregue/Cancelada).
-                                    </td>
+                                    <td colspan="9" class="text-center text-muted py-4">Nenhum registro encontrado.</td>
                                 </tr>
-                            <?php else: foreach ($historico as $row):
-                                $id    = (int)$row['id'];
-                                $fil   = $row['filial_nome'] ?? '—';
-                                $itens = (int)$row['itens'];
-                                $qtd   = (int)$row['qtd_total'];
-                                $cri   = dtBr($row['created_at'] ?? null);
-                                $env   = dtBr($row['enviada_em'] ?? null);
-                                $fin   = dtBr($row['entregue_em'] ?? null); // para cancelada, ficará '—'
-                                $st    = strtolower((string)($row['status'] ?? ''));
-                                $badge = ($st === 'entregue')
-                                    ? '<span class="badge bg-label-success status-badge">Entregue</span>'
-                                    : '<span class="badge bg-label-danger status-badge">Cancelada</span>';
-                                ?>
+                            <?php else: foreach ($historico as $row): 
+                                $status = $row['status'];
+                                $badge  = ($status === 'entregue') ? 'bg-label-success' : 'bg-label-danger';
+                            ?>
                                 <tr>
-                                    <td><strong><?= 'TR-' . str_pad((string)$id, 4, '0', STR_PAD_LEFT) ?></strong></td>
-                                    <td><?= e($fil) ?></td>
-                                    <td><?= $itens ?></td>
-                                    <td><?= $qtd ?></td>
-                                    <td><?= e($cri) ?></td>
-                                    <td><?= e($env) ?></td>
-                                    <td><?= e($fin) ?></td>
-                                    <td><?= $badge ?></td>
+                                    <td><strong><?= (int)$row['id'] ?></strong></td>
+                                    <td><?= e($row['filial_nome'] ?? '-') ?></td>
+                                    <td><?= (int)($row['itens'] ?? 0) ?></td>
+                                    <td><?= (int)($row['qtd_total'] ?? 0) ?></td>
+                                    <td><?= dtBr($row['created_at']) ?></td>
+                                    <td><?= dtBr($row['enviada_em']) ?></td>
+                                    <td><?= dtBr($row['entregue_em']) ?></td>
+                                    <td><span class="badge <?= $badge ?> status-badge"><?= e(ucfirst($status)) ?></span></td>
                                     <td class="text-end">
                                         <button
-                                          class="btn btn-sm btn-outline-secondary btn-detalhes"
-                                          data-bs-toggle="modal"
-                                          data-bs-target="#modalHistDetalhes"
-                                          data-id="<?= $id ?>"
-                                          data-codigo="<?= 'TR-' . str_pad((string)$id, 4, '0', STR_PAD_LEFT) ?>"
-                                          data-filial="<?= e($fil) ?>"
-                                          data-status="<?= ($st === 'entregue' ? 'Entregue' : 'Cancelada') ?>"
-                                        >
+                                            class="btn btn-sm btn-outline-secondary"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalHistDetalhes"
+                                            data-id="<?= (int)$row['id'] ?>"
+                                            data-codigo="TR-<?= (int)$row['id'] ?>"
+                                            data-filial="<?= e($row['filial_nome'] ?? '-') ?>"
+                                            data-status="<?= e(ucfirst($status)) ?>">
                                             Detalhes
                                         </button>
                                     </td>
@@ -546,14 +473,10 @@ function e(string $v): string {
                                 <div class="table-responsive">
                                     <table class="table">
                                         <thead>
-                                        <tr>
-                                            <th>Código</th>
-                                            <th>Produto</th>
-                                            <th>Qtd</th>
-                                        </tr>
+                                        <tr><th>Código</th><th>Produto</th><th>Qtd</th></tr>
                                         </thead>
                                         <tbody id="hist-itens-body">
-                                        <tr><td colspan="3" class="text-muted">Carregando...</td></tr>
+                                            <tr><td colspan="3" class="text-muted">Carregando...</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -582,23 +505,18 @@ function e(string $v): string {
             </div>
             <!-- / Content -->
 
-            <!-- Footer -->
             <footer class="content-footer footer bg-footer-theme text-center">
                 <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
                     <div class="mb-2 mb-md-0">
-                        &copy; <script>document.write(new Date().getFullYear());</script>,
-                        <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                        &copy; <script>document.write(new Date().getFullYear());</script>, <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
                         Desenvolvido por <strong>CodeGeek</strong>.
                     </div>
                 </div>
             </footer>
+
             <div class="content-backdrop fade"></div>
         </div>
-        <!-- / Layout page -->
     </div>
-
-    <!-- Overlay -->
-    <div class="layout-overlay layout-menu-toggle"></div>
 </div>
 
 <!-- Core JS -->
@@ -613,50 +531,56 @@ function e(string $v): string {
 <script src="../../assets/js/dashboards-analytics.js"></script>
 <script async defer src="https://buttons.github.io/buttons.js"></script>
 
+<!-- JS Modal: fetch seguro (valida JSON) -->
 <script>
 (function(){
-  const modal = document.getElementById('modalHistDetalhes');
-  if (!modal) return;
+  const modalEl = document.getElementById('modalHistDetalhes');
+  if (!modalEl) return;
 
-  modal.addEventListener('show.bs.modal', function (ev) {
-    const btn = ev.relatedTarget;
+  modalEl.addEventListener('show.bs.modal', function (event) {
+    const btn = event.relatedTarget;
     if (!btn) return;
 
-    const id     = btn.getAttribute('data-id');
-    const codigo = btn.getAttribute('data-codigo') || '—';
-    const filial = btn.getAttribute('data-filial') || '—';
-    const status = btn.getAttribute('data-status') || '—';
+    const id  = btn.getAttribute('data-id');
+    const cod = btn.getAttribute('data-codigo') || '—';
+    const fil = btn.getAttribute('data-filial') || '—';
+    const sts = btn.getAttribute('data-status') || '—';
 
-    document.getElementById('hist-codigo').textContent  = codigo;
-    document.getElementById('hist-filial').textContent  = filial;
-    document.getElementById('hist-status').textContent  = status;
-    document.getElementById('hist-itens').textContent   = '—';
-    document.getElementById('hist-obs').textContent     = '—';
-    document.getElementById('hist-criado').textContent  = '—';
-    document.getElementById('hist-enviado').textContent = '—';
-    document.getElementById('hist-final').textContent   = '—';
+    document.getElementById('hist-codigo').textContent = cod;
+    document.getElementById('hist-filial').textContent = fil;
+    document.getElementById('hist-status').textContent = sts;
 
     const tbody = document.getElementById('hist-itens-body');
     tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
 
     const url = new URL(window.location.href);
-    url.searchParams.set('ajax','detalhes');
+    url.searchParams.set('ajax', 'detalhes');
     url.searchParams.set('id', id);
 
     fetch(url.toString(), { credentials: 'same-origin' })
-      .then(r => r.json())
+      .then(async (r) => {
+        const ct = r.headers.get('content-type') || '';
+        const text = await r.text();
+        if (!ct.includes('application/json')) {
+          throw new Error((text || '').trim().slice(0, 500) || 'Resposta não-JSON recebida.');
+        }
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          throw new Error('JSON inválido: ' + (text.trim().slice(0, 300)));
+        }
+      })
       .then(data => {
-        if (!data.ok) throw new Error(data.erro || 'Falha ao buscar detalhes');
+        if (!data.ok) throw new Error(data.erro || 'Falha ao carregar itens');
 
         const cab = data.cabecalho || {};
         const itens = data.itens || [];
 
         document.getElementById('hist-obs').textContent     = cab.observacao || '—';
-        document.getElementById('hist-criado').textContent  = cab.created_at   ? fmtBr(cab.created_at)   : '—';
-        document.getElementById('hist-enviado').textContent = cab.enviada_em   ? fmtBr(cab.enviada_em)   : '—';
-        document.getElementById('hist-final').textContent   = cab.entregue_em  ? fmtBr(cab.entregue_em)  : '—';
-
-        document.getElementById('hist-itens').textContent = String(itens.length || 0);
+        document.getElementById('hist-criado').textContent  = fmtBr(cab.created_at);
+        document.getElementById('hist-enviado').textContent = fmtBr(cab.enviada_em);
+        document.getElementById('hist-final').textContent   = fmtBr(cab.entregue_em);
+        document.getElementById('hist-itens').textContent   = String(itens.length || 0);
 
         if (!itens.length) {
           tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens.</td></tr>';
@@ -675,12 +599,12 @@ function e(string $v): string {
   });
 
   function fmtBr(iso) {
-    // Formata 'YYYY-mm-dd HH:ii:ss' em 'dd/mm/YYYY HH:ii'
-    const d = new Date(iso.replace(' ', 'T'));
-    if (isNaN(d.getTime())) return iso;
+    if (!iso) return '—';
+    const d = new Date(String(iso).replace(' ', 'T'));
+    if (isNaN(d)) return iso;
     const dd = String(d.getDate()).padStart(2,'0');
     const mm = String(d.getMonth()+1).padStart(2,'0');
-    const yyyy = String(d.getFullYear());
+    const yyyy = d.getFullYear();
     const hh = String(d.getHours()).padStart(2,'0');
     const ii = String(d.getMinutes()).padStart(2,'0');
     return `${dd}/${mm}/${yyyy} ${hh}:${ii}`;
