@@ -87,6 +87,72 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
+/* ============================================
+   🔸 MODO AJAX (DETALHES & ALTERAR STATUS)
+   - Mantido no MESMO arquivo para não criar rotas novas
+   ============================================ */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $sid = (int)($_GET['solicitacao_id'] ?? 0);
+    if ($sid <= 0) {
+        echo json_encode(['ok' => false, 'erro' => 'ID inválido']);
+        exit;
+    }
+
+    try {
+        // 1) Tenta pegar direto dos itens (campos típicos)
+        $sqlItens = "
+            SELECT 
+                COALESCE(i.codigo_produto, '') AS codigo_produto,
+                COALESCE(i.nome_produto, '')   AS nome_produto,
+                COALESCE(i.quantidade, 0)      AS quantidade
+            FROM solicitacoes_b2b_itens i
+            WHERE i.solicitacao_id = :sid
+            ORDER BY i.id ASC
+        ";
+        $st = $pdo->prepare($sqlItens);
+        $st->execute([':sid' => $sid]);
+        $itens = $st->fetchAll(PDO::FETCH_ASSOC);
+
+        // Se não houver nome_produto, o front mostra "—"
+        echo json_encode(['ok' => true, 'itens' => $itens]);
+    } catch (PDOException $e) {
+        echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status') {
+    header('Content-Type: application/json; charset=utf-8');
+
+    $sid  = (int)($_POST['transferencia_id'] ?? 0);
+    $acao = $_POST['acao'] ?? '';
+
+    if ($sid <= 0 || !in_array($acao, ['confirmar_envio', 'cancelar'], true)) {
+        echo json_encode(['ok' => false, 'erro' => 'Parâmetros inválidos']);
+        exit;
+    }
+
+    $novoStatus = $acao === 'confirmar_envio' ? 'em_transito' : 'cancelar';
+
+    try {
+        // Atualiza SOMENTE se estiver aprovada (mantém a regra de “aguardando” nesta tela)
+        $up = $pdo->prepare("UPDATE solicitacoes_b2b SET status = :st WHERE id = :id AND status = 'aprovada'");
+        $up->execute([':st' => $novoStatus, ':id' => $sid]);
+
+        if ($up->rowCount() === 0) {
+            echo json_encode(['ok' => false, 'erro' => 'Solicitação não está mais aprovada ou não encontrada.']);
+            exit;
+        }
+
+        echo json_encode(['ok' => true, 'status' => $novoStatus]);
+    } catch (PDOException $e) {
+        echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
+    }
+    exit;
+}
+
 /* ==========================================================
    🟢 LISTAGEM — Solicitações aprovadas de Filiais c/ estoque
    - status = 'aprovada'
@@ -105,25 +171,22 @@ try {
             u.nome AS filial_nome,
             s.created_at,
             s.aprovada_em,
-            COUNT(i.id)                            AS itens,
-            COALESCE(SUM(i.quantidade), 0)         AS qtd_total
+            s.status,
+            COUNT(i.id)                    AS itens,
+            COALESCE(SUM(i.quantidade),0)  AS qtd_total
         FROM solicitacoes_b2b s
-        /* Garante que o solicitante é uma Filial desta empresa */
         JOIN unidades u
           ON u.id = CAST(REPLACE(s.id_solicitante, 'unidade_', '') AS UNSIGNED)
          AND u.tipo = 'Filial'
          AND u.empresa_id = :empresa_id
-        /* Itens da solicitação para agregações */
         LEFT JOIN solicitacoes_b2b_itens i
           ON i.solicitacao_id = s.id
         WHERE s.status = 'aprovada'
           AND s.id_matriz = :empresa_id
           AND EXISTS (
-                SELECT 1
-                  FROM estoque e
-                 WHERE e.empresa_id = s.id_solicitante
+              SELECT 1 FROM estoque e WHERE e.empresa_id = s.id_solicitante
           )
-        GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.aprovada_em
+        GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.aprovada_em, s.status
         ORDER BY s.aprovada_em DESC, s.created_at DESC, s.id DESC
     ";
     $st = $pdo->prepare($sql);
@@ -163,7 +226,7 @@ function dtBr(?string $dt) {
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
 
-    <!-- Icons. Uncomment required icon fonts -->
+    <!-- Icons -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
 
     <!-- Core CSS -->
@@ -173,7 +236,6 @@ function dtBr(?string $dt) {
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
 
     <!-- Helpers -->
@@ -182,73 +244,34 @@ function dtBr(?string $dt) {
     <!-- Config -->
     <script src="../../assets/js/config.js"></script>
 
+    <style>
+        .table thead th { white-space: nowrap; }
+        .status-badge { font-size: .78rem; }
+        .toolbar { gap: .5rem; flex-wrap: wrap; }
+        .toolbar .form-select, .toolbar .form-control { max-width: 220px; }
+        .badge-dot { display: inline-flex; align-items: center; gap: .4rem; }
+        .badge-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; }
+        .actions .btn { margin-right: .25rem; }
+        .table-responsive { overflow: auto; }
+    </style>
 </head>
 
-<style>
-    .table thead th {
-        white-space: nowrap;
-    }
-
-    .status-badge {
-        font-size: .78rem;
-    }
-
-    .toolbar {
-        gap: .5rem;
-        flex-wrap: wrap;
-    }
-
-    .toolbar .form-select,
-    .toolbar .form-control {
-        max-width: 220px;
-    }
-
-    .badge-dot {
-        display: inline-flex;
-        align-items: center;
-        gap: .4rem;
-    }
-
-    .badge-dot::before {
-        content: '';
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: currentColor;
-        display: inline-block;
-    }
-
-    .actions .btn {
-        margin-right: .25rem;
-    }
-
-    .table-responsive {
-        overflow: auto;
-    }
-</style>
-
 <body>
-    <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- Menu -->
-
+            <!-- Sidebar (mantido) -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
                         <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
                     </a>
-
                     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
-
                 <div class="menu-inner-shadow"></div>
 
                 <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
@@ -256,12 +279,8 @@ function dtBr(?string $dt) {
                         </a>
                     </li>
 
-                    <!-- Administração de Filiais -->
-                    <li class="menu-header small text-uppercase">
-                        <span class="menu-header-text">Administração Filiais</span>
-                    </li>
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Filiais</span></li>
 
-                    <!-- Adicionar Filial -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-building"></i>
@@ -282,49 +301,36 @@ function dtBr(?string $dt) {
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub active">
-                            <!-- Contas das Filiais -->
                             <li class="menu-item">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
                                 </a>
                             </li>
-
-                            <!-- Produtos solicitados pelas filiais -->
                             <li class="menu-item">
                                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
                             </li>
-
-                            <!-- Produtos enviados pela matriz -->
                             <li class="menu-item">
                                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
                             </li>
-
-                            <!-- Transferências em andamento -->
                             <li class="menu-item active">
                                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
                                 </a>
                             </li>
-
-                            <!-- Histórico de transferências -->
                             <li class="menu-item">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
                             </li>
-
-                            <!-- Gestão de Estoque Central -->
                             <li class="menu-item">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a>
                             </li>
-
-                            <!-- Relatórios e indicadores B2B -->
                             <li class="menu-item">
                                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
@@ -333,7 +339,6 @@ function dtBr(?string $dt) {
                         </ul>
                     </li>
 
-                    <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -355,13 +360,9 @@ function dtBr(?string $dt) {
                                     <div data-i18n="Pedidos">Vendas por Período</div>
                                 </a>
                             </li>
-
                         </ul>
                     </li>
 
-                    <!--END DELIVERY-->
-
-                    <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -411,34 +412,21 @@ function dtBr(?string $dt) {
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
-                    <!--/MISC-->
                 </ul>
             </aside>
-            <!-- / Menu -->
+            <!-- / Sidebar -->
 
-            <!-- Layout container -->
             <div class="layout-page">
-                <!-- Navbar -->
-
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
-                    id="layout-navbar">
+                <!-- Navbar (mantida) -->
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
                             <i class="bx bx-menu bx-sm"></i>
                         </a>
                     </div>
-
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
-                        <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center">
-                            </div>
-                        </div>
-                        <!-- /Search -->
-
+                        <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
@@ -461,38 +449,16 @@ function dtBr(?string $dt) {
                                             </div>
                                         </a>
                                     </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">Minha Conta</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Configurações</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-power-off me-2"></i>
-                                            <span class="align-middle">Sair</span>
-                                        </a>
-                                    </li>
+                                    <li><div class="dropdown-divider"></div></li>
+                                    <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
+                                    <li><div class="dropdown-divider"></div></li>
+                                    <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                                 </ul>
                             </li>
-                            <!--/ User -->
                         </ul>
-
                     </div>
                 </nav>
-
                 <!-- / Navbar -->
 
                 <!-- Content -->
@@ -509,7 +475,7 @@ function dtBr(?string $dt) {
                     <div class="card">
                         <h5 class="card-header">Lista de Transferências</h5>
                         <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
+                            <table class="table table-hover" id="tabela-transferencias">
                                 <thead>
                                     <tr>
                                         <th>#</th>
@@ -531,44 +497,53 @@ function dtBr(?string $dt) {
                                         </td>
                                     </tr>
                                 <?php else: foreach ($solicitacoes as $row): ?>
-                                    <tr>
+                                    <?php
+                                        // status no banco é 'aprovada' → mostrar "Aguardando" cinza
+                                        $statusTexto = 'Aguardando';
+                                        $statusClasse = 'bg-label-secondary'; // cinza do tema
+                                    ?>
+                                    <tr data-row-id="<?= (int)$row['id'] ?>">
                                         <td><strong><?= (int)$row['id'] ?></strong></td>
                                         <td><?= htmlspecialchars($row['filial_nome'] ?? '-') ?></td>
                                         <td><?= (int)$row['itens'] ?></td>
                                         <td><?= (int)$row['qtd_total'] ?></td>
                                         <td><?= dtBr($row['created_at']) ?></td>
-                                        <td><span class="badge bg-label-success status-badge">Aguardando</span></td>
+                                        <td>
+                                            <span class="badge <?= $statusClasse ?> status-badge"><?= $statusTexto ?></span>
+                                        </td>
                                         <td class="text-end actions">
                                             <button
-                                                class="btn btn-sm btn-outline-secondary"
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary btn-detalhes"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalDetalhes"
                                                 data-id="<?= (int)$row['id'] ?>"
                                                 data-codigo="TR-<?= (int)$row['id'] ?>"
                                                 data-filial="<?= htmlspecialchars($row['filial_nome'] ?? '-') ?>"
-                                                data-status="Aprovada">
+                                                data-status="<?= $statusTexto ?>">
                                                 Detalhes
                                             </button>
 
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="<?= (int)$row['id'] ?>">
-                                                <input type="hidden" name="acao" value="confirmar_envio">
-                                                <button class="btn btn-sm btn-warning">Confirmar envio</button>
-                                            </form>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-warning btn-acao"
+                                                data-acao="confirmar_envio"
+                                                data-id="<?= (int)$row['id'] ?>">
+                                                Confirmar envio
+                                            </button>
 
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
-                                                <input type="hidden" name="transferencia_id" value="<?= (int)$row['id'] ?>">
-                                                <input type="hidden" name="acao" value="cancelar">
-                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
-                                            </form>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger btn-acao"
+                                                data-acao="cancelar"
+                                                data-id="<?= (int)$row['id'] ?>">
+                                                Cancelar
+                                            </button>
                                         </td>
                                     </tr>
                                 <?php endforeach; endif; ?>
                                 </tbody>
                                 <?php // 🔼🔼🔼 FIM DA LISTAGEM ATUALIZADA ?>
-
                             </table>
                         </div>
                     </div>
@@ -623,6 +598,112 @@ function dtBr(?string $dt) {
                         </div>
                     </div>
 
+                    <!-- 🔽🔽🔽 JS da LISTAGEM (carrega detalhes e envia ações) -->
+                    <script>
+                        (function(){
+                            const idSelecionado = <?= json_encode($idSelecionado) ?>;
+                            const tabela = document.getElementById('tabela-transferencias');
+
+                            // Abrir modal com detalhes
+                            const modalEl = document.getElementById('modalDetalhes');
+                            if (modalEl) {
+                                modalEl.addEventListener('show.bs.modal', function (event) {
+                                    const btn = event.relatedTarget;
+                                    if (!btn) return;
+
+                                    const id = btn.getAttribute('data-id');
+                                    const cod = btn.getAttribute('data-codigo') || '-';
+                                    const fil = btn.getAttribute('data-filial') || '-';
+                                    const sts = btn.getAttribute('data-status') || '-';
+
+                                    document.getElementById('det-codigo').textContent = cod;
+                                    document.getElementById('det-filial').textContent = fil;
+                                    document.getElementById('det-status').textContent = sts;
+
+                                    const tbody = document.getElementById('det-itens');
+                                    tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
+
+                                    // Chama o próprio arquivo em modo AJAX
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.set('ajax', 'detalhes');
+                                    url.searchParams.set('solicitacao_id', id);
+
+                                    fetch(url.toString(), { credentials: 'same-origin' })
+                                        .then(r => r.json())
+                                        .then(data => {
+                                            if (!data.ok) throw new Error(data.erro || 'Falha ao carregar itens');
+                                            const itens = data.itens || [];
+                                            if (!itens.length) {
+                                                tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens para esta solicitação.</td></tr>';
+                                                return;
+                                            }
+                                            tbody.innerHTML = itens.map(it => {
+                                                const cod = (it.codigo_produto || '—');
+                                                const nome = (it.nome_produto || '—');
+                                                const qtd = (it.quantidade || 0);
+                                                return `<tr>
+                                                    <td>${cod}</td>
+                                                    <td>${nome}</td>
+                                                    <td>${qtd}</td>
+                                                </tr>`;
+                                            }).join('');
+                                        })
+                                        .catch(err => {
+                                            tbody.innerHTML = `<tr><td colspan="3" class="text-danger">Erro: ${err.message}</td></tr>`;
+                                        });
+                                });
+                            }
+
+                            // Ações: confirmar envio / cancelar
+                            tabela?.addEventListener('click', function(e){
+                                const el = e.target.closest('.btn-acao');
+                                if (!el) return;
+
+                                const acao = el.getAttribute('data-acao');
+                                const id = el.getAttribute('data-id');
+
+                                if (!acao || !id) return;
+
+                                if (acao === 'cancelar' && !confirm('Confirmar cancelamento desta transferência?')) return;
+                                if (acao === 'confirmar_envio' && !confirm('Confirmar envio desta transferência?')) return;
+
+                                const formData = new FormData();
+                                formData.append('ajax', 'status');
+                                formData.append('acao', acao);
+                                formData.append('transferencia_id', id);
+
+                                fetch(window.location.href, {
+                                    method: 'POST',
+                                    credentials: 'same-origin',
+                                    body: formData
+                                })
+                                .then(r => r.json())
+                                .then(data => {
+                                    if (!data.ok) throw new Error(data.erro || 'Falha ao atualizar status');
+
+                                    // Remove a linha da tabela (deixou de ser "aprovada")
+                                    const tr = e.target.closest('tr');
+                                    if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
+
+                                    alert(acao === 'confirmar_envio'
+                                        ? 'Status atualizado para "em_transito".'
+                                        : 'Status atualizado para "cancelar".'
+                                    );
+                                })
+                                .catch(err => {
+                                    alert('Erro: ' + err.message);
+                                });
+                            });
+
+                            // Botão "Detalhes" (sem submit)
+                            tabela?.addEventListener('click', function(e){
+                                const btnDet = e.target.closest('.btn-detalhes');
+                                if (!btnDet) return;
+                                // nada aqui — o show da modal é tratado acima (show.bs.modal)
+                            });
+                        })();
+                    </script>
+                    <!-- 🔼🔼🔼 FIM do JS da LISTAGEM -->
 
                 </div>
                 <!-- / Content -->
@@ -631,53 +712,34 @@ function dtBr(?string $dt) {
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
-                            &copy;
-                            <script>
-                                document.write(new Date().getFullYear());
-                            </script>
-                            , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                            &copy; <script>document.write(new Date().getFullYear());</script>, <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
                             Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
                 </footer>
-
                 <!-- / Footer -->
 
                 <div class="content-backdrop fade"></div>
             </div>
-            <!-- Content wrapper -->
         </div>
-        <!-- / Layout page -->
-
     </div>
 
     <!-- Overlay -->
     <div class="layout-overlay layout-menu-toggle"></div>
-    </div>
-    <!-- / Layout wrapper -->
 
     <!-- Core JS -->
-    <!-- build:js assets/vendor/js/core.js -->
     <script src="../../js/saudacao.js"></script>
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
     <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
-
     <!-- Vendors JS -->
     <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
-
     <!-- Page JS -->
     <script src="../../assets/js/dashboards-analytics.js"></script>
-
-    <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
-
 </html>
