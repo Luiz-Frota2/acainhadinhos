@@ -88,7 +88,7 @@ try {
 }
 
 /* ============================================
-   🔸 MODO AJAX (DETALHES & ALTERAR STATUS + ESTOQUE)
+   🔸 MODO AJAX (DETALHES & ALTERAR STATUS)
    ============================================ */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
     header('Content-Type: application/json; charset=utf-8');
@@ -100,11 +100,27 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
     }
 
     try {
+        // cabeçalho da solicitação
+        $cab = $pdo->prepare("
+            SELECT s.id, s.id_matriz, s.id_solicitante, s.status, s.observacao,
+                   s.created_at, s.aprovada_em, s.enviada_em, s.entregue_em,
+                   u.nome AS filial_nome
+              FROM solicitacoes_b2b s
+              JOIN unidades u
+                ON u.id = CAST(REPLACE(s.id_solicitante, 'unidade_', '') AS UNSIGNED)
+             WHERE s.id = :sid
+             LIMIT 1
+        ");
+        $cab->execute([':sid' => $sid]);
+        $cabecalho = $cab->fetch(PDO::FETCH_ASSOC);
+
+        // itens
         $sqlItens = "
             SELECT 
                 COALESCE(i.codigo_produto, '') AS codigo_produto,
                 COALESCE(i.nome_produto, '')   AS nome_produto,
-                COALESCE(i.quantidade, 0)      AS quantidade
+                COALESCE(i.quantidade, 0)      AS quantidade,
+                COALESCE(i.unidade, 'UN')      AS unidade
             FROM solicitacoes_b2b_itens i
             WHERE i.solicitacao_id = :sid
             ORDER BY i.id ASC
@@ -113,13 +129,18 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
         $st->execute([':sid' => $sid]);
         $itens = $st->fetchAll(PDO::FETCH_ASSOC);
 
-        echo json_encode(['ok' => true, 'itens' => $itens]);
+        echo json_encode(['ok' => true, 'cabecalho' => $cabecalho, 'itens' => $itens]);
     } catch (PDOException $e) {
         echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
     }
     exit;
 }
 
+/* 
+   POST AJAX: atualizar status
+   - confirmar_envio → status = em_transito + baixa de estoque na MATRIZ (empresa = idSelecionado)
+   - cancelar       → status = cancelada
+*/
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status') {
     header('Content-Type: application/json; charset=utf-8');
 
@@ -131,108 +152,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
         exit;
     }
 
-    $novoStatus = $acao === 'confirmar_envio' ? 'em_transito' : 'cancelar';
+    // Mapeia o novo status conforme schema real
+    $novoStatus = $acao === 'confirmar_envio' ? 'em_transito' : 'cancelada';
 
     try {
-        $pdo->beginTransaction();
+        // 1) Verifica se ainda está 'aprovada' e pertence à matriz atual
+        $chk = $pdo->prepare("
+            SELECT id, id_matriz, status
+              FROM solicitacoes_b2b
+             WHERE id = :id
+               AND id_matriz = :matriz
+             LIMIT 1
+        ");
+        $chk->execute([':id' => $sid, ':matriz' => $idSelecionado]);
+        $sol = $chk->fetch(PDO::FETCH_ASSOC);
 
-        // 🔒 Bloqueia linha e carrega matriz/solicitante + status atual
-        $sel = $pdo->prepare("SELECT id_matriz, id_solicitante, status FROM solicitacoes_b2b WHERE id = :id FOR UPDATE");
-        $sel->execute([':id' => $sid]);
-        $cab = $sel->fetch(PDO::FETCH_ASSOC);
-        if (!$cab) {
-            throw new RuntimeException('Solicitação não encontrada.');
+        if (!$sol) {
+            echo json_encode(['ok' => false, 'erro' => 'Solicitação não encontrada para esta matriz.']);
+            exit;
+        }
+        if ($sol['status'] !== 'aprovada') {
+            echo json_encode(['ok' => false, 'erro' => 'Solicitação não está mais aprovada.']);
+            exit;
         }
 
-        $statusAtual     = $cab['status'] ?? '';
-        $idMatriz        = $cab['id_matriz'] ?? '';
-        $idSolicitante   = $cab['id_solicitante'] ?? '';
-
-        // Só permite a ação a partir de 'aprovada' (mantendo seu critério de Aguardando)
-        if ($statusAtual !== 'aprovada') {
-            throw new RuntimeException('Solicitação não está aprovada ou já foi processada.');
-        }
-
-        // Atualiza status
-        $up = $pdo->prepare("UPDATE solicitacoes_b2b SET status = :st, enviada_em = NOW() WHERE id = :id");
-        $up->execute([':st' => $novoStatus, ':id' => $sid]);
-        if ($up->rowCount() === 0) {
-            throw new RuntimeException('Falha ao atualizar status.');
-        }
-
-        // Se for confirmar envio → movimenta estoque (MATRIZ - , FILIAL +)
-        $movCount = 0;
         if ($acao === 'confirmar_envio') {
-            // Itens da solicitação
-            $stI = $pdo->prepare("
-                SELECT COALESCE(codigo_produto,'') AS codigo_produto,
-                       COALESCE(quantidade,0)      AS quantidade
-                FROM solicitacoes_b2b_itens
-                WHERE solicitacao_id = :sid
-                ORDER BY id ASC
+            // 2) Coleta itens
+            $it = $pdo->prepare("
+                SELECT codigo_produto, nome_produto, quantidade
+                  FROM solicitacoes_b2b_itens
+                 WHERE solicitacao_id = :sid
             ");
-            $stI->execute([':sid' => $sid]);
-            $itens = $stI->fetchAll(PDO::FETCH_ASSOC);
+            $it->execute([':sid' => $sid]);
+            $itens = $it->fetchAll(PDO::FETCH_ASSOC);
 
-            foreach ($itens as $it) {
-                $cod = trim((string)$it['codigo_produto']);
-                $qtd = (int)$it['quantidade'];
-                if ($qtd <= 0 || $cod === '') continue;
+            if (empty($itens)) {
+                echo json_encode(['ok' => false, 'erro' => 'Solicitação sem itens para envio.']);
+                exit;
+            }
 
-                // 🟣 Ajuste aqui se o nome da coluna no estoque NÃO for codigo_produto (ex.: sku)
-                // MATRIZ: decrementa
-                $upMat = $pdo->prepare("
-                    UPDATE estoque 
-                       SET quantidade = CASE 
-                           WHEN quantidade >= :qtd THEN quantidade - :qtd 
-                           ELSE 0 END
-                     WHERE empresa_id = :emp AND codigo_produto = :cod
+            // 3) Transação: baixa estoque da MATRIZ (empresa_id = idSelecionado)
+            $pdo->beginTransaction();
+
+            // checa saldo e baixa
+            foreach ($itens as $ix) {
+                $codigo = (string)$ix['codigo_produto'];
+                $qtd    = (int)$ix['quantidade'];
+
+                // saldo atual
+                $q = $pdo->prepare("
+                    SELECT id, quantidade_produto
+                      FROM estoque
+                     WHERE empresa_id = :emp
+                       AND codigo_produto = :cod
                      LIMIT 1
                 ");
-                $upMat->execute([
-                    ':qtd' => $qtd,
-                    ':emp' => $idMatriz,
-                    ':cod' => $cod
-                ]);
+                $q->execute([':emp' => $idSelecionado, ':cod' => $codigo]);
+                $row = $q->fetch(PDO::FETCH_ASSOC);
 
-                // FILIAL: incrementa (update ou insert)
-                $upFil = $pdo->prepare("
-                    UPDATE estoque 
-                       SET quantidade = quantidade + :qtd
-                     WHERE empresa_id = :emp AND codigo_produto = :cod
-                     LIMIT 1
-                ");
-                $upFil->execute([
-                    ':qtd' => $qtd,
-                    ':emp' => $idSolicitante,
-                    ':cod' => $cod
-                ]);
-
-                if ($upFil->rowCount() === 0) {
-                    // não existia — cria com a quantidade
-                    $insFil = $pdo->prepare("
-                        INSERT INTO estoque (empresa_id, codigo_produto, quantidade)
-                        VALUES (:emp, :cod, :qtd)
-                    ");
-                    $insFil->execute([
-                        ':emp' => $idSolicitante,
-                        ':cod' => $cod,
-                        ':qtd' => $qtd
-                    ]);
+                if (!$row) {
+                    $pdo->rollBack();
+                    echo json_encode(['ok' => false, 'erro' => "Produto {$codigo} não encontrado no estoque da matriz."]);
+                    exit;
                 }
 
-                $movCount++;
+                $saldo = (int)$row['quantidade_produto'];
+                if ($saldo < $qtd) {
+                    $pdo->rollBack();
+                    echo json_encode(['ok' => false, 'erro' => "Saldo insuficiente do produto {$codigo}. Saldo: {$saldo}, solicitado: {$qtd}."]);
+                    exit;
+                }
+
+                // baixa
+                $upd = $pdo->prepare("
+                    UPDATE estoque
+                       SET quantidade_produto = quantidade_produto - :qtd,
+                           updated_at = CURRENT_TIMESTAMP
+                     WHERE id = :id
+                ");
+                $upd->execute([':qtd' => $qtd, ':id' => (int)$row['id']]);
             }
+
+            // 4) Atualiza status para em_transito + enviada_em
+            $up = $pdo->prepare("
+                UPDATE solicitacoes_b2b
+                   SET status = 'em_transito',
+                       enviada_em = NOW(),
+                       updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id
+                   AND status = 'aprovada'
+            ");
+            $up->execute([':id' => $sid]);
+
+            if ($up->rowCount() === 0) {
+                $pdo->rollBack();
+                echo json_encode(['ok' => false, 'erro' => 'Falha ao atualizar status para em_transito.']);
+                exit;
+            }
+
+            $pdo->commit();
+            echo json_encode(['ok' => true, 'status' => 'em_transito']);
+            exit;
+        } else {
+            // cancelar → apenas muda status para cancelada
+            $up = $pdo->prepare("
+                UPDATE solicitacoes_b2b
+                   SET status = 'cancelada',
+                       updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id
+                   AND status = 'aprovada'
+            ");
+            $up->execute([':id' => $sid]);
+
+            if ($up->rowCount() === 0) {
+                echo json_encode(['ok' => false, 'erro' => 'Solicitação não pode ser cancelada (status mudou ou não encontrada).']);
+                exit;
+            }
+            echo json_encode(['ok' => true, 'status' => 'cancelada']);
+            exit;
         }
-
-        $pdo->commit();
-
-        echo json_encode([
-            'ok' => true,
-            'status' => $novoStatus,
-            'movimentos' => $movCount
-        ]);
-    } catch (Throwable $e) {
+    } catch (PDOException $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
     }
@@ -244,6 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
    - status = 'aprovada'
    - id_matriz = empresa (sessão/URL)
    - solicitante é Filial da mesma empresa (unidades.tipo = 'Filial')
+   - id_solicitante no formato 'unidade_{id}'
    - deve haver estoque para o id_solicitante
    - agrega itens e quantidade via solicitacoes_b2b_itens
    ========================================================== */
@@ -268,9 +308,7 @@ try {
           ON i.solicitacao_id = s.id
         WHERE s.status = 'aprovada'
           AND s.id_matriz = :empresa_id
-          AND EXISTS (
-              SELECT 1 FROM estoque e WHERE e.empresa_id = s.id_solicitante
-          )
+          AND EXISTS ( SELECT 1 FROM estoque e WHERE e.empresa_id = s.id_solicitante )
         GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.aprovada_em, s.status
         ORDER BY s.aprovada_em DESC, s.created_at DESC, s.id DESC
     ";
@@ -311,7 +349,7 @@ function dtBr(?string $dt) {
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
 
-    <!-- Icons -->
+    <!-- Icons. Uncomment required icon fonts -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
 
     <!-- Core CSS -->
@@ -342,9 +380,10 @@ function dtBr(?string $dt) {
 </head>
 
 <body>
+    <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- Sidebar (mantido) -->
+            <!-- Menu (mantido) -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -354,9 +393,11 @@ function dtBr(?string $dt) {
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
+
                 <div class="menu-inner-shadow"></div>
 
                 <ul class="menu-inner py-1">
+                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
@@ -364,8 +405,12 @@ function dtBr(?string $dt) {
                         </a>
                     </li>
 
-                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Filiais</span></li>
+                    <!-- Administração de Filiais -->
+                    <li class="menu-header small text-uppercase">
+                        <span class="menu-header-text">Administração Filiais</span>
+                    </li>
 
+                    <!-- Adicionar Filial -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-building"></i>
@@ -386,36 +431,49 @@ function dtBr(?string $dt) {
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub active">
+                            <!-- Contas das Filiais -->
                             <li class="menu-item">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
                                 </a>
                             </li>
+
+                            <!-- Produtos solicitados pelas filiais -->
                             <li class="menu-item">
                                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
                             </li>
+
+                            <!-- Produtos enviados pela matriz -->
                             <li class="menu-item">
                                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
                             </li>
+
+                            <!-- Transferências em andamento -->
                             <li class="menu-item active">
                                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
                                 </a>
                             </li>
+
+                            <!-- Histórico de transferências -->
                             <li class="menu-item">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
                             </li>
+
+                            <!-- Gestão de Estoque Central -->
                             <li class="menu-item">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a>
                             </li>
+
+                            <!-- Relatórios e indicadores B2B -->
                             <li class="menu-item">
                                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
@@ -424,6 +482,7 @@ function dtBr(?string $dt) {
                         </ul>
                     </li>
 
+                    <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -445,9 +504,13 @@ function dtBr(?string $dt) {
                                     <div data-i18n="Pedidos">Vendas por Período</div>
                                 </a>
                             </li>
+
                         </ul>
                     </li>
 
+                    <!--END DELIVERY-->
+
+                    <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -497,20 +560,28 @@ function dtBr(?string $dt) {
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
+                    <!--/MISC-->
                 </ul>
             </aside>
-            <!-- / Sidebar -->
+            <!-- / Menu -->
 
+            <!-- Layout container -->
             <div class="layout-page">
-                <!-- Navbar (mantida) -->
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+                <!-- Navbar -->
+                <nav
+                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                    id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
                             <i class="bx bx-menu bx-sm"></i>
                         </a>
                     </div>
+
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
+                        <div class="navbar-nav align-items-center">
+                            <div class="nav-item d-flex align-items-center"></div>
+                        </div>
+
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
@@ -542,6 +613,7 @@ function dtBr(?string $dt) {
                                 </ul>
                             </li>
                         </ul>
+
                     </div>
                 </nav>
                 <!-- / Navbar -->
@@ -573,6 +645,7 @@ function dtBr(?string $dt) {
                                     </tr>
                                 </thead>
 
+                                <?php // 🔽🔽🔽 SOMENTE A LISTAGEM (tbody) ATUALIZADA ?>
                                 <tbody class="table-border-bottom-0">
                                 <?php if (empty($solicitacoes)): ?>
                                     <tr>
@@ -583,7 +656,7 @@ function dtBr(?string $dt) {
                                 <?php else: foreach ($solicitacoes as $row): ?>
                                     <?php
                                         // status no banco é 'aprovada' → mostrar "Aguardando" cinza
-                                        $statusTexto = 'Aguardando';
+                                        $statusTexto  = 'Aguardando';
                                         $statusClasse = 'bg-label-secondary'; // cinza do tema
                                     ?>
                                     <tr data-row-id="<?= (int)$row['id'] ?>">
@@ -627,6 +700,7 @@ function dtBr(?string $dt) {
                                     </tr>
                                 <?php endforeach; endif; ?>
                                 </tbody>
+                                <?php // 🔼🔼🔼 FIM DA LISTAGEM ATUALIZADA ?>
                             </table>
                         </div>
                     </div>
@@ -656,7 +730,7 @@ function dtBr(?string $dt) {
                                         <table class="table">
                                             <thead>
                                                 <tr>
-                                                    <th>codigo do produto</th>
+                                                    <th>Código</th>
                                                     <th>Produto</th>
                                                     <th>Qtd</th>
                                                 </tr>
@@ -681,7 +755,7 @@ function dtBr(?string $dt) {
                         </div>
                     </div>
 
-                    <!-- JS da LISTAGEM: carrega detalhes e envia ações -->
+                    <!-- JS da LISTAGEM (detalhes + ações) -->
                     <script>
                         (function(){
                             const tabela = document.getElementById('tabela-transferencias');
@@ -705,6 +779,7 @@ function dtBr(?string $dt) {
                                     const tbody = document.getElementById('det-itens');
                                     tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
 
+                                    // chama o próprio arquivo em modo AJAX
                                     const url = new URL(window.location.href);
                                     url.searchParams.set('ajax', 'detalhes');
                                     url.searchParams.set('solicitacao_id', id);
@@ -713,21 +788,27 @@ function dtBr(?string $dt) {
                                         .then(r => r.json())
                                         .then(data => {
                                             if (!data.ok) throw new Error(data.erro || 'Falha ao carregar itens');
+
+                                            // itens
                                             const itens = data.itens || [];
                                             if (!itens.length) {
                                                 tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens para esta solicitação.</td></tr>';
-                                                return;
+                                            } else {
+                                                tbody.innerHTML = itens.map(it => {
+                                                    const cod = (it.codigo_produto || '—');
+                                                    const nome = (it.nome_produto || '—');
+                                                    const qtd = (it.quantidade || 0);
+                                                    return `<tr>
+                                                        <td>${cod}</td>
+                                                        <td>${nome}</td>
+                                                        <td>${qtd}</td>
+                                                    </tr>`;
+                                                }).join('');
                                             }
-                                            tbody.innerHTML = itens.map(it => {
-                                                const cod = (it.codigo_produto || '—');
-                                                const nome = (it.nome_produto || '—');
-                                                const qtd  = (it.quantidade || 0);
-                                                return `<tr>
-                                                    <td>${cod}</td>
-                                                    <td>${nome}</td>
-                                                    <td>${qtd}</td>
-                                                </tr>`;
-                                            }).join('');
+
+                                            // observação
+                                            const obs = (data.cabecalho && data.cabecalho.observacao) ? data.cabecalho.observacao : '—';
+                                            document.getElementById('det-obs').textContent = obs;
                                         })
                                         .catch(err => {
                                             tbody.innerHTML = `<tr><td colspan="3" class="text-danger">Erro: ${err.message}</td></tr>`;
@@ -762,26 +843,22 @@ function dtBr(?string $dt) {
                                 .then(data => {
                                     if (!data.ok) throw new Error(data.erro || 'Falha ao atualizar');
 
-                                    // Remove a linha da tabela (deixou de ser "aprovada")
+                                    // remove a linha (deixou de ser "aprovada")
                                     const tr = e.target.closest('tr');
                                     if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
 
-                                    if (acao === 'confirmar_envio') {
-                                        alert('Status atualizado para "em_transito" e estoque movimentado.');
-                                    } else {
-                                        alert('Status atualizado para "cancelar".');
-                                    }
+                                    alert(
+                                        data.status === 'em_transito'
+                                          ? 'Status atualizado para "em_transito" e estoque baixado.'
+                                          : 'Status atualizado para "cancelada".'
+                                    );
                                 })
                                 .catch(err => {
                                     alert('Erro: ' + err.message);
                                 });
                             });
 
-                            // Botão "Detalhes"
-                            tabela?.addEventListener('click', function(e){
-                                const btnDet = e.target.closest('.btn-detalhes');
-                                if (!btnDet) return;
-                            });
+                            // Botão "Detalhes" não precisa de JS extra
                         })();
                     </script>
 
@@ -792,7 +869,9 @@ function dtBr(?string $dt) {
                 <footer class="content-footer footer bg-footer-theme text-center">
                     <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
-                            &copy; <script>document.write(new Date().getFullYear());</script>, <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                            &copy;
+                            <script>document.write(new Date().getFullYear());</script>
+                            , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
                             Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
@@ -801,11 +880,16 @@ function dtBr(?string $dt) {
 
                 <div class="content-backdrop fade"></div>
             </div>
+            <!-- Content wrapper -->
         </div>
+        <!-- / Layout page -->
+
     </div>
 
     <!-- Overlay -->
     <div class="layout-overlay layout-menu-toggle"></div>
+    </div>
+    <!-- / Layout wrapper -->
 
     <!-- Core JS -->
     <script src="../../js/saudacao.js"></script>
@@ -813,13 +897,18 @@ function dtBr(?string $dt) {
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+
     <script src="../../assets/vendor/js/menu.js"></script>
     <!-- Vendors JS -->
     <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
+
     <!-- Page JS -->
     <script src="../../assets/js/dashboards-analytics.js"></script>
+
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
+
 </html>
