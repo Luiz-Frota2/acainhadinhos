@@ -244,8 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
                 ");
                 $updM->execute([':qtd' => $qtd, ':id' => (int)$rowMatriz['id']]);
 
-                // 4.3) Entrada na FILIAL
-                // Tenta encontrar o mesmo codigo_produto na filial
+                // 4.3) Entrada na FILIAL (soma se houver; insere copiando os campos se não houver)
                 $qF = $pdo->prepare("
                     SELECT id, quantidade_produto
                       FROM estoque
@@ -257,7 +256,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
                 $rowFilial = $qF->fetch(PDO::FETCH_ASSOC);
 
                 if ($rowFilial) {
-                    // Já existe → soma quantidade
                     $updF = $pdo->prepare("
                         UPDATE estoque
                            SET quantidade_produto = quantidade_produto + :qtd,
@@ -266,8 +264,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
                     ");
                     $updF->execute([':qtd' => $qtd, ':id' => (int)$rowFilial['id']]);
                 } else {
-                    // Não existe → INSERT copiando todos os campos do produto da matriz
-                    // Campos esperados pela sua tabela estoque.sql
                     $insF = $pdo->prepare("
                         INSERT INTO estoque (
                             empresa_id,
@@ -323,7 +319,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
                             NOW()
                         )
                     ");
-
                     $insF->execute([
                         ':empresa_id'             => $idFilial,
                         ':fornecedor_id'          => $rowMatriz['fornecedor_id'] ?? null,
@@ -400,12 +395,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
 
 /* ==========================================================
    🟢 LISTAGEM — Solicitações aprovadas de Filiais c/ estoque
-   - status = 'aprovada'
-   - id_matriz = empresa (sessão/URL)
-   - solicitante é Filial da mesma empresa (unidades.tipo = 'Filial')
-   - id_solicitante no formato 'unidade_{id}'
-   - deve haver estoque para o id_solicitante
-   - agrega itens e quantidade via solicitacoes_b2b_itens
    ========================================================== */
 $solicitacoes = [];
 try {
@@ -469,7 +458,7 @@ function dtBr(?string $dt) {
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
 
-    <!-- Icons. Uncomment required icon fonts -->
+    <!-- Icons -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
 
     <!-- Core CSS -->
@@ -503,7 +492,7 @@ function dtBr(?string $dt) {
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- Menu (mantido) -->
+            <!-- Menu -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -517,7 +506,6 @@ function dtBr(?string $dt) {
                 <div class="menu-inner-shadow"></div>
 
                 <ul class="menu-inner py-1">
-                    <!-- Dashboard -->
                     <li class="menu-item">
                         <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-home-circle"></i>
@@ -525,12 +513,10 @@ function dtBr(?string $dt) {
                         </a>
                     </li>
 
-                    <!-- Administração de Filiais -->
                     <li class="menu-header small text-uppercase">
                         <span class="menu-header-text">Administração Filiais</span>
                     </li>
 
-                    <!-- Adicionar Filial -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-building"></i>
@@ -551,49 +537,36 @@ function dtBr(?string $dt) {
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub active">
-                            <!-- Contas das Filiais -->
                             <li class="menu-item">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
                                 </a>
                             </li>
-
-                            <!-- Produtos solicitados pelas filiais -->
                             <li class="menu-item">
                                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
                             </li>
-
-                            <!-- Produtos enviados pela matriz -->
                             <li class="menu-item">
                                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
                             </li>
-
-                            <!-- Transferências em andamento -->
                             <li class="menu-item active">
                                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
                                 </a>
                             </li>
-
-                            <!-- Histórico de transferências -->
                             <li class="menu-item">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
                             </li>
-
-                            <!-- Gestão de Estoque Central -->
                             <li class="menu-item">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a>
                             </li>
-
-                            <!-- Relatórios e indicadores B2B -->
                             <li class="menu-item">
                                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
@@ -602,7 +575,6 @@ function dtBr(?string $dt) {
                         </ul>
                     </li>
 
-                    <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -624,11 +596,9 @@ function dtBr(?string $dt) {
                                     <div data-i18n="Pedidos">Vendas por Período</div>
                                 </a>
                             </li>
-
                         </ul>
                     </li>
 
-                    <!-- Misc -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -678,7 +648,6 @@ function dtBr(?string $dt) {
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
-                    <!--/MISC-->
                 </ul>
             </aside>
             <!-- / Menu -->
@@ -772,7 +741,6 @@ function dtBr(?string $dt) {
                                     </tr>
                                 <?php else: foreach ($solicitacoes as $row): ?>
                                     <?php
-                                        // status no banco é 'aprovada' → mostrar "Aguardando" (cinza)
                                         $statusTexto  = 'Aguardando';
                                         $statusClasse = 'bg-label-secondary';
                                     ?>
@@ -956,14 +924,14 @@ function dtBr(?string $dt) {
                                 .then(data => {
                                     if (!data.ok) throw new Error(data.erro || 'Falha ao atualizar');
 
-                                    const tr = e.target.closest('tr');
-                                    if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
+                                    // 🔄 Recarrega a página ao finalizar o processo
+                                    const msg = (data.status === 'em_transito')
+                                        ? 'Status atualizado para "em_transito", estoque baixado na matriz e adicionado na filial.'
+                                        : 'Status atualizado para "cancelada".';
 
-                                    alert(
-                                        data.status === 'em_transito'
-                                          ? 'Status atualizado para "em_transito", estoque baixado na matriz e adicionado na filial.'
-                                          : 'Status atualizado para "cancelada".'
-                                    );
+                                    alert(msg);
+                                    // Usa reload forte para evitar cache e garantir listagem atualizada
+                                    window.location.reload(true);
                                 })
                                 .catch(err => {
                                     alert('Erro: ' + err.message);
