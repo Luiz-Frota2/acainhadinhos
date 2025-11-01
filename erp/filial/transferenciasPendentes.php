@@ -4,6 +4,18 @@ error_reporting(E_ALL);
 
 session_start();
 
+// ========================= CSRF (gerar/validar) =========================
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+function csrf_check(?string $token): void {
+    if (!$token || !hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
+        http_response_code(403);
+        echo "Falha de segurança (CSRF inválido).";
+        exit;
+    }
+}
+
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
@@ -87,6 +99,139 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
+// ========================= Helpers =========================
+function dtBr(?string $dt) {
+    if (!$dt) return '-';
+    $t = strtotime($dt); if (!$t) return '-';
+    return date('d/m/Y H:i', $t);
+}
+
+// ========================= POST AÇÕES (status) =========================
+$flashMsg = null; $flashOk = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $acao = $_POST['acao'] ?? '';
+    $transferencia_id = (int)($_POST['transferencia_id'] ?? 0);
+    csrf_check($_POST['csrf_token'] ?? null);
+
+    if ($transferencia_id > 0 && in_array($acao, ['confirmar_envio','cancelar'], true)) {
+        try {
+            // Confere se a solicitação é da matriz atual
+            $chk = $pdo->prepare("
+                SELECT id, status, id_matriz
+                  FROM solicitacoes_b2b
+                 WHERE id = :id AND id_matriz = :matriz
+                 LIMIT 1
+            ");
+            $chk->execute([':id'=>$transferencia_id, ':matriz'=>$idSelecionado]);
+            $row = $chk->fetch(PDO::FETCH_ASSOC);
+
+            if (!$row) {
+                $flashMsg = "Solicitação não encontrada para esta matriz.";
+                $flashOk  = false;
+            } else {
+                // Regra simples: permitir transição a partir de 'aprovada' ou 'aguardando' (ajuste se quiser mais rígido)
+                if ($acao === 'confirmar_envio') {
+                    $novo = 'em_transito';
+                } else { // cancelar
+                    $novo = 'cancelar';
+                }
+
+                $upd = $pdo->prepare("UPDATE solicitacoes_b2b SET status = :s, atualizada_em = NOW() WHERE id = :id");
+                $upd->execute([':s'=>$novo, ':id'=>$transferencia_id]);
+
+                $flashOk  = true;
+                $flashMsg = $acao === 'confirmar_envio'
+                    ? "Transferência #{$transferencia_id} atualizada para EM TRÂNSITO."
+                    : "Transferência #{$transferencia_id} atualizada para CANCELAR.";
+            }
+        } catch (PDOException $e) {
+            $flashOk  = false;
+            $flashMsg = "Erro ao atualizar: " . $e->getMessage();
+        }
+    } else {
+        $flashOk  = false;
+        $flashMsg = "Requisição inválida.";
+    }
+}
+
+// ========================= AJAX: detalhes da solicitação =========================
+if (($_GET['action'] ?? '') === 'detalhes') {
+    header('Content-Type: application/json; charset=utf-8');
+    $id = (int)($_GET['id'] ?? 0);
+
+    if ($id <= 0) {
+        echo json_encode(['ok'=>false,'msg'=>'ID inválido.']); exit;
+    }
+
+    try {
+        // Cabeçalho da solicitação + filial
+        $cab = $pdo->prepare("
+            SELECT s.id, s.id_solicitante, s.status, s.observacoes, s.created_at, s.aprovada_em,
+                   u.nome AS filial_nome
+              FROM solicitacoes_b2b s
+              JOIN unidades u
+                ON u.id = CAST(REPLACE(s.id_solicitante, 'unidade_', '') AS UNSIGNED)
+               AND u.empresa_id = :empresa
+             WHERE s.id = :id
+               AND s.id_matriz = :empresa
+             LIMIT 1
+        ");
+        $cab->execute([':id'=>$id, ':empresa'=>$idSelecionado]);
+        $head = $cab->fetch(PDO::FETCH_ASSOC);
+        if (!$head) {
+            echo json_encode(['ok'=>false,'msg'=>'Solicitação não encontrada.']); exit;
+        }
+
+        // Itens (tenta nome/código do produto de produtos_peca; se não houver, usa campos do item)
+        $it = $pdo->prepare("
+            SELECT 
+                i.id,
+                i.produto_id,
+                i.codigo_produto    AS item_codigo,
+                i.nome_produto      AS item_nome,
+                i.quantidade,
+                i.valor,
+                p.codigo_produto    AS prod_codigo,
+                p.nome_produto      AS prod_nome
+            FROM solicitacoes_b2b_itens i
+            LEFT JOIN produtos_peca p
+                   ON p.id = i.produto_id
+            WHERE i.solicitacao_id = :id
+            ORDER BY i.id ASC
+        ");
+        $it->execute([':id'=>$id]);
+        $raw = $it->fetchAll(PDO::FETCH_ASSOC);
+
+        $itens = [];
+        foreach ($raw as $r) {
+            $codigo = $r['prod_codigo'] ?: $r['item_codigo'];
+            $nome   = $r['prod_nome']   ?: $r['item_nome'];
+            $itens[] = [
+                'codigo' => $codigo ?: '-',
+                'nome'   => $nome   ?: '-',
+                'qtd'    => (float)$r['quantidade'],
+                'valor'  => isset($r['valor']) ? (float)$r['valor'] : null,
+            ];
+        }
+
+        echo json_encode([
+            'ok'   => true,
+            'head' => [
+                'id'         => (int)$head['id'],
+                'filial'     => $head['filial_nome'] ?? '-',
+                'status'     => $head['status'] ?? '-',
+                'observ'     => $head['observacoes'] ?? '',
+                'created_at' => $head['created_at'] ?? null,
+                'aprovada_em'=> $head['aprovada_em'] ?? null,
+            ],
+            'itens'=> $itens
+        ]);
+        exit;
+    } catch (PDOException $e) {
+        echo json_encode(['ok'=>false,'msg'=>'Erro ao buscar itens: '.$e->getMessage()]); exit;
+    }
+}
+
 /* ==========================================================
    🟢 LISTAGEM — Solicitações aprovadas de Filiais c/ estoque
    - status = 'aprovada'
@@ -105,15 +250,14 @@ try {
             u.nome AS filial_nome,
             s.created_at,
             s.aprovada_em,
-            COUNT(i.id)                            AS itens,
-            COALESCE(SUM(i.quantidade), 0)         AS qtd_total
+            s.status,
+            COUNT(i.id)                    AS itens,
+            COALESCE(SUM(i.quantidade),0)  AS qtd_total
         FROM solicitacoes_b2b s
-        /* Garante que o solicitante é uma Filial desta empresa */
         JOIN unidades u
           ON u.id = CAST(REPLACE(s.id_solicitante, 'unidade_', '') AS UNSIGNED)
          AND u.tipo = 'Filial'
          AND u.empresa_id = :empresa_id
-        /* Itens da solicitação para agregações */
         LEFT JOIN solicitacoes_b2b_itens i
           ON i.solicitacao_id = s.id
         WHERE s.status = 'aprovada'
@@ -123,7 +267,7 @@ try {
                   FROM estoque e
                  WHERE e.empresa_id = s.id_solicitante
           )
-        GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.aprovada_em
+        GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.aprovada_em, s.status
         ORDER BY s.aprovada_em DESC, s.created_at DESC, s.id DESC
     ";
     $st = $pdo->prepare($sql);
@@ -133,12 +277,7 @@ try {
     $solicitacoes = [];
 }
 
-// Helpers simples
-function dtBr(?string $dt) {
-    if (!$dt) return '-';
-    $t = strtotime($dt); if (!$t) return '-';
-    return date('d/m/Y H:i', $t);
-}
+$csrf = $_SESSION['csrf_token'];
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -185,46 +324,14 @@ function dtBr(?string $dt) {
 </head>
 
 <style>
-    .table thead th {
-        white-space: nowrap;
-    }
-
-    .status-badge {
-        font-size: .78rem;
-    }
-
-    .toolbar {
-        gap: .5rem;
-        flex-wrap: wrap;
-    }
-
-    .toolbar .form-select,
-    .toolbar .form-control {
-        max-width: 220px;
-    }
-
-    .badge-dot {
-        display: inline-flex;
-        align-items: center;
-        gap: .4rem;
-    }
-
-    .badge-dot::before {
-        content: '';
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: currentColor;
-        display: inline-block;
-    }
-
-    .actions .btn {
-        margin-right: .25rem;
-    }
-
-    .table-responsive {
-        overflow: auto;
-    }
+    .table thead th { white-space: nowrap; }
+    .status-badge { font-size: .78rem; }
+    .toolbar { gap: .5rem; flex-wrap: wrap; }
+    .toolbar .form-select, .toolbar .form-control { max-width: 220px; }
+    .badge-dot { display: inline-flex; align-items: center; gap: .4rem; }
+    .badge-dot::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; }
+    .actions .btn { margin-right: .25rem; }
+    .table-responsive { overflow: auto; }
 </style>
 
 <body>
@@ -461,9 +568,7 @@ function dtBr(?string $dt) {
                                             </div>
                                         </a>
                                     </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
+                                    <li><div class="dropdown-divider"></div></li>
                                     <li>
                                         <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-user me-2"></i>
@@ -476,9 +581,7 @@ function dtBr(?string $dt) {
                                             <span class="align-middle">Configurações</span>
                                         </a>
                                     </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
+                                    <li><div class="dropdown-divider"></div></li>
                                     <li>
                                         <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                                             <i class="bx bx-power-off me-2"></i>
@@ -505,6 +608,13 @@ function dtBr(?string $dt) {
                         <span class="text-muted fw-light">Movimentações a concluir entre Matriz e Filiais</span>
                     </h5>
 
+                    <?php if ($flashMsg !== null): ?>
+                        <div class="alert alert-<?= $flashOk ? 'success' : 'danger' ?> alert-dismissible" role="alert">
+                            <?= htmlspecialchars($flashMsg) ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    <?php endif; ?>
+
                     <!-- Tabela -->
                     <div class="card">
                         <h5 class="card-header">Lista de Transferências</h5>
@@ -522,7 +632,6 @@ function dtBr(?string $dt) {
                                     </tr>
                                 </thead>
 
-                                <?php // 🔽🔽🔽 A PARTIR DAQUI — SOMENTE A LISTAGEM (tbody) ATUALIZADA ?>
                                 <tbody class="table-border-bottom-0">
                                 <?php if (empty($solicitacoes)): ?>
                                     <tr>
@@ -537,43 +646,48 @@ function dtBr(?string $dt) {
                                         <td><?= (int)$row['itens'] ?></td>
                                         <td><?= (int)$row['qtd_total'] ?></td>
                                         <td><?= dtBr($row['created_at']) ?></td>
-                                        <td><span class="badge bg-label-success status-badge">Aguardando</span></td>
+                                        <td>
+                                            <span class="badge bg-label-success status-badge">
+                                                <?= htmlspecialchars(ucwords(str_replace('_',' ', (string)($row['status'] ?? 'aprovada')))) ?>
+                                            </span>
+                                        </td>
                                         <td class="text-end actions">
                                             <button
-                                                class="btn btn-sm btn-outline-secondary"
+                                                class="btn btn-sm btn-outline-secondary btn-detalhes"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#modalDetalhes"
                                                 data-id="<?= (int)$row['id'] ?>"
-                                                data-codigo="TR-<?= (int)$row['id'] ?>"
-                                                data-filial="<?= htmlspecialchars($row['filial_nome'] ?? '-') ?>"
-                                                data-status="Aprovada">
+                                                data-codigo="TR-<?= (int)$row['id'] ?>">
                                                 Detalhes
                                             </button>
 
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                            <form class="d-inline" method="post" action="?id=<?= urlencode($idSelecionado); ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                                                 <input type="hidden" name="transferencia_id" value="<?= (int)$row['id'] ?>">
                                                 <input type="hidden" name="acao" value="confirmar_envio">
-                                                <button class="btn btn-sm btn-warning">Confirmar envio</button>
+                                                <button class="btn btn-sm btn-warning" onclick="return confirm('Confirmar envio desta transferência?');">
+                                                    Confirmar envio
+                                                </button>
                                             </form>
 
-                                            <form class="d-inline" method="post" action="#">
-                                                <input type="hidden" name="csrf_token" value="TOKEN_AQUI">
+                                            <form class="d-inline" method="post" action="?id=<?= urlencode($idSelecionado); ?>">
+                                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
                                                 <input type="hidden" name="transferencia_id" value="<?= (int)$row['id'] ?>">
                                                 <input type="hidden" name="acao" value="cancelar">
-                                                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Cancelar esta transferência?');">
+                                                    Cancelar
+                                                </button>
                                             </form>
                                         </td>
                                     </tr>
                                 <?php endforeach; endif; ?>
                                 </tbody>
-                                <?php // 🔼🔼🔼 FIM DA LISTAGEM ATUALIZADA ?>
 
                             </table>
                         </div>
                     </div>
 
-                    <!-- Modal Detalhes (mantido) -->
+                    <!-- Modal Detalhes -->
                     <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered modal-lg">
                             <div class="modal-content">
@@ -598,14 +712,15 @@ function dtBr(?string $dt) {
                                         <table class="table">
                                             <thead>
                                                 <tr>
-                                                    <th>codigo do produto</th>
+                                                    <th>Código</th>
                                                     <th>Produto</th>
                                                     <th>Qtd</th>
+                                                    <th>Valor</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="det-itens">
                                                 <tr>
-                                                    <td colspan="3" class="text-muted">Carregando...</td>
+                                                    <td colspan="4" class="text-muted">Carregando...</td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -675,6 +790,80 @@ function dtBr(?string $dt) {
 
     <!-- Page JS -->
     <script src="../../assets/js/dashboards-analytics.js"></script>
+
+    <!-- Detalhes via AJAX -->
+    <script>
+        (function() {
+            const modal = document.getElementById('modalDetalhes');
+            const spanCodigo = document.getElementById('det-codigo');
+            const spanFilial = document.getElementById('det-filial');
+            const spanStatus = document.getElementById('det-status');
+            const tbodyItens = document.getElementById('det-itens');
+            const detObs     = document.getElementById('det-obs');
+
+            // Abre modal e carrega itens
+            document.querySelectorAll('.btn-detalhes').forEach(function(btn){
+                btn.addEventListener('click', function(){
+                    const id = this.getAttribute('data-id');
+                    const codigo = this.getAttribute('data-codigo');
+
+                    // Reset placeholders
+                    spanCodigo.textContent = codigo || '-';
+                    spanFilial.textContent = '-';
+                    spanStatus.textContent = '-';
+                    detObs.textContent     = '—';
+                    tbodyItens.innerHTML   = '<tr><td colspan="4" class="text-muted">Carregando...</td></tr>';
+
+                    fetch(`?id=<?= urlencode($idSelecionado); ?>&action=detalhes&id=${encodeURIComponent(id)}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (!data.ok) {
+                            tbodyItens.innerHTML = `<tr><td colspan="4" class="text-danger">${(data.msg||'Erro ao carregar')}</td></tr>`;
+                            return;
+                        }
+
+                        spanFilial.textContent = data.head.filial || '-';
+                        spanStatus.textContent = (data.head.status || '-').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+                        detObs.textContent     = data.head.observ && data.head.observ.trim() !== '' ? data.head.observ : '—';
+
+                        if (!data.itens || data.itens.length === 0) {
+                            tbodyItens.innerHTML = '<tr><td colspan="4" class="text-muted">Sem itens.</td></tr>';
+                            return;
+                        }
+
+                        let html = '';
+                        data.itens.forEach(function(it){
+                            const v = typeof it.valor === 'number' ? it.valor.toFixed(2) : '-';
+                            html += `
+                                <tr>
+                                    <td>${escapeHtml(it.codigo || '-')}</td>
+                                    <td>${escapeHtml(it.nome   || '-')}</td>
+                                    <td>${Number(it.qtd||0)}</td>
+                                    <td>${v}</td>
+                                </tr>
+                            `;
+                        });
+                        tbodyItens.innerHTML = html;
+                    })
+                    .catch(() => {
+                        tbodyItens.innerHTML = '<tr><td colspan="4" class="text-danger">Falha ao carregar.</td></tr>';
+                    });
+                });
+            });
+
+            // helper básico p/ evitar XSS em strings
+            function escapeHtml(s) {
+                return String(s)
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
+        })();
+    </script>
 
     <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
