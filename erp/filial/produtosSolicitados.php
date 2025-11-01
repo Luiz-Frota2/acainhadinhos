@@ -6,15 +6,21 @@ session_start();
 ob_start(); // evita qualquer saída acidental antes do JSON/HTML
 date_default_timezone_set('America/Manaus');
 
-// Detecta se é rota AJAX (detalhes ou ações)
+/* =========================
+   DETECÇÃO DE ROTA AJAX
+   ========================= */
 $isAjax = (
   (isset($_GET['acao']) && $_GET['acao'] === 'detalhes') ||
   (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], true))
 );
 if ($isAjax) {
-    ini_set('display_errors', '0'); // nas rotas AJAX, não exibir HTML de erro
+    // nas rotas AJAX, não exibir HTML de erro
+    ini_set('display_errors', '0');
 }
 
+/* =========================
+   CONTEXTO / AUTENTICAÇÃO
+   ========================= */
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
@@ -34,7 +40,9 @@ if (
     exit;
 }
 
-// ✅ Conexão com o banco de dados (robusto com __DIR__)
+/* =========================
+   CONEXÃO
+   ========================= */
 require_once __DIR__ . '/../../assets/php/conexao.php';
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     http_response_code(500);
@@ -43,9 +51,9 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 }
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-/* ====== GATEWAY AJAX ANTES DE QUALQUER HTML ====== */
-
-/* Helpers mínimos só para o AJAX */
+/* =========================
+   HELPERS (AJAX)
+   ========================= */
 if (!function_exists('json_exit')) {
     function json_exit(array $payload, int $statusCode = 200): void {
         while (ob_get_level()) { @ob_end_clean(); } // zera qualquer saída anterior
@@ -66,7 +74,9 @@ if (!function_exists('dtbr')) {
     function dtbr(?string $dt): string { if(!$dt) return '—'; $t=strtotime($dt); return $t?date('d/m/Y H:i',$t):'—'; }
 }
 
-/* Descoberta dinâmica das colunas (reuso do seu código) */
+/* =========================
+   DESCOBERTA DE COLUNAS (itens)
+   ========================= */
 if (!function_exists('descobrirColunasItens')) {
     function descobrirColunasItens(PDO $pdo): array {
         $temItens = false; $cols = [];
@@ -86,7 +96,9 @@ if (!function_exists('descobrirColunasItens')) {
     }
 }
 
-/* Função para montar detalhes (HTML puro) */
+/* =========================
+   DETALHES (HTML parcial)
+   ========================= */
 if (!function_exists('render_detalhes_pedido')) {
     function render_detalhes_pedido(PDO $pdo, string $empresaIdMatriz, int $id): string {
         [$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
@@ -160,7 +172,9 @@ if (!function_exists('render_detalhes_pedido')) {
     }
 }
 
-/* ===== Handlers AJAX ===== */
+/* =========================
+   GATEWAY AJAX (ANTES DO HTML)
+   ========================= */
 $empresaIdMatrizAjax = $_SESSION['empresa_id'] ?? '';
 
 /* Detalhes (GET) – devolve HTML puro, sem cabeçalho/rodapé */
@@ -202,7 +216,7 @@ if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], tr
             $colObservacao = 'observao';
         }
 
-        // Faz o SELECT trazendo ambas as possibilidades (se não existir, virá NULL)
+        // Lê a linha atual
         $st = $pdo->prepare("
             SELECT id, status,
                    ".(isset($cols['observacao']) ? "observacao" : "NULL AS observacao").",
@@ -216,16 +230,26 @@ if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], tr
         if (!$row) json_exit(['ok'=>false,'msg'=>'Solicitação não encontrada para esta empresa.']);
 
         $statusAtual = strtolower((string)($row['status'] ?? ''));
-        if ($acao==='aprovar' && $statusAtual==='aprovada') json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada']);
+        if ($acao==='aprovar'  && $statusAtual==='aprovada')  json_exit(['ok'=>true,'msg'=>'Já aprovada.','status'=>'aprovada']);
         if ($acao==='reprovar' && $statusAtual==='reprovada') json_exit(['ok'=>true,'msg'=>'Já reprovada.','status'=>'reprovada']);
 
-        $novo = ($acao==='aprovar' ? 'aprovada' : 'reprovada');
-        $set = "status = :novo";
+        $novo   = ($acao==='aprovar' ? 'aprovada' : 'reprovada');
+        $set    = "status = :novo";
         $params = [':novo'=>$novo, ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
 
+        // atualiza updated_at se existir
         if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
 
-        // Atualiza observação se for reprovar + motivo informado + coluna existir
+        // 👉 carimbo de aprovação exatamente em 'aprovado_em' (fallback: 'aprovada_em')
+        if ($acao === 'aprovar') {
+            if (isset($cols['aprovado_em'])) {
+                $set .= ", aprovado_em = NOW()";
+            } elseif (isset($cols['aprovada_em'])) { // tolerância a variação do nome
+                $set .= ", aprovada_em = NOW()";
+            }
+        }
+
+        // observação ao reprovar (se houver coluna)
         if ($acao === 'reprovar' && $motivo !== '' && $colObservacao) {
             $obsAtual = trim((string)($row[$colObservacao] ?? ''));
             if ($obsAtual !== '') $obsAtual .= " | ";
@@ -243,9 +267,10 @@ if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], tr
         json_exit(['ok'=>false,'msg'=>'Falha no processamento.']);
     }
 }
-/* ====== FIM DO GATEWAY AJAX ====== */
 
-// ✅ Buscar nome e tipo do usuário logado
+/* =========================
+   DADOS DO USUÁRIO (para navbar)
+   ========================= */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
@@ -268,7 +293,9 @@ try {
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
+/* =========================
+   CONTROLE DE ACESSO
+   ========================= */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -291,7 +318,9 @@ if (!$acessoPermitido) {
     exit;
 }
 
-// ✅ Buscar logo da empresa
+/* =========================
+   LOGO DA EMPRESA
+   ========================= */
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
@@ -305,250 +334,9 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
-/* ==========================================================
-   FILTROS DE PDV (período, caixa, forma, status NFC-e)
-   ========================================================== */
-
-function brToIsoDate($d)
-{
-    if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
-    if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
-        return "{$m[3]}-{$m[2]}-{$m[1]}";
-    }
-    return null;
-}
-
-$periodo   = $_GET['periodo'] ?? 'hoje';
-$dataIni   = $_GET['data_ini'] ?? '';
-$dataFim   = $_GET['data_fim'] ?? '';
-$caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
-$formaPag  = $_GET['forma_pagamento'] ?? '';
-$statusNf  = $_GET['status_nfce'] ?? '';
-
-$now = new DateTime('now');
-$ini = new DateTime('today'); $ini->setTime(0, 0, 0);
-$fim = new DateTime('today'); $fim->setTime(23, 59, 59);
-
-switch ($periodo) {
-    case 'ontem':
-        $ini = (new DateTime('yesterday'))->setTime(0, 0, 0);
-        $fim = (new DateTime('yesterday'))->setTime(23, 59, 59);
-        break;
-    case 'ult7':
-        $ini = (new DateTime('today'))->modify('-6 days')->setTime(0, 0, 0);
-        $fim = (new DateTime('today'))->setTime(23, 59, 59);
-        break;
-    case 'mes':
-        $ini = (new DateTime('first day of this month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of this month'))->setTime(23, 59, 59);
-        break;
-    case 'mes_anterior':
-        $ini = (new DateTime('first day of last month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of last month'))->setTime(23, 59, 59);
-        break;
-    case 'custom':
-        $isoIni = brToIsoDate($dataIni);
-        $isoFim = brToIsoDate($dataFim);
-        if ($isoIni && $isoFim) {
-            $ini = new DateTime($isoIni . ' 00:00:00');
-            $fim = new DateTime($isoFim . ' 23:59:59');
-        }
-        break;
-    case 'hoje':
-    default:
-        break;
-}
-
-// — Lista de caixas recentes (últimos 60 dias) para o filtro
-$listaCaixas = [];
-try {
-    $st = $pdo->prepare("
-    SELECT id, numero_caixa, responsavel, abertura_datetime, status
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND abertura_datetime >= DATE_SUB(NOW(), INTERVAL 60 DAY)
-  ORDER BY abertura_datetime DESC
-  ");
-    $st->execute([':empresa_id' => $idSelecionado]);
-    $listaCaixas = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-}
-
-/* ==========================================================
-   MÉTRICAS PDV (usando os FILTROS) — (mantidas)
-   ========================================================== */
-
-$vendasQtd        = 0;
-$vendasValor      = 0.00;
-$vendasTroco      = 0.00;
-$ticketMedio      = 0.00;
-$pagamentoSeries  = [];
-$vendasPorHora    = array_fill(0, 24, 0);
-$topProdutos      = [];
-$nfceStatusCont   = [];
-$ultimasVendas    = [];
-
-function bindPeriodo(&$params, DateTime $ini, DateTime $fim)
-{
-    $params[':ini'] = $ini->format('Y-m-d H:i:s');
-    $params[':fim'] = $fim->format('Y-m-d H:i:s');
-}
-
-function mountWhere(string $empresaId, ?int $caixaId, string $forma, string $status, array &$params): string
-{
-    $where = " WHERE empresa_id = :empresa_id AND data_venda BETWEEN :ini AND :fim ";
-    $params[':empresa_id'] = $empresaId;
-    if (!empty($forma)) {
-        $where .= " AND forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $forma;
-    }
-    if (!empty($status)) {
-        $where .= " AND status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $status;
-    }
-    if (!empty($caixaId)) {
-        $where .= " AND id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    return $where;
-}
-
-try {
-    // 1) KPIs gerais do período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-
-    $sql = "SELECT COUNT(*) AS qtd,
-                 COALESCE(SUM(valor_total),0) AS soma_total,
-                 COALESCE(SUM(troco),0) AS soma_troco
-            FROM vendas
-           $whereV";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $r = $st->fetch(PDO::FETCH_ASSOC);
-    $vendasQtd   = (int)($r['qtd'] ?? 0);
-    $vendasValor = (float)($r['soma_total'] ?? 0.0);
-    $vendasTroco = (float)($r['soma_troco'] ?? 0.0);
-    $ticketMedio = $vendasQtd > 0 ? ($vendasValor / $vendasQtd) : 0.0;
-
-    // 2) Formas de pagamento (pizza)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT forma_pagamento, COALESCE(SUM(valor_total),0) AS tot
-            FROM vendas
-           $whereV
-        GROUP BY forma_pagamento";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $fp = $row['forma_pagamento'] ?: 'Outros';
-        $pagamentoSeries[$fp] = (float)$row['tot'];
-    }
-
-    // 3) Vendas por hora
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT HOUR(data_venda) AS h, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY HOUR(data_venda)";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $h = (int)$row['h'];
-        if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
-    }
-
-    // 4) Top produtos (qtd)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
-    if (!empty($formaPag)) {
-        $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $formaPag;
-    }
-    if (!empty($statusNf)) {
-        $whereBase .= " AND v.status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $statusNf;
-    }
-    if (!empty($caixaId)) {
-        $whereBase .= " AND v.id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    $params[':empresa_id'] = $idSelecionado;
-
-    $sql = "SELECT iv.produto_nome,
-                 SUM(iv.quantidade) AS qtd,
-                 SUM(iv.quantidade * iv.preco_unitario) AS valor
-            FROM itens_venda iv
-            JOIN vendas v ON v.id = iv.venda_id
-           $whereBase
-        GROUP BY iv.produto_nome
-        ORDER BY qtd DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
-
-    // 5) NFC-e por status
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT COALESCE(status_nfce,'sem_status') AS st, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY COALESCE(status_nfce,'sem_status')";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $nfceStatusCont[$row['st']] = (int)$row['qtd'];
-    }
-
-    // 6) Últimas vendas
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT id, responsavel, forma_pagamento, valor_total, data_venda
-            FROM vendas
-           $whereV
-        ORDER BY data_venda DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $ultimasVendas = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    // mantém valores padrão
-}
-
-// ==== Dados de gráficos/labels
-$labelsHoras = [];
-for ($h = 0; $h < 24; $h++) $labelsHoras[] = sprintf('%02d:00', $h);
-$pagtoLabels = array_keys($pagamentoSeries);
-$pagtoValues = array_values($pagamentoSeries);
-$nfceLabels  = array_keys($nfceStatusCont);
-$nfceValues  = array_values($nfceStatusCont);
-
-$topProdLabels = [];
-$topProdQtd    = [];
-foreach ($topProdutos as $p) {
-    $topProdLabels[] = $p['produto_nome'];
-    $topProdQtd[]    = (int)$p['qtd'];
-}
-
-// Formatações úteis
-function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
-$periodoLabel = [
-    'hoje'=>'Hoje','ontem'=>'Ontem','ult7'=>'Últimos 7 dias',
-    'mes'=>'Mês atual','mes_anterior'=>'Mês anterior','custom'=>'Personalizado'
-][$periodo] ?? 'Hoje';
-
-$iniTxt = $ini->format('d/m/Y');
-$fimTxt = $fim->format('d/m/Y');
-
-/* ================= Renderização da LISTA ================= */
+/* =========================
+   LISTAGEM (somente PENDENTES)
+   ========================= */
 [$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
 
 $selectBase = "
@@ -620,8 +408,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,6
-00;1,700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
         rel="stylesheet" />
 
     <!-- Icons -->
@@ -1056,7 +843,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script src="../../assets/js/main.js"></script>
     <script src="../../assets/js/dashboards-analytics.js"></script>
 
-    <!-- Seu script inline (DEPOIS dos vendors) -->
+    <!-- Script da página -->
     <script>
     (function () {
       const SELF = window.location.pathname + window.location.search;
@@ -1092,7 +879,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
       }
 
-      // Botões da tabela -> setam IDs ocultos nas modais
+      // Preenche IDs ocultos nas modais
       document.querySelectorAll('.btn-aprovar').forEach(btn => {
         btn.addEventListener('click', () => {
           document.getElementById('aprovarPedidoId').value = btn.dataset.pedido;
@@ -1168,6 +955,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (j && j.ok) {
           setRowStatus(pedidoId, j.status || 'aprovada');
           hideModalById('modalAtender');
+          // ✅ Atualiza a página ao finalizar o processo
           window.location.reload();
         } else {
           alert((j && j.msg) || 'Não foi possível aprovar.');
@@ -1197,6 +985,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (j && j.ok) {
           setRowStatus(pedidoId, j.status || 'reprovada');
           hideModalById('modalCancelar');
+          // ✅ Atualiza a página ao finalizar o processo
           window.location.reload();
         } else {
           alert((j && j.msg) || 'Não foi possível reprovar.');
