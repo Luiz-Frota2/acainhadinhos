@@ -375,7 +375,7 @@ try {
 }
 
 /* ==========================================================
-   MÉTRICAS PDV (usando os FILTROS)
+   MÉTRICAS PDV (usando os FILTROS) — (mantidas)
    ========================================================== */
 
 $vendasQtd        = 0;
@@ -591,6 +591,7 @@ $sql = "
   WHERE s.id_matriz = :empresa
     AND s.id_solicitante LIKE 'unidade\\_%'
     AND u.tipo = 'filial'
+    AND s.status = 'pendente'   -- <<< SOMENTE PENDENTES
   ORDER BY s.created_at DESC, s.id DESC
   LIMIT 300
 ";
@@ -619,7 +620,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,6
+00;1,700&display=swap"
         rel="stylesheet" />
 
     <!-- Icons -->
@@ -855,7 +857,8 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         </a>
                                     </li>
                                     <li>
-                                        <a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a>
+                                        <a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i>
+                                            <span class="align-middle">Configurações</span></a>
                                     </li>
                                     <li><div class="dropdown-divider"></div></li>
                                     <li>
@@ -899,7 +902,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                           </thead>
                           <tbody class="table-border-bottom-0">
                             <?php if (!$rows): ?>
-                              <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação encontrada.</td></tr>
+                              <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação <strong>pendente</strong> encontrada.</td></tr>
                             <?php else: foreach ($rows as $r):
                               $pedidoId = (int)$r['pedido_id'];
                               $qr   = $r['item_qr_code'] ?? null;
