@@ -25,6 +25,7 @@ if (
 
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
@@ -86,283 +87,97 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
-/* ==========================================================
-   FILTROS DE PDV (período, caixa, forma, status NFC-e)
-   ========================================================== */
+/* ============================================
+   🔸 MODO AJAX (DETALHES)
+   ============================================ */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
+    header('Content-Type: application/json; charset=utf-8');
 
-function brToIsoDate($d)
-{
-    // aceita "YYYY-mm-dd" direto; se vier "dd/mm/YYYY", converte
-    if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
-    if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
-        return "{$m[3]}-{$m[2]}-{$m[1]}";
+    $sid = (int)($_GET['solicitacao_id'] ?? 0);
+    if ($sid <= 0) {
+        echo json_encode(['ok' => false, 'erro' => 'ID inválido']);
+        exit;
     }
-    return null;
-}
 
-$periodo   = $_GET['periodo'] ?? 'hoje'; // hoje|ontem|ult7|mes|mes_anterior|custom
-$dataIni   = $_GET['data_ini'] ?? '';
-$dataFim   = $_GET['data_fim'] ?? '';
-$caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
-$formaPag  = $_GET['forma_pagamento'] ?? '';
-$statusNf  = $_GET['status_nfce'] ?? '';
+    try {
+        $sqlItens = "
+            SELECT 
+                COALESCE(i.codigo_produto,'') AS codigo_produto,
+                COALESCE(i.nome_produto,'')   AS nome_produto,
+                COALESCE(i.quantidade,0)      AS quantidade
+            FROM solicitacoes_b2b_itens i
+            WHERE i.solicitacao_id = :sid
+            ORDER BY i.id ASC
+        ";
+        $st = $pdo->prepare($sqlItens);
+        $st->execute([':sid' => $sid]);
+        $itens = $st->fetchAll(PDO::FETCH_ASSOC);
 
-$now = new DateTime('now');
-$ini = new DateTime('today');
-$ini->setTime(0, 0, 0);
-$fim = new DateTime('today');
-$fim->setTime(23, 59, 59);
-
-switch ($periodo) {
-    case 'ontem':
-        $ini = (new DateTime('yesterday'))->setTime(0, 0, 0);
-        $fim = (new DateTime('yesterday'))->setTime(23, 59, 59);
-        break;
-    case 'ult7':
-        $ini = (new DateTime('today'))->modify('-6 days')->setTime(0, 0, 0);
-        $fim = (new DateTime('today'))->setTime(23, 59, 59);
-        break;
-    case 'mes':
-        $ini = (new DateTime('first day of this month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of this month'))->setTime(23, 59, 59);
-        break;
-    case 'mes_anterior':
-        $ini = (new DateTime('first day of last month'))->setTime(0, 0, 0);
-        $fim = (new DateTime('last day of last month'))->setTime(23, 59, 59);
-        break;
-    case 'custom':
-        $isoIni = brToIsoDate($dataIni);
-        $isoFim = brToIsoDate($dataFim);
-        if ($isoIni && $isoFim) {
-            $ini = new DateTime($isoIni . ' 00:00:00');
-            $fim = new DateTime($isoFim . ' 23:59:59');
-        }
-        break;
-    case 'hoje':
-    default:
-        // já setado
-        break;
-}
-
-// — Lista de caixas recentes (últimos 60 dias) para o filtro
-$listaCaixas = [];
-try {
-    $st = $pdo->prepare("
-    SELECT id, numero_caixa, responsavel, abertura_datetime, status
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND abertura_datetime >= DATE_SUB(NOW(), INTERVAL 60 DAY)
-  ORDER BY abertura_datetime DESC
-  ");
-    $st->execute([':empresa_id' => $idSelecionado]);
-    $listaCaixas = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
+        echo json_encode(['ok' => true, 'itens' => $itens]);
+    } catch (PDOException $e) {
+        echo json_encode(['ok' => false, 'erro' => $e->getMessage()]);
+    }
+    exit;
 }
 
 /* ==========================================================
-   MÉTRICAS PDV (usando os FILTROS)
+   🟠 LISTAGEM — PRODUTOS ENVIADOS (status = 'em_transito')
+   - s.status = 'em_transito'
+   - id_matriz = empresa (sessão/URL)
+   - solicitante é Filial desta empresa (unidades.tipo = 'Filial')
+   - deve haver estoque para o id_solicitante
+   - agrega itens e quantidade via solicitacoes_b2b_itens
+   - pega o PRIMEIRO item para preencher SKU/Produto da tabela
    ========================================================== */
-
-$caixaAtual = null; // opcionalmente mostramos info do caixa aberto mais recente
+$enviados = [];
 try {
-    $st = $pdo->prepare("
-    SELECT id, responsavel, numero_caixa, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido,
-           abertura_datetime, fechamento_datetime, quantidade_vendas, status, cpf_responsavel
-      FROM aberturas
-     WHERE empresa_id = :empresa_id
-       AND status = 'aberto'
-  ORDER BY abertura_datetime DESC
-     LIMIT 1
-  ");
+    // Subselect para pegar o primeiro item de cada solicitação
+    $sql = "
+    SELECT
+        s.id,
+        s.id_solicitante,
+        u.nome AS filial_nome,
+        s.status,
+        COALESCE(s.enviada_em, s.updated_at, s.aprovada_em, s.created_at) AS enviada_em,
+        COUNT(i.id)                               AS itens,
+        COALESCE(SUM(i.quantidade),0)             AS qtd_total,
+        fi.codigo_produto AS primeiro_sku,
+        fi.nome_produto   AS primeiro_nome
+    FROM solicitacoes_b2b s
+    JOIN unidades u
+      ON u.id = CAST(REPLACE(s.id_solicitante, 'unidade_', '') AS UNSIGNED)
+     AND u.tipo = 'Filial'
+     AND u.empresa_id = :empresa_id
+    LEFT JOIN solicitacoes_b2b_itens i
+      ON i.solicitacao_id = s.id
+    /* primeiro item por solicitação (menor id) */
+    LEFT JOIN (
+        SELECT ii.solicitacao_id,
+               SUBSTRING_INDEX(GROUP_CONCAT(ii.codigo_produto ORDER BY ii.id ASC SEPARATOR '||'), '||', 1) AS codigo_produto,
+               SUBSTRING_INDEX(GROUP_CONCAT(ii.nome_produto   ORDER BY ii.id ASC SEPARATOR '||'), '||', 1) AS nome_produto
+        FROM solicitacoes_b2b_itens ii
+        GROUP BY ii.solicitacao_id
+    ) fi ON fi.solicitacao_id = s.id
+    WHERE s.status = 'em_transito'
+      AND s.id_matriz = :empresa_id
+      AND EXISTS (SELECT 1 FROM estoque e WHERE e.empresa_id = s.id_solicitante)
+    GROUP BY s.id, s.id_solicitante, u.nome, s.status, enviada_em, fi.codigo_produto, fi.nome_produto
+    ORDER BY enviada_em DESC, s.id DESC
+    ";
+    $st = $pdo->prepare($sql);
     $st->execute([':empresa_id' => $idSelecionado]);
-    $caixaAtual = $st->fetch(PDO::FETCH_ASSOC);
+    $enviados = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
+    $enviados = [];
 }
 
-$vendasQtd        = 0;
-$vendasValor      = 0.00;
-$vendasTroco      = 0.00;
-$ticketMedio      = 0.00;
-$pagamentoSeries  = []; // forma_pagamento => total
-$vendasPorHora    = array_fill(0, 24, 0);
-$topProdutos      = [];
-$nfceStatusCont   = [];
-$ultimasVendas    = [];
-
-function bindPeriodo(&$params, DateTime $ini, DateTime $fim)
-{
-    $params[':ini'] = $ini->format('Y-m-d H:i:s');
-    $params[':fim'] = $fim->format('Y-m-d H:i:s');
+// Helpers
+function dtBr(?string $dt) {
+    if (!$dt) return '-';
+    $t = strtotime($dt); if (!$t) return '-';
+    return date('d/m/Y H:i', $t);
 }
-
-function mountWhere(string $empresaId, ?int $caixaId, string $forma, string $status, array &$params): string
-{
-    $where = " WHERE empresa_id = :empresa_id AND data_venda BETWEEN :ini AND :fim ";
-    $params[':empresa_id'] = $empresaId;
-    if (!empty($forma)) {
-        $where .= " AND forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $forma;
-    }
-    if (!empty($status)) {
-        $where .= " AND status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $status;
-    }
-    if (!empty($caixaId)) {
-        $where .= " AND id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    return $where;
-}
-
-try {
-    // 1) KPIs gerais do período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-
-    $sql = "SELECT COUNT(*) AS qtd,
-                 COALESCE(SUM(valor_total),0) AS soma_total,
-                 COALESCE(SUM(troco),0) AS soma_troco
-            FROM vendas
-           $whereV";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $r = $st->fetch(PDO::FETCH_ASSOC);
-    $vendasQtd   = (int)($r['qtd'] ?? 0);
-    $vendasValor = (float)($r['soma_total'] ?? 0.0);
-    $vendasTroco = (float)($r['soma_troco'] ?? 0.0);
-    $ticketMedio = $vendasQtd > 0 ? ($vendasValor / $vendasQtd) : 0.0;
-
-    // 2) Formas de pagamento (pizza)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT forma_pagamento, COALESCE(SUM(valor_total),0) AS tot
-            FROM vendas
-           $whereV
-        GROUP BY forma_pagamento";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $fp = $row['forma_pagamento'] ?: 'Outros';
-        $pagamentoSeries[$fp] = (float)$row['tot'];
-    }
-
-    // 3) Vendas por hora
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT HOUR(data_venda) AS h, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY HOUR(data_venda)";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $h = (int)$row['h'];
-        if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
-    }
-
-    // 4) Top produtos por quantidade no período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    // aplica também filtros de forma/status/caixa via tabela vendas
-    $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
-    if (!empty($formaPag)) {
-        $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
-        $params[':forma_pagamento'] = $formaPag;
-    }
-    if (!empty($statusNf)) {
-        $whereBase .= " AND v.status_nfce = :status_nfce ";
-        $params[':status_nfce'] = $statusNf;
-    }
-    if (!empty($caixaId)) {
-        $whereBase .= " AND v.id_caixa = :id_caixa ";
-        $params[':id_caixa'] = $caixaId;
-    }
-    $params[':empresa_id'] = $idSelecionado;
-
-    $sql = "SELECT iv.produto_nome,
-                 SUM(iv.quantidade) AS qtd,
-                 SUM(iv.quantidade * iv.preco_unitario) AS valor
-            FROM itens_venda iv
-            JOIN vendas v ON v.id = iv.venda_id
-           $whereBase
-        GROUP BY iv.produto_nome
-        ORDER BY qtd DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
-
-    // 5) NFC-e por status no período
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT COALESCE(status_nfce,'sem_status') AS st, COUNT(*) AS qtd
-            FROM vendas
-           $whereV
-        GROUP BY COALESCE(status_nfce,'sem_status')";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-        $nfceStatusCont[$row['st']] = (int)$row['qtd'];
-    }
-
-    // 6) Últimas vendas do período (5)
-    $params = [];
-    bindPeriodo($params, $ini, $fim);
-    $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
-    $sql = "SELECT id, responsavel, forma_pagamento, valor_total, data_venda
-            FROM vendas
-           $whereV
-        ORDER BY data_venda DESC
-           LIMIT 5";
-    $st = $pdo->prepare($sql);
-    $st->execute($params);
-    $ultimasVendas = $st->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    // mantém valores padrão
-}
-
-// ==== Dados para gráficos/labels
-$labelsHoras = [];
-for ($h = 0; $h < 24; $h++) {
-    $labelsHoras[] = sprintf('%02d:00', $h);
-}
-
-$pagtoLabels = array_keys($pagamentoSeries);
-$pagtoValues = array_values($pagamentoSeries);
-
-$nfceLabels = array_keys($nfceStatusCont);
-$nfceValues = array_values($nfceStatusCont);
-
-$topProdLabels = [];
-$topProdQtd    = [];
-foreach ($topProdutos as $p) {
-    $topProdLabels[] = $p['produto_nome'];
-    $topProdQtd[]    = (int)$p['qtd'];
-}
-
-// Formatações úteis
-function moneyBr($v)
-{
-    return 'R$ ' . number_format((float)$v, 2, ',', '.');
-}
-$periodoLabel = [
-    'hoje' => 'Hoje',
-    'ontem' => 'Ontem',
-    'ult7' => 'Últimos 7 dias',
-    'mes' => 'Mês atual',
-    'mes_anterior' => 'Mês anterior',
-    'custom' => 'Personalizado'
-][$periodo] ?? 'Hoje';
-
-$iniTxt = $ini->format('d/m/Y');
-$fimTxt = $fim->format('d/m/Y');
-
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
@@ -396,33 +211,25 @@ $fimTxt = $fim->format('d/m/Y');
 
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-
     <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
-    <!-- Page CSS -->
 
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
 
-    <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
-    <!--? Config:  Mandatory theme config file contain global vars & default theme options, Set your preferred theme option in this file.  -->
+    <!-- Config -->
     <script src="../../assets/js/config.js"></script>
-
 </head>
 
 <body>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
-            <!-- Menu -->
-
+            <!-- Menu (mantido) -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-
                         <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
                     </a>
-
                     <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
                         <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
@@ -444,7 +251,6 @@ $fimTxt = $fim->format('d/m/Y');
                         <span class="menu-header-text">Administração Filiais</span>
                     </li>
 
-                    <!-- Adicionar Filial -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-building"></i>
@@ -465,49 +271,36 @@ $fimTxt = $fim->format('d/m/Y');
                             <div data-i18n="B2B">B2B - Matriz</div>
                         </a>
                         <ul class="menu-sub active">
-                            <!-- Contas das Filiais -->
                             <li class="menu-item">
                                 <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Pagamentos Solic.</div>
                                 </a>
                             </li>
-
-                            <!-- Produtos solicitados pelas filiais -->
                             <li class="menu-item">
                                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
                             </li>
-
-                            <!-- Produtos enviados pela matriz -->
                             <li class="menu-item active">
                                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Enviados</div>
                                 </a>
                             </li>
-
-                            <!-- Transferências em andamento -->
                             <li class="menu-item">
                                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Transf. Pendentes</div>
                                 </a>
                             </li>
-
-                            <!-- Histórico de transferências -->
                             <li class="menu-item">
                                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Histórico Transf.</div>
                                 </a>
                             </li>
-
-                            <!-- Gestão de Estoque Central -->
                             <li class="menu-item">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a>
                             </li>
-
-                            <!-- Relatórios e indicadores B2B -->
                             <li class="menu-item">
                                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Relatórios B2B</div>
@@ -516,7 +309,6 @@ $fimTxt = $fim->format('d/m/Y');
                         </ul>
                     </li>
 
-                    <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -538,13 +330,10 @@ $fimTxt = $fim->format('d/m/Y');
                                     <div data-i18n="Pedidos">Vendas por Período</div>
                                 </a>
                             </li>
-
                         </ul>
                     </li>
 
-                    <!--END DELIVERY-->
-
-                    <!-- Misc -->
+                    <!-- Diversos -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
                         <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
@@ -601,10 +390,8 @@ $fimTxt = $fim->format('d/m/Y');
 
             <!-- Layout container -->
             <div class="layout-page">
-                <!-- Navbar -->
-
-                <nav
-                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                <!-- Navbar (mantida) -->
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
                     id="layout-navbar">
                     <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                         <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
@@ -613,15 +400,10 @@ $fimTxt = $fim->format('d/m/Y');
                     </div>
 
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                        <!-- Search -->
                         <div class="navbar-nav align-items-center">
-                            <div class="nav-item d-flex align-items-center">
-                            </div>
+                            <div class="nav-item d-flex align-items-center"></div>
                         </div>
-                        <!-- /Search -->
-
                         <ul class="navbar-nav flex-row align-items-center ms-auto">
-                            <!-- User -->
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
@@ -644,38 +426,16 @@ $fimTxt = $fim->format('d/m/Y');
                                             </div>
                                         </a>
                                     </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-user me-2"></i>
-                                            <span class="align-middle">Minha Conta</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            <i class="bx bx-cog me-2"></i>
-                                            <span class="align-middle">Configurações</span>
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
-                                            <i class="bx bx-power-off me-2"></i>
-                                            <span class="align-middle">Sair</span>
-                                        </a>
-                                    </li>
+                                    <li><div class="dropdown-divider"></div></li>
+                                    <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2)"></i><span class="align-middle">Configurações</span></a></li>
+                                    <li><div class="dropdown-divider"></div></li>
+                                    <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                                 </ul>
                             </li>
-                            <!--/ User -->
                         </ul>
-
                     </div>
                 </nav>
-
                 <!-- / Navbar -->
 
                 <!-- Content -->
@@ -688,14 +448,11 @@ $fimTxt = $fim->format('d/m/Y');
                         <span class="text-muted fw-light">Produtos Enviados para as Filiais</span>
                     </h5>
 
-                    <!-- Toolbar / Filtros (HTML estático por enquanto) -->
-
-
-                    <!-- Tabela (HTML mock) -->
+                    <!-- Tabela -->
                     <div class="card">
                         <h5 class="card-header">Lista de Produtos Enviados</h5>
                         <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
+                            <table class="table table-hover" id="tabela-enviados">
                                 <thead>
                                     <tr>
                                         <th># Pedido</th>
@@ -703,58 +460,55 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th>SKU</th>
                                         <th>Produto</th>
                                         <th>Qtd</th>
-                                        <th>Prioridade</th>
                                         <th>Enviado em</th>
                                         <th>Status</th>
-                                        <th>Ações</th>
+                                        <th class="text-end">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
+                                <?php if (empty($enviados)): ?>
                                     <tr>
-                                        <td>PS-3021</td>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>120</td>
-                                        <td><span class="badge bg-label-danger status-badge">Alta</span></td>
-                                        <td>25/09/2025</td>
+                                        <td colspan="8" class="text-center text-muted py-4">Nenhum envio em trânsito.</td>
+                                    </tr>
+                                <?php else: foreach ($enviados as $row): ?>
+                                    <?php
+                                        $sku   = $row['primeiro_sku']  ?: '—';
+                                        $nome  = $row['primeiro_nome'] ?: '—';
+                                        $itens = (int)$row['itens'];
+                                        // Se tiver mais de 1 item, indica na coluna produto
+                                        if ($itens > 1 && $nome !== '—') {
+                                            $nome .= " <span class='text-muted'>(+ " . ($itens-1) . ")</span>";
+                                        }
+                                    ?>
+                                    <tr data-row-id="<?= (int)$row['id'] ?>">
+                                        <td>PS-<?= (int)$row['id'] ?></td>
+                                        <td><strong><?= htmlspecialchars($row['filial_nome'] ?? '-') ?></strong></td>
+                                        <td><?= htmlspecialchars($sku) ?></td>
+                                        <td><?= $nome ?></td>
+                                        <td><?= (int)$row['qtd_total'] ?></td>
+                                        <td><?= dtBr($row['enviada_em']) ?></td>
                                         <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                                        <td class="text-end">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-secondary btn-detalhes"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalDetalhes"
+                                                data-id="<?= (int)$row['id'] ?>"
+                                                data-codigo="PS-<?= (int)$row['id'] ?>"
+                                                data-filial="<?= htmlspecialchars($row['filial_nome'] ?? '-') ?>"
+                                                data-status="Enviado">
+                                                Detalhes
+                                            </button>
                                         </td>
                                     </tr>
-                                    <tr>
-                                        <td>PS-3022</td>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>40</td>
-                                        <td><span class="badge bg-label-warning status-badge">Média</span></td>
-                                        <td>24/09/2025</td>
-                                        <td><span class="badge bg-label-warning status-badge">Enviado</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>PS-3023</td>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td>500</td>
-                                        <td><span class="badge bg-label-info status-badge">Baixa</span></td>
-                                        <td>20/09/2025</td>
-                                        <td><span class="badge bg-label-success status-badge">Recebido</span></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                        </td>
-                                    </tr>
+                                <?php endforeach; endif; ?>
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- Modais mock -->
+                    <!-- Modal Detalhes -->
                     <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-centered modal-lg">
                             <div class="modal-content">
@@ -763,21 +517,38 @@ $fimTxt = $fim->format('d/m/Y');
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                 </div>
                                 <div class="modal-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-6">
-                                            <p><strong>Filial:</strong> Filial Centro</p>
-                                            <p><strong>SKU:</strong> ACA-500</p>
-                                            <p><strong>Produto:</strong> Polpa Açaí 500g</p>
+                                    <div class="row g-3 mb-2">
+                                        <div class="col-md-4">
+                                            <p><strong>Código:</strong> <span id="det-codigo">-</span></p>
                                         </div>
-                                        <div class="col-md-6">
-                                            <p><strong>Qtd:</strong> 120</p>
-                                            <p><strong>Prioridade:</strong> Alta</p>
-                                            <p><strong>Status:</strong> Aguardando</p>
+                                        <div class="col-md-4">
+                                            <p><strong>Filial:</strong> <span id="det-filial">-</span></p>
                                         </div>
-                                        <div class="col-12">
-                                            <p><strong>Observações:</strong> Repor estoque para fim de semana.</p>
-                                            <p><strong>Anexos:</strong> <span class="text-muted">—</span></p>
+                                        <div class="col-md-4">
+                                            <p><strong>Status:</strong> <span id="det-status">-</span></p>
                                         </div>
+                                    </div>
+
+                                    <div class="table-responsive">
+                                        <table class="table">
+                                            <thead>
+                                                <tr>
+                                                    <th>SKU</th>
+                                                    <th>Produto</th>
+                                                    <th>Qtd</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="det-itens">
+                                                <tr>
+                                                    <td colspan="3" class="text-muted">Carregando...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="mt-2">
+                                        <strong>Observações:</strong>
+                                        <div id="det-obs" class="text-muted">—</div>
                                     </div>
                                 </div>
                                 <div class="modal-footer">
@@ -787,6 +558,67 @@ $fimTxt = $fim->format('d/m/Y');
                         </div>
                     </div>
 
+                    <!-- JS da LISTAGEM: carrega detalhes na modal -->
+                    <script>
+                        (function(){
+                            const tabela = document.getElementById('tabela-enviados');
+
+                            // Abrir modal com detalhes
+                            const modalEl = document.getElementById('modalDetalhes');
+                            if (modalEl) {
+                                modalEl.addEventListener('show.bs.modal', function (event) {
+                                    const btn = event.relatedTarget;
+                                    if (!btn) return;
+
+                                    const id  = btn.getAttribute('data-id');
+                                    const cod = btn.getAttribute('data-codigo') || '-';
+                                    const fil = btn.getAttribute('data-filial') || '-';
+                                    const sts = btn.getAttribute('data-status') || '-';
+
+                                    document.getElementById('det-codigo').textContent = cod;
+                                    document.getElementById('det-filial').textContent = fil;
+                                    document.getElementById('det-status').textContent = sts;
+
+                                    const tbody = document.getElementById('det-itens');
+                                    tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Carregando...</td></tr>';
+
+                                    const url = new URL(window.location.href);
+                                    url.searchParams.set('ajax', 'detalhes');
+                                    url.searchParams.set('solicitacao_id', id);
+
+                                    fetch(url.toString(), { credentials: 'same-origin' })
+                                        .then(r => r.json())
+                                        .then(data => {
+                                            if (!data.ok) throw new Error(data.erro || 'Falha ao carregar itens');
+                                            const itens = data.itens || [];
+                                            if (!itens.length) {
+                                                tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Sem itens para esta solicitação.</td></tr>';
+                                                return;
+                                            }
+                                            tbody.innerHTML = itens.map(it => {
+                                                const cod = (it.codigo_produto || '—');
+                                                const nome = (it.nome_produto || '—');
+                                                const qtd  = (it.quantidade || 0);
+                                                return `<tr>
+                                                    <td>${cod}</td>
+                                                    <td>${nome}</td>
+                                                    <td>${qtd}</td>
+                                                </tr>`;
+                                            }).join('');
+                                        })
+                                        .catch(err => {
+                                            tbody.innerHTML = `<tr><td colspan="3" class="text-danger">Erro: ${err.message}</td></tr>`;
+                                        });
+                                });
+                            }
+
+                            // Apenas para garantir: evitar submit acidental em botões
+                            tabela?.addEventListener('click', function(e){
+                                const btnDet = e.target.closest('.btn-detalhes');
+                                if (!btnDet) return;
+                            });
+                        })();
+                    </script>
 
                 </div>
                 <!-- / Content -->
@@ -796,15 +628,12 @@ $fimTxt = $fim->format('d/m/Y');
                     <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
                             &copy;
-                            <script>
-                                document.write(new Date().getFullYear());
-                            </script>
+                            <script>document.write(new Date().getFullYear());</script>
                             , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
                             Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
                     </div>
                 </footer>
-
                 <!-- / Footer -->
 
                 <div class="content-backdrop fade"></div>
@@ -812,37 +641,26 @@ $fimTxt = $fim->format('d/m/Y');
             <!-- Content wrapper -->
         </div>
         <!-- / Layout page -->
-
     </div>
 
     <!-- Overlay -->
     <div class="layout-overlay layout-menu-toggle"></div>
-    </div>
-    <!-- / Layout wrapper -->
 
     <!-- Core JS -->
-    <!-- build:js assets/vendor/js/core.js -->
     <script src="../../js/saudacao.js"></script>
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-
     <script src="../../assets/vendor/js/menu.js"></script>
-    <!-- endbuild -->
 
     <!-- Vendors JS -->
     <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
-
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
-
-    <!-- Page JS -->
     <script src="../../assets/js/dashboards-analytics.js"></script>
 
-    <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
-
 </html>
