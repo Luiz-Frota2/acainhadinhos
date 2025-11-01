@@ -158,7 +158,7 @@ try {
         FROM solicitacoes_b2b_itens ii
         GROUP BY ii.solicitacao_id
     ) fi ON fi.solicitacao_id = s.id
-    WHERE s.status = 'em_transito' AND 'entregue'
+    WHERE s.status = 'em_transito' ; 'entregue'
       AND s.id_matriz = :empresa_id
       AND EXISTS (SELECT 1 FROM estoque e WHERE e.empresa_id = s.id_solicitante)
     GROUP BY s.id, s.id_solicitante, u.nome, s.status, enviada_em, fi.codigo_produto, fi.nome_produto
