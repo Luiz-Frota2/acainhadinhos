@@ -3,6 +3,7 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 session_start();
+date_default_timezone_set('America/Manaus');
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
@@ -142,6 +143,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
        ➜ baixa estoque MATRIZ (empresa_id = $idSelecionado)
        ➜ entrada estoque FILIAL (empresa_id = id_solicitante)
          • se não existir o produto na filial, faz INSERT copiando TODOS os campos do produto da matriz
+       ➜ enviada_em = NOW() (se coluna existir)
    - cancelar: status = cancelada
    ============================================ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status') {
@@ -347,15 +349,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === 'status'
                 }
             }
 
-            // 4.4) Atualiza status para em_transito + enviada_em
-            $up = $pdo->prepare("
+            // 4.4) Atualiza status para em_transito + enviada_em (se coluna existir)
+            $cols = [];
+            try {
+                $res = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
+                while ($c = $res->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
+            } catch (Throwable $e) {}
+
+            $sqlUpdate = "
                 UPDATE solicitacoes_b2b
                    SET status = 'em_transito',
-                       enviada_em = NOW(),
                        updated_at = CURRENT_TIMESTAMP
-                 WHERE id = :id
-                   AND status = 'aprovada'
-            ");
+            ";
+
+            if (isset($cols['enviada_em'])) {
+                $sqlUpdate .= ", enviada_em = NOW()";
+            }
+
+            $sqlUpdate .= " WHERE id = :id AND status = 'aprovada'";
+
+            $up = $pdo->prepare($sqlUpdate);
             $up->execute([':id' => $sid]);
 
             if ($up->rowCount() === 0) {
@@ -455,7 +468,7 @@ function dtBr(?string $dt) {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600;1,700&display=swap"
         rel="stylesheet" />
 
     <!-- Icons -->
