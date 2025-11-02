@@ -293,7 +293,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
 /* ==========================================================
    >>>>>>>  FILTROS (Status pendente/aprovado/reprovado)  <<<<<<<
    - status: 'pendente' | 'aprovado' | 'reprovado'
-   - de/ate: por VENCIMENTO (YYYY-MM-DD) — troque para created_at se preferir
+   - de/ate: por VENCIMENTO (YYYY-MM-DD)
    - q: id_solicitante OU descricao
    ========================================================== */
 $status = $_GET['status'] ?? '';
@@ -312,8 +312,6 @@ $validStatus = ['pendente','aprovado','reprovado'];
 if ($status !== '' && in_array($status, $validStatus, true)) {
     $where[] = "sp.status = :status";
     $params[':status'] = $status;
-} else {
-    // padrão: exibe todos (sem filtrar status)
 }
 
 /* período: por vencimento (YYYY-MM-DD) */
@@ -567,7 +565,14 @@ try {
                             <?php if (!$pagamentos): ?>
                                 <tr><td colspan="9" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
                             <?php else: foreach ($pagamentos as $p): ?>
-                                <?php $id = (int)$p['id']; ?>
+                                <?php
+                                  $id = (int)$p['id'];
+                                  $isPendente = ($p['status'] === 'pendente');
+                                  $badge = 'bg-label-secondary';
+                                  if ($p['status'] === 'pendente')  $badge = 'bg-label-warning';
+                                  if ($p['status'] === 'aprovado')  $badge = 'bg-label-success';
+                                  if ($p['status'] === 'reprovado') $badge = 'bg-label-danger';
+                                ?>
                                 <tr id="row-<?= $id ?>">
                                     <td><?= $id ?></td>
                                     <td><strong><?= e($p['unidade_nome'] ?? ('Unidade #'.($p['unidade_id'] ?? ''))) ?></strong></td>
@@ -583,18 +588,19 @@ try {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php
-                                        $badge = 'bg-label-secondary';
-                                        if ($p['status'] === 'pendente')  $badge = 'bg-label-warning';
-                                        if ($p['status'] === 'aprovado')  $badge = 'bg-label-success';
-                                        if ($p['status'] === 'reprovado') $badge = 'bg-label-danger';
-                                        ?>
                                         <span class="badge <?= $badge ?> status-badge" id="status-<?= $id ?>">
                                             <?= e($p['status']) ?>
                                         </span>
                                     </td>
                                     <td class="text-end" id="acoes-<?= $id ?>">
-                                        <!-- Nesta tela (histórico/consulta) mostramos apenas Detalhes -->
+                                        <?php if ($isPendente): ?>
+                                            <button class="btn btn-sm btn-success me-1 btn-aprovar"  data-id="<?= $id ?>">
+                                                <i class="bx bx-check"></i> Aprovar
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger me-1 btn-reprovar" data-id="<?= $id ?>">
+                                                <i class="bx bx-x"></i> Reprovar
+                                            </button>
+                                        <?php endif; ?>
                                         <button class="btn btn-sm btn-outline-secondary btn-detalhes" data-id="<?= $id ?>" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
                                     </td>
                                 </tr>
@@ -682,52 +688,90 @@ try {
         return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
     }
 
-    // Detalhes
+    // Clique Aprovar / Reprovar
     document.getElementById('tbody-pagamentos')?.addEventListener('click', function(e){
-        const t = e.target;
-        if (!t.classList.contains('btn-detalhes')) return;
-        const id = t.getAttribute('data-id');
-        const box = document.getElementById('detalhes-conteudo');
-        const footer = document.getElementById('detalhes-footer');
-        if (box) box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>';
-        if (footer){
-            const oldBtn = footer.querySelector('.btn-baixar-modal');
-            if (oldBtn) oldBtn.remove();
-        }
-        post('get_details', {id})
-          .then(json => {
-              if (json && json.ok && json.data){
-                  const d = json.data;
-                  const html = `
-                    <div class="row g-3">
-                      <div class="col-md-6">
-                        <p><strong>Filial:</strong> ${escapeHtml(d.unidade_nome ?? '')} (ID: ${escapeHtml(d.unidade_id ?? '')})</p>
-                        <p><strong>Solicitante:</strong> ${escapeHtml(d.id_solicitante ?? '')}</p>
-                        <p><strong>Status:</strong> ${escapeHtml(d.status ?? '')}</p>
-                      </div>
-                      <div class="col-md-6">
-                        <p><strong>Descrição:</strong> ${escapeHtml(d.descricao ?? '')}</p>
-                        <p><strong>Valor:</strong> ${formatMoney(d.valor)}</p>
-                        <p><strong>Vencimento:</strong> ${formatDate(d.vencimento)}</p>
-                      </div>
-                      <div class="col-12">
-                        <p><strong>Documento:</strong> ${d.documento ? 'Disponível' : '<span class="text-muted">—</span>'}</p>
-                      </div>
-                    </div>`;
-                  if (box) box.innerHTML = html;
+        const btnAprovar  = e.target.closest('.btn-aprovar');
+        const btnReprovar = e.target.closest('.btn-reprovar');
+        const btnDetalhes = e.target.closest('.btn-detalhes');
 
-                  if (footer && d.documento){
-                    const a = document.createElement('a');
-                    a.className = 'btn btn-primary btn-baixar-modal';
-                    a.textContent = 'Baixar comprovante';
-                    a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(id))}`;
-                    footer.appendChild(a);
+        // Detalhes
+        if (btnDetalhes){
+            const id = btnDetalhes.getAttribute('data-id');
+            const box = document.getElementById('detalhes-conteudo');
+            const footer = document.getElementById('detalhes-footer');
+            if (box) box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>';
+            if (footer){
+                const oldBtn = footer.querySelector('.btn-baixar-modal');
+                if (oldBtn) oldBtn.remove();
+            }
+            post('get_details', {id})
+              .then(json => {
+                  if (json && json.ok && json.data){
+                      const d = json.data;
+                      const html = `
+                        <div class="row g-3">
+                          <div class="col-md-6">
+                            <p><strong>Filial:</strong> ${escapeHtml(d.unidade_nome ?? '')} (ID: ${escapeHtml(d.unidade_id ?? '')})</p>
+                            <p><strong>Solicitante:</strong> ${escapeHtml(d.id_solicitante ?? '')}</p>
+                            <p><strong>Status:</strong> ${escapeHtml(d.status ?? '')}</p>
+                          </div>
+                          <div class="col-md-6">
+                            <p><strong>Descrição:</strong> ${escapeHtml(d.descricao ?? '')}</p>
+                            <p><strong>Valor:</strong> ${formatMoney(d.valor)}</p>
+                            <p><strong>Vencimento:</strong> ${formatDate(d.vencimento)}</p>
+                          </div>
+                          <div class="col-12">
+                            <p><strong>Documento:</strong> ${d.documento ? 'Disponível' : '<span class="text-muted">—</span>'}</p>
+                          </div>
+                        </div>`;
+                      if (box) box.innerHTML = html;
+
+                      if (footer && d.documento){
+                        const a = document.createElement('a');
+                        a.className = 'btn btn-primary btn-baixar-modal';
+                        a.textContent = 'Baixar comprovante';
+                        a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(id))}`;
+                        footer.appendChild(a);
+                      }
+                  } else {
+                      if (box) box.innerHTML = `<div class="text-danger">Não foi possível carregar os detalhes.</div>`;
                   }
-              } else {
-                  if (box) box.innerHTML = `<div class="text-danger">Não foi possível carregar os detalhes.</div>`;
+              })
+              .catch(() => { if (box) box.innerHTML = `<div class="text-danger">Falha de rede ao buscar detalhes.</div>`; });
+            return;
+        }
+
+        // Aprovar / Reprovar
+        const btn = btnAprovar || btnReprovar;
+        if (!btn) return;
+
+        const id = btn.getAttribute('data-id');
+        const novoStatus = btnAprovar ? 'aprovado' : 'reprovado';
+        const msgConf = btnAprovar ? 'Confirmar APROVAÇÃO desta solicitação?' : 'Confirmar REPROVAÇÃO desta solicitação?';
+
+        if (!confirm(msgConf)) return;
+
+        post('update_status', { id, status: novoStatus })
+          .then(json => {
+              if (!json || !json.ok){
+                  alert(json?.msg || 'Não foi possível atualizar o status.');
+                  return;
+              }
+              // Atualiza badge
+              const badge = document.getElementById('status-'+id);
+              if (badge){
+                  badge.textContent = novoStatus;
+                  badge.classList.remove('bg-label-warning','bg-label-success','bg-label-danger','bg-label-secondary');
+                  if (novoStatus === 'aprovado')  badge.classList.add('bg-label-success');
+                  if (novoStatus === 'reprovado') badge.classList.add('bg-label-danger');
+              }
+              // Remove botões Aprovar/Reprovar da linha
+              const acoes = document.getElementById('acoes-'+id);
+              if (acoes){
+                  acoes.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(el => el.remove());
               }
           })
-          .catch(() => { if (box) box.innerHTML = `<div class="text-danger">Falha de rede ao buscar detalhes.</div>`; });
+          .catch(() => alert('Falha de rede ao atualizar o status.'));
     });
 
     /* ===== Autocomplete ===== */
