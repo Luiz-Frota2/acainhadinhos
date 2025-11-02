@@ -678,23 +678,130 @@ $fimTxt = $fim->format('d/m/Y');
 
                 <!-- / Navbar -->
 
-           <?php
-// estoque_Matriz.php
-// Arquivo adaptado para usar a conexão PDO definida em ../../assets/php/conexao.php
-// Nome conforme convenção (segunda palavra com inicial maiúscula)
+                <!-- Content -->
+                <div class="container-xxl flex-grow-1 container-p-y">
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
+                        Estoque Matriz
+                    </h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font">
+                        <span class="text-muted fw-light">Visão geral do estoque central</span>
+                    </h5>
+
+                    <!-- Cards resumo -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <p class="mb-1 text-muted">SKUs ativos</p>
+                                            <h4 class="mb-0">148</h4>
+                                        </div>
+                                        <i class="bx bx-box fs-2 text-primary"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <p class="mb-1 text-muted">Qtde disponível</p>
+                                            <h4 class="mb-0">12.430</h4>
+                                        </div>
+                                        <i class="bx bx-package fs-2 text-success"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <p class="mb-1 text-muted">Reservado</p>
+                                            <h4 class="mb-0">1.130</h4>
+                                        </div>
+                                        <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-sm-6 col-lg-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <p class="mb-1 text-muted">Em transferência</p>
+                                            <h4 class="mb-0">820</h4>
+                                        </div>
+                                        <i class="bx bx-transfer fs-2 text-info"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ações rápidas -->
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-primary w-100">
+                                        <i class="bx bx-plus-circle me-2"></i> Movimentar estoque
+                                    </button>
+                                </div>
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalTransferir">
+                                        <i class="bx bx-right-arrow me-2"></i> Transferir p/ Filial
+                                    </button>
+                                </div>
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalHistorico">
+                                        <i class="bx bx-time-five me-2"></i> Histórico de movimentações
+                                    </button>
+                                </div>
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <button class="btn btn-outline-dark w-100">
+                                        <i class="bx bx-download me-2"></i> Exportar CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
 
-// ✅ Use sua conexão PDO (já definida em conexao.php como $pdo)
-require '../../assets/php/conexao.php';
-
-// ---------- Função que calcula o status ----------
+                    <!-- Tabela principal -->
+                    <div class="card">
+                        <h5 class="card-header">Estoque — Itens da Matriz</h5>
+                        <div class="table-responsive text-nowrap">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Codigo Produto</th>
+                                        <th>Produto</th>
+                                        <th>Categoria</th>
+                                        <th>Unidade</th>
+                                        <th>Min</th>
+                                        <th>Disp.</th>
+                                        <th>Reserv.</th>
+                                        <th>Transf.</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="table-border-bottom-0">
+                                 <?php
+// ---------- Função: calculaStatus ----------
 function calculaStatus(int $disp, int $min): array {
     // Retorna [label_text, bootstrap_badge_class]
     if ($min <= 0) {
         if ($disp <= 0) return ['Crítico', 'bg-label-danger'];
         if ($disp <= 10) return ['Baixo', 'bg-label-warning'];
         if ($disp <= 50) return ['Estável', 'bg-label-success'];
-        return ['Alto', 'bg-label-primary'];
+        return ['Alto', 'bg-label-success']; // fallback
     }
 
     if ($disp <= 0.5 * $min) {
@@ -704,155 +811,360 @@ function calculaStatus(int $disp, int $min): array {
     } elseif ($disp <= 3 * $min) {
         return ['Estável', 'bg-label-success'];
     } else {
-        return ['Alto', 'bg-label-primary'];
+        return ['Alto', 'bg-label-success'];
     }
 }
 
-// ---------- Parâmetro: filial/almoxarifado que identifica a matriz ----------
-$filial = 'principal_1';
+// ---------- Função: obter itens só da matriz principal_1 ----------
+function getItensMatriz(PDO $pdo, string $filial = 'principal_1'): array {
+    $sql = "
+    SELECT
+        COALESCE(p.sku, p.codigo_produto, p.id) AS codigo,
+        COALESCE(p.nome_produto, p.nome, p.descricao) AS produto,
+        COALESCE(p.categoria_produto, p.categoria, '—') AS categoria,
+        COALESCE(p.unidade, 'UN') AS unidade,
+        COALESCE(p.minimo, e.minimo, 0) AS minimo,
+        COALESCE(e.quantidade_total, e.saldo, e.qtd, 0) AS quantidade_total,
+        COALESCE(e.reservado, e.qtd_reservada, 0) AS reservado,
+        COALESCE(e.em_transferencia, e.transferencia, 0) AS transf
+    FROM produtos_peca p
+    LEFT JOIN estoque_peca e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
+    WHERE (e.local = :filial OR e.almoxarifado = :filial OR e.filial = :filial)
+    ORDER BY COALESCE(p.nome_produto, p.nome, p.descricao) ASC
+    LIMIT 1000;
+    ";
 
-// ---------- Query: buscar somente itens do estoque da matriz ----------
-// ATENÇÃO: ajuste os nomes de tabela/coluna abaixo conforme seu schema real.
-// Aqui eu uso nomes genéricos: produtos_peca (p) e estoque_peca (e).
-$sql = "
-SELECT
-    COALESCE(p.sku, p.codigo_produto, p.id) AS codigo,
-    COALESCE(p.nome_produto, p.nome, p.descricao) AS produto,
-    COALESCE(p.categoria_produto, p.categoria, '—') AS categoria,
-    COALESCE(p.unidade, 'UN') AS unidade,
-    COALESCE(p.minimo, e.minimo, 0) AS minimo,
-    COALESCE(e.quantidade_total, e.saldo, e.qtd, 0) AS quantidade_total,
-    COALESCE(e.reservado, e.qtd_reservada, 0) AS reservado,
-    COALESCE(e.em_transferencia, e.transferencia, 0) AS transf
-FROM produtos_peca p
-LEFT JOIN estoque_peca e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
-WHERE
-    (e.local = :filial OR e.almoxarifado = :filial OR e.filial = :filial)
-ORDER BY COALESCE(p.nome_produto, p.nome, p.descricao) ASC
-LIMIT 1000;
-";
-
-try {
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([':filial' => $filial]);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    // Em ambiente de produção prefira registrar o erro em log e mostrar mensagem genérica.
-    die('<div class="alert alert-danger">Erro na consulta: ' . htmlspecialchars($e->getMessage()) . '</div>');
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':filial' => $filial]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        // Em produção você pode logar o erro; aqui devolvemos array vazio para não quebrar a renderização
+        error_log('Erro getItensMatriz: ' . $e->getMessage());
+        return [];
+    }
 }
 
+// ---------- Função: renderizar as linhas da tabela no mesmo formato que você enviou ----------
+function renderLinhaProduto(array $r): void {
+    $codigo = htmlspecialchars($r['codigo'] ?? '—');
+    $produto = htmlspecialchars($r['produto'] ?? '—');
+    $categoria = htmlspecialchars($r['categoria'] ?? '—');
+    $unidade = htmlspecialchars($r['unidade'] ?? '—');
+    $min = (int)($r['minimo'] ?? 0);
+    $total = (int)($r['quantidade_total'] ?? 0);
+    $reservado = (int)($r['reservado'] ?? 0);
+    $transf = (int)($r['transf'] ?? 0);
+
+    // Disponível = total - reservado - transf (como você pediu)
+    $disp = $total - $reservado - $transf;
+    if ($disp < 0) $disp = 0;
+
+    list($label, $badgeClass) = calculaStatus($disp, $min);
+
+    // Imprime a linha com o mesmo HTML e botões (data-* preenchidos)
+    echo "<tr>
+            <td><strong>{$codigo}</strong></td>
+            <td>{$produto}</td>
+            <td>{$categoria}</td>
+            <td>{$unidade}</td>
+            <td>" . number_format($min, 0, ',', '.') . "</td>
+            <td>" . number_format($disp, 0, ',', '.') . "</td>
+            <td>" . number_format($reservado, 0, ',', '.') . "</td>
+            <td>" . number_format($transf, 0, ',', '.') . "</td>
+            <td><span class=\"badge {$badgeClass}\">" . htmlspecialchars($label) . "</span></td>
+            <td class=\"text-end\">
+                <div class=\"btn-group\">
+                    <button class=\"btn btn-sm btn-outline-secondary\" data-bs-toggle=\"modal\" data-bs-target=\"#modalProduto\"
+                        data-sku=\"{$codigo}\"
+                        data-nome=\"" . htmlspecialchars($produto) . "\"
+                        data-categoria=\"" . htmlspecialchars($categoria) . "\"
+                        data-unidade=\"" . htmlspecialchars($unidade) . "\"
+                        data-min=\"{$min}\"
+                        data-disp=\"{$disp}\"
+                        data-res=\"{$reservado}\"
+                        data-transf=\"{$transf}\">Detalhes</button>
+
+                    <button class=\"btn btn-sm btn-primary\" data-bs-toggle=\"modal\" data-bs-target=\"#modalMovimentar\" data-sku=\"{$codigo}\">Mov.</button>
+
+                    <button class=\"btn btn-sm btn-outline-primary\" data-bs-toggle=\"modal\" data-bs-target=\"#modalTransferir\" data-sku=\"{$codigo}\">Transf.</button>
+                </div>
+            </td>
+        </tr>";
+}
+
+// ---------- Uso: obter os itens e renderizar (substitui o tbody estático) ----------
+$itens = getItensMatriz($pdo, 'principal_1'); // usa sua conexão $pdo
+if (empty($itens)) {
+    echo '<tr><td colspan="10" class="text-center text-muted">Nenhum produto encontrado na matriz principal_1.</td></tr>';
+} else {
+    foreach ($itens as $item) {
+        renderLinhaProduto($item);
+    }
+}
 ?>
-<!-- ========================= HTML: Tabela Dinâmica ========================= -->
-<div class="container-xxl flex-grow-1 container-p-y">
-    <h4 class="fw-bold mb-0">
-        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
-        Estoque Matriz
-    </h4>
-    <h5 class="fw-bold mt-3 mb-3 custor-font">
-        <span class="text-muted fw-light">Visão geral do estoque central</span>
-    </h5>
 
-    <!-- Tabela principal -->
-    <div class="card">
-        <h5 class="card-header">Estoque — Itens da Matriz (<?= htmlspecialchars($filial) ?>)</h5>
-        <div class="table-responsive text-nowrap">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>Codigo Produto</th>
-                        <th>Produto</th>
-                        <th>Categoria</th>
-                        <th>Unidade</th>
-                        <th>Min</th>
-                        <th>Disp.</th>
-                        <th>Reserv.</th>
-                        <th>Transf.</th>
-                        <th>Status</th>
-                        <th class="text-end">Ações</th>
-                    </tr>
-                </thead>
-                <tbody class="table-border-bottom-0">
-                    <?php if (empty($rows)): ?>
-                        <tr>
-                            <td colspan="10" class="text-center text-muted">Nenhum produto encontrado na matriz <?= htmlspecialchars($filial) ?>.</td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($rows as $r):
-                            $codigo = $r['codigo'];
-                            $produto = $r['produto'];
-                            $categoria = $r['categoria'];
-                            $unidade = $r['unidade'];
-                            $min = (int)$r['minimo'];
-                            $total = (int)$r['quantidade_total'];
-                            $reservado = (int)$r['reservado'];
-                            $transf = (int)$r['transf'];
 
-                            // Disponível: total menos reservado e transferências
-                            $disp = $total - $reservado - $transf;
-                            if ($disp < 0) $disp = 0;
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- ===== Modais ===== -->
 
-                            list($label, $badgeClass) = calculaStatus($disp, $min);
-                        ?>
-                        <tr>
-                            <td><strong><?= htmlspecialchars($codigo) ?></strong></td>
-                            <td><?= htmlspecialchars($produto) ?></td>
-                            <td><?= htmlspecialchars($categoria) ?></td>
-                            <td><?= htmlspecialchars($unidade) ?></td>
-                            <td><?= number_format($min, 0, ',', '.') ?></td>
-                            <td><?= number_format($disp, 0, ',', '.') ?></td>
-                            <td><?= number_format($reservado, 0, ',', '.') ?></td>
-                            <td><?= number_format($transf, 0, ',', '.') ?></td>
-                            <td><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($label) ?></span></td>
-                            <td class="text-end">
-                                <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto"
-                                        data-sku="<?= htmlspecialchars($codigo) ?>"
-                                        data-nome="<?= htmlspecialchars($produto) ?>"
-                                        data-categoria="<?= htmlspecialchars($categoria) ?>"
-                                        data-unidade="<?= htmlspecialchars($unidade) ?>"
-                                        data-min="<?= $min ?>"
-                                        data-disp="<?= $disp ?>"
-                                        data-res="<?= $reservado ?>"
-                                        data-transf="<?= $transf ?>">Detalhes</button>
-
-                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar"
-                                        data-sku="<?= htmlspecialchars($codigo) ?>">Mov.</button>
-
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir"
-                                        data-sku="<?= htmlspecialchars($codigo) ?>">Transf.</button>
+                <!-- Modal: Detalhes do Produto -->
+                <div class="modal fade" id="modalProduto" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Detalhes do Produto</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row g-3 mb-2">
+                                    <div class="col-md-4">
+                                        <p class="mb-1"><strong>Codigo Produto:</strong> <span id="det-sku">—</span></p>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <p class="mb-1"><strong>Produto:</strong> <span id="det-nome">—</span></p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="mb-1"><strong>Categoria:</strong> <span id="det-categoria">—</span></p>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <p class="mb-1"><strong>Unidade:</strong> <span id="det-validade">—</span></p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Mínimo:</strong> <span id="det-min">—</span></p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Disponível:</strong> <span id="det-disp">—</span></p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Reservado:</strong> <span id="det-res">—</span></p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Em transf.:</strong> <span id="det-transf">—</span></p>
+                                    </div>
+                                    
                                 </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+                                <div class="alert alert-info mb-0">
+                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Mov.</strong> para entrada/saída/ajuste ou em <strong>Transf.</strong> para enviar às Filiais.
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-<!-- Script para popular modalProduto (usa data-* dos botões) -->
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var modalProduto = document.getElementById('modalProduto');
-    if (!modalProduto) return;
+                <!-- Modal: Movimentar Estoque -->
+                <div class="modal fade" id="modalMovimentar" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Movimentar Estoque</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form>
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label class="form-label">Codigo Produto</label>
+                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Tipo de movimentação</label>
+                                            <div class="d-flex gap-3 flex-wrap">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movEntrada" value="entrada" checked>
+                                                    <label class="form-check-label" for="movEntrada">Entrada</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movSaida" value="saida">
+                                                    <label class="form-check-label" for="movSaida">Saída</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movAjuste" value="ajuste">
+                                                    <label class="form-check-label" for="movAjuste">Ajuste</label>
+                                                </div>
+                                            </div>
+                                        </div>
 
-    modalProduto.addEventListener('show.bs.modal', function (event) {
-        var btn = event.relatedTarget;
-        if (!btn) return;
+                                        <div class="col-md-6">
+                                            <label class="form-label">Quantidade</label>
+                                            <input type="number" class="form-control" min="1" placeholder="0">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Documento (NF/OS)</label>
+                                            <input type="text" class="form-control" placeholder="Opcional">
+                                        </div>
 
-        document.getElementById('det-sku').textContent = btn.getAttribute('data-sku') || '—';
-        document.getElementById('det-nome').textContent = btn.getAttribute('data-nome') || '—';
-        document.getElementById('det-categoria').textContent = btn.getAttribute('data-categoria') || '—';
-        document.getElementById('det-validade').textContent = btn.getAttribute('data-unidade') || '—';
-        document.getElementById('det-min').textContent = btn.getAttribute('data-min') || '—';
-        document.getElementById('det-disp').textContent = btn.getAttribute('data-disp') || '—';
-        document.getElementById('det-res').textContent = btn.getAttribute('data-res') || '—';
-        document.getElementById('det-transf').textContent = btn.getAttribute('data-transf') || '—';
-    });
-});
-</script>
+                                       
+                                        <div class="col-12">
+                                            <label class="form-label">Motivo</label>
+                                            <select class="form-select">
+                                                <option>Reposição de fornecedor</option>
+                                                <option>Devolução</option>
+                                                <option>Perda/avaria</option>
+                                                <option>Inventário</option>
+                                                <option>Outros</option>
+                                            </select>
+                                        </div>
 
+                                        <div class="col-12">
+                                            <label class="form-label">Observações</label>
+                                            <textarea class="form-control" rows="3" placeholder="Detalhe a movimentação..."></textarea>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button class="btn btn-primary">Salvar movimentação</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal: Transferir p/ Filial -->
+                <div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Transferir para Filial</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form>
+                                    <div class="row g-3">
+                                        <div class="col-12">
+                                            <label class="form-label">Codigo Produto</label>
+                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label">Filial</label>
+                                            <select class="form-select">
+                                                <option>Filial Centro</option>
+                                                <option>Filial Norte</option>
+                                                <option>Filial Sul</option>
+                                                <option>Filial Leste</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                            <label class="form-label">Quantidade</label>
+                                            <input type="number" class="form-control" min="1" placeholder="0">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Prioridade</label>
+                                            <select class="form-select">
+                                                <option>Baixa</option>
+                                                <option>Média</option>
+                                                <option>Alta</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="form-label">Observações</label>
+                                            <textarea class="form-control" rows="3" placeholder="Instruções de envio, embalagem, etc."></textarea>
+                                        </div>
+                                    </div>
+                                </form>
+                                <div class="alert alert-warning mt-3 mb-0">
+                                    <i class="bx bx-error-circle me-1"></i> A transferência reserva a quantidade informada até o envio.
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                <button class="btn btn-primary">Gerar transferência</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal: Histórico de Movimentações -->
+                <div class="modal fade" id="modalHistorico" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Histórico de Movimentações</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="table-responsive text-nowrap">
+                                    <table class="table table-striped align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th>Data/Hora</th>
+                                                <th>Codigo Produto</th>
+                                                <th>Produto</th>
+                                                <th>Tipo</th>
+                                                <th>Qtd</th>
+                                                <th>Doc</th>
+                                                <th>Motivo</th>
+                                                <th>Usuário</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>26/09/2025 10:15</td>
+                                                <td>ACA-500</td>
+                                                <td>Polpa Açaí 500g</td>
+                                                <td><span class="badge bg-label-success">Entrada</span></td>
+                                                <td>+300</td>
+                                                <td>L2309-01</td>
+                                                <td>NF 21544</td>
+                                                <td>Reposição de fornecedor</td>
+                                                <td>maria.silva</td>
+                                            </tr>
+                                            <tr>
+                                                <td>25/09/2025 17:02</td>
+                                                <td>ACA-1KG</td>
+                                                <td>Polpa Açaí 1kg</td>
+                                                <td><span class="badge bg-label-info">Ajuste</span></td>
+                                                <td>+20</td>
+                                                <td>L2309-05</td>
+                                                <td>—</td>
+                                                <td>Inventário</td>
+                                                <td>joao.souza</td>
+                                            </tr>
+                                            <tr>
+                                                <td>24/09/2025 09:40</td>
+                                                <td>GRAN-200</td>
+                                                <td>Granola 200g</td>
+                                                <td><span class="badge bg-label-danger">Saída</span></td>
+                                                <td>-60</td>
+                                                <td>L2407-03</td>
+                                                <td>OS 7711</td>
+                                                <td>Perda/avaria</td>
+                                                <td>ana.pereira</td>
+                                            </tr>
+                                            <tr>
+                                                <td>23/09/2025 15:18</td>
+                                                <td>COPO-300</td>
+                                                <td>Copo 300ml</td>
+                                                <td><span class="badge bg-label-primary">Transferência</span></td>
+                                                <td>-500</td>
+                                                <td>L2401-12</td>
+                                                <td>TR-1026</td>
+                                                <td>Envio p/ Filial Sul</td>
+                                                <td>rodrigo.alves</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <small class="text-muted">* Valores positivos aumentam o saldo, negativos reduzem.</small>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- / Content -->
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
