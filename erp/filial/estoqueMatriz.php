@@ -793,117 +793,105 @@ $fimTxt = $fim->format('d/m/Y');
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                 <?php
-                                 // ✅ Conexão com o banco de dados
-require '../../assets/php/conexao.php';
-// ---------- Função: calculaStatus ----------
-function calculaStatus(int $disp, int $min): array {
-    // Retorna [label_text, bootstrap_badge_class] — thresholds ajustáveis
-    if ($min <= 0) {
-        if ($disp <= 0) return ['Crítico', 'bg-label-danger'];
-        if ($disp <= 10) return ['Baixo', 'bg-label-warning'];
-        if ($disp <= 50) return ['Estável', 'bg-label-success'];
-        return ['Alto', 'bg-label-success'];
-    }
+                                    <!-- Linha 1 -->
+                                    <tr>
+                                        <td><strong>ACA-500</strong></td>
+                                        <td>Polpa Açaí 500g</td>
+                                        <td>Congelados</td>
+                                        <td>UN</td>
+                                        <td>200</td>
+                                        <td>1.420</td>
+                                        <td>120</td>
+                                        <td>80</td>
+                                        <td><span class="badge bg-label-success">Estável</span></td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-500">Detalhes</button>
+                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-500">Mov.</button>
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-500">Transf.</button>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-    if ($disp <= 0.5 * $min) {
-        return ['Crítico', 'bg-label-danger'];
-    } elseif ($disp <= $min) {
-        return ['Baixo', 'bg-label-warning'];
-    } elseif ($disp <= 3 * $min) {
-        return ['Estável', 'bg-label-success'];
-    } else {
-        return ['Alto', 'bg-label-success'];
-    }
-}
+                                    <!-- Linha 2 -->
+                                    <tr>
+                                        <td><strong>ACA-1KG</strong></td>
+                                        <td>Polpa Açaí 1kg</td>
+                                        <td>Congelados</td>
+                                        <td>KG</td>
+                                        <td>150</td>
+                                        <td>380</td>
+                                        <td>80</td>
+                                        <td>120</td>
+                                        <td><span class="badge bg-label-warning">Baixo</span></td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-1KG">Detalhes</button>
+                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-1KG">Mov.</button>
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-1KG">Transf.</button>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-// ---------- Função: obter itens só da matriz (filtra por empresa_id = 'principal_1') ----------
-function getItensMatriz(PDO $pdo, string $empresaId = 'principal_1'): array {
-    $sql = "
-    SELECT
-        COALESCE(p.sku, p.codigo_produto, p.id) AS codigo,
-        COALESCE(p.nome_produto, p.nome, p.descricao) AS produto,
-        COALESCE(p.categoria_produto, p.categoria, '—') AS categoria,
-        COALESCE(p.unidade, 'UN') AS unidade,
-        COALESCE(p.minimo, e.minimo, 0) AS minimo,
-        COALESCE(e.quantidade_total, e.saldo, e.qtd, 0) AS quantidade_total,
-        COALESCE(e.reservado, e.qtd_reservada, 0) AS reservado,
-        COALESCE(e.em_transferencia, e.transferencia, 0) AS transf
-    FROM produtos_peca p
-    LEFT JOIN estoque e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
-    WHERE e.empresa_id = :empresaId
-    ORDER BY COALESCE(p.nome_produto, p.nome, p.descricao) ASC
-    LIMIT 1000;
-    ";
+                                    <!-- Linha 3 -->
+                                    <tr>
+                                        <td><strong>COPO-300</strong></td>
+                                        <td>Copo 300ml</td>
+                                        <td>Displays</td>
+                                        <td>—</td>
+                                        <td>1.000</td>
+                                        <td>6.200</td>
+                                        <td>200</td>
+                                        <td>0</td>
+                                        <td><span class="badge bg-label-success">Estável</span></td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="COPO-300">Detalhes</button>
+                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="COPO-300">Mov.</button>
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="COPO-300">Transf.</button>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-    try {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([':empresaId' => $empresaId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        error_log('Erro getItensMatriz: ' . $e->getMessage());
-        return [];
-    }
-}
+                                    <!-- Linha 4 -->
+                                    <tr>
+                                        <td><strong>GRAN-200</strong></td>
+                                        <td>Granola 200g</td>
+                                        <td>Secos</td>
+                                        <td>UN</td>
+                                        <td>300</td>
+                                        <td>260</td>
+                                        <td>0</td>
+                                        <td>0</td>
+                                        <td><span class="badge bg-label-danger">Crítico</span></td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="GRAN-200">Detalhes</button>
+                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="GRAN-200">Mov.</button>
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="GRAN-200">Transf.</button>
+                                            </div>
+                                        </td>
+                                    </tr>
 
-// ---------- Função: renderizar linha (mesmo HTML que você enviou) ----------
-function renderLinhaProduto(array $r): void {
-    $codigo = htmlspecialchars($r['codigo'] ?? '—');
-    $produto = htmlspecialchars($r['produto'] ?? '—');
-    $categoria = htmlspecialchars($r['categoria'] ?? '—');
-    $unidade = htmlspecialchars($r['unidade'] ?? '—');
-    $min = (int)($r['minimo'] ?? 0);
-    $total = (int)($r['quantidade_total'] ?? 0);
-    $reservado = (int)($r['reservado'] ?? 0);
-    $transf = (int)($r['transf'] ?? 0);
-
-    // Disponível = total - reservado - transf
-    $disp = $total - $reservado - $transf;
-    if ($disp < 0) $disp = 0;
-
-    list($label, $badgeClass) = calculaStatus($disp, $min);
-
-    echo "<tr>
-            <td><strong>{$codigo}</strong></td>
-            <td>{$produto}</td>
-            <td>{$categoria}</td>
-            <td>{$unidade}</td>
-            <td>" . number_format($min, 0, ',', '.') . "</td>
-            <td>" . number_format($disp, 0, ',', '.') . "</td>
-            <td>" . number_format($reservado, 0, ',', '.') . "</td>
-            <td>" . number_format($transf, 0, ',', '.') . "</td>
-            <td><span class=\"badge {$badgeClass}\">" . htmlspecialchars($label) . "</span></td>
-            <td class=\"text-end\">
-                <div class=\"btn-group\">
-                    <button class=\"btn btn-sm btn-outline-secondary\" data-bs-toggle=\"modal\" data-bs-target=\"#modalProduto\"
-                        data-sku=\"{$codigo}\"
-                        data-nome=\"" . htmlspecialchars($produto) . "\"
-                        data-categoria=\"" . htmlspecialchars($categoria) . "\"
-                        data-unidade=\"" . htmlspecialchars($unidade) . "\"
-                        data-min=\"{$min}\"
-                        data-disp=\"{$disp}\"
-                        data-res=\"{$reservado}\"
-                        data-transf=\"{$transf}\">Detalhes</button>
-
-                    <button class=\"btn btn-sm btn-primary\" data-bs-toggle=\"modal\" data-bs-target=\"#modalMovimentar\" data-sku=\"{$codigo}\">Mov.</button>
-
-                    <button class=\"btn btn-sm btn-outline-primary\" data-bs-toggle=\"modal\" data-bs-target=\"#modalTransferir\" data-sku=\"{$codigo}\">Transf.</button>
-                </div>
-            </td>
-        </tr>";
-}
-
-// ---------- Uso: buscar e renderizar (substitui o tbody estático) ----------
-$itens = getItensMatriz($pdo, 'principal_1'); // usa empresa_id = 'principal_1'
-if (empty($itens)) {
-    echo '<tr><td colspan="10" class="text-center text-muted">Nenhum produto encontrado na matriz principal_1.</td></tr>';
-} else {
-    foreach ($itens as $item) {
-        renderLinhaProduto($item);
-    }
-}
-?>
-
+                                    <!-- Linha 5 -->
+                                    <tr>
+                                        <td><strong>COL-12</strong></td>
+                                        <td>Colher biodegradável (cx c/ 1.000)</td>
+                                        <td>Descartáveis</td>
+                                        <td>—</td>
+                                        <td>50</td>
+                                        <td>410</td>
+                                        <td>30</td>
+                                        <td>0</td>
+                                        <td><span class="badge bg-label-success">Estável</span></td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="COL-12">Detalhes</button>
+                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="COL-12">Mov.</button>
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="COL-12">Transf.</button>
+                                            </div>
+                                        </td>
+                                    </tr>
 
                                 </tbody>
                             </table>
