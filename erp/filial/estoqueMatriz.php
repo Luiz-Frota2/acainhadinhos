@@ -828,7 +828,7 @@ function getItensMatriz(PDO $pdo, string $empresaId = 'principal_1'): array {
         COALESCE(e.reservado, e.qtd_reservada, 0) AS reservado,
         COALESCE(e.em_transferencia, e.transferencia, 0) AS transf
     FROM produtos_peca p
-    LEFT JOIN estoque_peca e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
+    LEFT JOIN estoque e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
     WHERE e.empresa_id = :empresaId
     ORDER BY COALESCE(p.nome_produto, p.nome, p.descricao) ASC
     LIMIT 1000;
