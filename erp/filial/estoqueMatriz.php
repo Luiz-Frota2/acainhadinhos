@@ -719,7 +719,7 @@ try {
     $card3 = (int)$stmt->fetchColumn();
 
     $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(status), 0) AS total_status
+        SELECT COUNT(*) AS status
         FROM solicitacoes_b2b
         WHERE id_matriz = :empresa and status = 'entregue'
     ");
