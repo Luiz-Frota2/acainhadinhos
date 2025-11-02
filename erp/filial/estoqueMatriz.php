@@ -709,9 +709,16 @@ try {
     $stmt->execute([':empresa' => $idSelecionado]);
     $card2 = (int)$stmt->fetchColumn();
 
-    // 3 e 4) Seu banco ainda não possui colunas de reservado e transferência
-    // então deixo 0 até criarmos essas funções
-    $card3 = 0; // Reservado
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS reservado
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card3 = (int)$stmt->fetchColumn();
+
+
+
     $card4 = 0; // Em transferência
 
 } catch (PDOException $e) {
