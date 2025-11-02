@@ -827,7 +827,7 @@ function calcularStatusEstoque($quantidade, $min)
 {
     if ($quantidade < $min) {
         return ['Baixo', 'danger'];
-    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
+    } elseif ($quantidade >= $min && $quantidade <= ($min * 4)) {
         return ['Estável', 'success'];
     } else {
         return ['Alto', 'primary'];
