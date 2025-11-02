@@ -247,9 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 /* ==========================================================
-   AUTOCOMPLETE (mesmo padrão do outro arquivo)
-   ?ajax=autocomplete&q=...
-   Sugerimos por id_solicitante e por descricao
+   AUTOCOMPLETE (id_solicitante / descricao)
    ========================================================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
     $term = trim($_GET['q'] ?? '');
@@ -293,10 +291,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
 }
 
 /* ==========================================================
-   >>>>>>>  FILTROS (iguais ao outro arquivo)  <<<<<<<
-   - status: só 'entregue' ou 'cancelada'
-   - de/ate: por VENCIMENTO (ajuste aqui se quiser usar created_at)
-   - q: id_solicitante OU descricao (com autocomplete)
+   >>>>>>>  FILTROS (Status pendente/aprovado/reprovado)  <<<<<<<
+   - status: 'pendente' | 'aprovado' | 'reprovado'
+   - de/ate: por VENCIMENTO (YYYY-MM-DD) — troque para created_at se preferir
+   - q: id_solicitante OU descricao
    ========================================================== */
 $status = $_GET['status'] ?? '';
 $de     = trim($_GET['de'] ?? '');
@@ -309,14 +307,13 @@ $params = [':matriz' => $idSelecionado];
 $where[] = "u.tipo = 'Filial'";
 $where[] = "sp.id_matriz = :matriz";
 
-/* status: somente entregue/cancelada */
-$validStatus = ['entregue','cancelada'];
+/* status: pendente/aprovado/reprovado */
+$validStatus = ['pendente','aprovado','reprovado'];
 if ($status !== '' && in_array($status, $validStatus, true)) {
     $where[] = "sp.status = :status";
     $params[':status'] = $status;
 } else {
-    // padrão: mostrar os dois
-    $where[] = "sp.status IN ('entregue','cancelada')";
+    // padrão: exibe todos (sem filtrar status)
 }
 
 /* período: por vencimento (YYYY-MM-DD) */
@@ -487,40 +484,6 @@ try {
                         <i class="bx bx-menu bx-sm"></i>
                     </a>
                 </div>
-                <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-                    <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
-                    <ul class="navbar-nav flex-row align-items-center ms-auto">
-                        <li class="nav-item navbar-dropdown dropdown-user dropdown">
-                            <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
-                                <div class="avatar avatar-online">
-                                    <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
-                                </div>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <a class="dropdown-item" href="#">
-                                        <div class="d-flex">
-                                            <div class="flex-shrink-0 me-3">
-                                                <div class="avatar avatar-online">
-                                                    <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
-                                                </div>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <span class="fw-semibold d-block"><?= e($nomeUsuario) ?></span>
-                                                <small class="text-muted"><?= e($tipoUsuario) ?></small>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </li>
-                                <li><div class="dropdown-divider"></div></li>
-                                <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span>Minha Conta</span></a></li>
-                                <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span>Configurações</span></a></li>
-                                <li><div class="dropdown-divider"></div></li>
-                                <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span>Sair</span></a></li>
-                            </ul>
-                        </li>
-                    </ul>
-                </div>
             </nav>
             <!-- / Navbar -->
 
@@ -533,7 +496,7 @@ try {
                     <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das filiais</span>
                 </h5>
 
-                <!-- ===== Filtros (iguais ao outro) ===== -->
+                <!-- ===== Filtros ===== -->
                 <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
                     <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
                     <div class="card-body">
@@ -541,9 +504,10 @@ try {
                             <div class="col-12 col-md-auto filter-col">
                                 <label class="form-label mb-1">Status</label>
                                 <select class="form-select form-select-sm" name="status">
-                                    <option value="">Entregue + Cancelada (padrão)</option>
-                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>Entregue</option>
-                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>Cancelada</option>
+                                    <option value="">Todos (pendente, aprovado, reprovado)</option>
+                                    <option value="pendente"  <?= $status==='pendente'  ? 'selected' : '' ?>>Pendente</option>
+                                    <option value="aprovado"  <?= $status==='aprovado'  ? 'selected' : '' ?>>Aprovado</option>
+                                    <option value="reprovado" <?= $status==='reprovado' ? 'selected' : '' ?>>Reprovado</option>
                                 </select>
                             </div>
 
@@ -621,14 +585,16 @@ try {
                                     <td>
                                         <?php
                                         $badge = 'bg-label-secondary';
-                                        if ($p['status'] === 'entregue')   $badge = 'bg-label-success';
-                                        if ($p['status'] === 'cancelada')  $badge = 'bg-label-danger';
+                                        if ($p['status'] === 'pendente')  $badge = 'bg-label-warning';
+                                        if ($p['status'] === 'aprovado')  $badge = 'bg-label-success';
+                                        if ($p['status'] === 'reprovado') $badge = 'bg-label-danger';
                                         ?>
                                         <span class="badge <?= $badge ?> status-badge" id="status-<?= $id ?>">
                                             <?= e($p['status']) ?>
                                         </span>
                                     </td>
                                     <td class="text-end" id="acoes-<?= $id ?>">
+                                        <!-- Nesta tela (histórico/consulta) mostramos apenas Detalhes -->
                                         <button class="btn btn-sm btn-outline-secondary btn-detalhes" data-id="<?= $id ?>" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
                                     </td>
                                 </tr>
@@ -764,7 +730,7 @@ try {
           .catch(() => { if (box) box.innerHTML = `<div class="text-danger">Falha de rede ao buscar detalhes.</div>`; });
     });
 
-    /* ===== Autocomplete (igual ao outro) ===== */
+    /* ===== Autocomplete ===== */
     (function() {
       const qInput = document.getElementById('qInput');
       const list = document.getElementById('qList');
