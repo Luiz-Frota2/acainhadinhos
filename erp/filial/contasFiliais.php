@@ -2,7 +2,7 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-session_start());
+session_start();
 date_default_timezone_set('America/Manaus');
 
 /* ================= Sessão & parâmetros ================= */
