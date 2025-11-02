@@ -793,25 +793,93 @@ $fimTxt = $fim->format('d/m/Y');
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                    <!-- Linha 1 -->
-                                    <tr>
-                                        <td><strong>ACA-500</strong></td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>Congelados</td>
-                                        <td>UN</td>
-                                        <td>200</td>
-                                        <td>1.420</td>
-                                        <td>120</td>
-                                        <td>80</td>
-                                        <td><span class="badge bg-label-success">Estável</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-500">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-500">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-500">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                   <?php
+// Consulta somente produtos da empresa principal
+$sql = $pdo->prepare("
+    SELECT 
+        id,
+        codigo,
+        produto,
+        categoria,
+        unidade,
+        quantidade_disponivel,
+        quantidade_reservada,
+        quantidade_transferida
+    FROM estoque
+    WHERE empresa_id = 'principal'
+");
+$sql->execute();
+$produtos = $sql->fetchAll(PDO::FETCH_ASSOC);
+
+// Função para calcular status
+function calcularStatus($quantidade, $min) {
+    if ($quantidade < $min) {
+        return ['Baixo', 'danger'];
+    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
+        return ['Estável', 'success'];
+    } else {
+        return ['Alto', 'primary'];
+    }
+}
+?>
+
+<tbody class="table-border-bottom-0">
+
+<?php foreach ($produtos as $p): ?>
+
+    <?php
+        // Cálculo do Min (10% do disponível)
+        $min = $p['quantidade_disponivel'] * 0.10;
+
+        // Status
+        list($statusTexto, $statusCor) = calcularStatus($p['quantidade_disponivel'], $min);
+    ?>
+
+    <tr>
+        <td><strong><?= htmlspecialchars($p['codigo']) ?></strong></td>
+        <td><?= htmlspecialchars($p['produto']) ?></td>
+        <td><?= htmlspecialchars($p['categoria']) ?></td>
+        <td><?= htmlspecialchars($p['unidade']) ?></td>
+
+        <!-- Min calculado automaticamente -->
+        <td><?= number_format($min, 0, ',', '.') ?></td>
+
+        <!-- Quantidade disponível -->
+        <td><?= number_format($p['quantidade_disponivel'], 0, ',', '.') ?></td>
+
+        <!-- Reservado -->
+        <td><?= number_format($p['quantidade_reservada'], 0, ',', '.') ?></td>
+
+        <!-- Transferido -->
+        <td><?= number_format($p['quantidade_transferida'], 0, ',', '.') ?></td>
+
+        <!-- Status automático -->
+        <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
+
+        <td class="text-end">
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalProduto"
+                        data-sku="<?= htmlspecialchars($p['codigo']) ?>">Detalhes</button>
+
+                <button class="btn btn-sm btn-primary" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalMovimentar"
+                        data-sku="<?= htmlspecialchars($p['codigo']) ?>">Mov.</button>
+
+                <button class="btn btn-sm btn-outline-primary" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modalTransferir"
+                        data-sku="<?= htmlspecialchars($p['codigo']) ?>">Transf.</button>
+            </div>
+        </td>
+    </tr>
+
+<?php endforeach; ?>
+
+</tbody>
+
 
                                 </tbody>
                             </table>
