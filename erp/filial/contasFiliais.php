@@ -121,7 +121,7 @@ if (isset($_GET['download'])) {
 
         // 3) Descobre a pasta BASE local dos comprovantes (inclui as variações da Hostinger)
         $possiveisBases = [
-            // Caminhos absolutos prováveis na sua conta (ajuste se necessário)
+            // Caminhos absolutos prováveis (ajuste se necessário)
             '/home/u922223647/domains/acainhadinhos.com.br/files/public_html/public/pagamentos',
             '/home/u922223647/domains/acainhadinhos.com.br/public_html/public/pagamentos',
 
@@ -594,8 +594,9 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     <div class="text-center text-muted py-3">Carregando…</div>
                                 </div>
                             </div>
-                            <div class="modal-footer">
+                            <div class="modal-footer" id="detalhes-footer">
                                 <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                                <!-- O botão “Baixar” é injetado dinamicamente quando houver documento -->
                             </div>
                         </div>
                     </div>
@@ -705,7 +706,14 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         if (t.classList.contains('btn-detalhes')){
             const id = t.getAttribute('data-id');
             const box = document.getElementById('detalhes-conteudo');
+            const footer = document.getElementById('detalhes-footer');
             if (box){ box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>'; }
+            if (footer){
+                // remove botão baixar anterior, se existir
+                const oldBtn = footer.querySelector('.btn-baixar-modal');
+                if (oldBtn) oldBtn.remove();
+            }
+
             post('get_details', {id})
               .then(json => {
                   if (json && json.ok && json.data){
@@ -723,12 +731,19 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             <p><strong>Vencimento:</strong> ${formatDate(d.vencimento)}</p>
                           </div>
                           <div class="col-12">
-                            <p><strong>Documento:</strong> ${
-                              d.documento ? `<a href="?id=<?= urlencode($idSelecionado) ?>&download=${escapeHtml(d.id)}">Baixar</a>` : '<span class="text-muted">—</span>'
-                            }</p>
+                            <p><strong>Documento:</strong> ${d.documento ? 'Disponível' : '<span class="text-muted">—</span>'}</p>
                           </div>
                         </div>`;
                       if (box){ box.innerHTML = html; }
+
+                      // ✅ Botão Baixar dentro da modal (igual ao da lista)
+                      if (footer && d.documento){
+                        const a = document.createElement('a');
+                        a.className = 'btn btn-primary btn-baixar-modal';
+                        a.textContent = 'Baixar comprovante';
+                        a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(d.id))}`;
+                        footer.appendChild(a);
+                      }
                   } else {
                       if (box){ box.innerHTML = `<div class="text-danger">Não foi possível carregar os detalhes.</div>`; }
                   }
