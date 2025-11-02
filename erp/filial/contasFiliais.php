@@ -770,7 +770,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <div class="col-md-6">
                                             <p><strong>Filial:</strong> Franquia Centro</p>
                                             <p><strong>Solicitante:</strong> João Silva</p>
-                                            <p><strong>Tipo:</strong> Fatura Produtos</p>
+                                            <p><strong>Descrição:</strong> Fatura Produtos</p>
                                         </div>
                                         <div class="col-md-6">
                                             <p><strong>Valor:</strong> R$ 1.250,00</p>
@@ -779,7 +779,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         </div>
                                         <div class="col-12">
                                             <p><strong>Observações:</strong> Fatura referente ao pedido #PS-3021.</p>
-                                            <p><strong>Anexos:</strong> <a href="javascript:void(0)">NF_1001.pdf</a></p>
+                                            <p><strong>Documento:</strong> <a href="javascript:void(0)">NF_1001.pdf</a></p>
                                         </div>
                                     </div>
                                 </div>
