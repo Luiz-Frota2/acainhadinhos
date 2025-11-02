@@ -857,15 +857,17 @@ try {
             e.unidade,
             e.quantidade_produto,
             e.reservado,
-            -- Contar transferências entregues por produto
-            COUNT(s.id) AS total_transferencias
+            -- Contar transferências entregues para filiais por produto
+            COUNT(sbi.id) AS total_transferencias
         FROM estoque e
-        LEFT JOIN solicitacoes_b2b s
-            ON s.status = 'entregue'
-            AND s.id_matriz = e.empresa_id
-            AND s.codigo_produto = e.codigo_produto
+        LEFT JOIN solicitacoes_b2b_itens sbi
+            ON sbi.produto_id = e.id
+        LEFT JOIN solicitacoes_b2b sb
+            ON sb.id = sbi.solicitacao_id
+            AND sb.status = 'entregue'
+            AND sb.id_matriz = e.empresa_id
         LEFT JOIN unidades u
-            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+            ON u.id = CAST(SUBSTRING_INDEX(sb.id_solicitante, '_', -1) AS UNSIGNED)
             AND u.tipo = 'Filial'
             AND u.empresa_id = e.empresa_id
         WHERE e.empresa_id = :empresa
@@ -880,6 +882,7 @@ try {
     echo "<tr><td colspan='10'>Erro ao carregar estoque: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
     $produtosEstoque = [];
 }
+
 
 
 // ✅ Função de cálculo do status baseado no MIN (10%)
