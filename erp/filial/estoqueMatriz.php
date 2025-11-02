@@ -517,8 +517,48 @@ $solicitacao_id = $pdo->lastInsertId();
     }
 }
 
+$fil_produto   = trim($_GET['produto'] ?? '');
+$fil_codigo    = trim($_GET['codigo'] ?? '');
+$fil_categoria = trim($_GET['categoria'] ?? '');
+$fil_status    = trim($_GET['status'] ?? '');
+
+// ==========================
+// 2️⃣ Função de status
+// ==========================
+function calcularStatusEstoque($quantidade, $min)
+{
+    if ($quantidade < $min) {
+        return ['Baixo', 'danger'];
+    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
+        return ['Estável', 'success'];
+    } else {
+        return ['Alto', 'primary'];
+    }
+}
+
+// ==========================
+// 3️⃣ Busca no banco
+// ==========================
 try {
-    $stmt = $pdo->prepare("
+    $where = ['e.empresa_id = :empresa'];
+    $params = [':empresa' => $idSelecionado];
+
+    if ($fil_produto !== '') {
+        $where[] = 'e.nome_produto LIKE :produto';
+        $params[':produto'] = "%$fil_produto%";
+    }
+
+    if ($fil_codigo !== '') {
+        $where[] = 'e.codigo_produto LIKE :codigo';
+        $params[':codigo'] = "%$fil_codigo%";
+    }
+
+    if ($fil_categoria !== '') {
+        $where[] = 'e.categoria_produto LIKE :categoria';
+        $params[':categoria'] = "%$fil_categoria%";
+    }
+
+    $sql = "
         SELECT 
             e.id,
             e.empresa_id,
@@ -528,7 +568,6 @@ try {
             e.unidade,
             e.quantidade_produto,
             e.reservado,
-            -- Contar transferências entregues para filiais por produto
             COUNT(sbi.id) AS total_transferencias
         FROM estoque e
         LEFT JOIN solicitacoes_b2b_itens sbi
@@ -541,11 +580,15 @@ try {
             ON u.id = CAST(SUBSTRING_INDEX(sb.id_solicitante, '_', -1) AS UNSIGNED)
             AND u.tipo = 'Filial'
             AND u.empresa_id = e.empresa_id
-        WHERE e.empresa_id = :empresa
+        WHERE " . implode(' AND ', $where) . "
         GROUP BY e.id
         ORDER BY e.nome_produto ASC
-    ");
-    $stmt->bindParam(':empresa', $idSelecionado, PDO::PARAM_STR);
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) {
+        $stmt->bindValue($k, $v);
+    }
     $stmt->execute();
     $produtosEstoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -554,18 +597,18 @@ try {
     $produtosEstoque = [];
 }
 
+// ==========================
+// 4️⃣ Filtra por status
+// ==========================
+$produtosEstoqueFiltrado = [];
+foreach ($produtosEstoque as $p) {
+    $min = max(1, $p['quantidade_produto'] * 0.10);
+    list($statusTexto, $statusCor) = calcularStatusEstoque($p['quantidade_produto'], $min);
+    $p['statusTexto'] = $statusTexto;
+    $p['statusCor'] = $statusCor;
 
-
-// ✅ Função de cálculo do status baseado no MIN (10%)
-function calcularStatusEstoque($quantidade, $min)
-{
-    if ($quantidade < $min) {
-        return ['Baixo', 'danger'];
-    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
-        return ['Estável', 'success'];
-    } else {
-        return ['Alto', 'primary'];
-    }
+    if ($fil_status !== '' && $statusTexto !== $fil_status) continue;
+    $produtosEstoqueFiltrado[] = $p;
 }
 ?>
 
@@ -965,106 +1008,77 @@ function calcularStatusEstoque($quantidade, $min)
 </div>
 
 
-                    <!-- Ações rápidas -->
                     <div class="card mb-3">
-                       <!-- filtro -->
-                    </div>
+    <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
+        <div class="col-12 col-md-3">
+            <label class="form-label">Produto</label>
+            <input type="text" name="produto" value="<?= htmlspecialchars($fil_produto) ?>" class="form-control form-control-sm" placeholder="Nome do produto">
+        </div>
 
-                    <!-- Tabela principal -->
-                    <div class="card">
-                        <h5 class="card-header">Estoque — Itens da Matriz</h5>
-                        <div class="table-responsive text-nowrap">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Codigo Produto</th>
-                                        <th>Produto</th>
-                                        <th>Categoria</th>
-                                        <th>Unidade</th>
-                                        <th>Min</th>
-                                        <th>Disp.</th>
-                                        <th>Reserv.</th>
-                                        <th>Transf.</th>
-                                        <th>Status</th>
-                                        <th class="text-end">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-border-bottom-0">
-                                    <!-- Linha 1 -->
-                                    
-<tbody class="table-border-bottom-0">
+        <div class="col-12 col-md-2">
+            <label class="form-label">Código</label>
+            <input type="text" name="codigo" value="<?= htmlspecialchars($fil_codigo) ?>" class="form-control form-control-sm" placeholder="Código">
+        </div>
 
-<?php foreach ($produtosEstoque as $p): ?>
+        <div class="col-12 col-md-2">
+            <label class="form-label">Categoria</label>
+            <input type="text" name="categoria" value="<?= htmlspecialchars($fil_categoria) ?>" class="form-control form-control-sm" placeholder="Categoria">
+        </div>
 
-    <?php
-        // ✅ Valor MIN = 10% da quantidade
-        $min = max(1, $p['quantidade_produto'] * 0.10);
+        <div class="col-12 col-md-2">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                <option value="Baixo"   <?= $fil_status==='Baixo'   ? 'selected' : '' ?>>Baixo</option>
+                <option value="Estável" <?= $fil_status==='Estável' ? 'selected' : '' ?>>Estável</option>
+                <option value="Alto"    <?= $fil_status==='Alto'    ? 'selected' : '' ?>>Alto</option>
+            </select>
+        </div>
 
-        // ✅ Calcular status
-        list($statusTexto, $statusCor) = calcularStatusEstoque($p['quantidade_produto'], $min);
-    ?>
+        <div class="col-12 col-md-3 d-flex gap-2">
+            <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+            <a href="?id=<?= htmlspecialchars($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+        </div>
+    </form>
+</div>
 
-    <tr>
-        <td><strong><?= htmlspecialchars($p['codigo_produto']) ?></strong></td>
-        <td><?= htmlspecialchars($p['nome_produto']) ?></td>
-        <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
-        <td><?= htmlspecialchars($p['unidade']) ?></td>
-
-        <!-- ✅ MIN calculado -->
-        <td><?= number_format($min, 0, ',', '.') ?></td>
-
-        <!-- ✅ DISPONÍVEL -->
-        <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
-
-        <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
-        <td><?= htmlspecialchars($p['reservado']) ?></td> <!-- Reservado -->
-        <td><?= number_format($p['total_transferencias'], 0, ',', '.') ?></td>
-
-
-        <!-- ✅ Status automático -->
-        <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
-
-        <td class="text-end">
-            <div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary"
-        data-bs-toggle="modal"
-        data-bs-target="#modalProduto"
-        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>"
-        data-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
-        data-categoria="<?= htmlspecialchars($p['categoria_produto']) ?>"
-        data-unidade="<?= htmlspecialchars($p['unidade']) ?>"
-        data-min="<?= number_format(max(1, $p['quantidade_produto'] * 0.10), 0, ',', '.') ?>"
-        data-disp="<?= number_format($p['quantidade_produto'], 0, ',', '.') ?>"
-        data-res="<?= htmlspecialchars($p['reservado']) ?>"
-        data-transf="<?= htmlspecialchars($p['total_transferencias']) ?>"
->
-    Detalhes
-</button>
-
-
-        <button class="btn btn-sm btn-outline-primary"
-        data-bs-toggle="modal"
-        data-bs-target="#modalTransferir"
-        data-produto-id="<?= $p['id'] ?>"
-        data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
-        data-produto-qtd="<?= $p['quantidade_produto'] ?>"
-        data-produto-reservado="<?= $p['reservado'] ?>">
-    Transf.
-</button>
-
-
-
-            </div>
-        </td>
-    </tr>
-
-<?php endforeach; ?>
-
-</tbody>
-
-                                </tbody>
-                            </table>
+<!-- ========================== -->
+<!-- 6️⃣ Tabela de estoque -->
+<!-- ========================== -->
+<table class="table table-striped table-hover">
+    <thead>
+        <tr>
+            <th>Código</th>
+            <th>Produto</th>
+            <th>Categoria</th>
+            <th>Unidade</th>
+            <th>Quantidade</th>
+            <th>Reservado</th>
+            <th>Status</th>
+            <th>Transferências</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php if (empty($produtosEstoqueFiltrado)): ?>
+            <tr><td colspan="8" class="text-center">Nenhum produto encontrado.</td></tr>
+        <?php else: ?>
+            <?php foreach ($produtosEstoqueFiltrado as $p): ?>
+                <tr>
+                    <td><?= htmlspecialchars($p['codigo_produto']) ?></td>
+                    <td><?= htmlspecialchars($p['nome_produto']) ?></td>
+                    <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
+                    <td><?= htmlspecialchars($p['unidade']) ?></td>
+                    <td><?= htmlspecialchars($p['quantidade_produto']) ?></td>
+                    <td><?= htmlspecialchars($p['reservado']) ?></td>
+                    <td><span class="badge bg-<?= $p['statusCor'] ?>"><?= $p['statusTexto'] ?></span></td>
+                    <td><?= htmlspecialchars($p['total_transferencias']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </tbody>
+</table>
                         </div>
                     </div>
                 </div>
