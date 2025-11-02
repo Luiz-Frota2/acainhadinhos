@@ -911,7 +911,7 @@ $fimTxt = $fim->format('d/m/Y');
                             <div class="modal-body">
                                 <div class="row g-3 mb-2">
                                     <div class="col-md-4">
-                                        <p class="mb-1"><strong>SKU:</strong> <span id="det-sku">—</span></p>
+                                        <p class="mb-1"><strong>Codigo Produto:</strong> <span id="det-sku">—</span></p>
                                     </div>
                                     <div class="col-md-8">
                                         <p class="mb-1"><strong>Produto:</strong> <span id="det-nome">—</span></p>
@@ -959,7 +959,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <form>
                                     <div class="row g-3">
                                         <div class="col-12">
-                                            <label class="form-label">SKU</label>
+                                            <label class="form-label">Codigo Produto</label>
                                             <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
                                         </div>
                                         <div class="col-12">
@@ -1028,7 +1028,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <form>
                                     <div class="row g-3">
                                         <div class="col-12">
-                                            <label class="form-label">SKU</label>
+                                            <label class="form-label">Codigo Produto</label>
                                             <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
                                         </div>
 
