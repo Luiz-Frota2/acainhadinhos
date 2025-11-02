@@ -90,8 +90,8 @@ try {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json; charset=UTF-8');
 
-    // Sanitização básica
     $action = $_POST['action'];
+
     if ($action === 'update_status') {
         $idPay     = (int)($_POST['id'] ?? 0);
         $newStatus = $_POST['status'] ?? '';
@@ -131,7 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $sql = "
                 SELECT 
                     sp.*,
-                    u.id AS unidade_id,
+                    COALESCE(sp.comprovante_url, '') AS documento,  -- ⬅️ usa comprovante_url como documento
+                    u.id   AS unidade_id,
                     u.nome AS unidade_nome,
                     u.tipo AS unidade_tipo
                 FROM solicitacoes_pagamento sp
@@ -163,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
    - id_matriz = $idSelecionado (escopo)
    - u.tipo = 'filial'
    - join por: unidades.id = número do final de sp.id_solicitante (unidade_X)
-   Colunas ajustáveis: descricao/valor/vencimento/documento conforme seu SQL
+   Colunas ajustáveis conforme seu SQL
    ========================================================== */
 $pagamentos = [];
 try {
@@ -172,10 +173,10 @@ try {
             sp.id,
             sp.id_matriz,
             sp.id_solicitante,
-            COALESCE(sp.descricao, '')  AS descricao,
-            COALESCE(sp.valor, 0.00)    AS valor,
+            COALESCE(sp.descricao, '')        AS descricao,
+            COALESCE(sp.valor, 0.00)          AS valor,
             sp.vencimento,
-            COALESCE(sp.documento, '')  AS documento,
+            COALESCE(sp.comprovante_url, '')  AS documento,   -- ⬅️ usa comprovante_url como documento
             sp.status,
             u.id        AS unidade_id,
             u.nome      AS unidade_nome,
@@ -582,7 +583,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             const id = t.getAttribute('data-id');
             if (!id) return;
             const motivo = prompt('Motivo da recusa (opcional):', '');
-            // (Se quiser salvar motivo, inclua coluna/endpoint; aqui é ilustrativo)
+            // (Para salvar motivo, adicione coluna e envie no POST)
             if (!confirm('Confirmar recusa deste pagamento?')) return;
 
             post('update_status', {id, status:'reprovado'})
@@ -642,6 +643,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const mm = String(d.getMonth()+1).padStart(2,'0');
         const yyyy = d.getFullYear();
         return `${dd}/${mm}/${yyyy}`;
+        // (Se seu campo for DATETIME em fuso diferente, considere formatar no back-end)
     }
     function formatMoney(v){
         if (v == null) return 'R$ 0,00';
