@@ -75,7 +75,7 @@ try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
-    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+    $empresaSobre = $stmt->fetch(PDO::_FETCH_ASSOC);
 
     $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
@@ -85,19 +85,16 @@ try {
 }
 
 /* ==========================================================
-   DOWNLOAD DO COMPROVANTE (mesmo arquivo) — CORRIGIDO
+   DOWNLOAD DO COMPROVANTE — VIA ARQUIVO LOCAL (SEM URL)
    Ex.: ?id=principal_1&download=123
-   - Aceita comprovante_url relativo: "./pagamentos/arquivo.pdf"
-   - Remove "./" e "pagamentos/" pois a BASE já é a pasta pagamentos
-   - URL-encode por segmento
-   - cURL com UA/Referer; fallback: redireciona para URL direta
+   Aceita valores do tipo: "./pagamentos/ARQUIVO.pdf"
+   Mapeia para a pasta local /public/pagamentos e faz streaming.
    ========================================================== */
-$COMPROVANTES_BASE = 'https://srv1885-files.hstgr.io/e9aded9b7b308c83/files/public_html/public/pagamentos/';
-
 if (isset($_GET['download'])) {
     $idPay = (int)$_GET['download'];
 
     try {
+        // 1) Busca o nome salvo no banco
         $q = $pdo->prepare("SELECT comprovante_url FROM solicitacoes_pagamento WHERE id = :id LIMIT 1");
         $q->execute([':id' => $idPay]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
@@ -109,91 +106,78 @@ if (isset($_GET['download'])) {
             exit;
         }
 
+        // 2) Normaliza o caminho vindo do banco (ex.: "./pagamentos/xxx.pdf")
         $raw = trim((string)$row['comprovante_url']);
+        $raw = str_replace("\\", "/", $raw);
+        $raw = ltrim($raw, "./"); // remove "./" do início se existir
 
-        // Já é URL absoluta?
-        $isAbsolute = (stripos($raw, 'http://') === 0 || stripos($raw, 'https://') === 0);
-
-        // Normaliza e mapeia para a BASE (quando relativo)
-        $mapToBase = function(string $p) use ($COMPROVANTES_BASE): string {
-            // remove ./ ou .\ do início e normaliza separadores
-            $p = ltrim($p, "./\\");
-            $p = str_replace("\\", "/", $p);
-            // se iniciar com 'pagamentos/', remove porque a BASE já aponta para essa pasta
-            if (strpos($p, 'pagamentos/') === 0) {
-                $p = substr($p, strlen('pagamentos/'));
-            }
-            // URL-encode por segmento
-            $parts = array_filter(explode('/', $p), 'strlen');
-            $parts = array_map('rawurlencode', $parts);
-            $encoded = implode('/', $parts);
-            return rtrim($COMPROVANTES_BASE, '/') . '/' . $encoded;
-        };
-
-        // Se absoluto, ainda assim encode por segmento preservando host/path
-        $encodeAbsolute = function(string $url): string {
-            $u = parse_url($url);
-            if (!$u || empty($u['scheme']) || empty($u['host'])) return $url;
-            $scheme = $u['scheme'] . '://';
-            $host   = $u['host'];
-            $port   = isset($u['port']) ? ':' . $u['port'] : '';
-            $path   = isset($u['path']) ? $u['path'] : '/';
-            $query  = isset($u['query']) ? '?' . $u['query'] : '';
-            $frag   = isset($u['fragment']) ? '#' . $u['fragment'] : '';
-
-            // encode path segment by segment
-            $parts = array_filter(explode('/', $path), function($s){ return $s !== ''; });
-            $parts = array_map('rawurlencode', $parts);
-            $path  = '/' . implode('/', $parts);
-
-            return $scheme . $host . $port . $path . $query . $frag;
-        };
-
-        $urlArquivo = $isAbsolute ? $encodeAbsolute($raw) : $mapToBase($raw);
-
-        // Tenta baixar com cURL (com UA e Referer)
-        $conteudo = null;
-        $status   = 0;
-        $ctype    = 'application/octet-stream';
-
-        if (function_exists('curl_init')) {
-            $ch = curl_init($urlArquivo);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_CONNECTTIMEOUT => 10,
-                CURLOPT_TIMEOUT        => 30,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => false,
-                CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
-                CURLOPT_REFERER        => $COMPROVANTES_BASE,
-            ]);
-            $conteudo = curl_exec($ch);
-            $status   = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-            $detCtype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-            if ($detCtype) $ctype = $detCtype;
-            curl_close($ch);
-        } elseif (ini_get('allow_url_fopen')) {
-            $conteudo = @file_get_contents($urlArquivo);
-            $status   = $conteudo !== false ? 200 : 0;
+        // Remove prefixo "pagamentos/" porque vamos apontar para a pasta base local de pagamentos
+        if (strpos($raw, 'pagamentos/') === 0) {
+            $raw = substr($raw, strlen('pagamentos/'));
         }
 
-        // Se não conseguiu (403/404/etc), redireciona o navegador para a URL direta
-        if ($status !== 200 || !$conteudo) {
-            header('Location: ' . $urlArquivo);
+        // 3) Descobre a pasta BASE local dos comprovantes
+        //    AJUSTE AQUI se necessário (coloque o caminho absoluto da Hostinger, se preferir)
+        $possiveisBases = [
+            realpath(__DIR__ . '/../../pagamentos'),          // se este arquivo está em public/<modulo>/..., "volta" 2 níveis -> public/pagamentos
+            realpath(__DIR__ . '/../../../public/pagamentos') // alternativa: se a estrutura for diferente
+            // Exemplo de caminho absoluto (descomente e ajuste):
+            // '/home/SEU_USUARIO/domains/SEU_DOMINIO/public_html/public/pagamentos'
+        ];
+
+        $baseLocal = null;
+        foreach ($possiveisBases as $b) {
+            if ($b && is_dir($b)) { $baseLocal = $b; break; }
+        }
+
+        if (!$baseLocal) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo "Pasta local de comprovantes não encontrada. Ajuste o caminho base.";
             exit;
         }
 
-        // Força download
-        $nomeArquivo = basename(parse_url($urlArquivo, PHP_URL_PATH)) ?: 'comprovante.pdf';
-        if (stripos($ctype, 'application/') !== 0 && stripos($ctype, 'image/') !== 0 && stripos($ctype, 'pdf') === false) {
-            $ctype = 'application/pdf'; // default sensato
+        // 4) Sanitiza e monta o caminho final do arquivo no filesystem
+        $segments = array_filter(explode('/', $raw), 'strlen');
+        foreach ($segments as &$seg) {
+            // impede path traversal e caracteres nulos
+            $seg = str_replace(['..', "\0"], '', $seg);
         }
+        unset($seg);
+
+        $nomeArquivo  = end($segments) ?: 'comprovante.pdf';
+        $caminhoLocal = $baseLocal . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $segments);
+
+        // 5) Verifica existência do arquivo e faz streaming
+        if (!is_file($caminhoLocal) || !is_readable($caminhoLocal)) {
+            http_response_code(404);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo "Arquivo do comprovante não encontrado no servidor.";
+            exit;
+        }
+
+        if (ob_get_level()) { @ob_end_clean(); }
+
+        $filesize = filesize($caminhoLocal);
+        $ctype    = 'application/pdf'; // se houver outros tipos, detectar por extensão/MIME
+
         header('Content-Type: ' . $ctype);
-        header('Content-Length: ' . strlen($conteudo));
-        header('Content-Disposition: attachment; filename="' . $nomeArquivo . '"');
+        if ($filesize !== false) header('Content-Length: ' . $filesize);
+        header('Content-Disposition: attachment; filename="' . basename($nomeArquivo) . '"');
         header('X-Content-Type-Options: nosniff');
-        echo $conteudo;
+        header('Cache-Control: private, no-transform, no-store, must-revalidate, max-age=0');
+        header('Pragma: public');
+
+        $fp = fopen($caminhoLocal, 'rb');
+        if ($fp) {
+            while (!feof($fp)) {
+                echo fread($fp, 8192);
+                flush();
+            }
+            fclose($fp);
+        } else {
+            readfile($caminhoLocal);
+        }
         exit;
 
     } catch (Throwable $e) {
@@ -251,7 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $sql = "
                 SELECT 
                     sp.*,
-                    COALESCE(sp.comprovante_url, '') AS documento,  -- usa comprovante_url como documento
+                    COALESCE(sp.comprovante_url, '') AS documento,
                     u.id   AS unidade_id,
                     u.nome AS unidade_nome,
                     u.tipo AS unidade_tipo
@@ -292,7 +276,7 @@ try {
             COALESCE(sp.descricao, '')        AS descricao,
             COALESCE(sp.valor, 0.00)          AS valor,
             sp.vencimento,
-            COALESCE(sp.comprovante_url, '')  AS documento,   -- usa comprovante_url como documento
+            COALESCE(sp.comprovante_url, '')  AS documento,
             sp.status,
             u.id        AS unidade_id,
             u.nome      AS unidade_nome,
@@ -480,7 +464,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         <i class="bx bx-menu bx-sm"></i>
                     </a>
                 </div>
-                <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+            <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                     <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
                     <ul class="navbar-nav flex-row align-items-center ms-auto">
                         <li class="nav-item navbar-dropdown dropdown-user dropdown">
@@ -699,7 +683,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             const id = t.getAttribute('data-id');
             if (!id) return;
             const motivo = prompt('Motivo da recusa (opcional):', '');
-            // (Para salvar motivo, adicione coluna e envie no POST)
             if (!confirm('Confirmar recusa deste pagamento?')) return;
 
             post('update_status', {id, status:'reprovado'})
@@ -759,7 +742,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const mm = String(d.getMonth()+1).padStart(2,'0');
         const yyyy = d.getFullYear();
         return `${dd}/${mm}/${yyyy}`;
-        // (Se seu campo for DATETIME em fuso diferente, considere formatar no back-end)
     }
     function formatMoney(v){
         if (v == null) return 'R$ 0,00';
@@ -769,7 +751,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     function escapeHtml(s){
         return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
     }
-    function escapeAttr(s){ return escapeHtml(s).replace(/"/g, '&quot;'); }
 })();
 </script>
 </body>
