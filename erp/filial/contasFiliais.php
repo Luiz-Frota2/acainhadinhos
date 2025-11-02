@@ -704,7 +704,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
         // Detalhes
         if (t.classList.contains('btn-detalhes')){
-            const id = t.getAttribute('data-id');
+            const id = t.getAttribute('data-id'); // ← ID DA LINHA CLICADA
             const box = document.getElementById('detalhes-conteudo');
             const footer = document.getElementById('detalhes-footer');
             if (box){ box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>'; }
@@ -736,12 +736,12 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         </div>`;
                       if (box){ box.innerHTML = html; }
 
-                      // ✅ Botão Baixar dentro da modal (igual ao da lista)
+                      // ✅ Botão Baixar dentro da modal usando o *ID clicado na linha* (não d.id)
                       if (footer && d.documento){
                         const a = document.createElement('a');
                         a.className = 'btn btn-primary btn-baixar-modal';
                         a.textContent = 'Baixar comprovante';
-                        a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(d.id))}`;
+                        a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(id))}`;
                         footer.appendChild(a);
                       }
                   } else {
