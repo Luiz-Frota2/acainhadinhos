@@ -979,9 +979,6 @@ function calcularStatusEstoque($quantidade, $min)
                             </div>
                             <div class="modal-body">
                                 <div class="row g-3 mb-2">
-                                    <div class="col-md-4">
-                                        <p class="mb-1"><strong>Codigo Produto:</strong> <span id="det-sku">—</span></p>
-                                    </div>
                                     <div class="col-md-8">
                                         <p class="mb-1"><strong>Produto:</strong> <span id="det-nome">—</span></p>
                                     </div>
