@@ -5,18 +5,42 @@ error_reporting(E_ALL);
 session_start();
 date_default_timezone_set('America/Manaus');
 
+/* ========================= Helpers ========================= */
+function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
+function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
+function dtBr(?string $iso){
+    if (!$iso) return '—';
+    $t = strtotime($iso); if (!$t) return '—';
+    return date('d/m/Y', $t);
+}
+function json_out(array $payload, int $code=200){
+    while (ob_get_level() > 0) { ob_end_clean(); }
+    http_response_code($code);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 /* ================= Sessão & parâmetros ================= */
-$idSelecionado = $_GET['id'] ?? '';
+$idSelecionado = $_GET['id'] ?? $_POST['id_matriz'] ?? '';
 if (!$idSelecionado) {
+    // se veio por AJAX, responde JSON; senão, redireciona
+    if (($_POST['acao'] ?? '') !== '') {
+        json_out(['ok'=>false,'erro'=>'Identificador ausente (id).'], 400);
+    }
     header("Location: .././login.php");
     exit;
 }
+
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
     !isset($_SESSION['tipo_empresa']) ||
     !isset($_SESSION['usuario_id'])
 ) {
+    if (($_POST['acao'] ?? '') !== '') {
+        json_out(['ok'=>false,'erro'=>'Sessão expirada. Faça login novamente.'], 401);
+    }
     header("Location: .././login.php?id=" . urlencode($idSelecionado));
     exit;
 }
@@ -24,29 +48,32 @@ if (
 /* ================= Conexão ================= */
 require '../../assets/php/conexao.php';
 if (!isset($pdo) || !($pdo instanceof PDO)) {
+    if (($_POST['acao'] ?? '') !== '') json_out(['ok'=>false,'erro'=>'Conexão indisponível.'], 500);
     http_response_code(500);
     echo "Erro: conexão indisponível.";
     exit;
 }
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-/* ================= Usuário logado ================= */
+/* ================= Usuário ================= */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
 
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    $stmt->execute([':id' => $usuario_id]);
+    $stmt->execute([':id'=>$usuario_id]);
     if ($u = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $nomeUsuario = $u['usuario'] ?? 'Usuário';
         $tipoUsuario = ucfirst((string)($u['nivel'] ?? 'Comum'));
     } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        if (($_POST['acao'] ?? '') !== '') json_out(['ok'=>false,'erro'=>'Usuário não encontrado.'], 403);
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . e($idSelecionado) . "';</script>";
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
+    if (($_POST['acao'] ?? '') !== '') json_out(['ok'=>false,'erro'=>'Erro ao carregar usuário.'], 500);
+    echo "<script>alert('Erro ao carregar usuário.'); history.back();</script>";
     exit;
 }
 
@@ -64,15 +91,17 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
+
 if (!$acessoPermitido) {
-    echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+    if (($_POST['acao'] ?? '') !== '') json_out(['ok'=>false,'erro'=>'Acesso negado.'], 403);
+    echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=" . e($idSelecionado) . "';</script>";
     exit;
 }
 
 /* ================= Logo empresa ================= */
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
-    $stmt->execute([':id' => $idSelecionado]);
+    $stmt->execute([':id'=>$idSelecionado]);
     $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
     $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
@@ -81,19 +110,74 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
-/* ================= Utilitários ================= */
-function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES, 'UTF-8'); }
-function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
-function dtBr(?string $iso){
-    if (!$iso) return '—';
-    $t = strtotime($iso); if (!$t) return '—';
-    return date('d/m/Y', $t);
+/* ==========================================================
+   BLOCO AJAX — Aprovar/Recusar no mesmo arquivo
+   POST: id, acao (aprovar|reprovar), id_matriz
+   ========================================================== */
+if (isset($_POST['acao']) && $_POST['acao'] !== '') {
+    $id       = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+    $acao     = $_POST['acao'] ?? '';
+    $idMatriz = $_POST['id_matriz'] ?? '';
+
+    if ($id <= 0 || !in_array($acao, ['aprovar','reprovar'], true) || !$idMatriz) {
+        json_out(['ok'=>false,'erro'=>'Parâmetros inválidos.'], 400);
+    }
+
+    // Reaproveita as mesmas regras de acesso, já validadas acima para $idSelecionado/$idMatriz
+    $permitido = false;
+    if (str_starts_with($idMatriz, 'principal_')) {
+        $permitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+    } elseif (str_starts_with($idMatriz, 'franquia_')) {
+        $permitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idMatriz);
+    } elseif (str_starts_with($idMatriz, 'filial_')) {
+        $permitido = ($tipoSession === 'filial' && $idEmpresaSession === $idMatriz);
+    } elseif (str_starts_with($idMatriz, 'unidade_')) {
+        $permitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idMatriz);
+    }
+    if (!$permitido) json_out(['ok'=>false,'erro'=>'Acesso negado.'], 403);
+
+    $novo = ($acao === 'aprovar') ? 'aprovado' : 'reprovado';
+
+    try {
+        $pdo->beginTransaction();
+
+        // Garante: registro pertence a esta matriz, e solicitante é Filial desta matriz; status pendente
+        $chk = $pdo->prepare("
+            SELECT s.id, s.status
+              FROM solicitacoes_pagamento s
+              JOIN unidades u
+                ON u.id = CAST(REPLACE(s.id_solicitante,'unidade_','') AS UNSIGNED)
+               AND u.tipo = 'Filial'
+               AND u.empresa_id = :matriz
+             WHERE s.id = :id
+               AND s.id_matriz = :matriz
+             LIMIT 1
+        ");
+        $chk->execute([':id'=>$id, ':matriz'=>$idMatriz]);
+        $row = $chk->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            $pdo->rollBack();
+            json_out(['ok'=>false,'erro'=>'Registro não encontrado para esta Matriz/Filial.'], 404);
+        }
+        if (strtolower($row['status']) !== 'pendente') {
+            $pdo->rollBack();
+            json_out(['ok'=>false,'erro'=>'Somente solicitações PENDENTES podem ser alteradas.'], 409);
+        }
+
+        $up = $pdo->prepare("UPDATE solicitacoes_pagamento SET status = :st WHERE id = :id LIMIT 1");
+        $up->execute([':st'=>$novo, ':id'=>$id]);
+
+        $pdo->commit();
+        json_out(['ok'=>true,'novo_status'=>$novo]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        json_out(['ok'=>false,'erro'=>$e->getMessage()], 500);
+    }
 }
 
-/* ================= Lista: SOMENTE Filiais =================
-   - Puxa somente registros cuja unidade solicitante é do tipo 'Filial'
-   - Garante que a unidade pertence à MESMA matriz (empresa_id = :matriz)
-=============================================================*/
+/* ==========================================================
+   LISTAGEM — SOMENTE Filiais desta Matriz
+   ========================================================== */
 $rows = [];
 try {
     $sql = "
@@ -121,7 +205,6 @@ try {
 } catch (PDOException $e) {
     $rows = [];
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -150,7 +233,7 @@ try {
 <div class="layout-wrapper layout-content-navbar">
 <div class="layout-container">
 
-    <!-- Menu (mantido igual ao seu) -->
+    <!-- Menu (resumido) -->
     <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
             <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -163,23 +246,14 @@ try {
         <div class="menu-inner-shadow"></div>
 
         <ul class="menu-inner py-1">
-            <li class="menu-item">
-                <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-home-circle"></i><div>Dashboard</div></a>
-            </li>
-
-            <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Filiais</span></li>
-
             <li class="menu-item active open">
                 <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-briefcase"></i><div>B2B - Matriz</div></a>
                 <ul class="menu-sub active">
                     <li class="menu-item active"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Pagamentos Solic.</div></a></li>
                     <li class="menu-item"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Solicitados</div></a></li>
-                    <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Enviados</div></a></li>
-                    <li class="menu-item"><a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Transf. Pendentes</div></a></li>
                     <li class="menu-item"><a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Histórico Transf.</div></a></li>
                 </ul>
             </li>
-
             <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i><div>Finanças</div></a></li>
             <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i><div>Estoque</div></a></li>
             <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-group"></i><div>Usuários</div></a></li>
@@ -188,7 +262,7 @@ try {
     <!-- / Menu -->
 
     <div class="layout-page">
-        <!-- Navbar resumida -->
+        <!-- Navbar mínima -->
         <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
             <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                 <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
@@ -210,7 +284,7 @@ try {
                 <span class="text-muted fw-light"><a href="#">Filiais</a>/</span> Pagamentos Solicitados
             </h4>
             <h5 class="fw-bold mt-3 mb-3 custor-font">
-                <span class="text-muted fw-light">Somente solicitações de pagamento de **Filiais** desta Matriz</span>
+                <span class="text-muted fw-light">Somente solicitações de pagamento de <b>Filiais</b> desta Matriz</span>
             </h5>
 
             <div class="card">
@@ -337,12 +411,11 @@ try {
 <script>
 const MAT_ID = <?= json_encode($idSelecionado) ?>;
 
-// formata BR
-function moneyBr(v){ 
+function moneyBrJS(v){ 
   const n = Number(v||0);
   return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
 }
-function dtBr(iso){
+function dtBrJS(iso){
   if(!iso) return '—';
   const d = new Date(String(iso).replace(' ','T'));
   if (isNaN(d)) return iso;
@@ -352,7 +425,7 @@ function dtBr(iso){
   return `${dd}/${mm}/${yyyy}`;
 }
 
-// abre modal detalhes usando atributos da própria linha
+// Modal Detalhes (dados da própria linha)
 function abrirDetalhes(id){
   const tr = document.getElementById('row-'+id);
   if(!tr) return;
@@ -366,8 +439,8 @@ function abrirDetalhes(id){
 
   document.getElementById('det-filial').textContent = filial;
   document.getElementById('det-desc').textContent   = desc;
-  document.getElementById('det-valor').textContent  = moneyBr(valor);
-  document.getElementById('det-venc').textContent   = dtBr(venc);
+  document.getElementById('det-valor').textContent  = moneyBrJS(valor);
+  document.getElementById('det-venc').textContent   = dtBrJS(venc);
   document.getElementById('det-status').textContent = st.charAt(0).toUpperCase()+st.slice(1);
 
   if(doc){
@@ -381,25 +454,29 @@ function abrirDetalhes(id){
   modal.show();
 }
 
-// aprovar / reprovar (AJAX)
+// Aprovar / Reprovar via POST para o MESMO arquivo
 function alterarStatus(id, acao){
   if(acao !== 'aprovar' && acao !== 'reprovar') return;
   const confirmMsg = acao === 'aprovar' ? 'Confirmar aprovação deste pagamento?' : 'Confirmar recusa deste pagamento?';
   if(!confirm(confirmMsg)) return;
 
-  fetch('./actions/pagamento_AlterarStatus.php', {
+  fetch(window.location.pathname + '?id=' + encodeURIComponent(MAT_ID), {
     method: 'POST',
     headers: {'Content-Type':'application/x-www-form-urlencoded'},
     body: new URLSearchParams({ id: String(id), acao: acao, id_matriz: MAT_ID })
   })
-  .then(r => r.json())
+  .then(async r => {
+    const ct = r.headers.get('content-type') || '';
+    const tx = await r.text();
+    if(!ct.includes('application/json')) throw new Error((tx||'Resposta não-JSON').slice(0,300));
+    try { return JSON.parse(tx); } catch(err){ throw new Error('JSON inválido: '+ tx.slice(0,200)); }
+  })
   .then(data => {
     if(!data || !data.ok){
       alert(data && data.erro ? data.erro : 'Falha ao alterar status.');
       return;
     }
-    // atualiza UI
-    const novo = data.novo_status; // 'aprovado' ou 'reprovado'
+    const novo = data.novo_status; // 'aprovado' | 'reprovado'
     const tr   = document.getElementById('row-'+id);
     const badge= document.getElementById('badge-'+id);
     const grp  = document.getElementById('grp-'+id);
@@ -413,16 +490,14 @@ function alterarStatus(id, acao){
       badge.textContent = novo.charAt(0).toUpperCase()+novo.slice(1);
     }
     if(grp){
-      // remove botões de aprovar/recusar e mantém só Detalhes
+      // remove Aprovar/Recusar, mantém apenas Detalhes
       const btns = Array.from(grp.querySelectorAll('button'));
       btns.forEach(b=>{
         if(/Aprovar|Recusar/i.test(b.textContent)) b.remove();
       });
     }
   })
-  .catch(err => {
-    alert('Erro: '+ err.message);
-  });
+  .catch(err => alert('Erro: '+ err.message));
 }
 </script>
 </body>
