@@ -965,10 +965,112 @@ function calcularStatusEstoque($quantidade, $min)
 </div>
 
 
-                    <!-- Ações rápidas -->
-                    <div class="card mb-3">
-                       <!-- filtro -->
-                    </div>
+                <!-- Ações rápidas -->
+<div class="card mb-3">
+    <form class="card-body" method="get" id="filtroProdutosForm" autocomplete="off">
+        <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
+        <div class="row g-3 align-items-end">
+
+            <!-- Status -->
+            <div class="col-12 col-md-auto filter-col">
+                <label class="form-label mb-1">Status</label>
+                <select class="form-select form-select-sm" name="status">
+                    <option value="">Todos</option>
+                    <option value="ativo" <?= ($_GET['status'] ?? '')==='ativo' ? 'selected':'' ?>>Ativo</option>
+                    <option value="inativo" <?= ($_GET['status'] ?? '')==='inativo' ? 'selected':'' ?>>Inativo</option>
+                </select>
+            </div>
+
+            <!-- Produto / Código / Categoria (Autocomplete) -->
+            <div class="col-12 col-md flex-grow-1 filter-col">
+                <label class="form-label mb-1">Produto / Código / Categoria</label>
+                <div class="autocomplete">
+                    <input type="text" class="form-control form-control-sm" id="produtoInput" name="q"
+                           placeholder="Nome do produto, código ou categoria…" value="<?= e($_GET['q'] ?? '') ?>" autocomplete="off">
+                    <div class="autocomplete-list d-none" id="produtoList"></div>
+                </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="col-12 col-md-auto d-flex gap-2 filter-col">
+                <button class="btn btn-sm btn-primary" type="submit">
+                    <i class="bx bx-filter-alt me-1"></i> Filtrar
+                </button>
+                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">
+                    <i class="bx bx-eraser me-1"></i> Limpar
+                </a>
+            </div>
+
+        </div>
+        <div class="small text-muted mt-2">
+            Resultados: <strong><?= count($produtos ?? []) ?></strong> registros
+        </div>
+    </form>
+</div>
+
+<script>
+(function(){
+    const input = document.getElementById('produtoInput');
+    const list  = document.getElementById('produtoList');
+    const form  = document.getElementById('filtroProdutosForm');
+    let items = [], activeIndex = -1, aborter = null;
+
+    function closeList(){ list.classList.add('d-none'); list.innerHTML=''; activeIndex=-1; items=[]; }
+    function openList(){ list.classList.remove('d-none'); }
+    function render(data){
+        if (!data || !data.length){ closeList(); return; }
+        items = data.slice(0, 15);
+        list.innerHTML = items.map((it,i)=>`
+            <div class="autocomplete-item" data-i="${i}">
+                <span>${it.label}</span>
+                <span class="autocomplete-tag">${it.tipo}</span>
+            </div>`).join('');
+        openList();
+    }
+    function pick(i){
+        if (i<0 || i>=items.length) return;
+        input.value = items[i].value;
+        closeList();
+        form.submit();
+    }
+
+    input.addEventListener('input', function(){
+        const v = input.value.trim();
+        if (v.length < 2){ closeList(); return; }
+        if (aborter) aborter.abort();
+        aborter = new AbortController();
+        const url = new URL(window.location.href);
+        url.searchParams.set('ajax','autocomplete_produtos');
+        url.searchParams.set('q', v);
+        fetch(url.toString(), { signal: aborter.signal })
+            .then(r => r.json())
+            .then(render)
+            .catch(()=>{});
+    });
+
+    input.addEventListener('keydown', function(e){
+        if (list.classList.contains('d-none')) return;
+        if (e.key === 'ArrowDown'){ activeIndex = Math.min(activeIndex+1, items.length-1); highlight(); e.preventDefault(); }
+        else if (e.key === 'ArrowUp'){ activeIndex = Math.max(activeIndex-1, 0); highlight(); e.preventDefault(); }
+        else if (e.key === 'Enter'){ if (activeIndex >= 0){ pick(activeIndex); e.preventDefault(); } }
+        else if (e.key === 'Escape'){ closeList(); }
+    });
+
+    list.addEventListener('mousedown', function(e){
+        const el = e.target.closest('.autocomplete-item');
+        if (!el) return;
+        pick(parseInt(el.dataset.i, 10));
+    });
+
+    document.addEventListener('click', function(e){
+        if (!list.contains(e.target) && e.target !== input) closeList();
+    });
+
+    function highlight(){
+        [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx)=> el.classList.toggle('active', idx===activeIndex));
+    }
+})();
+</script>
 
 
                     <!-- Tabela principal -->
