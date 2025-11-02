@@ -595,10 +595,10 @@ try {
                                     <td class="text-end" id="acoes-<?= $id ?>">
                                         <?php if ($isPendente): ?>
                                             <button class="btn btn-sm btn-success me-1 btn-aprovar"  data-id="<?= $id ?>">
-                                                <i class="bx bx-check"></i> Aprovar
+                                                <i class="bx"></i> Aprovar
                                             </button>
                                             <button class="btn btn-sm btn-outline-danger me-1 btn-reprovar" data-id="<?= $id ?>">
-                                                <i class="bx bx-x"></i> Reprovar
+                                                <i class="bx"></i> Reprovar
                                             </button>
                                         <?php endif; ?>
                                         <button class="btn btn-sm btn-outline-secondary btn-detalhes" data-id="<?= $id ?>" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
