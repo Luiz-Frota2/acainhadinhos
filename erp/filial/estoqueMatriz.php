@@ -979,6 +979,9 @@ function calcularStatusEstoque($quantidade, $min)
                             </div>
                             <div class="modal-body">
                                 <div class="row g-3 mb-2">
+                                    <div class="col-md-4">
+                                        <p class="mb-1"><strong>Codigo Produto:</strong> <span id="det-sku">—</span></p>
+                                    </div>
                                     <div class="col-md-8">
                                         <p class="mb-1"><strong>Produto:</strong> <span id="det-nome">—</span></p>
                                     </div>
@@ -1042,74 +1045,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-                <!-- Modal: Movimentar Estoque -->
-                <div class="modal fade" id="modalMovimentar" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Movimentar Estoque</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form>
-                                    <div class="row g-3">
-                                        <div class="col-12">
-                                            <label class="form-label">Codigo Produto</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label">Tipo de movimentação</label>
-                                            <div class="d-flex gap-3 flex-wrap">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movEntrada" value="entrada" checked>
-                                                    <label class="form-check-label" for="movEntrada">Entrada</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movSaida" value="saida">
-                                                    <label class="form-check-label" for="movSaida">Saída</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movAjuste" value="ajuste">
-                                                    <label class="form-check-label" for="movAjuste">Ajuste</label>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Quantidade</label>
-                                            <input type="number" class="form-control" min="1" placeholder="0">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Documento (NF/OS)</label>
-                                            <input type="text" class="form-control" placeholder="Opcional">
-                                        </div>
-
-                                       
-                                        <div class="col-12">
-                                            <label class="form-label">Motivo</label>
-                                            <select class="form-select">
-                                                <option>Reposição de fornecedor</option>
-                                                <option>Devolução</option>
-                                                <option>Perda/avaria</option>
-                                                <option>Inventário</option>
-                                                <option>Outros</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Observações</label>
-                                            <textarea class="form-control" rows="3" placeholder="Detalhe a movimentação..."></textarea>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button class="btn btn-primary">Salvar movimentação</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Modal: Transferir p/ Filial -->
                 <div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
@@ -1122,10 +1057,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="modal-body">
                                 <form>
                                     <div class="row g-3">
-                                        <div class="col-12">
-                                            <label class="form-label">Codigo Produto</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
-                                        </div>
 
                                         <div class="col-12">
                                             <label class="form-label">Filial</label>
