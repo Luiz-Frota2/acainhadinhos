@@ -56,83 +56,56 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 }
 if (!$acessoPermitido) { http_response_code(403); echo "Acesso negado."; exit; }
 
-/* =================== ROTEADOR PDF (MESMO ARQ.) ===============
-
-   ?op=pdf&pid=123&id=principal_1
-     -> orquestrador: baixa do Hostinger/URL, salva em tmp e abre HTML que:
-         (1) dispara DOWNLOAD imediato
-         (2) carrega PREVIEW no iframe
-
-   ?op=pdf&mode=inline&id=principal_1&pid=123&f=TOKEN -> serve inline
-   ?op=pdf&mode=download&id=principal_1&pid=123&f=TOKEN -> serve attachment
-=============================================================== */
-if (($_GET['op'] ?? '') === 'pdf') {
-    /* Pasta tmp */
+/* ============= Função utilitária para baixar o comprovante ============= */
+function baixarComprovanteParaTmp(PDO $pdo, string $idSelecionado, int $pid): array {
+    // Pasta tmp
     $baseTmpDir = realpath(__DIR__ . '/../../assets/tmp');
     if ($baseTmpDir === false) {
         $tryDir = __DIR__ . '/../../assets/tmp';
         if (!is_dir($tryDir)) @mkdir($tryDir, 0775, true);
         $baseTmpDir = realpath($tryDir);
     }
-    if ($baseTmpDir === false) { http_response_code(500); echo "Não foi possível preparar o diretório temporário."; exit; }
+    if ($baseTmpDir === false) {
+        throw new RuntimeException("Não foi possível preparar o diretório temporário.");
+    }
     $comprovantesDir = $baseTmpDir . '/comprovantes';
     if (!is_dir($comprovantesDir)) { @mkdir($comprovantesDir, 0775, true); }
 
-    /* Entrega direta? */
-    $mode = $_GET['mode'] ?? '';
-    if ($mode === 'inline' || $mode === 'download') {
-        $fileToken = cleanToken($_GET['f'] ?? ''); $pid = isset($_GET['pid']) ? (int)$_GET['pid'] : 0;
-        if (!$fileToken) { http_response_code(400); echo "Token inválido."; exit; }
-        $fullPath = realpath($comprovantesDir . '/' . $fileToken);
-        if ($fullPath === false || strpos($fullPath, $comprovantesDir) !== 0) { http_response_code(400); echo "Caminho inválido."; exit; }
-        $filename = 'comprovante_' . ($pid ?: 'sol') . '.pdf';
-        servePdf($fullPath, $filename, $mode === 'download');
+    // Busca origem (apenas Filial)
+    $sql = "
+        SELECT sp.id, sp.id_matriz, sp.id_solicitante, sp.comprovante_url,
+               u.id AS unidade_id, u.tipo AS unidade_tipo
+        FROM solicitacoes_pagamento sp
+        JOIN unidades u
+          ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
+        WHERE sp.id = :id
+          AND sp.id_matriz = :matriz
+          AND (u.tipo = 'Filial' OR u.tipo = 'filial')
+        LIMIT 1
+    ";
+    $st = $pdo->prepare($sql);
+    $st->execute([':id' => $pid, ':matriz' => $idSelecionado]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$row || empty($row['comprovante_url'])) {
+        throw new RuntimeException("Comprovante não encontrado.");
     }
+    $src = trim($row['comprovante_url']);
 
-    /* Orquestrador */
-    $pid = isset($_GET['pid']) ? (int)$_GET['pid'] : 0;
-    if (!$pid) { http_response_code(400); echo "Parâmetro 'pid' ausente."; exit; }
-
-    try {
-        $sql = "
-            SELECT sp.id, sp.id_matriz, sp.id_solicitante, sp.comprovante_url,
-                   u.id AS unidade_id, u.tipo AS unidade_tipo
-            FROM solicitacoes_pagamento sp
-            JOIN unidades u
-              ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
-            WHERE sp.id = :id
-              AND sp.id_matriz = :matriz
-              AND (u.tipo = 'Filial' OR u.tipo = 'filial')
-            LIMIT 1
-        ";
-        $st = $pdo->prepare($sql);
-        $st->execute([':id' => $pid, ':matriz' => $idSelecionado]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if (!$row || empty($row['comprovante_url'])) { http_response_code(404); echo "Comprovante não encontrado."; exit; }
-        $src = trim($row['comprovante_url']);
-    } catch (PDOException $e) { http_response_code(500); echo "Erro DB: " . e($e->getMessage()); exit; }
-
-    /* Normaliza URL do Hostinger quando vier só o nome */
+    // Normaliza URL (se veio só o nome)
     if (!isRemote($src)) {
-        // caminho local relativo? Trate como nome de arquivo e monte URL pública
         $filename = basename($src);
-        // encode básico p/ espaços e caracteres comuns
         $filename_enc = str_replace(' ', '%20', $filename);
         $src = HOSTINGER_BASE . $filename_enc;
     }
+    if (strpos($src, ' ') !== false) $src = str_replace(' ', '%20', $src);
 
-    // Também corrige espaços se a URL remota tiver espaço
-    if (strpos($src, ' ') !== false) {
-        $src = str_replace(' ', '%20', $src);
-    }
-
-    /* Baixa para tmp */
+    // Baixa via cURL
     $token   = 'pdf_' . $pid . '_' . bin2hex(random_bytes(6)) . '.pdf';
     $tmpPath = $comprovantesDir . '/' . $token;
 
     $ch = curl_init($src);
     $fp = fopen($tmpPath, 'wb');
-    if ($fp === false) { http_response_code(500); echo "Falha ao criar arquivo temporário."; exit; }
+    if ($fp === false) throw new RuntimeException("Falha ao criar arquivo temporário.");
     curl_setopt_array($ch, [
         CURLOPT_FILE           => $fp,
         CURLOPT_FOLLOWLOCATION => true,
@@ -145,27 +118,78 @@ if (($_GET['op'] ?? '') === 'pdf') {
     ]);
     $ok   = curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $err  = curl_error($ch);
     curl_close($ch);
     fclose($fp);
 
     if ($ok === false || $code >= 400 || @filesize($tmpPath) === 0) {
         @unlink($tmpPath);
-        http_response_code(502);
-        echo "Falha ao baixar do Hostinger.";
-        exit;
+        throw new RuntimeException("Falha ao baixar do Hostinger.");
     }
 
-    /* URLs internas para entrega (mesmo arquivo) */
-    $inlineUrl   = e("contasFiliais.php?op=pdf&mode=inline&id={$idSelecionado}&pid={$pid}&f={$token}");
-    $downloadUrl = e("contasFiliais.php?op=pdf&mode=download&id={$idSelecionado}&pid={$pid}&f={$token}");
-
-    /* Limpa tmp antigos (>1 dia) */
+    // Limpa temporários antigos (>1 dia)
     foreach (glob($comprovantesDir . '/pdf_*.pdf') as $f) {
         if (@filemtime($f) !== false && (time() - filemtime($f)) > 86400) { @unlink($f); }
     }
 
-    /* HTML: dispara DOWNLOAD primeiro, depois PREVIEW */
+    return [$tmpPath, $token];
+}
+
+/* =================== ROTEADOR PDF (MESMO ARQ.) ===============
+
+   A) Download direto na lista (sem abrir):
+      ?op=pdf&mode=download&pid=123&id=principal_1
+      -> baixa (se preciso) e SERVE como attachment imediatamente.
+
+   B) (mantido) Inline/download com token f (casos específicos):
+      ?op=pdf&mode=inline&id=...&pid=...&f=TOKEN  -> inline
+      ?op=pdf&mode=download&id=...&pid=...&f=TOKEN -> attachment
+=============================================================== */
+if (($_GET['op'] ?? '') === 'pdf') {
+    $mode = $_GET['mode'] ?? '';
+    $pid  = isset($_GET['pid']) ? (int)$_GET['pid'] : 0;
+
+    // Se pediram download SEM token 'f', faça o pipeline completo e sirva attachment
+    if ($mode === 'download' && empty($_GET['f'])) {
+        if (!$pid) { http_response_code(400); echo "Parâmetro 'pid' ausente."; exit; }
+        try {
+            [$fullPath, $token] = baixarComprovanteParaTmp($pdo, $idSelecionado, $pid);
+        } catch (Throwable $e) {
+            http_response_code(502); echo e($e->getMessage()); exit;
+        }
+        $filename = 'comprovante_' . $pid . '.pdf';
+        servePdf($fullPath, $filename, true);
+    }
+
+    // Entrega direta por token (mantido para compatibilidade)
+    // Pasta base
+    $baseTmpDir = realpath(__DIR__ . '/../../assets/tmp');
+    if ($baseTmpDir === false) {
+        $tryDir = __DIR__ . '/../../assets/tmp';
+        if (!is_dir($tryDir)) @mkdir($tryDir, 0775, true);
+        $baseTmpDir = realpath($tryDir);
+    }
+    if ($baseTmpDir === false) { http_response_code(500); echo "Não foi possível preparar o diretório temporário."; exit; }
+    $comprovantesDir = $baseTmpDir . '/comprovantes';
+    if (!is_dir($comprovantesDir)) { @mkdir($comprovantesDir, 0775, true); }
+
+    if ($mode === 'inline' || $mode === 'download') {
+        $fileToken = cleanToken($_GET['f'] ?? '');
+        if (!$fileToken) { http_response_code(400); echo "Token inválido."; exit; }
+        $fullPath = realpath($comprovantesDir . '/' . $fileToken);
+        if ($fullPath === false || strpos($fullPath, $comprovantesDir) !== 0) { http_response_code(400); echo "Caminho inválido."; exit; }
+        $filename = 'comprovante_' . ($pid ?: 'sol') . '.pdf';
+        servePdf($fullPath, $filename, $mode === 'download');
+    }
+
+    // Orquestrador completo (sem 'mode'): mantido para casos de pré-visualização + auto-download
+    if (!$pid) { http_response_code(400); echo "Parâmetro 'pid' ausente."; exit; }
+    try {
+        [$fullPath, $token] = baixarComprovanteParaTmp($pdo, $idSelecionado, $pid);
+    } catch (Throwable $e) {
+        http_response_code(502); echo e($e->getMessage()); exit;
+    }
+    $inlineUrl   = e("contasFiliais.php?op=pdf&mode=inline&id={$idSelecionado}&pid={$pid}&f={$token}");
+    $downloadUrl = e("contasFiliais.php?op=pdf&mode=download&id={$idSelecionado}&pid={$pid}&f={$token}");
     ?>
     <!DOCTYPE html>
     <html lang="pt-BR">
@@ -175,10 +199,8 @@ if (($_GET['op'] ?? '') === 'pdf') {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         html, body { height: 100%; margin: 0; }
-        .topbar {
-          padding: 10px 12px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-          display: flex; gap: 8px; align-items: center; background: #f6f7f9; border-bottom: 1px solid #e5e7eb;
-        }
+        .topbar { padding: 10px 12px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          display: flex; gap: 8px; align-items: center; background: #f6f7f9; border-bottom: 1px solid #e5e7eb; }
         .topbar a { text-decoration: none; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; color: #111827; font-size: 14px; background: #fff; }
         .viewer { height: calc(100% - 48px); }
         .viewer iframe { width: 100%; height: 100%; border: 0; }
@@ -190,21 +212,10 @@ if (($_GET['op'] ?? '') === 'pdf') {
         <a id="dl" href="<?= $downloadUrl ?>">Baixar PDF</a>
         <a id="openInline" href="<?= $inlineUrl ?>" target="_blank">Abrir em nova aba</a>
       </div>
-      <div class="viewer">
-        <iframe id="preview" src="about:blank" title="Pré-visualização do comprovante"></iframe>
-      </div>
+      <div class="viewer"><iframe id="preview" src="about:blank" title="Pré-visualização do comprovante"></iframe></div>
       <script>
-        // 1) Dispara o download imediatamente (anexo)
-        try {
-          const a = document.getElementById('dl');
-          if (a) a.click();
-        } catch(e){}
-
-        // 2) Após um pequeno intervalo, carrega o preview inline no iframe
-        setTimeout(() => {
-          const preview = document.getElementById('preview');
-          if (preview) preview.src = "<?= $inlineUrl ?>";
-        }, 300);
+        try { document.getElementById('dl')?.click(); } catch(e){}
+        setTimeout(() => { const p = document.getElementById('preview'); if (p) p.src = "<?= $inlineUrl ?>"; }, 300);
       </script>
     </body>
     </html>
@@ -447,15 +458,29 @@ try {
                                     <td><strong><?= e($p['unidade_nome'] ?? ('Unidade #'.($p['unidade_id'] ?? ''))) ?></strong></td>
                                     <td><?= e($p['id_solicitante']) ?></td>
                                     <td><?= e($p['fornecedor']) ?></td>
-                                    <td><?= e($p['documento']) ?></td>
+
+                                    <!-- ===== DOC/NF → link de DOWNLOAD direto do comprovante ===== -->
+                                    <td>
+                                        <?php if (!empty($p['comprovante_url'])): ?>
+                                            <a href="./contasFiliais.php?op=pdf&mode=download&pid=<?= $id ?>&id=<?= urlencode($idSelecionado) ?>" class="text-primary">Baixar PDF</a>
+                                        <?php else: ?>
+                                            <?= e($p['documento']) ?: '<span class="text-muted">—</span>' ?>
+                                        <?php endif; ?>
+                                    </td>
+
                                     <td><?= e($p['descricao']) ?></td>
                                     <td><?= moneyBr($p['valor']) ?></td>
                                     <td><?= $p['vencimento'] ? date('d/m/Y', strtotime($p['vencimento'])) : '—' ?></td>
+
+                                    <!-- Coluna "Comprovante" pode ficar como estava (opcionalmente manter em branco) -->
                                     <td>
                                         <?php if (!empty($p['comprovante_url'])): ?>
-                                            <a href="./contasFiliais.php?op=pdf&pid=<?= $id ?>&id=<?= urlencode($idSelecionado) ?>" target="_blank" class="text-primary">Abrir</a>
-                                        <?php else: ?><span class="text-muted">—</span><?php endif; ?>
+                                            <span class="text-muted">—</span>
+                                        <?php else: ?>
+                                            <span class="text-muted">—</span>
+                                        <?php endif; ?>
                                     </td>
+
                                     <td>
                                         <?php $badge='bg-label-secondary';
                                         if ($p['status']==='pendente') $badge='bg-label-warning';
@@ -586,17 +611,14 @@ try {
                             <p><strong>Fornecedor:</strong> ${escapeHtml(d.fornecedor ?? '')}</p>
                           </div>
                           <div class="col-md-6">
-                            <p><strong>Doc/NF:</strong> ${escapeHtml(d.documento ?? '')}</p>
+                            <p><strong>Doc/NF:</strong> ${
+                                d.comprovante_url
+                                  ? `<a href="./contasFiliais.php?op=pdf&mode=download&pid=${Number(d.id)}&id=<?= e($idSelecionado) ?>" target="_blank">Baixar PDF</a>`
+                                  : escapeHtml(d.documento ?? '')
+                              }</p>
                             <p><strong>Descrição:</strong> ${escapeHtml(d.descricao ?? '')}</p>
                             <p><strong>Valor:</strong> ${formatMoney(d.valor)}</p>
                             <p><strong>Vencimento:</strong> ${formatDate(d.vencimento)}</p>
-                          </div>
-                          <div class="col-12">
-                            <p><strong>Comprovante:</strong> ${
-                              d.comprovante_url
-                                ? `<a href="./contasFiliais.php?op=pdf&pid=${Number(d.id)}&id=<?= e($idSelecionado) ?>" target="_blank">Abrir</a>`
-                                : '<span class="text-muted">—</span>'
-                            }</p>
                           </div>
                         </div>`;
                       if (box){ box.innerHTML = html; }
