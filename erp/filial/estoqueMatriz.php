@@ -433,9 +433,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gerar_transferencia']
             throw new Exception("Produto não encontrado.");
         }
 
-        if ($quantidade > $p['quantidade_produto']) {
-            throw new Exception("Quantidade maior que disponível.");
-        }
+        // ✅ Validação: quantidade maior que disponível → bloquear
+if ($quantidade < 1) {
+    throw new Exception("A quantidade deve ser maior que zero.");
+}
+
+if ($quantidade > $p['quantidade_produto']) {
+    throw new Exception(
+        "Quantidade solicitada ({$quantidade}) é maior que o disponível ({$p['quantidade_produto']})."
+    );
+}
+
 
       // ✅ Calcular total estimado
 $total_estimado = $p['preco_produto'] * $quantidade;
@@ -1050,7 +1058,8 @@ function calcularStatusEstoque($quantidade, $min)
         data-bs-toggle="modal"
         data-bs-target="#modalTransferir"
         data-produto-id="<?= $p['id'] ?>"
-        data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>">
+        data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
+        data-produto-qtd="<?= $p['quantidade_produto'] ?>">
     Transf.
 </button>
 
@@ -1180,7 +1189,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-6">
                                 <label class="form-label">Quantidade</label>
                                 <input type="number" class="form-control" name="quantidade" min="1" placeholder="0" required>
+                                <input type="hidden" id="transfer-disponivel">
+
                             </div>
+                            
                             <div class="col-md-6">
                                 <label class="form-label">Prioridade</label>
                                 <select name="prioridade" class="form-select" required>
@@ -1214,16 +1226,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalTransferir = document.getElementById('modalTransferir');
 
     modalTransferir.addEventListener('show.bs.modal', function (event) {
-
         const button = event.relatedTarget;
-
         const produtoId   = button.getAttribute('data-produto-id');
         const produtoNome = button.getAttribute('data-produto-nome');
+        const produtoQtd  = button.getAttribute('data-produto-qtd'); // nova linha (ver abaixo)
 
-        // Preencher os campos hidden e o input do topo
         modalTransferir.querySelector('#transfer-produto-id').value   = produtoId;
         modalTransferir.querySelector('#transfer-produto-nome').value = produtoNome;
+
+        // ✅ guardar qtd disponível no input hidden
+        modalTransferir.querySelector('#transfer-disponivel').value = produtoQtd;
     });
+
+    // ✅ Validação antes do envio
+    const form = modalTransferir.querySelector("form");
+
+    form.addEventListener("submit", function(e) {
+        const disponivel = parseInt(document.getElementById("transfer-disponivel").value);
+        const qtd = parseInt(form.querySelector("input[name='quantidade']").value);
+
+        if (qtd > disponivel) {
+            e.preventDefault();
+            alert("A quantidade informada ("+qtd+") é maior do que a disponível ("+disponivel+").");
+            return false;
+        }
+    });
+
 });
 </script>
 
