@@ -507,6 +507,88 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           </ul>
         </div>
       </nav>
+       <!-- Relatórios -->
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+                            <div data-i18n="Relatorios">Relatórios</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Vendas">Vendas por Filial</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Pedidos">Vendas por Período</div>
+                                </a>
+                            </li>
+
+                        </ul>
+                    </li>
+
+                    <!--END DELIVERY-->
+
+                    <!-- Misc -->
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+                    <li class="menu-item">
+                        <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-group"></i>
+                            <div data-i18n="Authentications">RH</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-dollar"></i>
+                            <div data-i18n="Authentications">Finanças</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-desktop"></i>
+                            <div data-i18n="Authentications">PDV</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div data-i18n="Authentications">Empresa</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-box"></i>
+                            <div data-i18n="Authentications">Estoque</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../franquia/index.php?id=principal_1" class="menu-link">
+                            <i class="menu-icon tf-icons bx bx-store"></i>
+                            <div data-i18n="Authentications">Franquias</div>
+                        </a>
+                    </li>
+                    <li class="menu-item">
+                        <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-group"></i>
+                            <div data-i18n="Authentications">Usuários </div>
+                        </a>
+                    </li>
+                    <li class="menu-item mb-5">
+                        <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
+                            <i class="menu-icon tf-icons bx bx-support"></i>
+                            <div data-i18n="Basic">Suporte</div>
+                        </a>
+                    </li>
+                    <!--/MISC-->
+                </ul>
+            </aside>
+            <!-- / Menu --> 
       <!-- / Navbar -->
 
       <!-- Content -->
