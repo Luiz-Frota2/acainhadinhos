@@ -437,21 +437,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gerar_transferencia']
             throw new Exception("Quantidade maior que disponível.");
         }
 
-        // ✅ Criar solicitação
-        $stmt = $pdo->prepare("
-            INSERT INTO solicitacoes_b2b 
-            (id_matriz, id_solicitante, criado_por_usuario_id, status, prioridade, observacao)
-            VALUES (:matriz, :solicitante, :usuario, 'em_transito', :prioridade, :obs)
-        ");
-        $stmt->execute([
-            ':matriz'      => $idSelecionado,
-            ':solicitante' => 'unidade_' . $id_filial,
-            ':usuario'     => $usuario_id,
-            ':prioridade'  => $prioridade,
-            ':obs'         => $observacao
-        ]);
+      // ✅ Calcular total estimado
+$total_estimado = $p['preco_produto'] * $quantidade;
 
-        $solicitacao_id = $pdo->lastInsertId();
+// ✅ Criar solicitação
+$stmt = $pdo->prepare("
+    INSERT INTO solicitacoes_b2b 
+    (id_matriz, id_solicitante, criado_por_usuario_id, status, prioridade, observacao, total_estimado)
+    VALUES (:matriz, :solicitante, :usuario, 'em_transito', :prioridade, :obs, :total)
+");
+$stmt->execute([
+    ':matriz'      => $idSelecionado,
+    ':solicitante' => 'unidade_' . $id_filial,
+    ':usuario'     => $usuario_id,
+    ':prioridade'  => $prioridade,
+    ':obs'         => $observacao,
+    ':total'       => $total_estimado
+]);
+
+$solicitacao_id = $pdo->lastInsertId();
 
         // ✅ Inserir item
         $stmtItem = $pdo->prepare("
