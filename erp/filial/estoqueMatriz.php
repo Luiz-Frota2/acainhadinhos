@@ -796,12 +796,12 @@ $fimTxt = $fim->format('d/m/Y');
                                  <?php
 // ---------- Função: calculaStatus ----------
 function calculaStatus(int $disp, int $min): array {
-    // Retorna [label_text, bootstrap_badge_class]
+    // Retorna [label_text, bootstrap_badge_class] — thresholds ajustáveis
     if ($min <= 0) {
         if ($disp <= 0) return ['Crítico', 'bg-label-danger'];
         if ($disp <= 10) return ['Baixo', 'bg-label-warning'];
         if ($disp <= 50) return ['Estável', 'bg-label-success'];
-        return ['Alto', 'bg-label-success']; // fallback
+        return ['Alto', 'bg-label-success'];
     }
 
     if ($disp <= 0.5 * $min) {
@@ -815,8 +815,8 @@ function calculaStatus(int $disp, int $min): array {
     }
 }
 
-// ---------- Função: obter itens só da matriz principal_1 ----------
-function getItensMatriz(PDO $pdo, string $filial = 'principal_1'): array {
+// ---------- Função: obter itens só da matriz (filtra por empresa_id = 'principal_1') ----------
+function getItensMatriz(PDO $pdo, string $empresaId = 'principal_1'): array {
     $sql = "
     SELECT
         COALESCE(p.sku, p.codigo_produto, p.id) AS codigo,
@@ -829,23 +829,22 @@ function getItensMatriz(PDO $pdo, string $filial = 'principal_1'): array {
         COALESCE(e.em_transferencia, e.transferencia, 0) AS transf
     FROM produtos_peca p
     LEFT JOIN estoque_peca e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
-    WHERE (e.local = :filial OR e.almoxarifado = :filial OR e.filial = :filial)
+    WHERE e.empresa_id = :empresaId
     ORDER BY COALESCE(p.nome_produto, p.nome, p.descricao) ASC
     LIMIT 1000;
     ";
 
     try {
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([':filial' => $filial]);
+        $stmt->execute([':empresaId' => $empresaId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        // Em produção você pode logar o erro; aqui devolvemos array vazio para não quebrar a renderização
         error_log('Erro getItensMatriz: ' . $e->getMessage());
         return [];
     }
 }
 
-// ---------- Função: renderizar as linhas da tabela no mesmo formato que você enviou ----------
+// ---------- Função: renderizar linha (mesmo HTML que você enviou) ----------
 function renderLinhaProduto(array $r): void {
     $codigo = htmlspecialchars($r['codigo'] ?? '—');
     $produto = htmlspecialchars($r['produto'] ?? '—');
@@ -856,13 +855,12 @@ function renderLinhaProduto(array $r): void {
     $reservado = (int)($r['reservado'] ?? 0);
     $transf = (int)($r['transf'] ?? 0);
 
-    // Disponível = total - reservado - transf (como você pediu)
+    // Disponível = total - reservado - transf
     $disp = $total - $reservado - $transf;
     if ($disp < 0) $disp = 0;
 
     list($label, $badgeClass) = calculaStatus($disp, $min);
 
-    // Imprime a linha com o mesmo HTML e botões (data-* preenchidos)
     echo "<tr>
             <td><strong>{$codigo}</strong></td>
             <td>{$produto}</td>
@@ -893,8 +891,8 @@ function renderLinhaProduto(array $r): void {
         </tr>";
 }
 
-// ---------- Uso: obter os itens e renderizar (substitui o tbody estático) ----------
-$itens = getItensMatriz($pdo, 'principal_1'); // usa sua conexão $pdo
+// ---------- Uso: buscar e renderizar (substitui o tbody estático) ----------
+$itens = getItensMatriz($pdo, 'principal_1'); // usa empresa_id = 'principal_1'
 if (empty($itens)) {
     echo '<tr><td colspan="10" class="text-center text-muted">Nenhum produto encontrado na matriz principal_1.</td></tr>';
 } else {
