@@ -1012,12 +1012,14 @@ function calcularStatusEstoque($quantidade, $min)
 </button>
 
 
-                <button class="btn btn-sm btn-outline-primary"
+          <button class="btn btn-sm btn-outline-primary"
         data-bs-toggle="modal"
         data-bs-target="#modalTransferir"
-        data-produto-id="<?= $p['id'] ?>">
+        data-produto-id="<?= $p['id'] ?>"
+        data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>">
     Transf.
 </button>
+
 
             </div>
         </td>
@@ -1122,6 +1124,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="modal-body">
                         <div class="row g-3">
+                            <div class="col-12">
+    <label class="form-label">Produto selecionado</label>
+    <input type="text" id="transfer-produto-nome" class="form-control" readonly>
+</div>
+
 
                             <div class="col-12">
                                 <label class="form-label">Filial</label>
@@ -1169,14 +1176,23 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+
     const modalTransferir = document.getElementById('modalTransferir');
+
     modalTransferir.addEventListener('show.bs.modal', function (event) {
+
         const button = event.relatedTarget;
-        const produtoId = button.getAttribute('data-produto-id');
-        modalTransferir.querySelector('#transfer-produto-id').value = produtoId;
+
+        const produtoId   = button.getAttribute('data-produto-id');
+        const produtoNome = button.getAttribute('data-produto-nome');
+
+        // Preencher os campos hidden e o input do topo
+        modalTransferir.querySelector('#transfer-produto-id').value   = produtoId;
+        modalTransferir.querySelector('#transfer-produto-nome').value = produtoNome;
     });
 });
 </script>
+
 
 
                 <!-- Modal: Histórico de Movimentações -->
