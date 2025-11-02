@@ -85,6 +85,85 @@ try {
 }
 
 /* ==========================================================
+   DOWNLOAD DO COMPROVANTE (mesmo arquivo) — ⬅️ NOVO
+   Ex.: ?id=principal_1&download=123
+   Busca o nome do arquivo em sp.comprovante_url, monta URL da Hostinger
+   e força o download do PDF.
+   ========================================================== */
+$COMPROVANTES_BASE = 'https://srv1885-files.hstgr.io/e9aded9b7b308c83/files/public_html/public/pagamentos/'; // ⬅️ NOVO
+
+if (isset($_GET['download'])) {
+    $idPay = (int)$_GET['download'];
+
+    try {
+        $q = $pdo->prepare("SELECT comprovante_url FROM solicitacoes_pagamento WHERE id = :id LIMIT 1");
+        $q->execute([':id' => $idPay]);
+        $row = $q->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['comprovante_url'])) {
+            http_response_code(404);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo "Comprovante não encontrado para esta solicitação.";
+            exit;
+        }
+
+        // Sanitiza o nome (impede path traversal)
+        $nomeArquivo = basename($row['comprovante_url']);
+        $urlArquivo  = $COMPROVANTES_BASE . $nomeArquivo;
+
+        // Tenta buscar o arquivo remoto
+        $conteudo = null;
+        $status   = 0;
+        $ctype    = 'application/pdf';
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($urlArquivo);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+            ]);
+            $conteudo = curl_exec($ch);
+            $status   = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $detCtype = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+            if ($detCtype) $ctype = $detCtype;
+            curl_close($ch);
+        } elseif (ini_get('allow_url_fopen')) {
+            $conteudo = @file_get_contents($urlArquivo);
+            $status   = $conteudo !== false ? 200 : 0;
+        } else {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo "Servidor sem suporte para baixar o arquivo remoto (cURL/allow_url_fopen).";
+            exit;
+        }
+
+        if ($status !== 200 || !$conteudo) {
+            http_response_code(404);
+            header('Content-Type: text/plain; charset=UTF-8');
+            echo "Não foi possível baixar o comprovante (status remoto inválido).";
+            exit;
+        }
+
+        // Força download
+        header('Content-Type: ' . $ctype);
+        header('Content-Length: ' . strlen($conteudo));
+        header('Content-Disposition: attachment; filename="' . $nomeArquivo . '"');
+        header('X-Content-Type-Options: nosniff');
+        echo $conteudo;
+        exit;
+
+    } catch (Throwable $e) {
+        http_response_code(500);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo "Erro ao processar o download do comprovante.";
+        exit;
+    }
+}
+
+/* ==========================================================
    ROTAS AJAX (aprovar/recusar e detalhes) — mesmo arquivo
    ========================================================== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -131,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $sql = "
                 SELECT 
                     sp.*,
-                    COALESCE(sp.comprovante_url, '') AS documento,  -- ⬅️ usa comprovante_url como documento
+                    COALESCE(sp.comprovante_url, '') AS documento,  -- usa comprovante_url como documento
                     u.id   AS unidade_id,
                     u.nome AS unidade_nome,
                     u.tipo AS unidade_tipo
@@ -161,10 +240,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 /* ==========================================================
    LISTAGEM: somente tipo FILIAL (duas tabelas)
-   - id_matriz = $idSelecionado (escopo)
-   - u.tipo = 'filial'
-   - join por: unidades.id = número do final de sp.id_solicitante (unidade_X)
-   Colunas ajustáveis conforme seu SQL
    ========================================================== */
 $pagamentos = [];
 try {
@@ -176,7 +251,7 @@ try {
             COALESCE(sp.descricao, '')        AS descricao,
             COALESCE(sp.valor, 0.00)          AS valor,
             sp.vencimento,
-            COALESCE(sp.comprovante_url, '')  AS documento,   -- ⬅️ usa comprovante_url como documento
+            COALESCE(sp.comprovante_url, '')  AS documento,   -- usa comprovante_url como documento
             sp.status,
             u.id        AS unidade_id,
             u.nome      AS unidade_nome,
@@ -445,7 +520,8 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     <td><?= $p['vencimento'] ? date('d/m/Y', strtotime($p['vencimento'])) : '—' ?></td>
                                     <td>
                                         <?php if (!empty($p['documento'])): ?>
-                                            <a href="<?= e($p['documento']) ?>" target="_blank" class="text-primary">Abrir</a>
+                                            <!-- Link para forçar download no MESMO arquivo --> <!-- ⬅️ ALTERADO -->
+                                            <a href="?id=<?= urlencode($idSelecionado) ?>&download=<?= $id ?>" class="text-primary">Baixar</a>
                                         <?php else: ?>
                                             <span class="text-muted">—</span>
                                         <?php endif; ?>
@@ -552,7 +628,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             else $status.classList.add('bg-label-secondary');
         }
         if ($acoes && newStatus !== 'pendente'){
-            // Remove botões Aprovar/Recusar e mantém só Detalhes
             $acoes.querySelectorAll('.btn-aprovar, .btn-recusar').forEach(btn => btn.remove());
         }
     }
@@ -583,7 +658,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             const id = t.getAttribute('data-id');
             if (!id) return;
             const motivo = prompt('Motivo da recusa (opcional):', '');
-            // (Para salvar motivo, adicione coluna e envie no POST)
             if (!confirm('Confirmar recusa deste pagamento?')) return;
 
             post('update_status', {id, status:'reprovado'})
@@ -620,7 +694,9 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                           </div>
                           <div class="col-12">
                             <p><strong>Documento:</strong> ${
-                              d.documento ? `<a href="${escapeAttr(d.documento)}" target="_blank">Abrir</a>` : '<span class="text-muted">—</span>'
+                              d.documento 
+                                ? `<a href="?id=<?= urlencode($idSelecionado) ?>&download=${escapeHtml(d.id)}">Baixar</a>`
+                                : '<span class="text-muted">—</span>'
                             }</p>
                           </div>
                         </div>`;
@@ -643,7 +719,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const mm = String(d.getMonth()+1).padStart(2,'0');
         const yyyy = d.getFullYear();
         return `${dd}/${mm}/${yyyy}`;
-        // (Se seu campo for DATETIME em fuso diferente, considere formatar no back-end)
     }
     function formatMoney(v){
         if (v == null) return 'R$ 0,00';
