@@ -679,14 +679,6 @@ $fimTxt = $fim->format('d/m/Y');
                 <!-- / Navbar -->
 
            <?php
-// estoque_Matriz.php
-// Seguir convenção: segunda palavra começa com maiúscula
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-session_start();
-date_default_timezone_set('America/Manaus');
-
-require_once __DIR__ . '/../../config/db.php'; // Ajuste para o caminho real do seu config
 
 // --- Função de status ---
 function calculaStatus(int $disp, int $min): array {
