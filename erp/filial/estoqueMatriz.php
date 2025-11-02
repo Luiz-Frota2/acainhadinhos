@@ -783,13 +783,11 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th>SKU</th>
                                         <th>Produto</th>
                                         <th>Categoria</th>
-                                        <th>Lote</th>
                                         <th>Validade</th>
                                         <th>Min</th>
                                         <th>Disp.</th>
                                         <th>Reserv.</th>
                                         <th>Transf.</th>
-                                        <th>Local</th>
                                         <th>Status</th>
                                         <th class="text-end">Ações</th>
                                     </tr>
@@ -800,13 +798,11 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>ACA-500</strong></td>
                                         <td>Polpa Açaí 500g</td>
                                         <td>Congelados</td>
-                                        <td>L2309-01</td>
                                         <td>30/11/2025</td>
                                         <td>200</td>
                                         <td>1.420</td>
                                         <td>120</td>
                                         <td>80</td>
-                                        <td>Câmara Fria A</td>
                                         <td><span class="badge bg-label-success">Estável</span></td>
                                         <td class="text-end">
                                             <div class="btn-group">
@@ -822,13 +818,11 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>ACA-1KG</strong></td>
                                         <td>Polpa Açaí 1kg</td>
                                         <td>Congelados</td>
-                                        <td>L2309-05</td>
                                         <td>15/12/2025</td>
                                         <td>150</td>
                                         <td>380</td>
                                         <td>80</td>
                                         <td>120</td>
-                                        <td>Câmara Fria B</td>
                                         <td><span class="badge bg-label-warning">Baixo</span></td>
                                         <td class="text-end">
                                             <div class="btn-group">
@@ -844,13 +838,11 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>COPO-300</strong></td>
                                         <td>Copo 300ml</td>
                                         <td>Displays</td>
-                                        <td>L2401-12</td>
                                         <td>—</td>
                                         <td>1.000</td>
                                         <td>6.200</td>
                                         <td>200</td>
                                         <td>0</td>
-                                        <td>Armazém 02</td>
                                         <td><span class="badge bg-label-success">Estável</span></td>
                                         <td class="text-end">
                                             <div class="btn-group">
@@ -866,7 +858,6 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>GRAN-200</strong></td>
                                         <td>Granola 200g</td>
                                         <td>Secos</td>
-                                        <td>L2407-03</td>
                                         <td>05/08/2026</td>
                                         <td>300</td>
                                         <td>260</td>
@@ -888,13 +879,11 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>COL-12</strong></td>
                                         <td>Colher biodegradável (cx c/ 1.000)</td>
                                         <td>Descartáveis</td>
-                                        <td>L2305-09</td>
                                         <td>—</td>
                                         <td>50</td>
                                         <td>410</td>
                                         <td>30</td>
                                         <td>0</td>
-                                        <td>Armazém 01</td>
                                         <td><span class="badge bg-label-success">Estável</span></td>
                                         <td class="text-end">
                                             <div class="btn-group">
@@ -932,9 +921,6 @@ $fimTxt = $fim->format('d/m/Y');
                                         <p class="mb-1"><strong>Categoria:</strong> <span id="det-categoria">—</span></p>
                                     </div>
                                     <div class="col-md-4">
-                                        <p class="mb-1"><strong>Lote:</strong> <span id="det-lote">—</span></p>
-                                    </div>
-                                    <div class="col-md-4">
                                         <p class="mb-1"><strong>Validade:</strong> <span id="det-validade">—</span></p>
                                     </div>
                                     <div class="col-md-3">
@@ -949,9 +935,7 @@ $fimTxt = $fim->format('d/m/Y');
                                     <div class="col-md-3">
                                         <p class="mb-1"><strong>Em transf.:</strong> <span id="det-transf">—</span></p>
                                     </div>
-                                    <div class="col-12">
-                                        <p class="mb-0"><strong>Local:</strong> <span id="det-local">—</span></p>
-                                    </div>
+                                    
                                 </div>
                                 <div class="alert alert-info mb-0">
                                     <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Mov.</strong> para entrada/saída/ajuste ou em <strong>Transf.</strong> para enviar às Filiais.
@@ -1006,15 +990,7 @@ $fimTxt = $fim->format('d/m/Y');
                                             <input type="text" class="form-control" placeholder="Opcional">
                                         </div>
 
-                                        <div class="col-md-6">
-                                            <label class="form-label">Lote</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: L2309-01">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Validade</label>
-                                            <input type="date" class="form-control" placeholder="">
-                                        </div>
-
+                                       
                                         <div class="col-12">
                                             <label class="form-label">Motivo</label>
                                             <select class="form-select">
