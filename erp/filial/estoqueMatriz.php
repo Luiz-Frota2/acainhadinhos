@@ -678,481 +678,195 @@ $fimTxt = $fim->format('d/m/Y');
 
                 <!-- / Navbar -->
 
-                <!-- Content -->
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
-                        Estoque Matriz
-                    </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Visão geral do estoque central</span>
-                    </h5>
+           <?php
+// estoque_Matriz.php
+// Seguir convenção: segunda palavra começa com maiúscula
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+session_start();
+date_default_timezone_set('America/Manaus');
 
-                    <!-- Cards resumo -->
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">SKUs ativos</p>
-                                            <h4 class="mb-0">148</h4>
-                                        </div>
-                                        <i class="bx bx-box fs-2 text-primary"></i>
-                                    </div>
-                                </div>
-                            </div>
+require_once __DIR__ . '/../../config/db.php'; // Ajuste para o caminho real do seu config
+
+// --- Função de status ---
+function calculaStatus(int $disp, int $min): array {
+    // Retorna [label_text, bootstrap_badge_class]
+    // Regras (ajustáveis):
+    // disp <= 0.5 * min => Crítico (danger)
+    // 0.5*min < disp <= min => Baixo (warning)
+    // min < disp <= 3*min => Estável (success)
+    // disp > 3*min => Alto (primary)
+    if ($min <= 0) { // se mínimo inválido, classificamos por faixas absolutas
+        if ($disp <= 0) return ['Crítico', 'bg-label-danger'];
+        if ($disp <= 10) return ['Baixo', 'bg-label-warning'];
+        if ($disp <= 50) return ['Estável', 'bg-label-success'];
+        return ['Alto', 'bg-label-primary'];
+    }
+
+    if ($disp <= 0.5 * $min) {
+        return ['Crítico', 'bg-label-danger'];
+    } elseif ($disp <= $min) {
+        return ['Baixo', 'bg-label-warning'];
+    } elseif ($disp <= 3 * $min) {
+        return ['Estável', 'bg-label-success'];
+    } else {
+        return ['Alto', 'bg-label-primary'];
+    }
+}
+
+// --- Conexão PDO (usando config/db.php que define $pdo) ---
+/*
+config/db.php exemplo mínimo:
+<?php
+$host = '127.0.0.1';
+$db   = 'autoerp';
+$user = 'user';
+$pass = 'pass';
+$charset = 'utf8mb4';
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$opt = [ PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC ];
+$pdo = new PDO($dsn, $user, $pass, $opt);
+*/
+if (!isset($pdo)) {
+    // fallback rápido caso o config não defina $pdo
+    try {
+        $pdo = new PDO('mysql:host=127.0.0.1;dbname=autoerp;charset=utf8mb4', 'root', '', [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+    } catch (Exception $e) {
+        die('Erro conexão DB: ' . $e->getMessage());
+    }
+}
+
+// --- Query: buscar somente produtos do estoque matriz 'principal_1' ---
+// Observações:
+// - Ajuste nomes de tabelas/colunas abaixo conforme seu schema.
+// - Tentei usar nomes genéricos: produtos_peca (p), estoque_peca (e)
+// - Campo que identifica a filial/almoxarifado: e.local OR e.filial OR e.almoxarifado
+$filial = 'principal_1';
+
+$sql = "
+SELECT
+    COALESCE(p.sku, p.codigo_produto, p.id) AS codigo,
+    COALESCE(p.nome_produto, p.nome, p.descricao) AS produto,
+    COALESCE(p.categoria_produto, p.categoria, '—') AS categoria,
+    COALESCE(p.unidade, 'UN') AS unidade,
+    -- mínimo preferencialmente na tabela de produto
+    COALESCE(p.minimo, e.minimo, 0) AS minimo,
+    -- quantidades no estoque (tente os nomes mais prováveis; ajuste se necessário)
+    COALESCE(e.quantidade_total, e.saldo, e.qtd, 0) AS quantidade_total,
+    COALESCE(e.reservado, e.qtd_reservada, 0) AS reservado,
+    COALESCE(e.em_transferencia, e.transferencia, 0) AS transf
+FROM produtos_peca p
+LEFT JOIN estoque_peca e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
+WHERE
+    -- condição para selecionar apenas a matriz; ajuste o campo se necessário
+    (e.local = :filial OR e.almoxarifado = :filial OR e.filial = :filial)
+ORDER BY p.nome_produto ASC
+LIMIT 1000;
+";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute([':filial' => $filial]);
+$rows = $stmt->fetchAll();
+
+?>
+<!-- HTML: substitui o tbody estático pela renderização dinâmica -->
+<div class="card">
+    <h5 class="card-header">Estoque — Itens da Matriz (<?= htmlspecialchars($filial) ?>)</h5>
+    <div class="table-responsive text-nowrap">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Codigo Produto</th>
+                    <th>Produto</th>
+                    <th>Categoria</th>
+                    <th>Unidade</th>
+                    <th>Min</th>
+                    <th>Disp.</th>
+                    <th>Reserv.</th>
+                    <th>Transf.</th>
+                    <th>Status</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="table-border-bottom-0">
+            <?php if (empty($rows)): ?>
+                <tr><td colspan="10" class="text-center text-muted">Nenhum produto encontrado na matriz <?= htmlspecialchars($filial) ?>.</td></tr>
+            <?php else: ?>
+                <?php foreach ($rows as $r):
+                    $codigo = $r['codigo'];
+                    $produto = $r['produto'];
+                    $categoria = $r['categoria'];
+                    $unidade = $r['unidade'];
+                    $min = (int)$r['minimo'];
+                    $total = (int)$r['quantidade_total'];
+                    $reservado = (int)$r['reservado'];
+                    $transf = (int)$r['transf'];
+
+                    // Disponível: se houver coluna específica, preferi calcular
+                    $disp = $total - $reservado - $transf;
+                    if ($disp < 0) $disp = 0;
+
+                    list($label, $badgeClass) = calculaStatus($disp, $min);
+                ?>
+                <tr>
+                    <td><strong><?= htmlspecialchars($codigo) ?></strong></td>
+                    <td><?= htmlspecialchars($produto) ?></td>
+                    <td><?= htmlspecialchars($categoria) ?></td>
+                    <td><?= htmlspecialchars($unidade) ?></td>
+                    <td><?= number_format($min, 0, ',', '.') ?></td>
+                    <td><?= number_format($disp, 0, ',', '.') ?></td>
+                    <td><?= number_format($reservado, 0, ',', '.') ?></td>
+                    <td><?= number_format($transf, 0, ',', '.') ?></td>
+                    <td><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($label) ?></span></td>
+                    <td class="text-end">
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto"
+                                data-sku="<?= htmlspecialchars($codigo) ?>"
+                                data-nome="<?= htmlspecialchars($produto) ?>"
+                                data-categoria="<?= htmlspecialchars($categoria) ?>"
+                                data-unidade="<?= htmlspecialchars($unidade) ?>"
+                                data-min="<?= $min ?>"
+                                data-disp="<?= $disp ?>"
+                                data-res="<?= $reservado ?>"
+                                data-transf="<?= $transf ?>">Detalhes</button>
+
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar"
+                                data-sku="<?= htmlspecialchars($codigo) ?>">Mov.</button>
+
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir"
+                                data-sku="<?= htmlspecialchars($codigo) ?>">Transf.</button>
                         </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Qtde disponível</p>
-                                            <h4 class="mb-0">12.430</h4>
-                                        </div>
-                                        <i class="bx bx-package fs-2 text-success"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Reservado</p>
-                                            <h4 class="mb-0">1.130</h4>
-                                        </div>
-                                        <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Em transferência</p>
-                                            <h4 class="mb-0">820</h4>
-                                        </div>
-                                        <i class="bx bx-transfer fs-2 text-info"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-                    <!-- Ações rápidas -->
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <div class="row g-2">
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-primary w-100">
-                                        <i class="bx bx-plus-circle me-2"></i> Movimentar estoque
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalTransferir">
-                                        <i class="bx bx-right-arrow me-2"></i> Transferir p/ Filial
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalHistorico">
-                                        <i class="bx bx-time-five me-2"></i> Histórico de movimentações
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-dark w-100">
-                                        <i class="bx bx-download me-2"></i> Exportar CSV
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<!-- Script para popular modalProduto (usa data-* dos botões) -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var modalProduto = document.getElementById('modalProduto');
+    modalProduto && modalProduto.addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        if (!btn) return;
+        document.getElementById('det-sku').textContent = btn.getAttribute('data-sku') || '—';
+        document.getElementById('det-nome').textContent = btn.getAttribute('data-nome') || '—';
+        document.getElementById('det-categoria').textContent = btn.getAttribute('data-categoria') || '—';
+        document.getElementById('det-validade').textContent = btn.getAttribute('data-unidade') || '—';
+        document.getElementById('det-min').textContent = btn.getAttribute('data-min') || '—';
+        document.getElementById('det-disp').textContent = btn.getAttribute('data-disp') || '—';
+        document.getElementById('det-res').textContent = btn.getAttribute('data-res') || '—';
+        document.getElementById('det-transf').textContent = btn.getAttribute('data-transf') || '—';
+    });
+});
+</script>
 
-
-                    <!-- Tabela principal -->
-                    <div class="card">
-                        <h5 class="card-header">Estoque — Itens da Matriz</h5>
-                        <div class="table-responsive text-nowrap">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Codigo Produto</th>
-                                        <th>Produto</th>
-                                        <th>Categoria</th>
-                                        <th>Unidade</th>
-                                        <th>Min</th>
-                                        <th>Disp.</th>
-                                        <th>Reserv.</th>
-                                        <th>Transf.</th>
-                                        <th>Status</th>
-                                        <th class="text-end">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-border-bottom-0">
-                                    <!-- Linha 1 -->
-                                    <tr>
-                                        <td><strong>ACA-500</strong></td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>Congelados</td>
-                                        <td>UN</td>
-                                        <td>200</td>
-                                        <td>1.420</td>
-                                        <td>120</td>
-                                        <td>80</td>
-                                        <td><span class="badge bg-label-success">Estável</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-500">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-500">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-500">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Linha 2 -->
-                                    <tr>
-                                        <td><strong>ACA-1KG</strong></td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>Congelados</td>
-                                        <td>KG</td>
-                                        <td>150</td>
-                                        <td>380</td>
-                                        <td>80</td>
-                                        <td>120</td>
-                                        <td><span class="badge bg-label-warning">Baixo</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-1KG">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-1KG">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-1KG">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Linha 3 -->
-                                    <tr>
-                                        <td><strong>COPO-300</strong></td>
-                                        <td>Copo 300ml</td>
-                                        <td>Displays</td>
-                                        <td>—</td>
-                                        <td>1.000</td>
-                                        <td>6.200</td>
-                                        <td>200</td>
-                                        <td>0</td>
-                                        <td><span class="badge bg-label-success">Estável</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="COPO-300">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="COPO-300">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="COPO-300">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Linha 4 -->
-                                    <tr>
-                                        <td><strong>GRAN-200</strong></td>
-                                        <td>Granola 200g</td>
-                                        <td>Secos</td>
-                                        <td>UN</td>
-                                        <td>300</td>
-                                        <td>260</td>
-                                        <td>0</td>
-                                        <td>0</td>
-                                        <td><span class="badge bg-label-danger">Crítico</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="GRAN-200">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="GRAN-200">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="GRAN-200">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Linha 5 -->
-                                    <tr>
-                                        <td><strong>COL-12</strong></td>
-                                        <td>Colher biodegradável (cx c/ 1.000)</td>
-                                        <td>Descartáveis</td>
-                                        <td>—</td>
-                                        <td>50</td>
-                                        <td>410</td>
-                                        <td>30</td>
-                                        <td>0</td>
-                                        <td><span class="badge bg-label-success">Estável</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="COL-12">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="COL-12">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="COL-12">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <!-- ===== Modais ===== -->
-
-                <!-- Modal: Detalhes do Produto -->
-                <div class="modal fade" id="modalProduto" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Detalhes do Produto</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="row g-3 mb-2">
-                                    <div class="col-md-4">
-                                        <p class="mb-1"><strong>Codigo Produto:</strong> <span id="det-sku">—</span></p>
-                                    </div>
-                                    <div class="col-md-8">
-                                        <p class="mb-1"><strong>Produto:</strong> <span id="det-nome">—</span></p>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <p class="mb-1"><strong>Categoria:</strong> <span id="det-categoria">—</span></p>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <p class="mb-1"><strong>Unidade:</strong> <span id="det-validade">—</span></p>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <p class="mb-1"><strong>Mínimo:</strong> <span id="det-min">—</span></p>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <p class="mb-1"><strong>Disponível:</strong> <span id="det-disp">—</span></p>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <p class="mb-1"><strong>Reservado:</strong> <span id="det-res">—</span></p>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <p class="mb-1"><strong>Em transf.:</strong> <span id="det-transf">—</span></p>
-                                    </div>
-                                    
-                                </div>
-                                <div class="alert alert-info mb-0">
-                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Mov.</strong> para entrada/saída/ajuste ou em <strong>Transf.</strong> para enviar às Filiais.
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal: Movimentar Estoque -->
-                <div class="modal fade" id="modalMovimentar" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Movimentar Estoque</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form>
-                                    <div class="row g-3">
-                                        <div class="col-12">
-                                            <label class="form-label">Codigo Produto</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label">Tipo de movimentação</label>
-                                            <div class="d-flex gap-3 flex-wrap">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movEntrada" value="entrada" checked>
-                                                    <label class="form-check-label" for="movEntrada">Entrada</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movSaida" value="saida">
-                                                    <label class="form-check-label" for="movSaida">Saída</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movAjuste" value="ajuste">
-                                                    <label class="form-check-label" for="movAjuste">Ajuste</label>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Quantidade</label>
-                                            <input type="number" class="form-control" min="1" placeholder="0">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Documento (NF/OS)</label>
-                                            <input type="text" class="form-control" placeholder="Opcional">
-                                        </div>
-
-                                       
-                                        <div class="col-12">
-                                            <label class="form-label">Motivo</label>
-                                            <select class="form-select">
-                                                <option>Reposição de fornecedor</option>
-                                                <option>Devolução</option>
-                                                <option>Perda/avaria</option>
-                                                <option>Inventário</option>
-                                                <option>Outros</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Observações</label>
-                                            <textarea class="form-control" rows="3" placeholder="Detalhe a movimentação..."></textarea>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button class="btn btn-primary">Salvar movimentação</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal: Transferir p/ Filial -->
-                <div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Transferir para Filial</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form>
-                                    <div class="row g-3">
-                                        <div class="col-12">
-                                            <label class="form-label">Codigo Produto</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Filial</label>
-                                            <select class="form-select">
-                                                <option>Filial Centro</option>
-                                                <option>Filial Norte</option>
-                                                <option>Filial Sul</option>
-                                                <option>Filial Leste</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Quantidade</label>
-                                            <input type="number" class="form-control" min="1" placeholder="0">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Prioridade</label>
-                                            <select class="form-select">
-                                                <option>Baixa</option>
-                                                <option>Média</option>
-                                                <option>Alta</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Observações</label>
-                                            <textarea class="form-control" rows="3" placeholder="Instruções de envio, embalagem, etc."></textarea>
-                                        </div>
-                                    </div>
-                                </form>
-                                <div class="alert alert-warning mt-3 mb-0">
-                                    <i class="bx bx-error-circle me-1"></i> A transferência reserva a quantidade informada até o envio.
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button class="btn btn-primary">Gerar transferência</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Modal: Histórico de Movimentações -->
-                <div class="modal fade" id="modalHistorico" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-xl">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Histórico de Movimentações</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="table-responsive text-nowrap">
-                                    <table class="table table-striped align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th>Data/Hora</th>
-                                                <th>Codigo Produto</th>
-                                                <th>Produto</th>
-                                                <th>Tipo</th>
-                                                <th>Qtd</th>
-                                                <th>Doc</th>
-                                                <th>Motivo</th>
-                                                <th>Usuário</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td>26/09/2025 10:15</td>
-                                                <td>ACA-500</td>
-                                                <td>Polpa Açaí 500g</td>
-                                                <td><span class="badge bg-label-success">Entrada</span></td>
-                                                <td>+300</td>
-                                                <td>L2309-01</td>
-                                                <td>NF 21544</td>
-                                                <td>Reposição de fornecedor</td>
-                                                <td>maria.silva</td>
-                                            </tr>
-                                            <tr>
-                                                <td>25/09/2025 17:02</td>
-                                                <td>ACA-1KG</td>
-                                                <td>Polpa Açaí 1kg</td>
-                                                <td><span class="badge bg-label-info">Ajuste</span></td>
-                                                <td>+20</td>
-                                                <td>L2309-05</td>
-                                                <td>—</td>
-                                                <td>Inventário</td>
-                                                <td>joao.souza</td>
-                                            </tr>
-                                            <tr>
-                                                <td>24/09/2025 09:40</td>
-                                                <td>GRAN-200</td>
-                                                <td>Granola 200g</td>
-                                                <td><span class="badge bg-label-danger">Saída</span></td>
-                                                <td>-60</td>
-                                                <td>L2407-03</td>
-                                                <td>OS 7711</td>
-                                                <td>Perda/avaria</td>
-                                                <td>ana.pereira</td>
-                                            </tr>
-                                            <tr>
-                                                <td>23/09/2025 15:18</td>
-                                                <td>COPO-300</td>
-                                                <td>Copo 300ml</td>
-                                                <td><span class="badge bg-label-primary">Transferência</span></td>
-                                                <td>-500</td>
-                                                <td>L2401-12</td>
-                                                <td>TR-1026</td>
-                                                <td>Envio p/ Filial Sul</td>
-                                                <td>rodrigo.alves</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <small class="text-muted">* Valores positivos aumentam o saldo, negativos reduzem.</small>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- / Content -->
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
