@@ -794,7 +794,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 </thead>
                                 <tbody class="table-border-bottom-0">
                                    <?php
-// Consulta apenas produtos da empresa principal
+// Consulta produtos somente da empresa principal
 $sql = $pdo->prepare("
     SELECT 
         id,
@@ -810,16 +810,17 @@ $sql = $pdo->prepare("
 ");
 $sql->execute();
 
+// Armazena os produtos
 $produtos = $sql->fetchAll(PDO::FETCH_ASSOC);
 
-// Função de cálculo do status
+// Função para calcular o status do produto
 function calcularStatus($quantidade, $min) {
     if ($quantidade < $min) {
-        return ['Baixo', 'danger'];
+        return ['Baixo', 'danger'];  // Vermelho
     } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
-        return ['Estável', 'success'];
+        return ['Estável', 'success']; // Verde
     } else {
-        return ['Alto', 'primary'];
+        return ['Alto', 'primary']; // Azul
     }
 }
 ?>
@@ -832,7 +833,7 @@ function calcularStatus($quantidade, $min) {
         // Min = 10% da quantidade
         $min = max(1, $p['quantidade_produto'] * 0.10);
 
-        // Status automático
+        // Calcular status automaticamente
         list($statusTexto, $statusCor) = calcularStatus($p['quantidade_produto'], $min);
     ?>
 
@@ -842,17 +843,17 @@ function calcularStatus($quantidade, $min) {
         <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
         <td><?= htmlspecialchars($p['unidade']) ?></td>
 
-        <!-- Min calculado -->
+        <!-- Min calculado (10%) -->
         <td><?= number_format($min, 0, ',', '.') ?></td>
 
-        <!-- Disponível -->
+        <!-- Quantidade disponível -->
         <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
 
-        <!-- Como não existe no DB, deixei zero -->
-        <td>0</td> <!-- Reservado -->
-        <td>0</td> <!-- Transferido -->
+        <!-- Como seu banco não possui as colunas, deixo como zero -->
+        <td>0</td> 
+        <td>0</td>
 
-        <!-- Status -->
+        <!-- Status automático -->
         <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
 
         <td class="text-end">
