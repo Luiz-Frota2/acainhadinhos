@@ -121,10 +121,51 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
 }
 
 /* ==========================================================
-   🟠/🟢 LISTAGEM — PRODUTOS EM TRÂNSITO OU ENTREGUES
+   🟠 FILTROS — Status/Período/Busca
+   ========================================================== */
+$status = $_GET['status'] ?? '';                // '', 'pendente', 'aprovada', 'reprovada'
+$de     = trim($_GET['de'] ?? '');
+$ate    = trim($_GET['ate'] ?? '');
+$q      = trim($_GET['q'] ?? '');
+
+$validStatus = ['pendente','aprovada','reprovada'];
+
+$where  = [];
+$params = [':empresa_id' => $idSelecionado];
+
+$where[] = "s.id_matriz = :empresa_id";
+
+/* 🔹 Status: se vazio => restringe APENAS aos três */
+if ($status !== '' && in_array($status, $validStatus, true)) {
+    $where[] = "s.status = :st";
+    $params[':st'] = $status;
+} else {
+    $where[] = "s.status IN ('pendente','aprovada','reprovada')";
+}
+
+/* 🔹 Período pelo primeiro marco disponível (entregue/enviada/updated/aprovada/created) */
+$dateExpr = "DATE(COALESCE(s.entregue_em, s.enviada_em, s.updated_at, s.aprovada_em, s.created_at))";
+if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
+    $where[] = "$dateExpr >= :de";
+    $params[':de'] = $de;
+}
+if ($ate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ate)) {
+    $where[] = "$dateExpr <= :ate";
+    $params[':ate'] = $ate;
+}
+
+/* 🔹 Busca livre */
+if ($q !== '') {
+    $where[] = "(u.nome LIKE :q OR s.id_solicitante LIKE :q OR s.observacao LIKE :q)";
+    $params[':q'] = "%{$q}%";
+}
+
+/* ==========================================================
+   🟢 LISTAGEM — agora respeita os filtros acima
    ========================================================== */
 $envios = [];
 try {
+    $whereSql = implode(' AND ', $where);
     $sql = "
     SELECT
         s.id,
@@ -139,8 +180,8 @@ try {
     FROM solicitacoes_b2b s
     JOIN unidades u
       ON u.id = CAST(REPLACE(s.id_solicitante, 'unidade_', '') AS UNSIGNED)
-     AND u.tipo = 'Filial'
-     AND u.empresa_id = :empresa_id
+     AND u.tipo IN ('Filial','filial')
+     AND u.empresa_id = s.id_matriz
     LEFT JOIN solicitacoes_b2b_itens i
       ON i.solicitacao_id = s.id
     LEFT JOIN (
@@ -150,14 +191,14 @@ try {
         FROM solicitacoes_b2b_itens ii
         GROUP BY ii.solicitacao_id
     ) fi ON fi.solicitacao_id = s.id
-    WHERE s.status IN ('em_transito','entregue')
-      AND s.id_matriz = :empresa_id
-      AND EXISTS (SELECT 1 FROM estoque e WHERE e.empresa_id = s.id_solicitante)
+    WHERE {$whereSql}
     GROUP BY s.id, s.id_solicitante, u.nome, s.status, mov_em, fi.codigo_produto, fi.nome_produto
     ORDER BY mov_em DESC, s.id DESC
+    LIMIT 300
     ";
     $st = $pdo->prepare($sql);
-    $st->execute([':empresa_id' => $idSelecionado]);
+    foreach ($params as $k => $v) $st->bindValue($k, $v);
+    $st->execute();
     $envios = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $envios = [];
@@ -169,6 +210,7 @@ function dtBr(?string $dt) {
     $t = strtotime($dt); if (!$t) return '-';
     return date('d/m/Y H:i', $t);
 }
+function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -184,7 +226,7 @@ function dtBr(?string $dt) {
     <meta name="description" content="" />
 
     <!-- Favicon da empresa carregado dinamicamente -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+    <link rel="icon" type="image/x-icon" href="<?= h($logoEmpresa) ?>" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -193,7 +235,7 @@ function dtBr(?string $dt) {
         href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600;1,700&display=swap"
         rel="stylesheet" />
 
-    <!-- Icons. Uncomment required icon fonts -->
+    <!-- Icons -->
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
 
     <!-- Core CSS -->
@@ -399,7 +441,7 @@ function dtBr(?string $dt) {
                             <li class="nav-item navbar-dropdown dropdown-user dropdown">
                                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                                     <div class="avatar avatar-online">
-                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                                        <img src="<?= h($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                     </div>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
@@ -408,12 +450,12 @@ function dtBr(?string $dt) {
                                             <div class="d-flex">
                                                 <div class="flex-shrink-0 me-3">
                                                     <div class="avatar avatar-online">
-                                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                                                        <img src="<?= h($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
                                                 <div class="flex-grow-1">
-                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
-                                                    <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
+                                                    <span class="fw-semibold d-block"><?= h($nomeUsuario); ?></span>
+                                                    <small class="text-muted"><?= h($tipoUsuario); ?></small>
                                                 </div>
                                             </div>
                                         </a>
@@ -437,12 +479,51 @@ function dtBr(?string $dt) {
                         Produtos Enviados
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Produtos em trânsito e entregues para as Filiais</span>
+                        <span class="text-muted fw-light">Produtos conforme status (pendente/aprovada/reprovada)</span>
                     </h5>
+
+                    <!-- ===== Filtros ===== -->
+                    <form class="card mb-3" method="get" id="filtroForm">
+                      <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
+                      <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                          <div class="col-12 col-md-auto">
+                            <label class="form-label mb-1">Status</label>
+                            <select class="form-select form-select-sm" name="status">
+                              <option value="">Todos (pendente/aprovada/reprovada)</option>
+                              <option value="pendente"  <?= $status==='pendente'  ? 'selected' : '' ?>>Pendente</option>
+                              <option value="aprovada"  <?= $status==='aprovada'  ? 'selected' : '' ?>>Aprovada</option>
+                              <option value="reprovada" <?= $status==='reprovada' ? 'selected' : '' ?>>Reprovada</option>
+                            </select>
+                          </div>
+
+                          <div class="col-12 col-md-auto">
+                            <label class="form-label mb-1">De</label>
+                            <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
+                          </div>
+
+                          <div class="col-12 col-md-auto">
+                            <label class="form-label mb-1">Até</label>
+                            <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
+                          </div>
+
+                          <div class="col-12 col-md">
+                            <label class="form-label mb-1">Buscar</label>
+                            <input type="text" class="form-control form-control-sm" name="q" value="<?= h($q) ?>"
+                                   placeholder="Filial, id_solicitante (ex.: unidade_3) ou observação…">
+                          </div>
+
+                          <div class="col-12 col-md-auto d-flex gap-2">
+                            <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+                            <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                          </div>
+                        </div>
+                      </div>
+                    </form>
 
                     <!-- Tabela -->
                     <div class="card">
-                        <h5 class="card-header">Lista de Produtos Enviados</h5>
+                        <h5 class="card-header">Lista de Produtos (por status)</h5>
                         <div class="table-responsive text-nowrap">
                             <table class="table table-hover" id="tabela-enviados">
                                 <thead>
@@ -460,7 +541,7 @@ function dtBr(?string $dt) {
                                 <tbody class="table-border-bottom-0">
                                 <?php if (empty($envios)): ?>
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">Nenhum envio em trânsito ou entregue.</td>
+                                        <td colspan="8" class="text-center text-muted py-4">Nenhum registro encontrado.</td>
                                     </tr>
                                 <?php else: foreach ($envios as $row): ?>
                                     <?php
@@ -470,32 +551,35 @@ function dtBr(?string $dt) {
                                         if ($itens > 1 && $nome !== '—') {
                                             $nome .= " <span class='text-muted'>(+ " . ($itens-1) . ")</span>";
                                         }
-                                        $status = strtolower((string)$row['status']);
+                                        $statusRow = strtolower((string)$row['status']);
 
-                                        // 🔁 Mapeamento visual do status:
-                                        // - entregue   => badge verde "Entregue"
-                                        // - em_transito=> badge "Enviado" (substitui o texto "Em Trânsito")
-                                        if ($status === 'entregue') {
-                                            $badgeHtml = '<span class="badge bg-label-success status-badge">Entregue</span>';
-                                            $detStatus = 'Entregue';
-                                        } elseif ($status === 'em_transito') {
-                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Enviado</span>';
-                                            $detStatus = 'Enviado';
+                                        // 🔁 Mapeamento visual para os três status
+                                        if ($statusRow === 'aprovada') {
+                                            $badgeHtml = '<span class="badge bg-label-primary status-badge">Aprovada</span>';
+                                        } elseif ($statusRow === 'reprovada') {
+                                            $badgeHtml = '<span class="badge bg-label-danger status-badge">Reprovada</span>';
+                                        } elseif ($statusRow === 'pendente') {
+                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Pendente</span>';
                                         } else {
-                                            // fallback (caso venha algo inesperado)
-                                            $badgeHtml = '<span class="badge bg-label-secondary status-badge">'.htmlspecialchars($row['status']).'</span>';
-                                            $detStatus = ucfirst(str_replace('_',' ', (string)$row['status']));
+                                            // fallback (se vier outro status)
+                                            $badgeHtml = '<span class="badge bg-label-secondary status-badge">'.h($row['status']).'</span>';
                                         }
+
+                                        // Regra de ações: se aprovada/reprovada => apenas "Detalhes"
+                                        $mostrarSomenteDetalhes = in_array($statusRow, ['aprovada','reprovada'], true);
                                     ?>
                                     <tr data-row-id="<?= (int)$row['id'] ?>">
                                         <td>PS-<?= (int)$row['id'] ?></td>
-                                        <td><strong><?= htmlspecialchars($row['filial_nome'] ?? '-') ?></strong></td>
-                                        <td><?= htmlspecialchars($sku) ?></td>
+                                        <td><strong><?= h($row['filial_nome'] ?? '-') ?></strong></td>
+                                        <td><?= h($sku) ?></td>
                                         <td><?= $nome ?></td>
                                         <td><?= (int)$row['qtd_total'] ?></td>
                                         <td><?= dtBr($row['mov_em']) ?></td>
                                         <td><?= $badgeHtml ?></td>
                                         <td class="text-end">
+                                            <?php if (!$mostrarSomenteDetalhes): ?>
+                                                <!-- aqui poderiam existir outras ações para 'pendente' -->
+                                            <?php endif; ?>
                                             <button
                                                 type="button"
                                                 class="btn btn-sm btn-outline-secondary btn-detalhes"
@@ -503,8 +587,8 @@ function dtBr(?string $dt) {
                                                 data-bs-target="#modalDetalhes"
                                                 data-id="<?= (int)$row['id'] ?>"
                                                 data-codigo="PS-<?= (int)$row['id'] ?>"
-                                                data-filial="<?= htmlspecialchars($row['filial_nome'] ?? '-') ?>"
-                                                data-status="<?= $detStatus ?>">
+                                                data-filial="<?= h($row['filial_nome'] ?? '-') ?>"
+                                                data-status="<?= ucfirst($statusRow) ?>">
                                                 Detalhes
                                             </button>
                                         </td>
@@ -568,9 +652,6 @@ function dtBr(?string $dt) {
                     <!-- JS da LISTAGEM: carrega detalhes na modal -->
                     <script>
                         (function(){
-                            const tabela = document.getElementById('tabela-enviados');
-
-                            // Abrir modal com detalhes
                             const modalEl = document.getElementById('modalDetalhes');
                             if (modalEl) {
                                 modalEl.addEventListener('show.bs.modal', function (event) {
@@ -618,12 +699,6 @@ function dtBr(?string $dt) {
                                         });
                                 });
                             }
-
-                            // Apenas para garantir: evitar submit acidental em botões
-                            tabela?.addEventListener('click', function(e){
-                                const btnDet = e.target.closest('.btn-detalhes');
-                                if (!btnDet) return;
-                            });
                         })();
                     </script>
 
