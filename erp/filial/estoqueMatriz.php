@@ -764,7 +764,7 @@ if(isset($_POST['gerar_transferencia'])){
         $stmt->execute([
             ':matriz'=>$idSelecionado,
             ':solicitante'=>'unidade_'.$id_filial,
-            ':usuario'=>$usuarioLogadoId,
+            ':usuario'=>$usuario_id,
             ':prioridade'=>$prioridade,
             ':obs'=>$observacao
         ]);
