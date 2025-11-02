@@ -438,9 +438,16 @@ if ($quantidade < 1) {
     throw new Exception("A quantidade deve ser maior que zero.");
 }
 
-if ($quantidade > $p['quantidade_produto']) {
+// Quantidade disponível real considerando o reservado
+$disponivel_real = $p['quantidade_produto'] - $p['reservado'];
+
+if ($quantidade < 1) {
+    throw new Exception("A quantidade deve ser maior que zero.");
+}
+
+if ($quantidade > $disponivel_real) {
     throw new Exception(
-        "Quantidade solicitada ({$quantidade}) é maior que o disponível ({$p['quantidade_produto']})."
+        "Quantidade solicitada ({$quantidade}) é maior que a quantidade disponível ({$disponivel_real})."
     );
 }
 
@@ -1054,14 +1061,16 @@ function calcularStatusEstoque($quantidade, $min)
 </button>
 
 
-          <button class="btn btn-sm btn-outline-primary"
+        <button class="btn btn-sm btn-outline-primary"
         data-bs-toggle="modal"
         data-bs-target="#modalTransferir"
         data-produto-id="<?= $p['id'] ?>"
         data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
-        data-produto-qtd="<?= $p['quantidade_produto'] ?>">
+        data-produto-qtd="<?= $p['quantidade_produto'] ?>"
+        data-produto-reservado="<?= $p['reservado'] ?>">
     Transf.
 </button>
+
 
 
             </div>
@@ -1211,6 +1220,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="modal-footer">
                     <input type="hidden" id="transfer-disponivel">
+<input type="hidden" id="transfer-reservado">
+
                     <input type="hidden" name="produto_id" id="transfer-produto-id">
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" name="gerar_transferencia" class="btn btn-primary">Gerar transferência</button>
@@ -1225,31 +1236,42 @@ document.addEventListener('DOMContentLoaded', function() {
     const modalTransferir = document.getElementById('modalTransferir');
 
     modalTransferir.addEventListener('show.bs.modal', function (event) {
-        const button = event.relatedTarget;
-        const produtoId   = button.getAttribute('data-produto-id');
-        const produtoNome = button.getAttribute('data-produto-nome');
-        const produtoQtd  = button.getAttribute('data-produto-qtd'); // nova linha (ver abaixo)
+    const button = event.relatedTarget;
 
-        modalTransferir.querySelector('#transfer-produto-id').value   = produtoId;
-        modalTransferir.querySelector('#transfer-produto-nome').value = produtoNome;
+    const produtoId   = button.getAttribute('data-produto-id');
+    const produtoNome = button.getAttribute('data-produto-nome');
+    const produtoQtd  = parseInt(button.getAttribute('data-produto-qtd'));
+    const produtoRes  = parseInt(button.getAttribute('data-produto-reservado'));
 
-        // ✅ guardar qtd disponível no input hidden
-        modalTransferir.querySelector('#transfer-disponivel').value = produtoQtd;
-    });
+    modalTransferir.querySelector('#transfer-produto-id').value   = produtoId;
+    modalTransferir.querySelector('#transfer-produto-nome').value = produtoNome;
+    modalTransferir.querySelector('#transfer-disponivel').value   = produtoQtd;
+    modalTransferir.querySelector('#transfer-reservado').value    = produtoRes;
+
+    // Atualizar aviso visual
+    const disponivel_real = produtoQtd - produtoRes;
+    const aviso = modalTransferir.querySelector('.alert-warning');
+    aviso.innerHTML = `⚠ Quantidade disponível real: ${disponivel_real} (total ${produtoQtd} - reservado ${produtoRes})`;
+});
+
 
     // ✅ Validação antes do envio
     const form = modalTransferir.querySelector("form");
 
-    form.addEventListener("submit", function(e) {
-        const disponivel = parseInt(document.getElementById("transfer-disponivel").value);
-        const qtd = parseInt(form.querySelector("input[name='quantidade']").value);
+  form.addEventListener("submit", function(e) {
+    const disponivel = parseInt(document.getElementById("transfer-disponivel").value);
+    const reservado = parseInt(document.getElementById("transfer-reservado").value);
+    const qtd = parseInt(form.querySelector("input[name='quantidade']").value);
 
-        if (qtd > disponivel) {
-            e.preventDefault();
-            alert("A quantidade informada ("+qtd+") é maior do que a disponível ("+disponivel+").");
-            return false;
-        }
-    });
+    const disponivel_real = disponivel - reservado;
+
+    if (qtd > disponivel_real) {
+        e.preventDefault();
+        alert(`Quantidade solicitada (${qtd}) maior que disponível real (${disponivel_real}).`);
+        return false;
+    }
+});
+
 
 });
 </script>
