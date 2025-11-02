@@ -965,7 +965,11 @@ function calcularStatusEstoque($quantidade, $min)
 </div>
 
 
-               
+                    <!-- Ações rápidas -->
+                    <div class="card mb-3">
+                       <!-- filtro -->
+                    </div>
+
 
                     <!-- Tabela principal -->
                     <div class="card">
