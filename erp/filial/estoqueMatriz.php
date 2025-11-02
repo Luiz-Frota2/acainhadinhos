@@ -791,11 +791,6 @@ if(isset($_POST['gerar_transferencia'])){
 
         $pdo->commit();
         echo "<script>alert('Transferência gerada com sucesso!');</script>";
- // depois do $pdo->commit();
-$redirectUrl = $_SERVER['REQUEST_URI']; // mantém mesma URL (com ?id=... se houver)
-header("Location: " . $redirectUrl);
-exit;
-
     } catch (Exception $e){
         $pdo->rollBack();
         echo "<script>alert('Erro: ".addslashes($e->getMessage())."');</script>";
