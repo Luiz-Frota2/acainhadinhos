@@ -721,7 +721,7 @@ try {
     $stmt = $pdo->prepare("
         SELECT COALESCE(SUM(status), 0) AS total_status
         FROM solicitacoes_b2b
-        WHERE empresa_id = :empresa and status_transferencia = 'entregue'
+        WHERE id_matriz = :empresa and status_transferencia = 'entregue'
     ");
     $stmt->execute([':empresa' => $idSelecionado]);
     $card3 = (int)$stmt->fetchColumn();
