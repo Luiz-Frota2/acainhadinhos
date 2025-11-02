@@ -809,10 +809,10 @@ $sql = $pdo->prepare("
     WHERE empresa_id = 'principal_1'
     ORDER BY nome_produto ASC
 ");
-$st->execute();
+$sql->execute();
 
 // Armazena os produtos
-$produtos = $st->fetchAll(PDO::FETCH_ASSOC);
+$produtos = $sql->fetchAll(PDO::FETCH_ASSOC);
 
 // Função para calcular o status do produto
 function calcularStatus($quantidade, $min) {
