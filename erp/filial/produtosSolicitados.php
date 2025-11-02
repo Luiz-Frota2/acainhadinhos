@@ -429,85 +429,112 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </head>
 
 <body>
-<div class="layout-wrapper layout-content-navbar">
-  <div class="layout-container">
-    <!-- Menu -->
-    <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-      <div class="app-brand demo">
-        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-          <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
-        </a>
-        <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
-          <i class="bx bx-chevron-left bx-sm align-middle"></i>
-        </a>
-      </div>
-      <div class="menu-inner-shadow"></div>
+    <!-- Layout wrapper -->
+    <div class="layout-wrapper layout-content-navbar">
+        <div class="layout-container">
+            <!-- Menu -->
 
-      <ul class="menu-inner py-1">
-        <li class="menu-item">
-          <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-            <i class="menu-icon tf-icons bx bx-home-circle"></i><div>Dashboard</div>
-          </a>
-        </li>
+            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+                <div class="app-brand demo">
+                    <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-        <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Filiais</span></li>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
+                    </a>
 
-        <li class="menu-item open active">
-          <a href="javascript:void(0);" class="menu-link menu-toggle">
-            <i class="menu-icon tf-icons bx bx-briefcase"></i><div>B2B - Matriz</div>
-          </a>
-          <ul class="menu-sub active">
-            <li class="menu-item"><a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Pagamentos Solic.</div></a></li>
-            <li class="menu-item active"><a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Solicitados</div></a></li>
-            <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Enviados</div></a></li>
-            <li class="menu-item"><a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Transf. Pendentes</div></a></li>
-            <li class="menu-item"><a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Histórico Transf.</div></a></li>
-            <li class="menu-item"><a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Estoque Matriz</div></a></li>
-            <li class="menu-item"><a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Relatórios B2B</div></a></li>
-          </ul>
-        </li>
-      </ul>
-    </aside>
-    <!-- / Menu -->
-
-    <div class="layout-page">
-      <!-- Navbar -->
-      <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
-        <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-          <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
-        </div>
-        <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
-          <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
-          <ul class="navbar-nav flex-row align-items-center ms-auto">
-            <li class="nav-item navbar-dropdown dropdown-user dropdown">
-              <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
-                <div class="avatar avatar-online">
-                  <img src="<?= h($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                        <i class="bx bx-chevron-left bx-sm align-middle"></i>
+                    </a>
                 </div>
-              </a>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                  <a class="dropdown-item" href="#">
-                    <div class="d-flex">
-                      <div class="flex-shrink-0 me-3"><div class="avatar avatar-online"><img src="<?= h($logoEmpresa) ?>" class="w-px-40 h-auto rounded-circle" /></div></div>
-                      <div class="flex-grow-1">
-                        <span class="fw-semibold d-block"><?= h($nomeUsuario) ?></span>
-                        <small class="text-muted"><?= h($tipoUsuario) ?></small>
-                      </div>
-                    </div>
-                  </a>
-                </li>
-                <li><div class="dropdown-divider"></div></li>
-                <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span>Minha Conta</span></a></li>
-                <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span>Configurações</span></a></li>
-                <li><div class="dropdown-divider"></div></li>
-                <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span>Sair</span></a></li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-      </nav>
-       <!-- Relatórios -->
+
+                <div class="menu-inner-shadow"></div>
+
+                <ul class="menu-inner py-1">
+                    <!-- Dashboard -->
+                    <li class="menu-item">
+                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                            <i class="menu-icon tf-icons bx bx-home-circle"></i>
+                            <div data-i18n="Analytics">Dashboard</div>
+                        </a>
+                    </li>
+
+                    <!-- Administração de Filiais -->
+                    <li class="menu-header small text-uppercase">
+                        <span class="menu-header-text">Administração Filiais</span>
+                    </li>
+
+                    <!-- Adicionar Filial -->
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-building"></i>
+                            <div data-i18n="Adicionar">Filiais</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Filiais">Adicionadas</div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="menu-item active open">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div data-i18n="B2B">B2B - Matriz</div>
+                        </a>
+                        <ul class="menu-sub active">
+                            <!-- Contas das Filiais -->
+                            <li class="menu-item">
+                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Pagamentos Solic.</div>
+                                </a>
+                            </li>
+
+                            <!-- Produtos solicitados pelas filiais -->
+                            <li class="menu-item">
+                                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Produtos Solicitados</div>
+                                </a>
+                            </li>
+
+                            <!-- Produtos enviados pela matriz -->
+                            <li class="menu-item">
+                                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Produtos Enviados</div>
+                                </a>
+                            </li>
+
+                            <!-- Transferências em andamento -->
+                            <li class="menu-item">
+                                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Transf. Pendentes</div>
+                                </a>
+                            </li>
+
+                            <!-- Histórico de transferências -->
+                            <li class="menu-item">
+                                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Histórico Transf.</div>
+                                </a>
+                            </li>
+
+                            <!-- Gestão de Estoque Central -->
+                            <li class="menu-item active">
+                                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Estoque Matriz</div>
+                                </a>
+                            </li>
+
+                            <!-- Relatórios e indicadores B2B -->
+                            <li class="menu-item">
+                                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Relatórios B2B</div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- Relatórios -->
                     <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -574,8 +601,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         </a>
                     </li>
                     <li class="menu-item">
- 
-                    <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                        <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
                             <i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">Usuários </div>
                         </a>
@@ -589,10 +615,106 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <!--/MISC-->
                 </ul>
             </aside>
-            <!-- / Menu --> 
-      <!-- / Navbar -->
+            <!-- / Menu -->
 
-      <!-- Content -->
+            <!-- Layout container -->
+            <div class="layout-page">
+                <!-- Navbar -->
+
+                <nav
+                    class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+                    id="layout-navbar">
+                    <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
+                            <i class="bx bx-menu bx-sm"></i>
+                        </a>
+                    </div>
+
+                    <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+                        <!-- Search -->
+                        <div class="navbar-nav align-items-center">
+                            <div class="nav-item d-flex align-items-center">
+                            </div>
+                        </div>
+                        <!-- /Search -->
+
+                        <ul class="navbar-nav flex-row align-items-center ms-auto">
+                            <!-- User -->
+                            <li class="nav-item navbar-dropdown dropdown-user dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <div class="avatar avatar-online">
+                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                                    </div>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
+                                    <li>
+                                        <a class="dropdown-item" href="#">
+                                            <div class="d-flex">
+                                                <div class="flex-shrink-0 me-3">
+                                                    <div class="avatar avatar-online">
+                                                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
+                                                    </div>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                                                    <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
+                                            <i class="bx bx-user me-2"></i>
+                                            <span class="align-middle">Minha Conta</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#">
+                                            <i class="bx bx-cog me-2"></i>
+                                            <span class="align-middle">Configurações</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                                            <i class="bx bx-power-off me-2"></i>
+                                            <span class="align-middle">Sair</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                            <!--/ User -->
+                        </ul>
+
+                    </div>
+                </nav>
+
+                <!-- / Navbar -->
+
+                <!-- Content -->
+                <div class="container-xxl flex-grow-1 container-p-y">
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
+                        Estoque Matriz
+                    </h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font">
+                        <span class="text-muted fw-light">Visão geral do estoque central</span>
+                    </h5>
+      
+
+                  <!-- Cards resumo -->
+<div class="row g-3 mb-3">
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Código Produto ativos</p>
       <div class="container-xxl flex-grow-1 container-p-y">
         <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Filiais</a>/</span>Produtos Solicitados</h4>
         <h5 class="fw-bold mt-3 mb-3"><span class="text-muted fw-light">Pedidos de produtos enviados pelas Filiais</span></h5>
