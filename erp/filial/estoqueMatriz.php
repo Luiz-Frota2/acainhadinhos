@@ -718,13 +718,18 @@ try {
     $stmt->execute([':empresa' => $idSelecionado]);
     $card3 = (int)$stmt->fetchColumn();
 
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS status
-        FROM solicitacoes_b2b
-        WHERE id_matriz = :empresa and status = 'entregue'
-    ");
-    $stmt->execute([':empresa' => $idSelecionado]);
-    $card4 = (int)$stmt->fetchColumn();
+   $stmt = $pdo->prepare("
+    SELECT COUNT(*) AS total_transferencias
+    FROM solicitacoes_b2b s
+    INNER JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+       AND u.tipo = 'Filial'
+       AND u.empresa_id = s.id_matriz
+    WHERE s.id_matriz = :empresa
+      AND s.status = 'entregue'
+");
+$stmt->execute([':empresa' => $idSelecionado]);
+$card4 = (int)$stmt->fetchColumn();
 
 } catch (PDOException $e) {
     $card1 = $card2 = $card3 = $card4 = 0;
