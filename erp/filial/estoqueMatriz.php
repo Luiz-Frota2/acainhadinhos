@@ -794,24 +794,25 @@ $fimTxt = $fim->format('d/m/Y');
                                 </thead>
                                 <tbody class="table-border-bottom-0">
                                    <?php
-// Consulta somente produtos da empresa principal
+// Consulta apenas produtos da empresa principal
 $sql = $pdo->prepare("
     SELECT 
         id,
-        codigo,
-        produto,
-        categoria,
+        empresa_id,
+        codigo_produto,
+        nome_produto,
+        categoria_produto,
         unidade,
-        quantidade_disponivel,
-        quantidade_reservada,
-        quantidade_transferida
+        quantidade_produto
     FROM estoque
     WHERE empresa_id = 'principal'
+    ORDER BY nome_produto ASC
 ");
 $sql->execute();
+
 $produtos = $sql->fetchAll(PDO::FETCH_ASSOC);
 
-// Função para calcular status
+// Função de cálculo do status
 function calcularStatus($quantidade, $min) {
     if ($quantidade < $min) {
         return ['Baixo', 'danger'];
@@ -828,50 +829,54 @@ function calcularStatus($quantidade, $min) {
 <?php foreach ($produtos as $p): ?>
 
     <?php
-        // Cálculo do Min (10% do disponível)
-        $min = $p['quantidade_disponivel'] * 0.10;
+        // Min = 10% da quantidade
+        $min = max(1, $p['quantidade_produto'] * 0.10);
 
-        // Status
-        list($statusTexto, $statusCor) = calcularStatus($p['quantidade_disponivel'], $min);
+        // Status automático
+        list($statusTexto, $statusCor) = calcularStatus($p['quantidade_produto'], $min);
     ?>
 
     <tr>
-        <td><strong><?= htmlspecialchars($p['codigo']) ?></strong></td>
-        <td><?= htmlspecialchars($p['produto']) ?></td>
-        <td><?= htmlspecialchars($p['categoria']) ?></td>
+        <td><strong><?= htmlspecialchars($p['codigo_produto']) ?></strong></td>
+        <td><?= htmlspecialchars($p['nome_produto']) ?></td>
+        <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
         <td><?= htmlspecialchars($p['unidade']) ?></td>
 
-        <!-- Min calculado automaticamente -->
+        <!-- Min calculado -->
         <td><?= number_format($min, 0, ',', '.') ?></td>
 
-        <!-- Quantidade disponível -->
-        <td><?= number_format($p['quantidade_disponivel'], 0, ',', '.') ?></td>
+        <!-- Disponível -->
+        <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
 
-        <!-- Reservado -->
-        <td><?= number_format($p['quantidade_reservada'], 0, ',', '.') ?></td>
+        <!-- Como não existe no DB, deixei zero -->
+        <td>0</td> <!-- Reservado -->
+        <td>0</td> <!-- Transferido -->
 
-        <!-- Transferido -->
-        <td><?= number_format($p['quantidade_transferida'], 0, ',', '.') ?></td>
-
-        <!-- Status automático -->
+        <!-- Status -->
         <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
 
         <td class="text-end">
             <div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary" 
-                        data-bs-toggle="modal" 
+                <button class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="modal"
                         data-bs-target="#modalProduto"
-                        data-sku="<?= htmlspecialchars($p['codigo']) ?>">Detalhes</button>
+                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
+                    Detalhes
+                </button>
 
-                <button class="btn btn-sm btn-primary" 
-                        data-bs-toggle="modal" 
+                <button class="btn btn-sm btn-primary"
+                        data-bs-toggle="modal"
                         data-bs-target="#modalMovimentar"
-                        data-sku="<?= htmlspecialchars($p['codigo']) ?>">Mov.</button>
+                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
+                    Mov.
+                </button>
 
-                <button class="btn btn-sm btn-outline-primary" 
-                        data-bs-toggle="modal" 
+                <button class="btn btn-sm btn-outline-primary"
+                        data-bs-toggle="modal"
                         data-bs-target="#modalTransferir"
-                        data-sku="<?= htmlspecialchars($p['codigo']) ?>">Transf.</button>
+                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
+                    Transf.
+                </button>
             </div>
         </td>
     </tr>
