@@ -700,10 +700,10 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th>#</th>
                                         <th>Filial</th>
                                         <th>Solicitante</th>
-                                        <th>Tipo</th>
+                                        <th>Descrição</th>
                                         <th>Valor</th>
                                         <th>Vencimento</th>
-                                        <th>Anexo</th>
+                                        <th>Documento</th>
                                         <th>Status</th>
                                         <th>Ações</th>
                                     </tr>
