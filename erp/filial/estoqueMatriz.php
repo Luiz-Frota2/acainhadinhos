@@ -906,13 +906,6 @@ function calcularStatusEstoque($quantidade, $min)
                     Detalhes
                 </button>
 
-                <button class="btn btn-sm btn-primary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalMovimentar"
-                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
-                    Mov.
-                </button>
-
                 <button class="btn btn-sm btn-outline-primary"
                         data-bs-toggle="modal"
                         data-bs-target="#modalTransferir"
