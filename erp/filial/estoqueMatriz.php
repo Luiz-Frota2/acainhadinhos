@@ -687,62 +687,98 @@ $fimTxt = $fim->format('d/m/Y');
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Visão geral do estoque central</span>
                     </h5>
+                    <?php
+// ✅ Buscar dados reais do estoque da empresa atual
+try {
 
-                    <!-- Cards resumo -->
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">SKUs ativos</p>
-                                            <h4 class="mb-0">148</h4>
-                                        </div>
-                                        <i class="bx bx-box fs-2 text-primary"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Qtde disponível</p>
-                                            <h4 class="mb-0">12.430</h4>
-                                        </div>
-                                        <i class="bx bx-package fs-2 text-success"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Reservado</p>
-                                            <h4 class="mb-0">1.130</h4>
-                                        </div>
-                                        <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Em transferência</p>
-                                            <h4 class="mb-0">820</h4>
-                                        </div>
-                                        <i class="bx bx-transfer fs-2 text-info"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+    // 1) Quantidade de códigos de produtos ativos
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS total_produtos
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card1 = (int)$stmt->fetchColumn();
+
+    // 2) Soma da quantidade disponível
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(quantidade_produto), 0) AS total_quantidade
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card2 = (int)$stmt->fetchColumn();
+
+    // 3 e 4) Seu banco ainda não possui colunas de reservado e transferência
+    // então deixo 0 até criarmos essas funções
+    $card3 = 0; // Reservado
+    $card4 = 0; // Em transferência
+
+} catch (PDOException $e) {
+    $card1 = $card2 = $card3 = $card4 = 0;
+}
+?>
+
+
+                  <!-- Cards resumo -->
+<div class="row g-3 mb-3">
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Código Produto ativos</p>
+                        <h4 class="mb-0"><?= number_format($card1, 0, ',', '.') ?></h4>
                     </div>
+                    <i class="bx bx-box fs-2 text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Qtde disponível</p>
+                        <h4 class="mb-0"><?= number_format($card2, 0, ',', '.') ?></h4>
+                    </div>
+                    <i class="bx bx-package fs-2 text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Reservado</p>
+                        <h4 class="mb-0"><?= number_format($card3, 0, ',', '.') ?></h4>
+                    </div>
+                    <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Em transferência</p>
+                        <h4 class="mb-0"><?= number_format($card4, 0, ',', '.') ?></h4>
+                    </div>
+                    <i class="bx bx-transfer fs-2 text-info"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
                     <!-- Ações rápidas -->
                     <div class="card mb-3">
