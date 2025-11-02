@@ -793,99 +793,25 @@ $fimTxt = $fim->format('d/m/Y');
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                   <?php
-// Consulta produtos somente da empresa principal
-$sql = $pdo->prepare("
-    SELECT 
-        id,
-        empresa_id,
-        codigo_produto,
-        nome_produto,
-        categoria_produto,
-        unidade,
-        quantidade_produto
-    FROM estoque
-    WHERE empresa_id = 'principal'
-    ORDER BY nome_produto ASC
-");
-$sql->execute();
-
-// Armazena os produtos
-$produtos = $sql->fetchAll(PDO::FETCH_ASSOC);
-
-// Função para calcular o status do produto
-function calcularStatus($quantidade, $min) {
-    if ($quantidade < $min) {
-        return ['Baixo', 'danger'];  // Vermelho
-    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
-        return ['Estável', 'success']; // Verde
-    } else {
-        return ['Alto', 'primary']; // Azul
-    }
-}
-?>
-
-<tbody class="table-border-bottom-0">
-
-<?php foreach ($produtos as $p): ?>
-
-    <?php
-        // Min = 10% da quantidade
-        $min = max(1, $p['quantidade_produto'] * 0.10);
-
-        // Calcular status automaticamente
-        list($statusTexto, $statusCor) = calcularStatus($p['quantidade_produto'], $min);
-    ?>
-
-    <tr>
-        <td><strong><?= htmlspecialchars($p['codigo_produto']) ?></strong></td>
-        <td><?= htmlspecialchars($p['nome_produto']) ?></td>
-        <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
-        <td><?= htmlspecialchars($p['unidade']) ?></td>
-
-        <!-- Min calculado (10%) -->
-        <td><?= number_format($min, 0, ',', '.') ?></td>
-
-        <!-- Quantidade disponível -->
-        <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
-
-        <!-- Como seu banco não possui as colunas, deixo como zero -->
-        <td>0</td> 
-        <td>0</td>
-
-        <!-- Status automático -->
-        <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
-
-        <td class="text-end">
-            <div class="btn-group">
-                <button class="btn btn-sm btn-outline-secondary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalProduto"
-                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
-                    Detalhes
-                </button>
-
-                <button class="btn btn-sm btn-primary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalMovimentar"
-                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
-                    Mov.
-                </button>
-
-                <button class="btn btn-sm btn-outline-primary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalTransferir"
-                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
-                    Transf.
-                </button>
-            </div>
-        </td>
-    </tr>
-
-<?php endforeach; ?>
-
-</tbody>
-
+                                    <!-- Linha 1 -->
+                                    <tr>
+                                        <td><strong>ACA-500</strong></td>
+                                        <td>Polpa Açaí 500g</td>
+                                        <td>Congelados</td>
+                                        <td>UN</td>
+                                        <td>200</td>
+                                        <td>1.420</td>
+                                        <td>120</td>
+                                        <td>80</td>
+                                        <td><span class="badge bg-label-success">Estável</span></td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-500">Detalhes</button>
+                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-500">Mov.</button>
+                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-500">Transf.</button>
+                                            </div>
+                                        </td>
+                                    </tr>
 
                                 </tbody>
                             </table>
