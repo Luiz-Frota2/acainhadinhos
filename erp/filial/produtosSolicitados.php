@@ -429,6 +429,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </head>
 
 <body>
+y>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
@@ -696,25 +697,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <!-- / Navbar -->
 
-                <!-- Content -->
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
-                        Estoque Matriz
-                    </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Visão geral do estoque central</span>
-                    </h5>
-      
-
-                  <!-- Cards resumo -->
-<div class="row g-3 mb-3">
-    <div class="col-12 col-sm-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="mb-1 text-muted">Código Produto ativos</p>
       <div class="container-xxl flex-grow-1 container-p-y">
         <h4 class="fw-bold mb-0"><span class="text-muted fw-light"><a href="#">Filiais</a>/</span>Produtos Solicitados</h4>
         <h5 class="fw-bold mt-3 mb-3"><span class="text-muted fw-light">Pedidos de produtos enviados pelas Filiais</span></h5>
