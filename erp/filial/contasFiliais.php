@@ -77,7 +77,6 @@ try {
     $stmt->execute();
     $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
 
-
     $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
         : "../../assets/img/favicon/logo.png";
@@ -112,18 +111,23 @@ if (isset($_GET['download'])) {
         $raw = str_replace("\\", "/", $raw);
         $raw = ltrim($raw, "./"); // remove "./" do início se existir
 
-        // Remove prefixo "pagamentos/" porque vamos apontar para a pasta base local de pagamentos
-        if (strpos($raw, 'pagamentos/') === 0) {
+        // Remover prefixos conhecidos porque a BASE já aponta para a pasta de comprovantes
+        // Aceita "pagamentos/..." OU "public/pagamentos/..."
+        if (strpos($raw, 'public/pagamentos/') === 0) {
+            $raw = substr($raw, strlen('public/pagamentos/'));
+        } elseif (strpos($raw, 'pagamentos/') === 0) {
             $raw = substr($raw, strlen('pagamentos/'));
         }
 
-        // 3) Descobre a pasta BASE local dos comprovantes
-        //    AJUSTE AQUI se necessário (coloque o caminho absoluto da Hostinger, se preferir)
+        // 3) Descobre a pasta BASE local dos comprovantes (inclui as variações da Hostinger)
         $possiveisBases = [
+            // Caminhos absolutos prováveis na sua conta (ajuste se necessário)
+            '/home/u922223647/domains/acainhadinhos.com.br/files/public_html/public/pagamentos',
+            '/home/u922223647/domains/acainhadinhos.com.br/public_html/public/pagamentos',
+
+            // Alternativas relativas à localização deste arquivo
             realpath(__DIR__ . '/../../pagamentos'),          // se este arquivo está em public/<modulo>/..., "volta" 2 níveis -> public/pagamentos
-            realpath(__DIR__ . '/../../../public/') // alternativa: se a estrutura for diferente
-            // Exemplo de caminho absoluto (descomente e ajuste):
-            // '/home/SEU_USUARIO/domains/SEU_DOMINIO/public_html/public/pagamentos'
+            realpath(__DIR__ . '/../../../public/pagamentos') // se a estrutura for diferente
         ];
 
         $baseLocal = null;
@@ -134,11 +138,11 @@ if (isset($_GET['download'])) {
         if (!$baseLocal) {
             http_response_code(500);
             header('Content-Type: text/plain; charset=UTF-8');
-            echo "Pasta local de comprovantes não encontrada. Ajuste o caminho base.";
+            echo "Pasta local de comprovantes não encontrada. Ajuste o caminho base para /files/public_html/public/pagamentos.";
             exit;
         }
 
-        // 4) Sanitiza e monta o caminho final do arquivo no filesystem
+        // 4) Sanitiza segmentos e monta o caminho final do arquivo no filesystem
         $segments = array_filter(explode('/', $raw), 'strlen');
         foreach ($segments as &$seg) {
             // impede path traversal e caracteres nulos
@@ -153,7 +157,7 @@ if (isset($_GET['download'])) {
         if (!is_file($caminhoLocal) || !is_readable($caminhoLocal)) {
             http_response_code(404);
             header('Content-Type: text/plain; charset=UTF-8');
-            echo "Arquivo do comprovante não encontrado no servidor.";
+            echo "Arquivo do comprovante não encontrado no servidor: " . htmlspecialchars($caminhoLocal);
             exit;
         }
 
@@ -465,7 +469,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         <i class="bx bx-menu bx-sm"></i>
                     </a>
                 </div>
-            <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+                <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                     <div class="navbar-nav align-items-center"><div class="nav-item d-flex align-items-center"></div></div>
                     <ul class="navbar-nav flex-row align-items-center ms-auto">
                         <li class="nav-item navbar-dropdown dropdown-user dropdown">
