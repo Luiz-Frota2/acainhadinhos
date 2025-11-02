@@ -56,7 +56,7 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
    ========================= */
 if (!function_exists('json_exit')) {
     function json_exit(array $payload, int $statusCode = 200): void {
-        while (ob_get_level()) { @ob_end_clean(); } // zera qualquer saída anterior
+        while (ob_get_level()) { @ob_end_clean(); }
         ini_set('display_errors', '0');
         header_remove('X-Powered-By');
         header('Content-Type: application/json; charset=UTF-8');
@@ -177,9 +177,9 @@ if (!function_exists('render_detalhes_pedido')) {
    ========================= */
 $empresaIdMatrizAjax = $_SESSION['empresa_id'] ?? '';
 
-/* Detalhes (GET) – devolve HTML puro, sem cabeçalho/rodapé */
+/* Detalhes (GET) – devolve HTML puro */
 if (isset($_GET['acao']) && $_GET['acao'] === 'detalhes') {
-    while (ob_get_level()) { @ob_end_clean(); } // garante saída limpa
+    while (ob_get_level()) { @ob_end_clean(); }
     ini_set('display_errors','0');
 
     if (!$empresaIdMatrizAjax) { http_response_code(401); echo "<div class='text-danger'>Sessão expirada.</div>"; exit; }
@@ -191,7 +191,7 @@ if (isset($_GET['acao']) && $_GET['acao'] === 'detalhes') {
     exit;
 }
 
-/* Aprovar/Reprovar (POST) – devolve JSON limpo */
+/* Aprovar/Reprovar (POST) – devolve JSON */
 if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], true)) {
     $acao = $_POST['acao'];
     $pedidoId = (int)($_POST['pedido_id'] ?? 0);
@@ -201,14 +201,12 @@ if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], tr
     if ($pedidoId <= 0)        json_exit(['ok'=>false,'msg'=>'ID inválido.']);
 
     try {
-        // Descobre colunas da tabela solicitacoes_b2b
         $cols = [];
         try {
             $cst = $pdo->query("SHOW COLUMNS FROM solicitacoes_b2b");
             while ($c = $cst->fetch(PDO::FETCH_ASSOC)) $cols[$c['Field']] = true;
         } catch (Throwable $e) {}
 
-        // Qual coluna de observação existe?
         $colObservacao = null;
         if (isset($cols['observacao'])) {
             $colObservacao = 'observacao';
@@ -216,7 +214,6 @@ if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], tr
             $colObservacao = 'observao';
         }
 
-        // Lê a linha atual
         $st = $pdo->prepare("
             SELECT id, status,
                    ".(isset($cols['observacao']) ? "observacao" : "NULL AS observacao").",
@@ -237,19 +234,16 @@ if (isset($_POST['acao']) && in_array($_POST['acao'], ['aprovar','reprovar'], tr
         $set    = "status = :novo";
         $params = [':novo'=>$novo, ':id'=>$pedidoId, ':emp'=>$empresaIdMatrizAjax];
 
-        // atualiza updated_at se existir
         if (isset($cols['updated_at'])) $set .= ", updated_at = NOW()";
 
-        // 👉 carimbo de aprovação exatamente em 'aprovado_em' (fallback: 'aprovada_em')
         if ($acao === 'aprovar') {
             if (isset($cols['aprovado_em'])) {
                 $set .= ", aprovado_em = NOW()";
-            } elseif (isset($cols['aprovada_em'])) { // tolerância a variação do nome
+            } elseif (isset($cols['aprovada_em'])) {
                 $set .= ", aprovada_em = NOW()";
             }
         }
 
-        // observação ao reprovar (se houver coluna)
         if ($acao === 'reprovar' && $motivo !== '' && $colObservacao) {
             $obsAtual = trim((string)($row[$colObservacao] ?? ''));
             if ($obsAtual !== '') $obsAtual .= " | ";
@@ -334,8 +328,50 @@ try {
     $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
+/* ==========================================================
+   >>>>>>>  FILTROS (Status pendente/aprovada/reprovada)  <<<<<<<
+   - status:           'pendente' | 'aprovada' | 'reprovada'
+   - de / ate:         por CREATED_AT (YYYY-MM-DD)
+   - q:                busca em: nome da filial, id_solicitante, observacao
+   ========================================================== */
+$status = $_GET['status'] ?? '';
+$de     = trim($_GET['de'] ?? '');
+$ate    = trim($_GET['ate'] ?? '');
+$q      = trim($_GET['q'] ?? '');
+
+$validStatus = ['pendente','aprovada','reprovada'];
+
+$where  = [];
+$params = [':empresa' => $idEmpresaSession];
+
+$where[] = "s.id_matriz = :empresa";
+$where[] = "s.id_solicitante LIKE 'unidade\\_%'";
+$where[] = "u.tipo = 'filial'";
+
+/* status */
+if ($status !== '' && in_array($status, $validStatus, true)) {
+    $where[] = "s.status = :st";
+    $params[':st'] = $status;
+}
+
+/* período por created_at */
+if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
+    $where[] = "DATE(s.created_at) >= :de";
+    $params[':de'] = $de;
+}
+if ($ate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ate)) {
+    $where[] = "DATE(s.created_at) <= :ate";
+    $params[':ate'] = $ate;
+}
+
+/* busca livre */
+if ($q !== '') {
+    $where[] = "(u.nome LIKE :q OR s.id_solicitante LIKE :q OR s.observacao LIKE :q)";
+    $params[':q'] = "%{$q}%";
+}
+
 /* =========================
-   LISTAGEM (somente PENDENTES)
+   LISTAGEM (aplicando filtros)
    ========================= */
 [$temItens,$colCod,$colQtd,$colNome] = descobrirColunasItens($pdo);
 
@@ -372,19 +408,19 @@ if ($temItens) {
   }
 }
 
+$whereSql = implode(' AND ', $where);
+
 $sql = "
   SELECT {$selectBase}, {$selectItem}
   FROM solicitacoes_b2b s
   {$joins}
-  WHERE s.id_matriz = :empresa
-    AND s.id_solicitante LIKE 'unidade\\_%'
-    AND u.tipo = 'filial'
-    AND s.status = 'pendente'   -- <<< SOMENTE PENDENTES
+  WHERE {$whereSql}
   ORDER BY s.created_at DESC, s.id DESC
   LIMIT 300
 ";
 $stmt = $pdo->prepare($sql);
-$stmt->execute([':empresa'=>$idEmpresaSession]);
+foreach ($params as $k=>$v) $stmt->bindValue($k, $v);
+$stmt->execute();
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
@@ -426,6 +462,20 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <!-- Helpers -->
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
+
+    <style>
+      .status-badge { text-transform: capitalize; }
+      .filter-col{min-width:150px;}
+      .autocomplete{position:relative}
+      .autocomplete-list{
+        position:absolute;top:100%;left:0;right:0;max-height:260px;overflow:auto;
+        background:#fff;border:1px solid #e6e9ef;border-radius:.5rem;box-shadow:0 10px 24px rgba(24,28,50,.12);z-index:2060
+      }
+      .autocomplete-item{padding:.5rem .75rem;cursor:pointer;display:flex;justify-content:space-between;gap:.75rem}
+      .autocomplete-item:hover,.autocomplete-item.active{background:#f5f7fb}
+      .autocomplete-tag{font-size:.75rem;color:#6b7280}
+      @media (max-width: 991.98px){.filter-col{width:100%}}
+    </style>
 </head>
 
 <body>
@@ -456,20 +506,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     <li class="menu-header small text-uppercase">
                         <span class="menu-header-text">Administração Filiais</span>
-                    </li>
-
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-building"></i>
-                            <div data-i18n="Adicionar">Filiais</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Filiais">Adicionadas</div>
-                                </a>
-                            </li>
-                        </ul>
                     </li>
 
                     <li class="menu-item open active">
@@ -669,6 +705,56 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <span class="text-muted fw-light">Pedidos de produtos enviados pelas Filiais</span>
                     </h5>
 
+                    <!-- ===== Filtros ===== -->
+                    <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
+                      <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
+                      <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                          <div class="col-12 col-md-auto filter-col">
+                            <label class="form-label mb-1">Status</label>
+                            <select class="form-select form-select-sm" name="status">
+                              <option value="">Todos (pendente, aprovada, reprovada)</option>
+                              <option value="pendente"  <?= $status==='pendente'  ? 'selected' : '' ?>>Pendente</option>
+                              <option value="aprovada"  <?= $status==='aprovada'  ? 'selected' : '' ?>>Aprovada</option>
+                              <option value="reprovada" <?= $status==='reprovada' ? 'selected' : '' ?>>Reprovada</option>
+                            </select>
+                          </div>
+
+                          <div class="col-12 col-md-auto filter-col">
+                            <label class="form-label mb-1">De</label>
+                            <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
+                          </div>
+
+                          <div class="col-12 col-md-auto filter-col">
+                            <label class="form-label mb-1">Até</label>
+                            <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
+                          </div>
+
+                          <div class="col-12 col-md flex-grow-1 filter-col">
+                            <label class="form-label mb-1">Buscar</label>
+                            <div class="autocomplete">
+                              <input type="text" class="form-control form-control-sm" id="qInput" name="q"
+                                     placeholder="Filial, id_solicitante (ex.: unidade_3) ou observação…"
+                                     value="<?= h($q) ?>" autocomplete="off">
+                              <div class="autocomplete-list d-none" id="qList"></div>
+                            </div>
+                          </div>
+
+                          <div class="col-12 col-md-auto d-flex gap-2 filter-col">
+                            <button class="btn btn-sm btn-primary" type="submit">
+                              <i class="bx bx-filter-alt me-1"></i> Filtrar
+                            </button>
+                            <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">
+                              <i class="bx bx-eraser me-1"></i> Limpar
+                            </a>
+                          </div>
+                        </div>
+                        <div class="small text-muted mt-2">
+                          Resultados: <strong><?= count($rows) ?></strong> registros
+                        </div>
+                      </div>
+                    </form>
+
                     <!-- Tabela -->
                     <div class="card">
                       <h5 class="card-header">Lista de Produtos Solicitados</h5>
@@ -689,7 +775,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
                           </thead>
                           <tbody class="table-border-bottom-0">
                             <?php if (!$rows): ?>
-                              <tr><td colspan="9" class="text-center text-muted">Nenhuma solicitação <strong>pendente</strong> encontrada.</td></tr>
+                              <tr><td colspan="9" class="text-center text-muted">Nenhum registro encontrado.</td></tr>
                             <?php else: foreach ($rows as $r):
                               $pedidoId = (int)$r['pedido_id'];
                               $qr   = $r['item_qr_code'] ?? null;
@@ -937,7 +1023,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         return j;
       }
 
-      // ===== CONFIRMAR APROVAÇÃO (clique) =====
+      // ===== CONFIRMAR APROVAÇÃO =====
       document.getElementById('btnConfirmAprovar')?.addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
         const form = document.getElementById('formAprovar');
@@ -955,7 +1041,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (j && j.ok) {
           setRowStatus(pedidoId, j.status || 'aprovada');
           hideModalById('modalAtender');
-          // ✅ Atualiza a página ao finalizar o processo
           window.location.reload();
         } else {
           alert((j && j.msg) || 'Não foi possível aprovar.');
@@ -964,7 +1049,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
       });
 
-      // ===== CONFIRMAR REPROVAÇÃO (clique) =====
+      // ===== CONFIRMAR REPROVAÇÃO =====
       document.getElementById('btnConfirmReprovar')?.addEventListener('click', async (ev) => {
         const btn = ev.currentTarget;
         const form = document.getElementById('formReprovar');
@@ -985,7 +1070,6 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         if (j && j.ok) {
           setRowStatus(pedidoId, j.status || 'reprovada');
           hideModalById('modalCancelar');
-          // ✅ Atualiza a página ao finalizar o processo
           window.location.reload();
         } else {
           alert((j && j.msg) || 'Não foi possível reprovar.');
@@ -993,6 +1077,71 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
           btn.classList.remove('disabled');
         }
       });
+
+      /* ===== Autocomplete simples (filial/id/obs) ===== */
+      (function(){
+        const qInput = document.getElementById('qInput');
+        const list = document.getElementById('qList');
+        if (!qInput || !list) return;
+
+        let items = [], activeIndex = -1;
+
+        function closeList(){ list.classList.add('d-none'); list.innerHTML=''; activeIndex=-1; items=[]; }
+        function openList(){ list.classList.remove('d-none'); }
+
+        function render(data){
+          if (!data || !data.length){ closeList(); return; }
+          items = data.slice(0, 15);
+          list.innerHTML = items.map((it,i)=>`
+            <div class="autocomplete-item" data-i="${i}">
+              <span>${it.label}</span>
+              <span class="autocomplete-tag">${it.tipo}</span>
+            </div>`).join('');
+          openList();
+        }
+
+        qInput.addEventListener('input', function(){
+          const v = qInput.value.trim();
+          if (v.length < 2){ closeList(); return; }
+          // Autocomplete local simples (sem endpoint): sugere termos padrões
+          const sugestoes = [
+            {label: 'unidade_', tipo:'Solicitante'},
+            {label: 'Alta', tipo:'Prioridade'},
+            {label: 'Média', tipo:'Prioridade'},
+            {label: 'Baixa', tipo:'Prioridade'},
+          ].filter(s => s.label.toLowerCase().includes(v.toLowerCase()));
+          render(sugestoes);
+        });
+
+        qInput.addEventListener('keydown', function(e){
+          if (list.classList.contains('d-none')) return;
+          if (e.key === 'ArrowDown'){ activeIndex = Math.min(activeIndex+1, items.length-1); highlight(); e.preventDefault(); }
+          else if (e.key === 'ArrowUp'){ activeIndex = Math.max(activeIndex-1, 0); highlight(); e.preventDefault(); }
+          else if (e.key === 'Enter'){ if (activeIndex >= 0){ pick(activeIndex); e.preventDefault(); } }
+          else if (e.key === 'Escape'){ closeList(); }
+        });
+
+        list.addEventListener('mousedown', function(e){
+          const el = e.target.closest('.autocomplete-item');
+          if (!el) return;
+          pick(parseInt(el.dataset.i, 10));
+        });
+
+        document.addEventListener('click', function(e){
+          if (!list.contains(e.target) && e.target !== qInput) closeList();
+        });
+
+        function pick(i){
+          if (i<0 || i>=items.length) return;
+          qInput.value = items[i].label;
+          closeList();
+          document.getElementById('filtroForm')?.submit();
+        }
+        function highlight(){
+          [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx)=> el.classList.toggle('active', idx===activeIndex));
+        }
+      })();
+
     })();
     </script>
 
