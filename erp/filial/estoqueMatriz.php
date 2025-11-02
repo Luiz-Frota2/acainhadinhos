@@ -724,7 +724,7 @@ try {
         WHERE id_matriz = :empresa and status = 'entregue'
     ");
     $stmt->execute([':empresa' => $idSelecionado]);
-    $card3 = (int)$stmt->fetchColumn();
+    $card4 = (int)$stmt->fetchColumn();
 
 } catch (PDOException $e) {
     $card1 = $card2 = $card3 = $card4 = 0;
