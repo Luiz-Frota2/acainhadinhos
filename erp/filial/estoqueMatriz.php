@@ -709,15 +709,14 @@ try {
     $stmt->execute([':empresa' => $idSelecionado]);
     $card2 = (int)$stmt->fetchColumn();
 
+   
     $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS reservado
+        SELECT COALESCE(SUM(reservado), 0) AS total_reservado
         FROM estoque
         WHERE empresa_id = :empresa
     ");
     $stmt->execute([':empresa' => $idSelecionado]);
     $card3 = (int)$stmt->fetchColumn();
-
-
 
     $card4 = 0; // Em transferência
 
