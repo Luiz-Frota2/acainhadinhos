@@ -718,7 +718,13 @@ try {
     $stmt->execute([':empresa' => $idSelecionado]);
     $card3 = (int)$stmt->fetchColumn();
 
-    $card4 = 0; // Em transferência
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(status), 0) AS total_status
+        FROM solicitacoes_b2b
+        WHERE empresa_id = :empresa and status_transferencia = 'entregue'
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card3 = (int)$stmt->fetchColumn();
 
 } catch (PDOException $e) {
     $card1 = $card2 = $card3 = $card4 = 0;
