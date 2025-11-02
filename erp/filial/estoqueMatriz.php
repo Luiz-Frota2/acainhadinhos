@@ -933,11 +933,20 @@ function calcularStatusEstoque($quantidade, $min)
         <td class="text-end">
             <div class="btn-group">
                 <button class="btn btn-sm btn-outline-secondary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalProduto"
-                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
-                    Detalhes
-                </button>
+        data-bs-toggle="modal"
+        data-bs-target="#modalProduto"
+        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>"
+        data-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
+        data-categoria="<?= htmlspecialchars($p['categoria_produto']) ?>"
+        data-unidade="<?= htmlspecialchars($p['unidade']) ?>"
+        data-min="<?= number_format(max(1, $p['quantidade_produto'] * 0.10), 0, ',', '.') ?>"
+        data-disp="<?= number_format($p['quantidade_produto'], 0, ',', '.') ?>"
+        data-res="<?= htmlspecialchars($p['reservado']) ?>"
+        data-transf="<?= htmlspecialchars($p['total_transferencias']) ?>"
+>
+    Detalhes
+</button>
+
 
                 <button class="btn btn-sm btn-outline-primary"
                         data-bs-toggle="modal"
@@ -1006,6 +1015,35 @@ function calcularStatusEstoque($quantidade, $min)
                         </div>
                     </div>
                 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalProduto = document.getElementById('modalProduto');
+    
+    modalProduto.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+
+        // Puxar os dados do botão
+        const sku = button.getAttribute('data-sku');
+        const nome = button.getAttribute('data-nome');
+        const categoria = button.getAttribute('data-categoria');
+        const unidade = button.getAttribute('data-unidade');
+        const min = button.getAttribute('data-min');
+        const disp = button.getAttribute('data-disp');
+        const res = button.getAttribute('data-res');
+        const transf = button.getAttribute('data-transf');
+
+        // Preencher os spans da modal
+        modalProduto.querySelector('#det-sku').textContent = sku;
+        modalProduto.querySelector('#det-nome').textContent = nome;
+        modalProduto.querySelector('#det-categoria').textContent = categoria;
+        modalProduto.querySelector('#det-validade').textContent = unidade;
+        modalProduto.querySelector('#det-min').textContent = min;
+        modalProduto.querySelector('#det-disp').textContent = disp;
+        modalProduto.querySelector('#det-res').textContent = res;
+        modalProduto.querySelector('#det-transf').textContent = transf;
+    });
+});
+</script>
 
                 <!-- Modal: Movimentar Estoque -->
                 <div class="modal fade" id="modalMovimentar" tabindex="-1" aria-hidden="true">
