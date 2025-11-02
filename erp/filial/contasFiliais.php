@@ -85,12 +85,14 @@ try {
 }
 
 /* ==========================================================
-   DOWNLOAD DO COMPROVANTE (mesmo arquivo) — ⬅️ NOVO
+   DOWNLOAD DO COMPROVANTE (mesmo arquivo) — CORRIGIDO
    Ex.: ?id=principal_1&download=123
-   Busca o nome do arquivo em sp.comprovante_url, monta URL da Hostinger
-   e força o download do PDF.
+   - Aceita comprovante_url relativo: "./pagamentos/arquivo.pdf"
+   - Remove "./" e "pagamentos/" pois a BASE já é a pasta pagamentos
+   - URL-encode por segmento
+   - cURL com UA/Referer; fallback: redireciona para URL direta
    ========================================================== */
-$COMPROVANTES_BASE = 'https://srv1885-files.hstgr.io/e9aded9b7b308c83/files/public_html/public/pagamentos/'; // ⬅️ NOVO
+$COMPROVANTES_BASE = 'https://srv1885-files.hstgr.io/e9aded9b7b308c83/files/public_html/public/pagamentos/';
 
 if (isset($_GET['download'])) {
     $idPay = (int)$_GET['download'];
@@ -99,6 +101,7 @@ if (isset($_GET['download'])) {
         $q = $pdo->prepare("SELECT comprovante_url FROM solicitacoes_pagamento WHERE id = :id LIMIT 1");
         $q->execute([':id' => $idPay]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
+
         if (!$row || empty($row['comprovante_url'])) {
             http_response_code(404);
             header('Content-Type: text/plain; charset=UTF-8');
@@ -106,14 +109,52 @@ if (isset($_GET['download'])) {
             exit;
         }
 
-        // Sanitiza o nome (impede path traversal)
-        $nomeArquivo = basename($row['comprovante_url']);
-        $urlArquivo  = $COMPROVANTES_BASE . $nomeArquivo;
+        $raw = trim((string)$row['comprovante_url']);
 
-        // Tenta buscar o arquivo remoto
+        // Já é URL absoluta?
+        $isAbsolute = (stripos($raw, 'http://') === 0 || stripos($raw, 'https://') === 0);
+
+        // Normaliza e mapeia para a BASE (quando relativo)
+        $mapToBase = function(string $p) use ($COMPROVANTES_BASE): string {
+            // remove ./ ou .\ do início e normaliza separadores
+            $p = ltrim($p, "./\\");
+            $p = str_replace("\\", "/", $p);
+            // se iniciar com 'pagamentos/', remove porque a BASE já aponta para essa pasta
+            if (strpos($p, 'pagamentos/') === 0) {
+                $p = substr($p, strlen('pagamentos/'));
+            }
+            // URL-encode por segmento
+            $parts = array_filter(explode('/', $p), 'strlen');
+            $parts = array_map('rawurlencode', $parts);
+            $encoded = implode('/', $parts);
+            return rtrim($COMPROVANTES_BASE, '/') . '/' . $encoded;
+        };
+
+        // Se absoluto, ainda assim encode por segmento preservando host/path
+        $encodeAbsolute = function(string $url): string {
+            $u = parse_url($url);
+            if (!$u || empty($u['scheme']) || empty($u['host'])) return $url;
+            $scheme = $u['scheme'] . '://';
+            $host   = $u['host'];
+            $port   = isset($u['port']) ? ':' . $u['port'] : '';
+            $path   = isset($u['path']) ? $u['path'] : '/';
+            $query  = isset($u['query']) ? '?' . $u['query'] : '';
+            $frag   = isset($u['fragment']) ? '#' . $u['fragment'] : '';
+
+            // encode path segment by segment
+            $parts = array_filter(explode('/', $path), function($s){ return $s !== ''; });
+            $parts = array_map('rawurlencode', $parts);
+            $path  = '/' . implode('/', $parts);
+
+            return $scheme . $host . $port . $path . $query . $frag;
+        };
+
+        $urlArquivo = $isAbsolute ? $encodeAbsolute($raw) : $mapToBase($raw);
+
+        // Tenta baixar com cURL (com UA e Referer)
         $conteudo = null;
         $status   = 0;
-        $ctype    = 'application/pdf';
+        $ctype    = 'application/octet-stream';
 
         if (function_exists('curl_init')) {
             $ch = curl_init($urlArquivo);
@@ -124,6 +165,8 @@ if (isset($_GET['download'])) {
                 CURLOPT_TIMEOUT        => 30,
                 CURLOPT_SSL_VERIFYPEER => false,
                 CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+                CURLOPT_REFERER        => $COMPROVANTES_BASE,
             ]);
             $conteudo = curl_exec($ch);
             $status   = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
@@ -133,21 +176,19 @@ if (isset($_GET['download'])) {
         } elseif (ini_get('allow_url_fopen')) {
             $conteudo = @file_get_contents($urlArquivo);
             $status   = $conteudo !== false ? 200 : 0;
-        } else {
-            http_response_code(500);
-            header('Content-Type: text/plain; charset=UTF-8');
-            echo "Servidor sem suporte para baixar o arquivo remoto (cURL/allow_url_fopen).";
-            exit;
         }
 
+        // Se não conseguiu (403/404/etc), redireciona o navegador para a URL direta
         if ($status !== 200 || !$conteudo) {
-            http_response_code(404);
-            header('Content-Type: text/plain; charset=UTF-8');
-            echo "Não foi possível baixar o comprovante (status remoto inválido).";
+            header('Location: ' . $urlArquivo);
             exit;
         }
 
         // Força download
+        $nomeArquivo = basename(parse_url($urlArquivo, PHP_URL_PATH)) ?: 'comprovante.pdf';
+        if (stripos($ctype, 'application/') !== 0 && stripos($ctype, 'image/') !== 0 && stripos($ctype, 'pdf') === false) {
+            $ctype = 'application/pdf'; // default sensato
+        }
         header('Content-Type: ' . $ctype);
         header('Content-Length: ' . strlen($conteudo));
         header('Content-Disposition: attachment; filename="' . $nomeArquivo . '"');
@@ -520,7 +561,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     <td><?= $p['vencimento'] ? date('d/m/Y', strtotime($p['vencimento'])) : '—' ?></td>
                                     <td>
                                         <?php if (!empty($p['documento'])): ?>
-                                            <!-- Link para forçar download no MESMO arquivo --> <!-- ⬅️ ALTERADO -->
                                             <a href="?id=<?= urlencode($idSelecionado) ?>&download=<?= $id ?>" class="text-primary">Baixar</a>
                                         <?php else: ?>
                                             <span class="text-muted">—</span>
@@ -628,6 +668,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             else $status.classList.add('bg-label-secondary');
         }
         if ($acoes && newStatus !== 'pendente'){
+            // Remove botões Aprovar/Recusar e mantém só Detalhes
             $acoes.querySelectorAll('.btn-aprovar, .btn-recusar').forEach(btn => btn.remove());
         }
     }
@@ -658,6 +699,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             const id = t.getAttribute('data-id');
             if (!id) return;
             const motivo = prompt('Motivo da recusa (opcional):', '');
+            // (Para salvar motivo, adicione coluna e envie no POST)
             if (!confirm('Confirmar recusa deste pagamento?')) return;
 
             post('update_status', {id, status:'reprovado'})
@@ -694,9 +736,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                           </div>
                           <div class="col-12">
                             <p><strong>Documento:</strong> ${
-                              d.documento 
-                                ? `<a href="?id=<?= urlencode($idSelecionado) ?>&download=${escapeHtml(d.id)}">Baixar</a>`
-                                : '<span class="text-muted">—</span>'
+                              d.documento ? `<a href="?id=<?= urlencode($idSelecionado) ?>&download=${escapeHtml(d.id)}">Baixar</a>` : '<span class="text-muted">—</span>'
                             }</p>
                           </div>
                         </div>`;
@@ -719,6 +759,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const mm = String(d.getMonth()+1).padStart(2,'0');
         const yyyy = d.getFullYear();
         return `${dd}/${mm}/${yyyy}`;
+        // (Se seu campo for DATETIME em fuso diferente, considere formatar no back-end)
     }
     function formatMoney(v){
         if (v == null) return 'R$ 0,00';
