@@ -790,7 +790,7 @@ if(isset($_POST['gerar_transferencia'])){
         $stmtEstoque->execute([':qtd'=>$quantidade, ':id'=>$p['id'], ':empresa'=>$idSelecionado]);
 
         $pdo->commit();
-        echo "<script>alert('Transferência gerada com sucesso!');location.reload();</script>";
+        echo "<script>alert('Transferência gerada com sucesso!');</script>";
  // depois do $pdo->commit();
 $redirectUrl = $_SERVER['REQUEST_URI']; // mantém mesma URL (com ?id=... se houver)
 header("Location: " . $redirectUrl);
