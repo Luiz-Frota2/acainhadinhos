@@ -452,7 +452,7 @@ $total_estimado = $p['preco_produto'] * $quantidade;
 $stmt = $pdo->prepare("
     INSERT INTO solicitacoes_b2b 
     (id_matriz, id_solicitante, criado_por_usuario_id, status, prioridade, observacao, total_estimado)
-    VALUES (:matriz, :solicitante, :usuario, 'em_transito', :prioridade, :obs, :total)
+    VALUES (:matriz, :solicitante, :usuario, 'aprovada', :prioridade, :obs, :total)
 ");
 $stmt->execute([
     ':matriz'      => $idSelecionado,
