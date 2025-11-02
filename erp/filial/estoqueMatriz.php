@@ -863,7 +863,6 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td>260</td>
                                         <td>0</td>
                                         <td>0</td>
-                                        <td>Corredor C - Prat. 4</td>
                                         <td><span class="badge bg-label-danger">Crítico</span></td>
                                         <td class="text-end">
                                             <div class="btn-group">
