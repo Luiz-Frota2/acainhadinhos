@@ -516,11 +516,16 @@ $solicitacao_id = $pdo->lastInsertId();
         exit;
     }
 }
-
+// ==========================
+// 1️⃣ Captura dos filtros e página atual
+// ==========================
+$idSelecionado = $_GET['id'] ?? '';
 $fil_produto   = trim($_GET['produto'] ?? '');
 $fil_codigo    = trim($_GET['codigo'] ?? '');
 $fil_categoria = trim($_GET['categoria'] ?? '');
 $fil_status    = trim($_GET['status'] ?? '');
+$pagina        = max(1, intval($_GET['pagina'] ?? 1));
+$itensPorPagina = 8;
 
 // ==========================
 // 2️⃣ Função de status
@@ -558,6 +563,23 @@ try {
         $params[':categoria'] = "%$fil_categoria%";
     }
 
+    // ==========================
+    // Contar total de registros para paginação
+    // ==========================
+    $stmtTotal = $pdo->prepare("
+        SELECT COUNT(*) FROM estoque e
+        WHERE " . implode(' AND ', $where)
+    );
+    foreach ($params as $k => $v) { $stmtTotal->bindValue($k, $v); }
+    $stmtTotal->execute();
+    $totalRegistros = $stmtTotal->fetchColumn();
+    $totalPaginas = ceil($totalRegistros / $itensPorPagina);
+
+    // ==========================
+    // Buscar registros da página atual
+    // ==========================
+    $offset = ($pagina - 1) * $itensPorPagina;
+
     $sql = "
         SELECT 
             e.id,
@@ -583,32 +605,17 @@ try {
         WHERE " . implode(' AND ', $where) . "
         GROUP BY e.id
         ORDER BY e.nome_produto ASC
+        LIMIT $itensPorPagina OFFSET $offset
     ";
 
     $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $v) {
-        $stmt->bindValue($k, $v);
-    }
+    foreach ($params as $k => $v) { $stmt->bindValue($k, $v); }
     $stmt->execute();
     $produtosEstoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch (PDOException $e) {
     echo "<tr><td colspan='10'>Erro ao carregar estoque: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
     $produtosEstoque = [];
-}
-
-// ==========================
-// 4️⃣ Filtra por status
-// ==========================
-$produtosEstoqueFiltrado = [];
-foreach ($produtosEstoque as $p) {
-    $min = max(1, $p['quantidade_produto'] * 0.10);
-    list($statusTexto, $statusCor) = calcularStatusEstoque($p['quantidade_produto'], $min);
-    $p['statusTexto'] = $statusTexto;
-    $p['statusCor'] = $statusCor;
-
-    if ($fil_status !== '' && $statusTexto !== $fil_status) continue;
-    $produtosEstoqueFiltrado[] = $p;
 }
 ?>
 
