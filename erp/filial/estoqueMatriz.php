@@ -360,10 +360,207 @@ $periodoLabel = [
 
 $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
+// ✅ Usa a mesma conexão já carregada acima
+// require '../../assets/php/conexao.php'; // JÁ ESTÁ EXECUTADO NO TOPO DO SEU ARQUIVO
+// ✅ Buscar dados reais do estoque da empresa atual
+try {
 
+    // 1) Quantidade de códigos de produtos ativos
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS total_produtos
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card1 = (int)$stmt->fetchColumn();
+
+    // 2) Soma da quantidade disponível
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(quantidade_produto), 0) AS total_quantidade
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card2 = (int)$stmt->fetchColumn();
+
+   
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(reservado), 0) AS total_reservado
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card3 = (int)$stmt->fetchColumn();
+
+   $stmt = $pdo->prepare("
+    SELECT COUNT(*) AS total_transferencias
+    FROM solicitacoes_b2b s
+    INNER JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+       AND u.tipo = 'Filial'
+       AND u.empresa_id = s.id_matriz
+    WHERE s.id_matriz = :empresa
+      AND s.status = 'entregue'
+");
+$stmt->execute([':empresa' => $idSelecionado]);
+$card4 = (int)$stmt->fetchColumn();
+
+} catch (PDOException $e) {
+    $card1 = $card2 = $card3 = $card4 = 0;
+}
+// ✅ Garante que só executa com POST vindo do botão
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gerar_transferencia'])) {
+
+    // Capturar variáveis do formulário
+    $produto_id = (int)$_POST['produto_id'];
+    $id_filial = (int)$_POST['id_filial'];
+    $quantidade = (int)$_POST['quantidade'];
+    $prioridade = $_POST['prioridade'];
+    $observacao = $_POST['observacao'];
+
+    try {
+        $pdo->beginTransaction();
+
+        // ✅ Buscar produto
+        $produto = $pdo->prepare("SELECT * FROM estoque WHERE id = :id AND empresa_id = :empresa");
+        $produto->execute([
+            ':id' => $produto_id,
+            ':empresa' => $idSelecionado
+        ]);
+        $p = $produto->fetch(PDO::FETCH_ASSOC);
+
+        if (!$p) {
+            throw new Exception("Produto não encontrado.");
+        }
+
+        if ($quantidade > $p['quantidade_produto']) {
+            throw new Exception("Quantidade maior que disponível.");
+        }
+
+        // ✅ Criar solicitação
+        $stmt = $pdo->prepare("
+            INSERT INTO solicitacoes_b2b 
+            (id_matriz, id_solicitante, criado_por_usuario_id, status, prioridade, observacao)
+            VALUES (:matriz, :solicitante, :usuario, 'em_transito', :prioridade, :obs)
+        ");
+        $stmt->execute([
+            ':matriz'      => $idSelecionado,
+            ':solicitante' => 'unidade_' . $id_filial,
+            ':usuario'     => $usuario_id,
+            ':prioridade'  => $prioridade,
+            ':obs'         => $observacao
+        ]);
+
+        $solicitacao_id = $pdo->lastInsertId();
+
+        // ✅ Inserir item
+        $stmtItem = $pdo->prepare("
+            INSERT INTO solicitacoes_b2b_itens
+            (solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal)
+            VALUES (:solicitacao, :produto, :codigo, :nome, :unidade, :preco, :quantidade, :subtotal)
+        ");
+        $stmtItem->execute([
+            ':solicitacao' => $solicitacao_id,
+            ':produto'     => $p['id'],
+            ':codigo'      => $p['codigo_produto'],
+            ':nome'        => $p['nome_produto'],
+            ':unidade'     => $p['unidade'],
+            ':preco'       => $p['preco_produto'],
+            ':quantidade'  => $quantidade,
+            ':subtotal'    => $p['preco_produto'] * $quantidade
+        ]);
+
+        // ✅ Atualizar reserva
+        $stmtEstoque = $pdo->prepare("
+            UPDATE estoque SET reservado = reservado + :qtd 
+            WHERE id = :id AND empresa_id = :empresa
+        ");
+        $stmtEstoque->execute([
+            ':qtd'     => $quantidade,
+            ':id'      => $p['id'],
+            ':empresa' => $idSelecionado
+        ]);
+
+        $pdo->commit();
+
+        // ✅ PRG (Post Redirect Get) → evita duplicação ao atualizar
+        $_SESSION['success_msg'] = "Transferência gerada com sucesso!";
+
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit;
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+
+        $_SESSION['error_msg'] = $e->getMessage();
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+}
+
+try {
+    $stmt = $pdo->prepare("
+        SELECT 
+            e.id,
+            e.empresa_id,
+            e.codigo_produto,
+            e.nome_produto,
+            e.categoria_produto,
+            e.unidade,
+            e.quantidade_produto,
+            e.reservado,
+            -- Contar transferências entregues para filiais por produto
+            COUNT(sbi.id) AS total_transferencias
+        FROM estoque e
+        LEFT JOIN solicitacoes_b2b_itens sbi
+            ON sbi.produto_id = e.id
+        LEFT JOIN solicitacoes_b2b sb
+            ON sb.id = sbi.solicitacao_id
+            AND sb.status = 'entregue'
+            AND sb.id_matriz = e.empresa_id
+        LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(sb.id_solicitante, '_', -1) AS UNSIGNED)
+            AND u.tipo = 'Filial'
+            AND u.empresa_id = e.empresa_id
+        WHERE e.empresa_id = :empresa
+        GROUP BY e.id
+        ORDER BY e.nome_produto ASC
+    ");
+    $stmt->bindParam(':empresa', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $produtosEstoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<tr><td colspan='10'>Erro ao carregar estoque: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
+    $produtosEstoque = [];
+}
+
+
+
+// ✅ Função de cálculo do status baseado no MIN (10%)
+function calcularStatusEstoque($quantidade, $min)
+{
+    if ($quantidade < $min) {
+        return ['Baixo', 'danger'];
+    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
+        return ['Estável', 'success'];
+    } else {
+        return ['Alto', 'primary'];
+    }
+}
 ?>
 
 <!DOCTYPE html>
+<?php if(isset($_SESSION['success_msg'])): ?>
+    <script>alert("<?= $_SESSION['success_msg'] ?>");</script>
+    <?php unset($_SESSION['success_msg']); ?>
+<?php endif; ?>
+
+<?php if(isset($_SESSION['error_msg'])): ?>
+    <script>alert("Erro: <?= $_SESSION['error_msg'] ?>");</script>
+    <?php unset($_SESSION['error_msg']); ?>
+<?php endif; ?>
+
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
 
@@ -687,118 +884,7 @@ $fimTxt = $fim->format('d/m/Y');
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Visão geral do estoque central</span>
                     </h5>
-                    <?php
-// ✅ Buscar dados reais do estoque da empresa atual
-try {
-
-    // 1) Quantidade de códigos de produtos ativos
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS total_produtos
-        FROM estoque
-        WHERE empresa_id = :empresa
-    ");
-    $stmt->execute([':empresa' => $idSelecionado]);
-    $card1 = (int)$stmt->fetchColumn();
-
-    // 2) Soma da quantidade disponível
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(quantidade_produto), 0) AS total_quantidade
-        FROM estoque
-        WHERE empresa_id = :empresa
-    ");
-    $stmt->execute([':empresa' => $idSelecionado]);
-    $card2 = (int)$stmt->fetchColumn();
-
-   
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(reservado), 0) AS total_reservado
-        FROM estoque
-        WHERE empresa_id = :empresa
-    ");
-    $stmt->execute([':empresa' => $idSelecionado]);
-    $card3 = (int)$stmt->fetchColumn();
-
-   $stmt = $pdo->prepare("
-    SELECT COUNT(*) AS total_transferencias
-    FROM solicitacoes_b2b s
-    INNER JOIN unidades u
-        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
-       AND u.tipo = 'Filial'
-       AND u.empresa_id = s.id_matriz
-    WHERE s.id_matriz = :empresa
-      AND s.status = 'entregue'
-");
-$stmt->execute([':empresa' => $idSelecionado]);
-$card4 = (int)$stmt->fetchColumn();
-
-} catch (PDOException $e) {
-    $card1 = $card2 = $card3 = $card4 = 0;
-}
-if(isset($_POST['gerar_transferencia'])){
-    $produto_id = (int)$_POST['produto_id'];
-    $id_filial = (int)$_POST['id_filial'];
-    $quantidade = (int)$_POST['quantidade'];
-    $prioridade = $_POST['prioridade'];
-    $observacao = $_POST['observacao'];
-
-    try {
-        $pdo->beginTransaction();
-
-        // Pegar dados do produto
-        $produto = $pdo->prepare("SELECT * FROM estoque WHERE id = :id AND empresa_id = :empresa");
-        $produto->execute([':id'=>$produto_id, ':empresa'=>$idSelecionado]);
-        $p = $produto->fetch(PDO::FETCH_ASSOC);
-
-        if(!$p){
-            throw new Exception("Produto não encontrado.");
-        }
-
-        if($quantidade > $p['quantidade_produto']){
-            throw new Exception("Quantidade maior que disponível.");
-        }
-
-        // Inserir solicitação
-        $stmt = $pdo->prepare("INSERT INTO solicitacoes_b2b 
-            (id_matriz, id_solicitante, criado_por_usuario_id, status, prioridade, observacao) 
-            VALUES (:matriz, :solicitante, :usuario, 'em_transito', :prioridade, :obs)");
-        $stmt->execute([
-            ':matriz'=>$idSelecionado,
-            ':solicitante'=>'unidade_'.$id_filial,
-            ':usuario'=>$usuario_id,
-            ':prioridade'=>$prioridade,
-            ':obs'=>$observacao
-        ]);
-        $solicitacao_id = $pdo->lastInsertId();
-
-        // Inserir item da solicitação
-        $stmtItem = $pdo->prepare("INSERT INTO solicitacoes_b2b_itens
-            (solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal)
-            VALUES (:solicitacao, :produto, :codigo, :nome, :unidade, :preco, :quantidade, :subtotal)");
-        $stmtItem->execute([
-            ':solicitacao'=>$solicitacao_id,
-            ':produto'=>$p['id'],
-            ':codigo'=>$p['codigo_produto'],
-            ':nome'=>$p['nome_produto'],
-            ':unidade'=>$p['unidade'],
-            ':preco'=>$p['preco_produto'],
-            ':quantidade'=>$quantidade,
-            ':subtotal'=>$p['preco_produto']*$quantidade
-        ]);
-
-        // Atualizar estoque reservado
-        $stmtEstoque = $pdo->prepare("UPDATE estoque SET reservado = reservado + :qtd WHERE id = :id AND empresa_id = :empresa");
-        $stmtEstoque->execute([':qtd'=>$quantidade, ':id'=>$p['id'], ':empresa'=>$idSelecionado]);
-
-        $pdo->commit();
-        echo "<script>alert('Transferência gerada com sucesso!');</script>";
-    } catch (Exception $e){
-        $pdo->rollBack();
-        echo "<script>alert('Erro: ".addslashes($e->getMessage())."');</script>";
-    }
-}
-
-?>
-
+      
 
                   <!-- Cards resumo -->
 <div class="row g-3 mb-3">
@@ -905,62 +991,7 @@ if(isset($_POST['gerar_transferencia'])){
                                 </thead>
                                 <tbody class="table-border-bottom-0">
                                     <!-- Linha 1 -->
-                                    <?php
-// ✅ Usa a mesma conexão já carregada acima
-// require '../../assets/php/conexao.php'; // JÁ ESTÁ EXECUTADO NO TOPO DO SEU ARQUIVO
-
-try {
-    $stmt = $pdo->prepare("
-        SELECT 
-            e.id,
-            e.empresa_id,
-            e.codigo_produto,
-            e.nome_produto,
-            e.categoria_produto,
-            e.unidade,
-            e.quantidade_produto,
-            e.reservado,
-            -- Contar transferências entregues para filiais por produto
-            COUNT(sbi.id) AS total_transferencias
-        FROM estoque e
-        LEFT JOIN solicitacoes_b2b_itens sbi
-            ON sbi.produto_id = e.id
-        LEFT JOIN solicitacoes_b2b sb
-            ON sb.id = sbi.solicitacao_id
-            AND sb.status = 'entregue'
-            AND sb.id_matriz = e.empresa_id
-        LEFT JOIN unidades u
-            ON u.id = CAST(SUBSTRING_INDEX(sb.id_solicitante, '_', -1) AS UNSIGNED)
-            AND u.tipo = 'Filial'
-            AND u.empresa_id = e.empresa_id
-        WHERE e.empresa_id = :empresa
-        GROUP BY e.id
-        ORDER BY e.nome_produto ASC
-    ");
-    $stmt->bindParam(':empresa', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-    $produtosEstoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<tr><td colspan='10'>Erro ao carregar estoque: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
-    $produtosEstoque = [];
-}
-
-
-
-// ✅ Função de cálculo do status baseado no MIN (10%)
-function calcularStatusEstoque($quantidade, $min)
-{
-    if ($quantidade < $min) {
-        return ['Baixo', 'danger'];
-    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
-        return ['Estável', 'success'];
-    } else {
-        return ['Alto', 'primary'];
-    }
-}
-?>
-
+                                    
 <tbody class="table-border-bottom-0">
 
 <?php foreach ($produtosEstoque as $p): ?>
