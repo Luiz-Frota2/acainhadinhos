@@ -806,7 +806,7 @@ $sql = $pdo->prepare("
         unidade,
         quantidade_produto
     FROM estoque
-    WHERE empresa_id = 'principal'
+    WHERE empresa_id = 'principal_1'
     ORDER BY nome_produto ASC
 ");
 $st->execute();
