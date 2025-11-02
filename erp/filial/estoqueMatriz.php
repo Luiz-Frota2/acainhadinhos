@@ -965,216 +965,108 @@ function calcularStatusEstoque($quantidade, $min)
 </div>
 
 
-               <?php
-// ----------------------
-// PHP: Buscar produtos filtrados
-// ----------------------
-$status = $_GET['status'] ?? '';
-$q = $_GET['q'] ?? '';
-
-// Buscar produtos do estoque da matriz
-$sql = "SELECT *, 0 as reservado, 0 as total_transferencias 
-        FROM produtos 
-        WHERE empresa_id = :id";
-$params = ['id' => $idSelecionado];
-
-if ($status !== '') {
-    $sql .= " AND status = :status";
-    $params['status'] = $status;
-}
-
-if ($q !== '') {
-    $sql .= " AND (nome_produto LIKE :q OR codigo_produto LIKE :q OR categoria_produto LIKE :q)";
-    $params['q'] = "%$q%";
-}
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$produtosEstoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Contar resultados para o filtro
-$produtos = $produtosEstoque;
-
-// ----------------------
-// Cards resumo (exemplo: somar valores)
-// ----------------------
-$card1 = count($produtosEstoque); // Código Produto ativos
-$card2 = array_sum(array_column($produtosEstoque, 'quantidade_produto')); // Qtde disponível
-$card3 = array_sum(array_column($produtosEstoque, 'reservado')); // Reservado
-$card4 = array_sum(array_column($produtosEstoque, 'total_transferencias')); // Em transferência
-
-?>
-
-<!-- ==================== HTML ==================== -->
-
-<!-- Cards resumo -->
-<div class="row g-3 mb-3">
-    <div class="col-12 col-sm-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="mb-1 text-muted">Código Produto ativos</p>
-                        <h4 class="mb-0"><?= number_format($card1, 0, ',', '.') ?></h4>
+                    <!-- Ações rápidas -->
+                    <div class="card mb-3">
+                       <!-- filtro -->
                     </div>
-                    <i class="bx bx-box fs-2 text-primary"></i>
-                </div>
+
+
+                    <!-- Tabela principal -->
+                    <div class="card">
+                        <h5 class="card-header">Estoque — Itens da Matriz</h5>
+                        <div class="table-responsive text-nowrap">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Codigo Produto</th>
+                                        <th>Produto</th>
+                                        <th>Categoria</th>
+                                        <th>Unidade</th>
+                                        <th>Min</th>
+                                        <th>Disp.</th>
+                                        <th>Reserv.</th>
+                                        <th>Transf.</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="table-border-bottom-0">
+                                    <!-- Linha 1 -->
+                                    
+<tbody class="table-border-bottom-0">
+
+<?php foreach ($produtosEstoque as $p): ?>
+
+    <?php
+        // ✅ Valor MIN = 10% da quantidade
+        $min = max(1, $p['quantidade_produto'] * 0.10);
+
+        // ✅ Calcular status
+        list($statusTexto, $statusCor) = calcularStatusEstoque($p['quantidade_produto'], $min);
+    ?>
+
+    <tr>
+        <td><strong><?= htmlspecialchars($p['codigo_produto']) ?></strong></td>
+        <td><?= htmlspecialchars($p['nome_produto']) ?></td>
+        <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
+        <td><?= htmlspecialchars($p['unidade']) ?></td>
+
+        <!-- ✅ MIN calculado -->
+        <td><?= number_format($min, 0, ',', '.') ?></td>
+
+        <!-- ✅ DISPONÍVEL -->
+        <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
+
+        <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
+        <td><?= htmlspecialchars($p['reservado']) ?></td> <!-- Reservado -->
+        <td><?= number_format($p['total_transferencias'], 0, ',', '.') ?></td>
+
+
+        <!-- ✅ Status automático -->
+        <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
+
+        <td class="text-end">
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary"
+        data-bs-toggle="modal"
+        data-bs-target="#modalProduto"
+        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>"
+        data-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
+        data-categoria="<?= htmlspecialchars($p['categoria_produto']) ?>"
+        data-unidade="<?= htmlspecialchars($p['unidade']) ?>"
+        data-min="<?= number_format(max(1, $p['quantidade_produto'] * 0.10), 0, ',', '.') ?>"
+        data-disp="<?= number_format($p['quantidade_produto'], 0, ',', '.') ?>"
+        data-res="<?= htmlspecialchars($p['reservado']) ?>"
+        data-transf="<?= htmlspecialchars($p['total_transferencias']) ?>"
+>
+    Detalhes
+</button>
+
+
+        <button class="btn btn-sm btn-outline-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#modalTransferir"
+        data-produto-id="<?= $p['id'] ?>"
+        data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
+        data-produto-qtd="<?= $p['quantidade_produto'] ?>"
+        data-produto-reservado="<?= $p['reservado'] ?>">
+    Transf.
+</button>
+
+
+
             </div>
-        </div>
-    </div>
+        </td>
+    </tr>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="mb-1 text-muted">Qtde disponível</p>
-                        <h4 class="mb-0"><?= number_format($card2, 0, ',', '.') ?></h4>
-                    </div>
-                    <i class="bx bx-package fs-2 text-success"></i>
-                </div>
-            </div>
-        </div>
-    </div>
+<?php endforeach; ?>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="mb-1 text-muted">Reservado</p>
-                        <h4 class="mb-0"><?= number_format($card3, 0, ',', '.') ?></h4>
-                    </div>
-                    <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
-                </div>
-            </div>
-        </div>
-    </div>
+</tbody>
 
-    <div class="col-12 col-sm-6 col-lg-3">
-        <div class="card h-100">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <p class="mb-1 text-muted">Em transferência</p>
-                        <h4 class="mb-0"><?= number_format($card4, 0, ',', '.') ?></h4>
-                    </div>
-                    <i class="bx bx-transfer fs-2 text-info"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Filtro -->
-<div class="card mb-3">
-    <form class="card-body" method="get" id="filtroProdutosForm" autocomplete="off">
-        <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
-        <div class="row g-3 align-items-end">
-
-            <!-- Status -->
-            <div class="col-12 col-md-auto filter-col">
-                <label class="form-label mb-1">Status</label>
-                <select class="form-select form-select-sm" name="status">
-                    <option value="">Todos</option>
-                    <option value="ativo" <?= ($status==='ativo') ? 'selected':'' ?>>Ativo</option>
-                    <option value="inativo" <?= ($status==='inativo') ? 'selected':'' ?>>Inativo</option>
-                </select>
-            </div>
-
-            <!-- Produto / Código / Categoria (Autocomplete) -->
-            <div class="col-12 col-md flex-grow-1 filter-col">
-                <label class="form-label mb-1">Produto / Código / Categoria</label>
-                <div class="autocomplete">
-                    <input type="text" class="form-control form-control-sm" id="produtoInput" name="q"
-                           placeholder="Nome do produto, código ou categoria…" value="<?= e($q) ?>" autocomplete="off">
-                    <div class="autocomplete-list d-none" id="produtoList"></div>
-                </div>
-            </div>
-
-            <!-- Botões -->
-            <div class="col-12 col-md-auto d-flex gap-2 filter-col">
-                <button class="btn btn-sm btn-primary" type="submit">
-                    <i class="bx bx-filter-alt me-1"></i> Filtrar
-                </button>
-                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">
-                    <i class="bx bx-eraser me-1"></i> Limpar
-                </a>
-            </div>
-        </div>
-        <div class="small text-muted mt-2">
-            Resultados: <strong><?= count($produtos ?? []) ?></strong> registros
-        </div>
-    </form>
-</div>
-
-<!-- Tabela -->
-<div class="card">
-    <h5 class="card-header">Estoque — Itens da Matriz</h5>
-    <div class="table-responsive text-nowrap">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Codigo Produto</th>
-                    <th>Produto</th>
-                    <th>Categoria</th>
-                    <th>Unidade</th>
-                    <th>Min</th>
-                    <th>Disp.</th>
-                    <th>Reserv.</th>
-                    <th>Transf.</th>
-                    <th>Status</th>
-                    <th class="text-end">Ações</th>
-                </tr>
-            </thead>
-            <tbody class="table-border-bottom-0">
-            <?php foreach ($produtosEstoque as $p): ?>
-                <?php
-                    $min = max(1, $p['quantidade_produto'] * 0.10);
-                    list($statusTexto, $statusCor) = calcularStatusEstoque($p['quantidade_produto'], $min);
-                ?>
-                <tr>
-                    <td><strong><?= htmlspecialchars($p['codigo_produto']) ?></strong></td>
-                    <td><?= htmlspecialchars($p['nome_produto']) ?></td>
-                    <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
-                    <td><?= htmlspecialchars($p['unidade']) ?></td>
-                    <td><?= number_format($min, 0, ',', '.') ?></td>
-                    <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
-                    <td><?= htmlspecialchars($p['reservado']) ?></td>
-                    <td><?= number_format($p['total_transferencias'], 0, ',', '.') ?></td>
-                    <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
-                    <td class="text-end">
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalProduto"
-                                data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>"
-                                data-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
-                                data-categoria="<?= htmlspecialchars($p['categoria_produto']) ?>"
-                                data-unidade="<?= htmlspecialchars($p['unidade']) ?>"
-                                data-min="<?= number_format($min, 0, ',', '.') ?>"
-                                data-disp="<?= number_format($p['quantidade_produto'], 0, ',', '.') ?>"
-                                data-res="<?= htmlspecialchars($p['reservado']) ?>"
-                                data-transf="<?= htmlspecialchars($p['total_transferencias']) ?>"
-                            >Detalhes</button>
-
-                            <button class="btn btn-sm btn-outline-primary"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalTransferir"
-                                data-produto-id="<?= $p['id'] ?>"
-                                data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
-                                data-produto-qtd="<?= $p['quantidade_produto'] ?>"
-                                data-produto-reservado="<?= $p['reservado'] ?>"
-                            >Transf.</button>
+                                </tbody>
+                            </table>
                         </div>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-</div>
-
+                    </div>
                 </div>
                 <!-- ===== Modais ===== -->
 
