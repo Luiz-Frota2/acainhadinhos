@@ -783,7 +783,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <th>Codigo Produto</th>
                                         <th>Produto</th>
                                         <th>Categoria</th>
-                                        <th>Validade</th>
+                                        <th>Unidade</th>
                                         <th>Min</th>
                                         <th>Disp.</th>
                                         <th>Reserv.</th>
@@ -798,7 +798,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>ACA-500</strong></td>
                                         <td>Polpa Açaí 500g</td>
                                         <td>Congelados</td>
-                                        <td>30/11/2025</td>
+                                        <td>UN</td>
                                         <td>200</td>
                                         <td>1.420</td>
                                         <td>120</td>
@@ -818,7 +818,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>ACA-1KG</strong></td>
                                         <td>Polpa Açaí 1kg</td>
                                         <td>Congelados</td>
-                                        <td>15/12/2025</td>
+                                        <td>KG</td>
                                         <td>150</td>
                                         <td>380</td>
                                         <td>80</td>
@@ -858,7 +858,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <td><strong>GRAN-200</strong></td>
                                         <td>Granola 200g</td>
                                         <td>Secos</td>
-                                        <td>05/08/2026</td>
+                                        <td>UN</td>
                                         <td>300</td>
                                         <td>260</td>
                                         <td>0</td>
@@ -920,7 +920,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <p class="mb-1"><strong>Categoria:</strong> <span id="det-categoria">—</span></p>
                                     </div>
                                     <div class="col-md-4">
-                                        <p class="mb-1"><strong>Validade:</strong> <span id="det-validade">—</span></p>
+                                        <p class="mb-1"><strong>Unidade:</strong> <span id="det-validade">—</span></p>
                                     </div>
                                     <div class="col-md-3">
                                         <p class="mb-1"><strong>Mínimo:</strong> <span id="det-min">—</span></p>
@@ -1087,11 +1087,10 @@ $fimTxt = $fim->format('d/m/Y');
                                         <thead>
                                             <tr>
                                                 <th>Data/Hora</th>
-                                                <th>SKU</th>
+                                                <th>Codigo Produto</th>
                                                 <th>Produto</th>
                                                 <th>Tipo</th>
                                                 <th>Qtd</th>
-                                                <th>Lote</th>
                                                 <th>Doc</th>
                                                 <th>Motivo</th>
                                                 <th>Usuário</th>
