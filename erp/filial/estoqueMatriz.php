@@ -780,7 +780,7 @@ $fimTxt = $fim->format('d/m/Y');
                             <table class="table table-hover align-middle">
                                 <thead>
                                     <tr>
-                                        <th>SKU</th>
+                                        <th>Codigo Produto</th>
                                         <th>Produto</th>
                                         <th>Categoria</th>
                                         <th>Validade</th>
