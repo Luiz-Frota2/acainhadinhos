@@ -3,16 +3,26 @@ ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 session_start();
+date_default_timezone_set('America/Manaus');
 
-// ✅ Recupera o identificador vindo da URL
+/* ================= Helpers ================= */
+function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
+function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
+function json_out(array $payload, int $code = 200){
+    while (ob_get_level()) ob_end_clean();
+    http_response_code($code);
+    header('Content-Type: application/json; charset=UTF-8');
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/* ================= Sessão / acesso ================= */
 $idSelecionado = $_GET['id'] ?? '';
-
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
 }
 
-// ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
@@ -23,10 +33,11 @@ if (
     exit;
 }
 
-// ✅ Conexão com o banco de dados
+/* ================= Conexão ================= */
 require '../../assets/php/conexao.php';
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// ✅ Buscar nome e tipo do usuário logado
+/* ================= Usuário ================= */
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id  = (int)$_SESSION['usuario_id'];
@@ -43,11 +54,11 @@ try {
         exit;
     }
 } catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
+    echo "<script>alert('Erro ao carregar usuário: " . e($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
+/* ================= Acesso por tipo de empresa ================= */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -61,40 +72,34 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
-
 if (!$acessoPermitido) {
     echo "<script>
-          alert('Acesso negado!');
-          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
-        </script>";
+      alert('Acesso negado!');
+      window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+    </script>";
     exit;
 }
 
-// ✅ Buscar logo da empresa
+/* ================= Logo empresa ================= */
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
     $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
-
     $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
         : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
+    $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
 
 /* ==========================================================
-   DOWNLOAD DO COMPROVANTE — VIA ARQUIVO LOCAL (SEM URL)
-   Ex.: ?id=principal_1&download=123
-   Aceita valores do tipo: "./pagamentos/ARQUIVO.pdf"
-   Mapeia para a pasta local /public/pagamentos e faz streaming.
+   DOWNLOAD do comprovante (stream local) ?id=...&download=ID
    ========================================================== */
 if (isset($_GET['download'])) {
     $idPay = (int)$_GET['download'];
 
     try {
-        // 1) Busca o nome salvo no banco
         $q = $pdo->prepare("SELECT comprovante_url FROM solicitacoes_pagamento WHERE id = :id LIMIT 1");
         $q->execute([':id' => $idPay]);
         $row = $q->fetch(PDO::FETCH_ASSOC);
@@ -106,67 +111,52 @@ if (isset($_GET['download'])) {
             exit;
         }
 
-        // 2) Normaliza o caminho vindo do banco (ex.: "./pagamentos/xxx.pdf")
         $raw = trim((string)$row['comprovante_url']);
         $raw = str_replace("\\", "/", $raw);
-        $raw = ltrim($raw, "./"); // remove "./" do início se existir
+        $raw = ltrim($raw, "./");
 
-        // Remover prefixos conhecidos porque a BASE já aponta para a pasta de comprovantes
-        // Aceita "pagamentos/..." OU "public/pagamentos/..."
         if (strpos($raw, 'public/pagamentos/') === 0) {
             $raw = substr($raw, strlen('public/pagamentos/'));
         } elseif (strpos($raw, 'pagamentos/') === 0) {
             $raw = substr($raw, strlen('pagamentos/'));
         }
 
-        // 3) Descobre a pasta BASE local dos comprovantes (inclui as variações da Hostinger)
         $possiveisBases = [
-            // Caminhos absolutos prováveis (ajuste se necessário)
             '/home/u922223647/domains/acainhadinhos.com.br/files/public_html/public/pagamentos',
             '/home/u922223647/domains/acainhadinhos.com.br/public_html/public/pagamentos',
-
-            // Alternativas relativas à localização deste arquivo
-            realpath(__DIR__ . '/../../pagamentos'),          // se este arquivo está em public/<modulo>/..., "volta" 2 níveis -> public/pagamentos
-            realpath(__DIR__ . '/../../../public/pagamentos') // se a estrutura for diferente
+            realpath(__DIR__ . '/../../pagamentos'),
+            realpath(__DIR__ . '/../../../public/pagamentos')
         ];
 
         $baseLocal = null;
         foreach ($possiveisBases as $b) {
             if ($b && is_dir($b)) { $baseLocal = $b; break; }
         }
-
         if (!$baseLocal) {
             http_response_code(500);
             header('Content-Type: text/plain; charset=UTF-8');
-            echo "Pasta local de comprovantes não encontrada. Ajuste o caminho base para /files/public_html/public/pagamentos.";
+            echo "Pasta local de comprovantes não encontrada.";
             exit;
         }
 
-        // 4) Sanitiza segmentos e monta o caminho final do arquivo no filesystem
         $segments = array_filter(explode('/', $raw), 'strlen');
-        foreach ($segments as &$seg) {
-            // impede path traversal e caracteres nulos
-            $seg = str_replace(['..', "\0"], '', $seg);
-        }
+        foreach ($segments as &$seg) { $seg = str_replace(['..', "\0"], '', $seg); }
         unset($seg);
 
         $nomeArquivo  = end($segments) ?: 'comprovante.pdf';
         $caminhoLocal = $baseLocal . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $segments);
 
-        // 5) Verifica existência do arquivo e faz streaming
         if (!is_file($caminhoLocal) || !is_readable($caminhoLocal)) {
             http_response_code(404);
             header('Content-Type: text/plain; charset=UTF-8');
-            echo "Arquivo do comprovante não encontrado no servidor: " . htmlspecialchars($caminhoLocal);
+            echo "Arquivo não encontrado no servidor: " . e($caminhoLocal);
             exit;
         }
 
-        if (ob_get_level()) { @ob_end_clean(); }
-
+        if (ob_get_level()) @ob_end_clean();
         $filesize = filesize($caminhoLocal);
-        $ctype    = 'application/pdf'; // se houver outros tipos, detectar por extensão/MIME
 
-        header('Content-Type: ' . $ctype);
+        header('Content-Type: application/pdf');
         if ($filesize !== false) header('Content-Length: ' . $filesize);
         header('Content-Disposition: attachment; filename="' . basename($nomeArquivo) . '"');
         header('X-Content-Type-Options: nosniff');
@@ -175,10 +165,7 @@ if (isset($_GET['download'])) {
 
         $fp = fopen($caminhoLocal, 'rb');
         if ($fp) {
-            while (!feof($fp)) {
-                echo fread($fp, 8192);
-                flush();
-            }
+            while (!feof($fp)) { echo fread($fp, 8192); flush(); }
             fclose($fp);
         } else {
             readfile($caminhoLocal);
@@ -194,7 +181,7 @@ if (isset($_GET['download'])) {
 }
 
 /* ==========================================================
-   ROTAS AJAX (aprovar/recusar e detalhes) — mesmo arquivo
+   ROTAS AJAX (aprovar/recusar e detalhes)
    ========================================================== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json; charset=UTF-8');
@@ -204,14 +191,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'update_status') {
         $idPay     = (int)($_POST['id'] ?? 0);
         $newStatus = $_POST['status'] ?? '';
-
         if (!in_array($newStatus, ['aprovado','reprovado'], true)) {
             echo json_encode(['ok' => false, 'msg' => 'Status inválido']);
             exit;
         }
-
         try {
-            // Atualiza somente se estiver pendente
             $up = $pdo->prepare("
                 UPDATE solicitacoes_pagamento
                    SET status = :st
@@ -220,12 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                  LIMIT 1
             ");
             $up->execute([':st' => $newStatus, ':id' => $idPay]);
-
-            if ($up->rowCount() > 0) {
-                echo json_encode(['ok' => true]);
-            } else {
-                echo json_encode(['ok' => false, 'msg' => 'Nada atualizado (já aprovado/recusado ou ID inválido).']);
-            }
+            echo json_encode(['ok' => $up->rowCount() > 0]);
             exit;
         } catch (PDOException $e) {
             echo json_encode(['ok' => false, 'msg' => 'Erro DB: '.$e->getMessage()]);
@@ -236,7 +215,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'get_details') {
         $idPay = (int)($_POST['id'] ?? 0);
         try {
-            // Junta unidade (tipo, nome, etc) pela regra unidade_X -> X
             $sql = "
                 SELECT 
                     sp.*,
@@ -269,7 +247,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 /* ==========================================================
-   LISTAGEM: somente tipo FILIAL (duas tabelas)
+   AUTOCOMPLETE (mesmo padrão do outro arquivo)
+   ?ajax=autocomplete&q=...
+   Sugerimos por id_solicitante e por descricao
+   ========================================================== */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
+    $term = trim($_GET['q'] ?? '');
+    $out  = [];
+    if (mb_strlen($term) >= 2) {
+        // id_solicitante
+        $s1 = $pdo->prepare("
+            SELECT DISTINCT sp.id_solicitante AS val, 'Solicitante' AS tipo
+            FROM solicitacoes_pagamento sp
+            JOIN unidades u
+              ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante,'_',-1) AS UNSIGNED)
+             AND u.tipo = 'Filial'
+             AND u.empresa_id = :matriz
+            WHERE sp.id_matriz = :matriz
+              AND sp.id_solicitante LIKE :q
+            ORDER BY sp.id_solicitante
+            LIMIT 10
+        ");
+        $s1->execute([':matriz'=>$idSelecionado, ':q'=>"%{$term}%"]);
+        foreach ($s1 as $r) $out[] = ['label'=>$r['val'],'value'=>$r['val'],'tipo'=>$r['tipo']];
+
+        // descricao
+        $s2 = $pdo->prepare("
+            SELECT DISTINCT sp.descricao AS val, 'Descrição' AS tipo
+            FROM solicitacoes_pagamento sp
+            JOIN unidades u
+              ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante,'_',-1) AS UNSIGNED)
+             AND u.tipo = 'Filial'
+             AND u.empresa_id = :matriz
+            WHERE sp.id_matriz = :matriz
+              AND sp.descricao LIKE :q
+            ORDER BY sp.descricao
+            LIMIT 10
+        ");
+        $s2->execute([':matriz'=>$idSelecionado, ':q'=>"%{$term}%"]);
+        foreach ($s2 as $r) {
+            if (!empty($r['val'])) $out[] = ['label'=>$r['val'],'value'=>$r['val'],'tipo'=>$r['tipo']];
+        }
+    }
+    json_out($out);
+}
+
+/* ==========================================================
+   >>>>>>>  FILTROS (iguais ao outro arquivo)  <<<<<<<
+   - status: só 'entregue' ou 'cancelada'
+   - de/ate: por VENCIMENTO (ajuste aqui se quiser usar created_at)
+   - q: id_solicitante OU descricao (com autocomplete)
+   ========================================================== */
+$status = $_GET['status'] ?? '';
+$de     = trim($_GET['de'] ?? '');
+$ate    = trim($_GET['ate'] ?? '');
+$q      = trim($_GET['q'] ?? '');
+
+$where  = [];
+$params = [':matriz' => $idSelecionado];
+
+$where[] = "u.tipo = 'Filial'";
+$where[] = "sp.id_matriz = :matriz";
+
+/* status: somente entregue/cancelada */
+$validStatus = ['entregue','cancelada'];
+if ($status !== '' && in_array($status, $validStatus, true)) {
+    $where[] = "sp.status = :status";
+    $params[':status'] = $status;
+} else {
+    // padrão: mostrar os dois
+    $where[] = "sp.status IN ('entregue','cancelada')";
+}
+
+/* período: por vencimento (YYYY-MM-DD) */
+if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
+    $where[] = "DATE(sp.vencimento) >= :de";
+    $params[':de'] = $de;
+}
+if ($ate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ate)) {
+    $where[] = "DATE(sp.vencimento) <= :ate";
+    $params[':ate'] = $ate;
+}
+
+/* busca: id_solicitante OU descricao */
+if ($q !== '') {
+    $where[] = "(sp.id_solicitante LIKE :q OR sp.descricao LIKE :q)";
+    $params[':q'] = "%{$q}%";
+}
+
+$whereSql = implode(' AND ', $where);
+
+/* ==========================================================
+   LISTAGEM (aplicando filtros)
    ========================================================== */
 $pagamentos = [];
 try {
@@ -288,21 +357,17 @@ try {
             u.tipo      AS unidade_tipo
         FROM solicitacoes_pagamento sp
         JOIN unidades u
-          ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
-        WHERE sp.id_matriz = :id_matriz
-          AND u.tipo = 'filial'
-        ORDER BY sp.id DESC
+          ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante,'_',-1) AS UNSIGNED)
+        WHERE {$whereSql}
+        ORDER BY sp.vencimento DESC, sp.id DESC
     ";
     $st = $pdo->prepare($sql);
-    $st->execute([':id_matriz' => $idSelecionado]);
+    foreach ($params as $k=>$v) $st->bindValue($k, $v);
+    $st->execute();
     $pagamentos = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $pagamentos = [];
 }
-
-// Helpers
-function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
-function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 ?>
 <!DOCTYPE html>
@@ -332,6 +397,16 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     <style>
         .status-badge { text-transform: capitalize; }
         .table td, .table th { vertical-align: middle; }
+        .filter-col{min-width:150px;}
+        .autocomplete{position:relative}
+        .autocomplete-list{
+            position:absolute;top:100%;left:0;right:0;max-height:260px;overflow:auto;
+            background:#fff;border:1px solid #e6e9ef;border-radius:.5rem;box-shadow:0 10px 24px rgba(24,28,50,.12);z-index:2060
+        }
+        .autocomplete-item{padding:.5rem .75rem;cursor:pointer;display:flex;justify-content:space-between;gap:.75rem}
+        .autocomplete-item:hover,.autocomplete-item.active{background:#f5f7fb}
+        .autocomplete-tag{font-size:.75rem;color:#6b7280}
+        @media (max-width: 991.98px){.filter-col{width:100%}}
     </style>
 </head>
 <body>
@@ -360,19 +435,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     <span class="menu-header-text">Administração Filiais</span>
                 </li>
 
-                <li class="menu-item">
-                    <a href="javascript:void(0);" class="menu-link menu-toggle">
-                        <i class="menu-icon tf-icons bx bx-building"></i><div>Filiais</div>
-                    </a>
-                    <ul class="menu-sub">
-                        <li class="menu-item">
-                            <a href="./filialAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Adicionadas</div>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
                 <li class="menu-item active open">
                     <a href="javascript:void(0);" class="menu-link menu-toggle">
                         <i class="menu-icon tf-icons bx bx-briefcase"></i><div>B2B - Matriz</div>
@@ -384,79 +446,35 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             </a>
                         </li>
                         <li class="menu-item">
-                            <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Produtos Solicitados</div>
-                            </a>
+                            <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Solicitados</div></a>
                         </li>
                         <li class="menu-item">
-                            <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Produtos Enviados</div>
-                            </a>
+                            <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Enviados</div></a>
                         </li>
                         <li class="menu-item">
-                            <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Transf. Pendentes</div>
-                            </a>
+                            <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Transf. Pendentes</div></a>
                         </li>
                         <li class="menu-item">
-                            <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Histórico Transf.</div>
-                            </a>
+                            <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Histórico Transf.</div></a>
                         </li>
                         <li class="menu-item">
-                            <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Estoque Matriz</div>
-                            </a>
+                            <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Estoque Matriz</div></a>
                         </li>
                         <li class="menu-item">
-                            <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Relatórios B2B</div>
-                            </a>
+                            <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Relatórios B2B</div></a>
                         </li>
                     </ul>
                 </li>
 
                 <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-                <li class="menu-item">
-                    <a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-group"></i><div>RH</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-dollar"></i><div>Finanças</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-desktop"></i><div>PDV</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-briefcase"></i><div>Empresa</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-box"></i><div>Estoque</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../franquia/index.php?id=principal_1" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-store"></i><div>Franquias</div>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-group"></i><div>Usuários</div>
-                    </a>
-                </li>
-                <li class="menu-item mb-5">
-                    <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-support"></i><div>Suporte</div>
-                    </a>
-                </li>
+                <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i><div>RH</div></a></li>
+                <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i><div>Finanças</div></a></li>
+                <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i><div>PDV</div></a></li>
+                <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i><div>Empresa</div></a></li>
+                <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i><div>Estoque</div></a></li>
+                <li class="menu-item"><a href="../franquia/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-store"></i><div>Franquias</div></a></li>
+                <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i><div>Usuários</div></a></li>
+                <li class="menu-item mb-5"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i><div>Suporte</div></a></li>
             </ul>
         </aside>
         <!-- / Menu -->
@@ -515,9 +533,57 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das filiais</span>
                 </h5>
 
+                <!-- ===== Filtros (iguais ao outro) ===== -->
+                <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
+                    <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">Status</label>
+                                <select class="form-select form-select-sm" name="status">
+                                    <option value="">Entregue + Cancelada (padrão)</option>
+                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>Entregue</option>
+                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>Cancelada</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">De</label>
+                                <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
+                            </div>
+
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">Até</label>
+                                <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
+                            </div>
+
+                            <div class="col-12 col-md flex-grow-1 filter-col">
+                                <label class="form-label mb-1">Buscar</label>
+                                <div class="autocomplete">
+                                    <input type="text" class="form-control form-control-sm" id="qInput" name="q"
+                                           placeholder="Solicitante (ex.: unidade_3) ou descrição…" value="<?= e($q) ?>" autocomplete="off">
+                                    <div class="autocomplete-list d-none" id="qList"></div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-auto d-flex gap-2 filter-col">
+                                <button class="btn btn-sm btn-primary" type="submit">
+                                    <i class="bx bx-filter-alt me-1"></i> Filtrar
+                                </button>
+                                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">
+                                    <i class="bx bx-eraser me-1"></i> Limpar
+                                </a>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            Resultados: <strong><?= count($pagamentos) ?></strong> registros
+                        </div>
+                    </div>
+                </form>
+
                 <!-- Tabela -->
                 <div class="card">
-                    <h5 class="card-header">Lista de Pagamentos (apenas Filiais)</h5>
+                    <h5 class="card-header">Lista de Pagamentos (Filiais)</h5>
                     <div class="table-responsive text-nowrap">
                         <table class="table table-hover">
                             <thead>
@@ -535,12 +601,9 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             </thead>
                             <tbody class="table-border-bottom-0" id="tbody-pagamentos">
                             <?php if (!$pagamentos): ?>
-                                <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
                             <?php else: foreach ($pagamentos as $p): ?>
-                                <?php
-                                $id = (int)$p['id'];
-                                $isPendente = ($p['status'] === 'pendente');
-                                ?>
+                                <?php $id = (int)$p['id']; ?>
                                 <tr id="row-<?= $id ?>">
                                     <td><?= $id ?></td>
                                     <td><strong><?= e($p['unidade_nome'] ?? ('Unidade #'.($p['unidade_id'] ?? ''))) ?></strong></td>
@@ -558,19 +621,14 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     <td>
                                         <?php
                                         $badge = 'bg-label-secondary';
-                                        if ($p['status'] === 'pendente') $badge = 'bg-label-warning';
-                                        if ($p['status'] === 'aprovado') $badge = 'bg-label-success';
-                                        if ($p['status'] === 'reprovado') $badge = 'bg-label-danger';
+                                        if ($p['status'] === 'entregue')   $badge = 'bg-label-success';
+                                        if ($p['status'] === 'cancelada')  $badge = 'bg-label-danger';
                                         ?>
                                         <span class="badge <?= $badge ?> status-badge" id="status-<?= $id ?>">
                                             <?= e($p['status']) ?>
                                         </span>
                                     </td>
                                     <td class="text-end" id="acoes-<?= $id ?>">
-                                        <?php if ($isPendente): ?>
-                                            <button class="btn btn-sm btn-outline-success me-1 btn-aprovar" data-id="<?= $id ?>">Aprovar</button>
-                                            <button class="btn btn-sm btn-outline-danger me-1 btn-recusar" data-id="<?= $id ?>">Recusar</button>
-                                        <?php endif; ?>
                                         <button class="btn btn-sm btn-outline-secondary btn-detalhes" data-id="<?= $id ?>" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
                                     </td>
                                 </tr>
@@ -596,7 +654,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             </div>
                             <div class="modal-footer" id="detalhes-footer">
                                 <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                                <!-- O botão “Baixar” é injetado dinamicamente quando houver documento -->
+                                <!-- botão Baixar é injetado dinamicamente -->
                             </div>
                         </div>
                     </div>
@@ -605,7 +663,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             </div>
             <!-- / Content -->
 
-            <!-- Footer -->
             <footer class="content-footer footer bg-footer-theme text-center">
                 <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
                     <div class="mb-2 mb-md-0">
@@ -626,11 +683,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 <script src="../../assets/vendor/js/bootstrap.js"></script>
 <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 <script src="../../assets/vendor/js/menu.js"></script>
-
-<!-- Vendors JS -->
 <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-
-<!-- Main JS -->
 <script src="../../assets/js/main.js"></script>
 
 <script>
@@ -645,115 +698,11 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             body: data.toString()
         }).then(r => r.json());
     }
-
-    function setStatusRow(id, newStatus){
-        const $status = document.getElementById('status-' + id);
-        const $acoes  = document.getElementById('acoes-' + id);
-        if ($status){
-            $status.textContent = newStatus;
-            $status.classList.remove('bg-label-warning','bg-label-success','bg-label-danger','bg-label-secondary');
-            if (newStatus === 'pendente') $status.classList.add('bg-label-warning');
-            else if (newStatus === 'aprovado') $status.classList.add('bg-label-success');
-            else if (newStatus === 'reprovado') $status.classList.add('bg-label-danger');
-            else $status.classList.add('bg-label-secondary');
-        }
-        if ($acoes && newStatus !== 'pendente'){
-            // Remove botões Aprovar/Recusar e mantém só Detalhes
-            $acoes.querySelectorAll('.btn-aprovar, .btn-recusar').forEach(btn => btn.remove());
-        }
+    function formatMoney(v){
+        if (v == null) return 'R$ 0,00';
+        const n = Number(v);
+        return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
     }
-
-    // Delegação de eventos na tabela
-    document.getElementById('tbody-pagamentos')?.addEventListener('click', function(e){
-        const t = e.target;
-
-        // Aprovar
-        if (t.classList.contains('btn-aprovar')){
-            const id = t.getAttribute('data-id');
-            if (!id) return;
-            if (!confirm('Confirmar aprovação deste pagamento?')) return;
-
-            post('update_status', {id, status:'aprovado'})
-                .then(json => {
-                    if (json && json.ok){
-                        setStatusRow(id, 'aprovado');
-                    } else {
-                        alert(json?.msg || 'Erro ao aprovar.');
-                    }
-                })
-                .catch(() => alert('Falha de rede ao aprovar.'));
-        }
-
-        // Recusar
-        if (t.classList.contains('btn-recusar')){
-            const id = t.getAttribute('data-id');
-            if (!id) return;
-            const motivo = prompt('Motivo da recusa (opcional):', '');
-            if (!confirm('Confirmar recusa deste pagamento?')) return;
-
-            post('update_status', {id, status:'reprovado'})
-                .then(json => {
-                    if (json && json.ok){
-                        setStatusRow(id, 'reprovado');
-                    } else {
-                        alert(json?.msg || 'Erro ao recusar.');
-                    }
-                })
-                .catch(() => alert('Falha de rede ao recusar.'));
-        }
-
-        // Detalhes
-        if (t.classList.contains('btn-detalhes')){
-            const id = t.getAttribute('data-id'); // ← ID DA LINHA CLICADA
-            const box = document.getElementById('detalhes-conteudo');
-            const footer = document.getElementById('detalhes-footer');
-            if (box){ box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>'; }
-            if (footer){
-                // remove botão baixar anterior, se existir
-                const oldBtn = footer.querySelector('.btn-baixar-modal');
-                if (oldBtn) oldBtn.remove();
-            }
-
-            post('get_details', {id})
-              .then(json => {
-                  if (json && json.ok && json.data){
-                      const d = json.data;
-                      const html = `
-                        <div class="row g-3">
-                          <div class="col-md-6">
-                            <p><strong>Filial:</strong> ${escapeHtml(d.unidade_nome ?? '')} (ID: ${escapeHtml(d.unidade_id ?? '')})</p>
-                            <p><strong>Solicitante:</strong> ${escapeHtml(d.id_solicitante ?? '')}</p>
-                            <p><strong>Status:</strong> ${escapeHtml(d.status ?? '')}</p>
-                          </div>
-                          <div class="col-md-6">
-                            <p><strong>Descrição:</strong> ${escapeHtml(d.descricao ?? '')}</p>
-                            <p><strong>Valor:</strong> ${formatMoney(d.valor)}</p>
-                            <p><strong>Vencimento:</strong> ${formatDate(d.vencimento)}</p>
-                          </div>
-                          <div class="col-12">
-                            <p><strong>Documento:</strong> ${d.documento ? 'Disponível' : '<span class="text-muted">—</span>'}</p>
-                          </div>
-                        </div>`;
-                      if (box){ box.innerHTML = html; }
-
-                      // ✅ Botão Baixar dentro da modal usando o *ID clicado na linha* (não d.id)
-                      if (footer && d.documento){
-                        const a = document.createElement('a');
-                        a.className = 'btn btn-primary btn-baixar-modal';
-                        a.textContent = 'Baixar comprovante';
-                        a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(id))}`;
-                        footer.appendChild(a);
-                      }
-                  } else {
-                      if (box){ box.innerHTML = `<div class="text-danger">Não foi possível carregar os detalhes.</div>`; }
-                  }
-              })
-              .catch(() => {
-                  if (box){ box.innerHTML = `<div class="text-danger">Falha de rede ao buscar detalhes.</div>`; }
-              });
-        }
-    });
-
     function formatDate(iso){
         if (!iso) return '—';
         const d = new Date(iso);
@@ -763,14 +712,115 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         const yyyy = d.getFullYear();
         return `${dd}/${mm}/${yyyy}`;
     }
-    function formatMoney(v){
-        if (v == null) return 'R$ 0,00';
-        const n = Number(v);
-        return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-    }
     function escapeHtml(s){
         return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
     }
+
+    // Detalhes
+    document.getElementById('tbody-pagamentos')?.addEventListener('click', function(e){
+        const t = e.target;
+        if (!t.classList.contains('btn-detalhes')) return;
+        const id = t.getAttribute('data-id');
+        const box = document.getElementById('detalhes-conteudo');
+        const footer = document.getElementById('detalhes-footer');
+        if (box) box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>';
+        if (footer){
+            const oldBtn = footer.querySelector('.btn-baixar-modal');
+            if (oldBtn) oldBtn.remove();
+        }
+        post('get_details', {id})
+          .then(json => {
+              if (json && json.ok && json.data){
+                  const d = json.data;
+                  const html = `
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <p><strong>Filial:</strong> ${escapeHtml(d.unidade_nome ?? '')} (ID: ${escapeHtml(d.unidade_id ?? '')})</p>
+                        <p><strong>Solicitante:</strong> ${escapeHtml(d.id_solicitante ?? '')}</p>
+                        <p><strong>Status:</strong> ${escapeHtml(d.status ?? '')}</p>
+                      </div>
+                      <div class="col-md-6">
+                        <p><strong>Descrição:</strong> ${escapeHtml(d.descricao ?? '')}</p>
+                        <p><strong>Valor:</strong> ${formatMoney(d.valor)}</p>
+                        <p><strong>Vencimento:</strong> ${formatDate(d.vencimento)}</p>
+                      </div>
+                      <div class="col-12">
+                        <p><strong>Documento:</strong> ${d.documento ? 'Disponível' : '<span class="text-muted">—</span>'}</p>
+                      </div>
+                    </div>`;
+                  if (box) box.innerHTML = html;
+
+                  if (footer && d.documento){
+                    const a = document.createElement('a');
+                    a.className = 'btn btn-primary btn-baixar-modal';
+                    a.textContent = 'Baixar comprovante';
+                    a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(id))}`;
+                    footer.appendChild(a);
+                  }
+              } else {
+                  if (box) box.innerHTML = `<div class="text-danger">Não foi possível carregar os detalhes.</div>`;
+              }
+          })
+          .catch(() => { if (box) box.innerHTML = `<div class="text-danger">Falha de rede ao buscar detalhes.</div>`; });
+    });
+
+    /* ===== Autocomplete (igual ao outro) ===== */
+    (function() {
+      const qInput = document.getElementById('qInput');
+      const list = document.getElementById('qList');
+      const form = document.getElementById('filtroForm');
+      let items = [], activeIndex = -1, aborter = null;
+
+      function closeList(){ list.classList.add('d-none'); list.innerHTML=''; activeIndex=-1; items=[]; }
+      function openList(){ list.classList.remove('d-none'); }
+      function render(data){
+        if (!data || !data.length){ closeList(); return; }
+        items = data.slice(0, 15);
+        list.innerHTML = items.map((it,i)=>`
+          <div class="autocomplete-item" data-i="${i}">
+            <span>${escapeHtml(it.label)}</span>
+            <span class="autocomplete-tag">${escapeHtml(it.tipo)}</span>
+          </div>`).join('');
+        openList();
+      }
+      function pick(i){
+        if (i<0 || i>=items.length) return;
+        qInput.value = items[i].value;
+        closeList();
+        form.submit();
+      }
+      qInput?.addEventListener('input', function(){
+        const v = qInput.value.trim();
+        if (v.length < 2){ closeList(); return; }
+        if (aborter) aborter.abort();
+        aborter = new AbortController();
+        const url = new URL(window.location.href);
+        url.searchParams.set('ajax','autocomplete');
+        url.searchParams.set('q', v);
+        fetch(url.toString(), { signal: aborter.signal })
+          .then(r=>r.json())
+          .then(render)
+          .catch(()=>{});
+      });
+      qInput?.addEventListener('keydown', function(e){
+        if (list.classList.contains('d-none')) return;
+        if (e.key === 'ArrowDown'){ activeIndex = Math.min(activeIndex+1, items.length-1); highlight(); e.preventDefault(); }
+        else if (e.key === 'ArrowUp'){ activeIndex = Math.max(activeIndex-1, 0); highlight(); e.preventDefault(); }
+        else if (e.key === 'Enter'){ if (activeIndex >= 0){ pick(activeIndex); e.preventDefault(); } }
+        else if (e.key === 'Escape'){ closeList(); }
+      });
+      list?.addEventListener('mousedown', function(e){
+        const el = e.target.closest('.autocomplete-item');
+        if (!el) return;
+        pick(parseInt(el.dataset.i, 10));
+      });
+      document.addEventListener('click', function(e){
+        if (!list.contains(e.target) && e.target !== qInput) closeList();
+      });
+      function highlight(){
+        [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx)=> el.classList.toggle('active', idx===activeIndex));
+      }
+    })();
 })();
 </script>
 </body>
