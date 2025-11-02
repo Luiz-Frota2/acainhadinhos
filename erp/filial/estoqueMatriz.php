@@ -794,6 +794,8 @@ $fimTxt = $fim->format('d/m/Y');
                                 </thead>
                                 <tbody class="table-border-bottom-0">
                                  <?php
+                                 // ✅ Conexão com o banco de dados
+require '../../assets/php/conexao.php';
 // ---------- Função: calculaStatus ----------
 function calculaStatus(int $disp, int $min): array {
     // Retorna [label_text, bootstrap_badge_class] — thresholds ajustáveis
