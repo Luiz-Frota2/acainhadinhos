@@ -75,7 +75,8 @@ try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
-    $empresaSobre = $stmt->fetch(PDO::_FETCH_ASSOC);
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
 
     $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
         ? "../../assets/img/empresa/" . $empresaSobre['imagem']
