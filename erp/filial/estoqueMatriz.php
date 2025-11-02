@@ -679,16 +679,18 @@ $fimTxt = $fim->format('d/m/Y');
                 <!-- / Navbar -->
 
            <?php
+// estoque_Matriz.php
+// Arquivo adaptado para usar a conexão PDO definida em ../../assets/php/conexao.php
+// Nome conforme convenção (segunda palavra com inicial maiúscula)
 
-// --- Função de status ---
+
+// ✅ Use sua conexão PDO (já definida em conexao.php como $pdo)
+require '../../assets/php/conexao.php';
+
+// ---------- Função que calcula o status ----------
 function calculaStatus(int $disp, int $min): array {
     // Retorna [label_text, bootstrap_badge_class]
-    // Regras (ajustáveis):
-    // disp <= 0.5 * min => Crítico (danger)
-    // 0.5*min < disp <= min => Baixo (warning)
-    // min < disp <= 3*min => Estável (success)
-    // disp > 3*min => Alto (primary)
-    if ($min <= 0) { // se mínimo inválido, classificamos por faixas absolutas
+    if ($min <= 0) {
         if ($disp <= 0) return ['Crítico', 'bg-label-danger'];
         if ($disp <= 10) return ['Baixo', 'bg-label-warning'];
         if ($disp <= 50) return ['Estável', 'bg-label-success'];
@@ -706,137 +708,126 @@ function calculaStatus(int $disp, int $min): array {
     }
 }
 
-// --- Conexão PDO (usando config/db.php que define $pdo) ---
-/*
-config/db.php exemplo mínimo:
-<?php
-$host = '127.0.0.1';
-$db   = 'autoerp';
-$user = 'user';
-$pass = 'pass';
-$charset = 'utf8mb4';
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-$opt = [ PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC ];
-$pdo = new PDO($dsn, $user, $pass, $opt);
-*/
-if (!isset($pdo)) {
-    // fallback rápido caso o config não defina $pdo
-    try {
-        $pdo = new PDO('mysql:host=127.0.0.1;dbname=autoerp;charset=utf8mb4', 'root', '', [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-    } catch (Exception $e) {
-        die('Erro conexão DB: ' . $e->getMessage());
-    }
-}
-
-// --- Query: buscar somente produtos do estoque matriz 'principal_1' ---
-// Observações:
-// - Ajuste nomes de tabelas/colunas abaixo conforme seu schema.
-// - Tentei usar nomes genéricos: produtos_peca (p), estoque_peca (e)
-// - Campo que identifica a filial/almoxarifado: e.local OR e.filial OR e.almoxarifado
+// ---------- Parâmetro: filial/almoxarifado que identifica a matriz ----------
 $filial = 'principal_1';
 
+// ---------- Query: buscar somente itens do estoque da matriz ----------
+// ATENÇÃO: ajuste os nomes de tabela/coluna abaixo conforme seu schema real.
+// Aqui eu uso nomes genéricos: produtos_peca (p) e estoque_peca (e).
 $sql = "
 SELECT
     COALESCE(p.sku, p.codigo_produto, p.id) AS codigo,
     COALESCE(p.nome_produto, p.nome, p.descricao) AS produto,
     COALESCE(p.categoria_produto, p.categoria, '—') AS categoria,
     COALESCE(p.unidade, 'UN') AS unidade,
-    -- mínimo preferencialmente na tabela de produto
     COALESCE(p.minimo, e.minimo, 0) AS minimo,
-    -- quantidades no estoque (tente os nomes mais prováveis; ajuste se necessário)
     COALESCE(e.quantidade_total, e.saldo, e.qtd, 0) AS quantidade_total,
     COALESCE(e.reservado, e.qtd_reservada, 0) AS reservado,
     COALESCE(e.em_transferencia, e.transferencia, 0) AS transf
 FROM produtos_peca p
 LEFT JOIN estoque_peca e ON (COALESCE(p.sku, p.codigo_produto, p.id) = COALESCE(e.sku, e.codigo_produto, e.produto_sku))
 WHERE
-    -- condição para selecionar apenas a matriz; ajuste o campo se necessário
     (e.local = :filial OR e.almoxarifado = :filial OR e.filial = :filial)
-ORDER BY p.nome_produto ASC
+ORDER BY COALESCE(p.nome_produto, p.nome, p.descricao) ASC
 LIMIT 1000;
 ";
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute([':filial' => $filial]);
-$rows = $stmt->fetchAll();
+try {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([':filial' => $filial]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    // Em ambiente de produção prefira registrar o erro em log e mostrar mensagem genérica.
+    die('<div class="alert alert-danger">Erro na consulta: ' . htmlspecialchars($e->getMessage()) . '</div>');
+}
 
 ?>
-<!-- HTML: substitui o tbody estático pela renderização dinâmica -->
-<div class="card">
-    <h5 class="card-header">Estoque — Itens da Matriz (<?= htmlspecialchars($filial) ?>)</h5>
-    <div class="table-responsive text-nowrap">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Codigo Produto</th>
-                    <th>Produto</th>
-                    <th>Categoria</th>
-                    <th>Unidade</th>
-                    <th>Min</th>
-                    <th>Disp.</th>
-                    <th>Reserv.</th>
-                    <th>Transf.</th>
-                    <th>Status</th>
-                    <th class="text-end">Ações</th>
-                </tr>
-            </thead>
-            <tbody class="table-border-bottom-0">
-            <?php if (empty($rows)): ?>
-                <tr><td colspan="10" class="text-center text-muted">Nenhum produto encontrado na matriz <?= htmlspecialchars($filial) ?>.</td></tr>
-            <?php else: ?>
-                <?php foreach ($rows as $r):
-                    $codigo = $r['codigo'];
-                    $produto = $r['produto'];
-                    $categoria = $r['categoria'];
-                    $unidade = $r['unidade'];
-                    $min = (int)$r['minimo'];
-                    $total = (int)$r['quantidade_total'];
-                    $reservado = (int)$r['reservado'];
-                    $transf = (int)$r['transf'];
+<!-- ========================= HTML: Tabela Dinâmica ========================= -->
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold mb-0">
+        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
+        Estoque Matriz
+    </h4>
+    <h5 class="fw-bold mt-3 mb-3 custor-font">
+        <span class="text-muted fw-light">Visão geral do estoque central</span>
+    </h5>
 
-                    // Disponível: se houver coluna específica, preferi calcular
-                    $disp = $total - $reservado - $transf;
-                    if ($disp < 0) $disp = 0;
+    <!-- Tabela principal -->
+    <div class="card">
+        <h5 class="card-header">Estoque — Itens da Matriz (<?= htmlspecialchars($filial) ?>)</h5>
+        <div class="table-responsive text-nowrap">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Codigo Produto</th>
+                        <th>Produto</th>
+                        <th>Categoria</th>
+                        <th>Unidade</th>
+                        <th>Min</th>
+                        <th>Disp.</th>
+                        <th>Reserv.</th>
+                        <th>Transf.</th>
+                        <th>Status</th>
+                        <th class="text-end">Ações</th>
+                    </tr>
+                </thead>
+                <tbody class="table-border-bottom-0">
+                    <?php if (empty($rows)): ?>
+                        <tr>
+                            <td colspan="10" class="text-center text-muted">Nenhum produto encontrado na matriz <?= htmlspecialchars($filial) ?>.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($rows as $r):
+                            $codigo = $r['codigo'];
+                            $produto = $r['produto'];
+                            $categoria = $r['categoria'];
+                            $unidade = $r['unidade'];
+                            $min = (int)$r['minimo'];
+                            $total = (int)$r['quantidade_total'];
+                            $reservado = (int)$r['reservado'];
+                            $transf = (int)$r['transf'];
 
-                    list($label, $badgeClass) = calculaStatus($disp, $min);
-                ?>
-                <tr>
-                    <td><strong><?= htmlspecialchars($codigo) ?></strong></td>
-                    <td><?= htmlspecialchars($produto) ?></td>
-                    <td><?= htmlspecialchars($categoria) ?></td>
-                    <td><?= htmlspecialchars($unidade) ?></td>
-                    <td><?= number_format($min, 0, ',', '.') ?></td>
-                    <td><?= number_format($disp, 0, ',', '.') ?></td>
-                    <td><?= number_format($reservado, 0, ',', '.') ?></td>
-                    <td><?= number_format($transf, 0, ',', '.') ?></td>
-                    <td><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($label) ?></span></td>
-                    <td class="text-end">
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto"
-                                data-sku="<?= htmlspecialchars($codigo) ?>"
-                                data-nome="<?= htmlspecialchars($produto) ?>"
-                                data-categoria="<?= htmlspecialchars($categoria) ?>"
-                                data-unidade="<?= htmlspecialchars($unidade) ?>"
-                                data-min="<?= $min ?>"
-                                data-disp="<?= $disp ?>"
-                                data-res="<?= $reservado ?>"
-                                data-transf="<?= $transf ?>">Detalhes</button>
+                            // Disponível: total menos reservado e transferências
+                            $disp = $total - $reservado - $transf;
+                            if ($disp < 0) $disp = 0;
 
-                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar"
-                                data-sku="<?= htmlspecialchars($codigo) ?>">Mov.</button>
+                            list($label, $badgeClass) = calculaStatus($disp, $min);
+                        ?>
+                        <tr>
+                            <td><strong><?= htmlspecialchars($codigo) ?></strong></td>
+                            <td><?= htmlspecialchars($produto) ?></td>
+                            <td><?= htmlspecialchars($categoria) ?></td>
+                            <td><?= htmlspecialchars($unidade) ?></td>
+                            <td><?= number_format($min, 0, ',', '.') ?></td>
+                            <td><?= number_format($disp, 0, ',', '.') ?></td>
+                            <td><?= number_format($reservado, 0, ',', '.') ?></td>
+                            <td><?= number_format($transf, 0, ',', '.') ?></td>
+                            <td><span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($label) ?></span></td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto"
+                                        data-sku="<?= htmlspecialchars($codigo) ?>"
+                                        data-nome="<?= htmlspecialchars($produto) ?>"
+                                        data-categoria="<?= htmlspecialchars($categoria) ?>"
+                                        data-unidade="<?= htmlspecialchars($unidade) ?>"
+                                        data-min="<?= $min ?>"
+                                        data-disp="<?= $disp ?>"
+                                        data-res="<?= $reservado ?>"
+                                        data-transf="<?= $transf ?>">Detalhes</button>
 
-                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir"
-                                data-sku="<?= htmlspecialchars($codigo) ?>">Transf.</button>
-                        </div>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-            </tbody>
-        </table>
+                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar"
+                                        data-sku="<?= htmlspecialchars($codigo) ?>">Mov.</button>
+
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir"
+                                        data-sku="<?= htmlspecialchars($codigo) ?>">Transf.</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -844,9 +835,12 @@ $rows = $stmt->fetchAll();
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var modalProduto = document.getElementById('modalProduto');
-    modalProduto && modalProduto.addEventListener('show.bs.modal', function (event) {
+    if (!modalProduto) return;
+
+    modalProduto.addEventListener('show.bs.modal', function (event) {
         var btn = event.relatedTarget;
         if (!btn) return;
+
         document.getElementById('det-sku').textContent = btn.getAttribute('data-sku') || '—';
         document.getElementById('det-nome').textContent = btn.getAttribute('data-nome') || '—';
         document.getElementById('det-categoria').textContent = btn.getAttribute('data-categoria') || '—';
