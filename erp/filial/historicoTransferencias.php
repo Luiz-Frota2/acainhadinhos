@@ -128,16 +128,79 @@ try {
 }
 
 /* ==========================================================
+   ENDPOINT AJAX — Autocomplete (igual ao exemplo)
+   aceita: ?ajax=autocomplete&q=...
+   ========================================================== */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
+    header('Content-Type: application/json; charset=UTF-8');
+    $term = trim($_GET['q'] ?? '');
+    $out  = [];
+
+    if (mb_strlen($term) >= 2) {
+        // id_solicitante
+        $s1 = $pdo->prepare("
+            SELECT DISTINCT s.id_solicitante AS val, 'Solicitante' AS tipo
+            FROM solicitacoes_b2b s
+            JOIN unidades u 
+              ON u.id = CAST(REPLACE(s.id_solicitante,'unidade_','') AS UNSIGNED)
+             AND u.tipo = 'Filial'
+             AND u.empresa_id = :matriz
+            WHERE s.id_matriz = :matriz
+              AND s.id_solicitante LIKE :q
+            ORDER BY s.id_solicitante
+            LIMIT 10
+        ");
+        $s1->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
+        foreach ($s1 as $r) $out[] = ['label'=>$r['val'],'value'=>$r['val'],'tipo'=>$r['tipo']];
+
+        // SKU
+        $s2 = $pdo->prepare("
+            SELECT DISTINCT it.codigo_produto AS val, 'SKU' AS tipo
+            FROM solicitacoes_b2b s
+            JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
+            JOIN unidades u 
+              ON u.id = CAST(REPLACE(s.id_solicitante,'unidade_','') AS UNSIGNED)
+             AND u.tipo = 'Filial'
+             AND u.empresa_id = :matriz
+            WHERE s.id_matriz = :matriz
+              AND it.codigo_produto LIKE :q
+            ORDER BY it.codigo_produto
+            LIMIT 10
+        ");
+        $s2->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
+        foreach ($s2 as $r) $out[] = ['label'=>$r['val'],'value'=>$r['val'],'tipo'=>$r['tipo']];
+
+        // Nome do produto
+        $s3 = $pdo->prepare("
+            SELECT DISTINCT it.nome_produto AS val, 'Produto' AS tipo
+            FROM solicitacoes_b2b s
+            JOIN solicitacoes_b2b_itens it ON it.solicitacao_id = s.id
+            JOIN unidades u 
+              ON u.id = CAST(REPLACE(s.id_solicitante,'unidade_','') AS UNSIGNED)
+             AND u.tipo = 'Filial'
+             AND u.empresa_id = :matriz
+            WHERE s.id_matriz = :matriz
+              AND it.nome_produto LIKE :q
+            ORDER BY it.nome_produto
+            LIMIT 10
+        ");
+        $s3->execute([':matriz' => $idSelecionado, ':q' => "%$term%"]);
+        foreach ($s3 as $r) $out[] = ['label'=>$r['val'],'value'=>$r['val'],'tipo'=>$r['tipo']];
+    }
+
+    echo json_encode($out, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/* ==========================================================
    ENDPOINT AJAX — Detalhes (sempre JSON)
    Aceita: ?ajax=detalhes&solicitacao_id=ID
    ========================================================== */
 if ($IS_AJAX_DET) {
     try {
-        // ⚠️ Aceita SOMENTE solicitacao_id para não conflitar com ?id=empresa
         $sid = (int)($_GET['solicitacao_id'] ?? $_POST['solicitacao_id'] ?? 0);
         if ($sid <= 0) json_out(['ok'=>false,'erro'=>'solicitacao_id inválido.'], 400);
 
-        // Cabeçalho: apenas da matriz corrente, somente filiais, e status final (entregue/cancelada)
         $cab = $pdo->prepare("
             SELECT 
                 s.id, s.id_matriz, s.id_solicitante, s.status, s.observacao,
@@ -150,14 +213,12 @@ if ($IS_AJAX_DET) {
              AND u.empresa_id = :matriz
             WHERE s.id = :sid
               AND s.id_matriz = :matriz
-              AND s.status IN ('entregue','cancelada')
             LIMIT 1
         ");
         $cab->execute([':sid' => $sid, ':matriz' => $idSelecionado]);
         $cabecalho = $cab->fetch(PDO::FETCH_ASSOC);
         if (!$cabecalho) json_out(['ok'=>false,'erro'=>'Registro não encontrado.'], 404);
 
-        // Itens
         $it = $pdo->prepare("
             SELECT 
                 COALESCE(i.codigo_produto,'') AS codigo_produto,
@@ -178,8 +239,61 @@ if ($IS_AJAX_DET) {
 }
 
 /* ==========================================================
-   LISTAGEM — Histórico apenas de Filiais com status final:
-   'entregue' ou 'cancelada'
+   FILTROS DA LISTAGEM (como no exemplo)
+   - status (se vazio → padrão somente entregues/canceladas)
+   - de/ate (data criada)
+   - q (id_solicitante, SKU, nome_produto)
+   ========================================================== */
+$status = $_GET['status'] ?? '';
+$de     = trim($_GET['de'] ?? '');
+$ate    = trim($_GET['ate'] ?? '');
+$q      = trim($_GET['q'] ?? '');
+
+/* WHERE base: somente FILIAIS desta matriz */
+$where  = [];
+$params = [':empresa_id' => $idSelecionado];
+
+$where[] = "u.tipo = 'Filial'";
+$where[] = "u.empresa_id = :empresa_id";
+$where[] = "s.id_matriz = :empresa_id";
+
+/* Status */
+$validStatus = ['pendente','aprovada','reprovada','em_transito','entregue','cancelada'];
+if ($status !== '' && in_array($status, $validStatus, true)) {
+    $where[] = "s.status = :status";
+    $params[':status'] = $status;
+} else {
+    // padrão do seu histórico antigo: só finais
+    $where[] = "s.status IN ('entregue','cancelada')";
+}
+
+/* Datas */
+if ($de !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $de)) {
+    $where[] = "DATE(s.created_at) >= :de";
+    $params[':de'] = $de;
+}
+if ($ate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $ate)) {
+    $where[] = "DATE(s.created_at) <= :ate";
+    $params[':ate'] = $ate;
+}
+
+/* Busca (id_solicitante ou itens) */
+if ($q !== '') {
+    $where[] = "(
+        s.id_solicitante LIKE :q
+        OR EXISTS(
+            SELECT 1 FROM solicitacoes_b2b_itens it
+            WHERE it.solicitacao_id = s.id
+              AND (it.codigo_produto LIKE :q OR it.nome_produto LIKE :q)
+        )
+    )";
+    $params[':q'] = "%$q%";
+}
+
+$whereSql = implode(' AND ', $where);
+
+/* ==========================================================
+   LISTAGEM (aplicando filtros)
    ========================================================== */
 $historico = [];
 try {
@@ -197,17 +311,15 @@ try {
         FROM solicitacoes_b2b s
         JOIN unidades u
           ON u.id = CAST(REPLACE(s.id_solicitante,'unidade_','') AS UNSIGNED)
-         AND u.tipo = 'Filial'
-         AND u.empresa_id = :empresa_id
         LEFT JOIN solicitacoes_b2b_itens i
           ON i.solicitacao_id = s.id
-        WHERE s.id_matriz = :empresa_id
-          AND s.status IN ('entregue','cancelada')
+        WHERE {$whereSql}
         GROUP BY s.id, s.id_solicitante, u.nome, s.created_at, s.enviada_em, s.entregue_em, s.status
         ORDER BY s.entregue_em DESC, s.enviada_em DESC, s.created_at DESC, s.id DESC
     ";
     $st = $pdo->prepare($sql);
-    $st->execute([':empresa_id' => $idSelecionado]);
+    foreach ($params as $k => $v) $st->bindValue($k, $v);
+    $st->execute();
     $historico = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $historico = [];
@@ -236,6 +348,16 @@ try {
         .table thead th{white-space:nowrap;}
         .status-badge{font-size:.78rem;}
         .table-responsive{overflow:auto;}
+        .filter-col{min-width:150px;}
+        .autocomplete{position:relative}
+        .autocomplete-list{
+            position:absolute;top:100%;left:0;right:0;max-height:260px;overflow:auto;
+            background:#fff;border:1px solid #e6e9ef;border-radius:.5rem;box-shadow:0 10px 24px rgba(24,28,50,.12);z-index:2060
+        }
+        .autocomplete-item{padding:.5rem .75rem;cursor:pointer;display:flex;justify-content:space-between;gap:.75rem}
+        .autocomplete-item:hover,.autocomplete-item.active{background:#f5f7fb}
+        .autocomplete-tag{font-size:.75rem;color:#6b7280}
+        @media (max-width: 991.98px){.filter-col{width:100%}}
     </style>
 </head>
 <body>
@@ -363,8 +485,54 @@ try {
                     Histórico de Transferências
                 </h4>
                 <h5 class="fw-bold mt-3 mb-3 custor-font">
-                    <span class="text-muted fw-light">Produtos enviados para as Filiais (somente Entregues/Canceladas)</span>
+                    <span class="text-muted fw-light">Produtos enviados para as Filiais — com filtros (Status, Período e Busca)</span>
                 </h5>
+
+                <!-- ===== Filtros (como no exemplo) ===== -->
+                <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
+                    <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">Status</label>
+                                <select class="form-select form-select-sm" name="status">
+                                    <option value="">Somente Entregue/Cancelada (padrão)</option>
+                                    <?php foreach (['pendente','aprovada','reprovada','em_transito','entregue','cancelada'] as $stt): ?>
+                                        <option value="<?= e($stt) ?>" <?= $status===$stt?'selected':'' ?>>
+                                            <?= ucfirst(str_replace('_',' ',$stt)) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">De</label>
+                                <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
+                            </div>
+
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">Até</label>
+                                <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
+                            </div>
+
+                            <div class="col-12 col-md flex-grow-1 filter-col">
+                                <label class="form-label mb-1">Buscar</label>
+                                <div class="autocomplete">
+                                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante (ex.: unidade_3), SKU ou Produto…" value="<?= e($q) ?>" autocomplete="off">
+                                    <div class="autocomplete-list d-none" id="qList"></div>
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-auto d-flex gap-2 filter-col">
+                                <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+                                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            Resultados: <strong><?= count($historico) ?></strong> registros
+                        </div>
+                    </div>
+                </form>
 
                 <!-- Histórico -->
                 <div class="card">
@@ -389,9 +557,10 @@ try {
                                 <tr>
                                     <td colspan="9" class="text-center text-muted py-4">Nenhum registro encontrado.</td>
                                 </tr>
-                            <?php else: foreach ($historico as $row): 
-                                $status = $row['status'];
-                                $badge  = ($status === 'entregue') ? 'bg-label-success' : 'bg-label-danger';
+                            <?php else: foreach ($historico as $row):
+                                $statusRow = $row['status'];
+                                $badge  = ($statusRow === 'entregue') ? 'bg-label-success'
+                                         : (($statusRow === 'cancelada') ? 'bg-label-danger' : 'bg-label-secondary');
                             ?>
                                 <tr>
                                     <td><strong><?= (int)$row['id'] ?></strong></td>
@@ -401,7 +570,7 @@ try {
                                     <td><?= dtBr($row['created_at']) ?></td>
                                     <td><?= dtBr($row['enviada_em']) ?></td>
                                     <td><?= dtBr($row['entregue_em']) ?></td>
-                                    <td><span class="badge <?= $badge ?> status-badge"><?= e(ucfirst($status)) ?></span></td>
+                                    <td><span class="badge <?= $badge ?> status-badge"><?= e(ucfirst($statusRow)) ?></span></td>
                                     <td class="text-end">
                                         <button
                                             class="btn btn-sm btn-outline-secondary"
@@ -410,7 +579,7 @@ try {
                                             data-id="<?= (int)$row['id'] ?>"
                                             data-codigo="TR-<?= (int)$row['id'] ?>"
                                             data-filial="<?= e($row['filial_nome'] ?? '-') ?>"
-                                            data-status="<?= e(ucfirst($status)) ?>">
+                                            data-status="<?= e(ucfirst($statusRow)) ?>">
                                             Detalhes
                                         </button>
                                     </td>
@@ -522,7 +691,6 @@ try {
 
     const url = new URL(window.location.href);
     url.searchParams.set('ajax', 'detalhes');
-    // ⚠️ NÃO alterar 'id' (empresa). Usar apenas 'solicitacao_id':
     url.searchParams.set('solicitacao_id', idSol);
 
     fetch(url.toString(), { credentials: 'same-origin' })
@@ -580,6 +748,67 @@ try {
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
   }
+})();
+</script>
+
+<!-- Autocomplete (igual ao exemplo) -->
+<script>
+(function() {
+  const qInput = document.getElementById('qInput');
+  const list = document.getElementById('qList');
+  const form = document.getElementById('filtroForm');
+  let items = [], activeIndex = -1, aborter = null;
+
+  function closeList(){ list.classList.add('d-none'); list.innerHTML=''; activeIndex=-1; items=[]; }
+  function openList(){ list.classList.remove('d-none'); }
+  function render(data){
+    if (!data || !data.length){ closeList(); return; }
+    items = data.slice(0, 15);
+    list.innerHTML = items.map((it,i)=>`
+      <div class="autocomplete-item" data-i="${i}">
+        <span>${escapeHtml(it.label)}</span>
+        <span class="autocomplete-tag">${escapeHtml(it.tipo)}</span>
+      </div>`).join('');
+    openList();
+  }
+  function pick(i){
+    if (i<0 || i>=items.length) return;
+    qInput.value = items[i].value;
+    closeList();
+    form.submit();
+  }
+  qInput.addEventListener('input', function(){
+    const v = qInput.value.trim();
+    if (v.length < 2){ closeList(); return; }
+    if (aborter) aborter.abort();
+    aborter = new AbortController();
+    const url = new URL(window.location.href);
+    url.searchParams.set('ajax','autocomplete');
+    url.searchParams.set('q', v);
+    fetch(url.toString(), { signal: aborter.signal })
+      .then(r=>r.json())
+      .then(render)
+      .catch(()=>{});
+  });
+  qInput.addEventListener('keydown', function(e){
+    if (list.classList.contains('d-none')) return;
+    if (e.key === 'ArrowDown'){ activeIndex = Math.min(activeIndex+1, items.length-1); highlight(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp'){ activeIndex = Math.max(activeIndex-1, 0); highlight(); e.preventDefault(); }
+    else if (e.key === 'Enter'){ if (activeIndex >= 0){ pick(activeIndex); e.preventDefault(); } }
+    else if (e.key === 'Escape'){ closeList(); }
+  });
+  list.addEventListener('mousedown', function(e){
+    const el = e.target.closest('.autocomplete-item');
+    if (!el) return;
+    pick(parseInt(el.dataset.i, 10));
+  });
+  document.addEventListener('click', function(e){
+    if (!list.contains(e.target) && e.target !== qInput) closeList();
+  });
+  function highlight(){
+    [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx)=> el.classList.toggle('active', idx===activeIndex));
+  }
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
 })();
 </script>
 </body>
