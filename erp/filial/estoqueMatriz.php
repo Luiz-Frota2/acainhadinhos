@@ -1137,6 +1137,19 @@ try {
                                 </tbody>
                             </table>
                         </div>
+                         <div class="card-footer d-flex justify-content-between">
+        <div>
+            Página <?= $pagina ?> de <?= $totalPaginas ?>
+        </div>
+        <div>
+            <?php if ($pagina > 1): ?>
+                <a href="?<?= http_build_query(array_merge($_GET, ['pagina' => $pagina-1])) ?>" class="btn btn-sm btn-outline-primary">← Anterior</a>
+            <?php endif; ?>
+            <?php if ($pagina < $totalPaginas): ?>
+                <a href="?<?= http_build_query(array_merge($_GET, ['pagina' => $pagina+1])) ?>" class="btn btn-sm btn-outline-primary">Próximo →</a>
+            <?php endif; ?>
+        </div>
+    </div>
                     </div>
                 </div>
                 <!-- ===== Modais ===== -->
