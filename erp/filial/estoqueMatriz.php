@@ -847,20 +847,30 @@ $card4 = (int)$stmt->fetchColumn();
 // require '../../assets/php/conexao.php'; // JÁ ESTÁ EXECUTADO NO TOPO DO SEU ARQUIVO
 
 try {
-    // ✅ Buscar produtos apenas da empresa atual
     $stmt = $pdo->prepare("
         SELECT 
-            id,
-            empresa_id,
-            codigo_produto,
-            nome_produto,
-            categoria_produto,
-            unidade,
-            quantidade_produto,
-            reservado
-        FROM estoque
-        WHERE empresa_id = :empresa
-        ORDER BY nome_produto ASC
+            e.id,
+            e.empresa_id,
+            e.codigo_produto,
+            e.nome_produto,
+            e.categoria_produto,
+            e.unidade,
+            e.quantidade_produto,
+            e.reservado,
+            -- Contar transferências entregues por produto
+            COUNT(s.id) AS total_transferencias
+        FROM estoque e
+        LEFT JOIN solicitacoes_b2b s
+            ON s.status = 'entregue'
+            AND s.id_matriz = e.empresa_id
+            AND s.codigo_produto = e.codigo_produto
+        LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+            AND u.tipo = 'Filial'
+            AND u.empresa_id = e.empresa_id
+        WHERE e.empresa_id = :empresa
+        GROUP BY e.id
+        ORDER BY e.nome_produto ASC
     ");
     $stmt->bindParam(':empresa', $idSelecionado, PDO::PARAM_STR);
     $stmt->execute();
@@ -870,6 +880,7 @@ try {
     echo "<tr><td colspan='10'>Erro ao carregar estoque: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
     $produtosEstoque = [];
 }
+
 
 // ✅ Função de cálculo do status baseado no MIN (10%)
 function calcularStatusEstoque($quantidade, $min)
@@ -910,7 +921,8 @@ function calcularStatusEstoque($quantidade, $min)
 
         <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
         <td><?= htmlspecialchars($p['reservado']) ?></td> <!-- Reservado -->
-        <td>0</td> <!-- Transferido -->
+        <td><?= number_format($p['total_transferencias'], 0, ',', '.') ?></td>
+
 
         <!-- ✅ Status automático -->
         <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
