@@ -839,7 +839,8 @@ try {
             nome_produto,
             categoria_produto,
             unidade,
-            quantidade_produto
+            quantidade_produto,
+            reservado
         FROM estoque
         WHERE empresa_id = :empresa
         ORDER BY nome_produto ASC
@@ -891,7 +892,7 @@ function calcularStatusEstoque($quantidade, $min)
         <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
 
         <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
-        <td>0</td> <!-- Reservado -->
+        <td><?= htmlspecialchars($p['reservado']) ?></td> <!-- Reservado -->
         <td>0</td> <!-- Transferido -->
 
         <!-- ✅ Status automático -->
