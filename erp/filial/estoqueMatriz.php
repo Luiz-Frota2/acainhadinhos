@@ -795,47 +795,56 @@ $fimTxt = $fim->format('d/m/Y');
                                 <tbody class="table-border-bottom-0">
                                     <!-- Linha 1 -->
                                     <?php
-// Consulta produtos somente da empresa principal
-$sql = $pdo->prepare("
-    SELECT 
-        id,
-        empresa_id,
-        codigo_produto,
-        nome_produto,
-        categoria_produto,
-        unidade,
-        quantidade_produto
-    FROM estoque
-    WHERE empresa_id = 'principal_1'
-    ORDER BY nome_produto ASC
-");
-$sql->execute();
+// ✅ Usa a mesma conexão já carregada acima
+// require '../../assets/php/conexao.php'; // JÁ ESTÁ EXECUTADO NO TOPO DO SEU ARQUIVO
 
-// Armazena os produtos
-$produtos = $sql->fetchAll(PDO::FETCH_ASSOC);
+try {
+    // ✅ Buscar produtos apenas da empresa atual
+    $stmt = $pdo->prepare("
+        SELECT 
+            id,
+            empresa_id,
+            codigo_produto,
+            nome_produto,
+            categoria_produto,
+            unidade,
+            quantidade_produto
+        FROM estoque
+        WHERE empresa_id = :empresa
+        ORDER BY nome_produto ASC
+    ");
+    $stmt->bindParam(':empresa', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $produtosEstoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Função para calcular o status do produto
-function calcularStatus($quantidade, $min) {
+} catch (PDOException $e) {
+    echo "<tr><td colspan='10'>Erro ao carregar estoque: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
+    $produtosEstoque = [];
+}
+
+// ✅ Função de cálculo do status baseado no MIN (10%)
+function calcularStatusEstoque($quantidade, $min)
+{
     if ($quantidade < $min) {
-        return ['Baixo', 'danger'];  // Vermelho
+        return ['Baixo', 'danger'];
     } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
-        return ['Estável', 'success']; // Verde
+        return ['Estável', 'success'];
     } else {
-        return ['Alto', 'primary']; // Azul
+        return ['Alto', 'primary'];
     }
 }
 ?>
 
 <tbody class="table-border-bottom-0">
 
-<?php foreach ($produtos as $p): ?>
+<?php foreach ($produtosEstoque as $p): ?>
 
     <?php
-        // Min = 10% da quantidade
+        // ✅ Valor MIN = 10% da quantidade
         $min = max(1, $p['quantidade_produto'] * 0.10);
 
-        // Calcular status automaticamente
-        list($statusTexto, $statusCor) = calcularStatus($p['quantidade_produto'], $min);
+        // ✅ Calcular status
+        list($statusTexto, $statusCor) = calcularStatusEstoque($p['quantidade_produto'], $min);
     ?>
 
     <tr>
@@ -844,17 +853,17 @@ function calcularStatus($quantidade, $min) {
         <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
         <td><?= htmlspecialchars($p['unidade']) ?></td>
 
-        <!-- Min calculado (10%) -->
+        <!-- ✅ MIN calculado -->
         <td><?= number_format($min, 0, ',', '.') ?></td>
 
-        <!-- Quantidade disponível -->
+        <!-- ✅ DISPONÍVEL -->
         <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
 
-        <!-- Como seu banco não possui as colunas, deixo como zero -->
-        <td>0</td> 
-        <td>0</td>
+        <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
+        <td>0</td> <!-- Reservado -->
+        <td>0</td> <!-- Transferido -->
 
-        <!-- Status automático -->
+        <!-- ✅ Status automático -->
         <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
 
         <td class="text-end">
