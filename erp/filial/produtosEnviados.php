@@ -6,7 +6,6 @@ session_start();
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
-
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
@@ -121,26 +120,29 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'detalhes') {
 }
 
 /* ==========================================================
-   🟠 FILTROS — Status/Período/Busca
+   🟠 FILTROS — Status (Enviado/Entregue/Todos), Período e Busca
    ========================================================== */
-$status = $_GET['status'] ?? '';                // '', 'pendente', 'aprovada', 'reprovada'
-$de     = trim($_GET['de'] ?? '');
-$ate    = trim($_GET['ate'] ?? '');
-$q      = trim($_GET['q'] ?? '');
-
-$validStatus = ['pendente','aprovada','reprovada'];
+$statusFiltro = strtolower(trim($_GET['status'] ?? '')); // '', 'enviado', 'entregue'
+$de           = trim($_GET['de'] ?? '');
+$ate          = trim($_GET['ate'] ?? '');
+$q            = trim($_GET['q'] ?? '');
 
 $where  = [];
 $params = [':empresa_id' => $idSelecionado];
 
 $where[] = "s.id_matriz = :empresa_id";
 
-/* 🔹 Status: se vazio => restringe APENAS aos três */
-if ($status !== '' && in_array($status, $validStatus, true)) {
-    $where[] = "s.status = :st";
-    $params[':st'] = $status;
+/* 🔹 Status:
+   - '' (Todos) => IN ('em_transito','entregue')
+   - 'enviado'  => = 'em_transito'
+   - 'entregue' => = 'entregue'
+*/
+if ($statusFiltro === 'enviado') {
+    $where[] = "s.status = 'em_transito'";
+} elseif ($statusFiltro === 'entregue') {
+    $where[] = "s.status = 'entregue'";
 } else {
-    $where[] = "s.status IN ('pendente','aprovada','reprovada')";
+    $where[] = "s.status IN ('em_transito','entregue')";
 }
 
 /* 🔹 Período pelo primeiro marco disponível (entregue/enviada/updated/aprovada/created) */
@@ -161,7 +163,7 @@ if ($q !== '') {
 }
 
 /* ==========================================================
-   🟢 LISTAGEM — agora respeita os filtros acima
+   🟢 LISTAGEM
    ========================================================== */
 $envios = [];
 try {
@@ -252,6 +254,8 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
 
     <!-- Config -->
     <script src="../../assets/js/config.js"></script>
+
+    <style>.status-badge{text-transform:capitalize}</style>
 </head>
 
 <body>
@@ -343,30 +347,6 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                         </ul>
                     </li>
 
-                    <li class="menu-item">
-                        <a href="javascript:void(0);" class="menu-link menu-toggle">
-                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-                            <div data-i18n="Relatorios">Relatórios</div>
-                        </a>
-                        <ul class="menu-sub">
-                            <li class="menu-item">
-                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Vendas">Vendas por Filial</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Pedidos">Vendas por Período</div>
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-
                     <!-- Diversos -->
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
                     <li class="menu-item">
@@ -417,7 +397,6 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                             <div data-i18n="Basic">Suporte</div>
                         </a>
                     </li>
-                    <!--/MISC-->
                 </ul>
             </aside>
             <!-- / Menu -->
@@ -478,8 +457,8 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                         <span class="text-muted fw-light"><a href="#">Filiais</a>/</span>
                         Produtos Enviados
                     </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Produtos conforme status (pendente/aprovada/reprovada)</span>
+                    <h5 class="fw-bold mt-3 mb-3">
+                        <span class="text-muted fw-light">Filtre por status: Enviado (em trânsito) ou Entregue</span>
                     </h5>
 
                     <!-- ===== Filtros ===== -->
@@ -490,10 +469,9 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                           <div class="col-12 col-md-auto">
                             <label class="form-label mb-1">Status</label>
                             <select class="form-select form-select-sm" name="status">
-                              <option value="">Todos (pendente/aprovada/reprovada)</option>
-                              <option value="pendente"  <?= $status==='pendente'  ? 'selected' : '' ?>>Pendente</option>
-                              <option value="aprovada"  <?= $status==='aprovada'  ? 'selected' : '' ?>>Aprovada</option>
-                              <option value="reprovada" <?= $status==='reprovada' ? 'selected' : '' ?>>Reprovada</option>
+                              <option value=""           <?= $statusFiltro===''          ? 'selected' : '' ?>>Todos (Enviado + Entregue)</option>
+                              <option value="enviado"   <?= $statusFiltro==='enviado'   ? 'selected' : '' ?>>Enviado</option>
+                              <option value="entregue"  <?= $statusFiltro==='entregue'  ? 'selected' : '' ?>>Entregue</option>
                             </select>
                           </div>
 
@@ -523,7 +501,7 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
 
                     <!-- Tabela -->
                     <div class="card">
-                        <h5 class="card-header">Lista de Produtos (por status)</h5>
+                        <h5 class="card-header">Lista de Produtos Enviados</h5>
                         <div class="table-responsive text-nowrap">
                             <table class="table table-hover" id="tabela-enviados">
                                 <thead>
@@ -551,22 +529,19 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                         if ($itens > 1 && $nome !== '—') {
                                             $nome .= " <span class='text-muted'>(+ " . ($itens-1) . ")</span>";
                                         }
-                                        $statusRow = strtolower((string)$row['status']);
 
-                                        // 🔁 Mapeamento visual para os três status
-                                        if ($statusRow === 'aprovada') {
-                                            $badgeHtml = '<span class="badge bg-label-primary status-badge">Aprovada</span>';
-                                        } elseif ($statusRow === 'reprovada') {
-                                            $badgeHtml = '<span class="badge bg-label-danger status-badge">Reprovada</span>';
-                                        } elseif ($statusRow === 'pendente') {
-                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Pendente</span>';
+                                        // mapeia visual: em_transito => Enviado
+                                        $statusDb = strtolower((string)$row['status']);
+                                        if ($statusDb === 'entregue') {
+                                            $badgeHtml = '<span class="badge bg-label-success status-badge">Entregue</span>';
+                                            $statusTexto = 'Entregue';
+                                        } elseif ($statusDb === 'em_transito') {
+                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Enviado</span>';
+                                            $statusTexto = 'Enviado';
                                         } else {
-                                            // fallback (se vier outro status)
                                             $badgeHtml = '<span class="badge bg-label-secondary status-badge">'.h($row['status']).'</span>';
+                                            $statusTexto = ucfirst(str_replace('_',' ', (string)$row['status']));
                                         }
-
-                                        // Regra de ações: se aprovada/reprovada => apenas "Detalhes"
-                                        $mostrarSomenteDetalhes = in_array($statusRow, ['aprovada','reprovada'], true);
                                     ?>
                                     <tr data-row-id="<?= (int)$row['id'] ?>">
                                         <td>PS-<?= (int)$row['id'] ?></td>
@@ -577,9 +552,6 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                         <td><?= dtBr($row['mov_em']) ?></td>
                                         <td><?= $badgeHtml ?></td>
                                         <td class="text-end">
-                                            <?php if (!$mostrarSomenteDetalhes): ?>
-                                                <!-- aqui poderiam existir outras ações para 'pendente' -->
-                                            <?php endif; ?>
                                             <button
                                                 type="button"
                                                 class="btn btn-sm btn-outline-secondary btn-detalhes"
@@ -588,7 +560,7 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                                 data-id="<?= (int)$row['id'] ?>"
                                                 data-codigo="PS-<?= (int)$row['id'] ?>"
                                                 data-filial="<?= h($row['filial_nome'] ?? '-') ?>"
-                                                data-status="<?= ucfirst($statusRow) ?>">
+                                                data-status="<?= h($statusTexto) ?>">
                                                 Detalhes
                                             </button>
                                         </td>
@@ -742,7 +714,5 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
     <script src="../../assets/js/dashboards-analytics.js"></script>
-
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 </html>
