@@ -892,7 +892,7 @@ function calcularStatusEstoque($quantidade, $min)
         <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
 
         <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
-        <td><?= htmlspecialchars($p['reservado']) ?></td> <!-- Reservado -->
+        <td><?= number_format($p['reservado']) ?></td> <!-- Reservado -->
         <td>0</td> <!-- Transferido -->
 
         <!-- ✅ Status automático -->
