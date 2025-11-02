@@ -70,7 +70,7 @@ if (!$acessoPermitido) {
     exit;
 }
 
-// ✅ Buscar logo da empresa
+// ✅ Buscar logo da empresa (opcional)
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
     $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Atualiza somente se estiver pendente
             $up = $pdo->prepare("
                 UPDATE solicitacoes_pagamento
-                   SET status = :st
+                   SET status = :st, updated_at = NOW()
                  WHERE id = :id
                    AND status = 'pendente'
                  LIMIT 1
@@ -130,8 +130,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Junta unidade (tipo, nome, etc) pela regra unidade_X -> X
             $sql = "
                 SELECT 
-                    sp.*,
-                    COALESCE(sp.comprovante_url, '') AS documento,  -- ⬅️ usa comprovante_url como documento
+                    sp.id,
+                    sp.id_matriz,
+                    sp.id_solicitante,
+                    sp.status,
+                    sp.fornecedor,
+                    sp.documento,
+                    sp.descricao,
+                    sp.vencimento,
+                    sp.valor,
+                    sp.comprovante_url,
                     u.id   AS unidade_id,
                     u.nome AS unidade_nome,
                     u.tipo AS unidade_tipo
@@ -139,10 +147,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 JOIN unidades u 
                   ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
                 WHERE sp.id = :id
+                  AND sp.id_matriz = :matriz
+                  AND (u.tipo = 'Filial' OR u.tipo = 'filial')
                 LIMIT 1
             ";
             $st = $pdo->prepare($sql);
-            $st->execute([':id' => $idPay]);
+            $st->execute([':id' => $idPay, ':matriz' => $idSelecionado]);
             if ($row = $st->fetch(PDO::FETCH_ASSOC)) {
                 echo json_encode(['ok' => true, 'data' => $row]);
             } else {
@@ -160,11 +170,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 /* ==========================================================
-   LISTAGEM: somente tipo FILIAL (duas tabelas)
+   LISTAGEM: apenas unidades do tipo FILIAL (duas tabelas)
    - id_matriz = $idSelecionado (escopo)
-   - u.tipo = 'filial'
-   - join por: unidades.id = número do final de sp.id_solicitante (unidade_X)
-   Colunas ajustáveis conforme seu SQL
+   - u.tipo = 'Filial' (ou 'filial')
+   - join por: unidades.id = número do final de sp.id_solicitante (ex.: unidade_3 -> 3)
    ========================================================== */
 $pagamentos = [];
 try {
@@ -173,11 +182,13 @@ try {
             sp.id,
             sp.id_matriz,
             sp.id_solicitante,
-            COALESCE(sp.descricao, '')        AS descricao,
-            COALESCE(sp.valor, 0.00)          AS valor,
-            sp.vencimento,
-            COALESCE(sp.comprovante_url, '')  AS documento,   -- ⬅️ usa comprovante_url como documento
             sp.status,
+            sp.fornecedor,
+            sp.documento,                        -- número/código do doc (NF/boleto/etc)
+            sp.descricao,
+            sp.vencimento,
+            sp.valor,
+            COALESCE(sp.comprovante_url, '') AS comprovante_url,  -- link do PDF
             u.id        AS unidade_id,
             u.nome      AS unidade_nome,
             u.tipo      AS unidade_tipo
@@ -185,7 +196,7 @@ try {
         JOIN unidades u
           ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
         WHERE sp.id_matriz = :id_matriz
-          AND u.tipo = 'filial'
+          AND (u.tipo = 'Filial' OR u.tipo = 'filial')
         ORDER BY sp.id DESC
     ";
     $st = $pdo->prepare($sql);
@@ -419,18 +430,20 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             <tr>
                                 <th>#</th>
                                 <th>Filial</th>
-                                <th>Solicitante (id)</th>
+                                <th>Solicitante</th>
+                                <th>Fornecedor</th>
+                                <th>Doc/NF</th>
                                 <th>Descrição</th>
                                 <th>Valor</th>
                                 <th>Vencimento</th>
-                                <th>Documento</th>
+                                <th>Comprovante</th>
                                 <th>Status</th>
                                 <th class="text-end">Ações</th>
                             </tr>
                             </thead>
                             <tbody class="table-border-bottom-0" id="tbody-pagamentos">
                             <?php if (!$pagamentos): ?>
-                                <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td></tr>
+                                <tr><td colspan="11" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td></tr>
                             <?php else: foreach ($pagamentos as $p): ?>
                                 <?php
                                 $id = (int)$p['id'];
@@ -440,12 +453,14 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     <td><?= $id ?></td>
                                     <td><strong><?= e($p['unidade_nome'] ?? ('Unidade #'.($p['unidade_id'] ?? ''))) ?></strong></td>
                                     <td><?= e($p['id_solicitante']) ?></td>
+                                    <td><?= e($p['fornecedor']) ?></td>
+                                    <td><?= e($p['documento']) ?></td>
                                     <td><?= e($p['descricao']) ?></td>
                                     <td><?= moneyBr($p['valor']) ?></td>
                                     <td><?= $p['vencimento'] ? date('d/m/Y', strtotime($p['vencimento'])) : '—' ?></td>
                                     <td>
-                                        <?php if (!empty($p['documento'])): ?>
-                                            <a href="<?= e($p['documento']) ?>" target="_blank" class="text-primary">Abrir</a>
+                                        <?php if (!empty($p['comprovante_url'])): ?>
+                                            <a href="./comprovante_View.php?id=<?= $id ?>&matriz=<?= urlencode($idSelecionado) ?>" target="_blank" class="text-primary">Abrir</a>
                                         <?php else: ?>
                                             <span class="text-muted">—</span>
                                         <?php endif; ?>
@@ -612,15 +627,19 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                             <p><strong>Filial:</strong> ${escapeHtml(d.unidade_nome ?? '')} (ID: ${escapeHtml(d.unidade_id ?? '')})</p>
                             <p><strong>Solicitante:</strong> ${escapeHtml(d.id_solicitante ?? '')}</p>
                             <p><strong>Status:</strong> ${escapeHtml(d.status ?? '')}</p>
+                            <p><strong>Fornecedor:</strong> ${escapeHtml(d.fornecedor ?? '')}</p>
                           </div>
                           <div class="col-md-6">
+                            <p><strong>Doc/NF:</strong> ${escapeHtml(d.documento ?? '')}</p>
                             <p><strong>Descrição:</strong> ${escapeHtml(d.descricao ?? '')}</p>
                             <p><strong>Valor:</strong> ${formatMoney(d.valor)}</p>
                             <p><strong>Vencimento:</strong> ${formatDate(d.vencimento)}</p>
                           </div>
                           <div class="col-12">
-                            <p><strong>Documento:</strong> ${
-                              d.documento ? `<a href="${escapeAttr(d.documento)}" target="_blank">Abrir</a>` : '<span class="text-muted">—</span>'
+                            <p><strong>Comprovante:</strong> ${
+                              d.comprovante_url
+                                ? `<a href="./comprovante_View.php?id=${Number(d.id)}&matriz=${encodeURIComponent('<?= $idSelecionado ?>')}" target="_blank">Abrir</a>`
+                                : '<span class="text-muted">—</span>'
                             }</p>
                           </div>
                         </div>`;
@@ -638,12 +657,18 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     function formatDate(iso){
         if (!iso) return '—';
         const d = new Date(iso);
-        if (isNaN(d.getTime())) return '—';
+        if (isNaN(d.getTime())) {
+            // tenta tratar 'YYYY-MM-DD' como UTC
+            const parts = String(iso).split(' ')[0]?.split('-');
+            if (parts && parts.length === 3){
+                return `${parts[2].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${parts[0]}`;
+            }
+            return '—';
+        }
         const dd = String(d.getDate()).padStart(2,'0');
         const mm = String(d.getMonth()+1).padStart(2,'0');
         const yyyy = d.getFullYear();
         return `${dd}/${mm}/${yyyy}`;
-        // (Se seu campo for DATETIME em fuso diferente, considere formatar no back-end)
     }
     function formatMoney(v){
         if (v == null) return 'R$ 0,00';
@@ -653,7 +678,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     function escapeHtml(s){
         return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
     }
-    function escapeAttr(s){ return escapeHtml(s).replace(/"/g, '&quot;'); }
 })();
 </script>
 </body>
