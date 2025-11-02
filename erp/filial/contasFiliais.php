@@ -121,7 +121,7 @@ if (isset($_GET['download'])) {
         //    AJUSTE AQUI se necessário (coloque o caminho absoluto da Hostinger, se preferir)
         $possiveisBases = [
             realpath(__DIR__ . '/../../pagamentos'),          // se este arquivo está em public/<modulo>/..., "volta" 2 níveis -> public/pagamentos
-            realpath(__DIR__ . '/../../../public/pagamentos') // alternativa: se a estrutura for diferente
+            realpath(__DIR__ . '/../../../public/') // alternativa: se a estrutura for diferente
             // Exemplo de caminho absoluto (descomente e ajuste):
             // '/home/SEU_USUARIO/domains/SEU_DOMINIO/public_html/public/pagamentos'
         ];
