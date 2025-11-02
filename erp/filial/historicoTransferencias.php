@@ -25,7 +25,7 @@ function e(string $v): string {
 }
 
 /* ==========================================================
-   Flag de chamada AJAX de detalhes
+   Flags AJAX
    ========================================================== */
 $IS_AJAX_DET = (
     (isset($_GET['ajax'])  && $_GET['ajax']  === 'detalhes') ||
@@ -128,7 +128,7 @@ try {
 }
 
 /* ==========================================================
-   ENDPOINT AJAX — Autocomplete (igual ao exemplo)
+   ENDPOINT AJAX — Autocomplete
    aceita: ?ajax=autocomplete&q=...
    ========================================================== */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
@@ -239,8 +239,8 @@ if ($IS_AJAX_DET) {
 }
 
 /* ==========================================================
-   FILTROS DA LISTAGEM (como no exemplo)
-   - status (se vazio → padrão somente entregues/canceladas)
+   FILTROS
+   - status (agora só 'entregue' ou 'cancelada')
    - de/ate (data criada)
    - q (id_solicitante, SKU, nome_produto)
    ========================================================== */
@@ -257,13 +257,13 @@ $where[] = "u.tipo = 'Filial'";
 $where[] = "u.empresa_id = :empresa_id";
 $where[] = "s.id_matriz = :empresa_id";
 
-/* Status */
-$validStatus = ['pendente','aprovada','reprovada','em_transito','entregue','cancelada'];
+/* Status: restringido a 'entregue' e 'cancelada' */
+$validStatus = ['entregue','cancelada'];
 if ($status !== '' && in_array($status, $validStatus, true)) {
     $where[] = "s.status = :status";
     $params[':status'] = $status;
 } else {
-    // padrão do seu histórico antigo: só finais
+    // padrão: mostrar os dois
     $where[] = "s.status IN ('entregue','cancelada')";
 }
 
@@ -488,7 +488,7 @@ try {
                     <span class="text-muted fw-light">Produtos enviados para as Filiais — com filtros (Status, Período e Busca)</span>
                 </h5>
 
-                <!-- ===== Filtros (como no exemplo) ===== -->
+                <!-- ===== Filtros ===== -->
                 <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
                     <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
                     <div class="card-body">
@@ -496,12 +496,9 @@ try {
                             <div class="col-12 col-md-auto filter-col">
                                 <label class="form-label mb-1">Status</label>
                                 <select class="form-select form-select-sm" name="status">
-                                    <option value="">Somente Entregue/Cancelada (padrão)</option>
-                                    <?php foreach (['pendente','aprovada','reprovada','em_transito','entregue','cancelada'] as $stt): ?>
-                                        <option value="<?= e($stt) ?>" <?= $status===$stt?'selected':'' ?>>
-                                            <?= ucfirst(str_replace('_',' ',$stt)) ?>
-                                        </option>
-                                    <?php endforeach; ?>
+                                    <option value="">Entregue + Cancelada (padrão)</option>
+                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>Entregue</option>
+                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>Cancelada</option>
                                 </select>
                             </div>
 
@@ -627,7 +624,7 @@ try {
                                     <ul class="mb-0">
                                         <li><span class="text-muted">Criado:</span> <span id="hist-criado">—</span></li>
                                         <li><span class="text-muted">Enviado:</span> <span id="hist-enviado">—</span></li>
-                                        <li><span class="text-muted">Entregue/Cancelado:</span> <span id="hist-final">—</span></li>
+                    <li><span class="text-muted">Entregue/Cancelado:</span> <span id="hist-final">—</span></li>
                                     </ul>
                                 </div>
                             </div>
@@ -751,7 +748,7 @@ try {
 })();
 </script>
 
-<!-- Autocomplete (igual ao exemplo) -->
+<!-- Autocomplete -->
 <script>
 (function() {
   const qInput = document.getElementById('qInput');
