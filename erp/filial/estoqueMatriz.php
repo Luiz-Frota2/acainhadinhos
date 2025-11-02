@@ -965,25 +965,7 @@ function calcularStatusEstoque($quantidade, $min)
 </div>
 
 
-                    <!-- Ações rápidas -->
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <div class="row g-2">
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalTransferir">
-                                        <i class="bx bx-right-arrow me-2"></i> Transferir p/ Filial
-                                    </button>
-                                </div>
-                                
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-dark w-100">
-                                        <i class="bx bx-download me-2"></i> Exportar CSV
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
+               
 
                     <!-- Tabela principal -->
                     <div class="card">
