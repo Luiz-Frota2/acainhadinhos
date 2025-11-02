@@ -785,11 +785,6 @@ try {
                         <div class="card-body">
                             <div class="row g-2">
                                 <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-primary w-100">
-                                        <i class="bx bx-plus-circle me-2"></i> Movimentar estoque
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                                     <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalTransferir">
                                         <i class="bx bx-right-arrow me-2"></i> Transferir p/ Filial
                                     </button>
