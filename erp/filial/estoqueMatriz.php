@@ -1189,8 +1189,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-6">
                                 <label class="form-label">Quantidade</label>
                                 <input type="number" class="form-control" name="quantidade" min="1" placeholder="0" required>
-                                <input type="hidden" id="transfer-disponivel">
-
                             </div>
                             
                             <div class="col-md-6">
@@ -1212,6 +1210,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                 </div>
                 <div class="modal-footer">
+                    <input type="hidden" id="transfer-disponivel">
                     <input type="hidden" name="produto_id" id="transfer-produto-id">
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" name="gerar_transferencia" class="btn btn-primary">Gerar transferência</button>
