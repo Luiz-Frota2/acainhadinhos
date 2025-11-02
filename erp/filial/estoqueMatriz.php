@@ -734,6 +734,70 @@ $card4 = (int)$stmt->fetchColumn();
 } catch (PDOException $e) {
     $card1 = $card2 = $card3 = $card4 = 0;
 }
+if(isset($_POST['gerar_transferencia'])){
+    $produto_id = (int)$_POST['produto_id'];
+    $id_filial = (int)$_POST['id_filial'];
+    $quantidade = (int)$_POST['quantidade'];
+    $prioridade = $_POST['prioridade'];
+    $observacao = $_POST['observacao'];
+
+    try {
+        $pdo->beginTransaction();
+
+        // Pegar dados do produto
+        $produto = $pdo->prepare("SELECT * FROM estoque WHERE id = :id AND empresa_id = :empresa");
+        $produto->execute([':id'=>$produto_id, ':empresa'=>$idSelecionado]);
+        $p = $produto->fetch(PDO::FETCH_ASSOC);
+
+        if(!$p){
+            throw new Exception("Produto não encontrado.");
+        }
+
+        if($quantidade > $p['quantidade_produto']){
+            throw new Exception("Quantidade maior que disponível.");
+        }
+
+        // Inserir solicitação
+        $stmt = $pdo->prepare("INSERT INTO solicitacoes_b2b 
+            (id_matriz, id_solicitante, criado_por_usuario_id, status, prioridade, observacao) 
+            VALUES (:matriz, :solicitante, :usuario, 'em_transito', :prioridade, :obs)");
+        $stmt->execute([
+            ':matriz'=>$idSelecionado,
+            ':solicitante'=>'unidade_'.$id_filial,
+            ':usuario'=>$usuarioLogadoId,
+            ':prioridade'=>$prioridade,
+            ':obs'=>$observacao
+        ]);
+        $solicitacao_id = $pdo->lastInsertId();
+
+        // Inserir item da solicitação
+        $stmtItem = $pdo->prepare("INSERT INTO solicitacoes_b2b_itens
+            (solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal)
+            VALUES (:solicitacao, :produto, :codigo, :nome, :unidade, :preco, :quantidade, :subtotal)");
+        $stmtItem->execute([
+            ':solicitacao'=>$solicitacao_id,
+            ':produto'=>$p['id'],
+            ':codigo'=>$p['codigo_produto'],
+            ':nome'=>$p['nome_produto'],
+            ':unidade'=>$p['unidade'],
+            ':preco'=>$p['preco_produto'],
+            ':quantidade'=>$quantidade,
+            ':subtotal'=>$p['preco_produto']*$quantidade
+        ]);
+
+        // Atualizar estoque reservado
+        $stmtEstoque = $pdo->prepare("UPDATE estoque SET reservado = reservado + :qtd WHERE id = :id AND empresa_id = :empresa");
+        $stmtEstoque->execute([':qtd'=>$quantidade, ':id'=>$p['id'], ':empresa'=>$idSelecionado]);
+
+        $pdo->commit();
+        echo "<script>alert('Transferência gerada com sucesso!');location.reload();</script>";
+
+    } catch (Exception $e){
+        $pdo->rollBack();
+        echo "<script>alert('Erro: ".addslashes($e->getMessage())."');</script>";
+    }
+}
+
 ?>
 
 
@@ -949,11 +1013,12 @@ function calcularStatusEstoque($quantidade, $min)
 
 
                 <button class="btn btn-sm btn-outline-primary"
-                        data-bs-toggle="modal"
-                        data-bs-target="#modalTransferir"
-                        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>">
-                    Transf.
-                </button>
+        data-bs-toggle="modal"
+        data-bs-target="#modalTransferir"
+        data-produto-id="<?= $p['id'] ?>">
+    Transf.
+</button>
+
             </div>
         </td>
     </tr>
@@ -1046,58 +1111,73 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 
-                <!-- Modal: Transferir p/ Filial -->
-                <div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Transferir para Filial</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+               <!-- Modal: Transferir p/ Filial -->
+<div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Transferir para Filial</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                        <div class="row g-3">
+
+                            <div class="col-12">
+                                <label class="form-label">Filial</label>
+                                <select name="id_filial" class="form-select" required>
+                                    <?php
+                                    // Puxar filiais da empresa
+                                    $filiais = $pdo->query("SELECT id, nome FROM unidades WHERE empresa_id = '{$idSelecionado}' AND tipo='Filial' AND status='Ativa'")->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach($filiais as $f){
+                                        echo "<option value='{$f['id']}'>".htmlspecialchars($f['nome'])."</option>";
+                                    }
+                                    ?>
+                                </select>
                             </div>
-                            <div class="modal-body">
-                                <form>
-                                    <div class="row g-3">
 
-                                        <div class="col-12">
-                                            <label class="form-label">Filial</label>
-                                            <select class="form-select">
-                                                <option>Filial Centro</option>
-                                                <option>Filial Norte</option>
-                                                <option>Filial Sul</option>
-                                                <option>Filial Leste</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Quantidade</label>
-                                            <input type="number" class="form-control" min="1" placeholder="0">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Prioridade</label>
-                                            <select class="form-select">
-                                                <option>Baixa</option>
-                                                <option>Média</option>
-                                                <option>Alta</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Observações</label>
-                                            <textarea class="form-control" rows="3" placeholder="Instruções de envio, embalagem, etc."></textarea>
-                                        </div>
-                                    </div>
-                                </form>
-                                <div class="alert alert-warning mt-3 mb-0">
-                                    <i class="bx bx-error-circle me-1"></i> A transferência reserva a quantidade informada até o envio.
-                                </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Quantidade</label>
+                                <input type="number" class="form-control" name="quantidade" min="1" placeholder="0" required>
                             </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button class="btn btn-primary">Gerar transferência</button>
+                            <div class="col-md-6">
+                                <label class="form-label">Prioridade</label>
+                                <select name="prioridade" class="form-select" required>
+                                    <option value="Baixa">Baixa</option>
+                                    <option value="Media">Média</option>
+                                    <option value="Alta">Alta</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Observações</label>
+                                <textarea name="observacao" class="form-control" rows="3" placeholder="Instruções de envio, embalagem, etc."></textarea>
                             </div>
                         </div>
-                    </div>
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <i class="bx bx-error-circle me-1"></i> A transferência reserva a quantidade informada até o envio.
+                        </div>
                 </div>
+                <div class="modal-footer">
+                    <input type="hidden" name="produto_id" id="transfer-produto-id">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" name="gerar_transferencia" class="btn btn-primary">Gerar transferência</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalTransferir = document.getElementById('modalTransferir');
+    modalTransferir.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const produtoId = button.getAttribute('data-produto-id');
+        modalTransferir.querySelector('#transfer-produto-id').value = produtoId;
+    });
+});
+</script>
+
 
                 <!-- Modal: Histórico de Movimentações -->
                 <div class="modal fade" id="modalHistorico" tabindex="-1" aria-hidden="true">
