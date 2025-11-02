@@ -4,15 +4,38 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
-$idSelecionado = $_GET['id'] ?? '';
+/* ========================= Helpers comuns ========================= */
+function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
+function isRemote($path){ return (bool)preg_match('~^https?://~i', $path); }
+function cleanToken($s){ return preg_replace('~[^A-Za-z0-9_\-\.]~', '', (string)$s); }
+function servePdf($fullPath, $dispName, $asAttachment = false){
+    if (!is_file($fullPath) || !is_readable($fullPath)) {
+        http_response_code(404);
+        echo "Arquivo não encontrado.";
+        exit;
+    }
+    $size = @filesize($fullPath);
 
+    header('Content-Type: application/pdf');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: private, max-age=60');
+    header('Accept-Ranges: none');
+    header('Content-Disposition: ' . ($asAttachment ? 'attachment' : 'inline') . '; filename="' . $dispName . '"');
+    if ($size !== false) header('Content-Length: ' . $size);
+
+    readfile($fullPath);
+    exit;
+}
+
+/* ========================= Parâmetros base ======================== */
+$idSelecionado = $_GET['id'] ?? ''; // empresa (ex.: principal_1)
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
 }
 
-// ✅ Verifica se a pessoa está logada
+/* ===================== Verificação de login ====================== */
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
@@ -23,31 +46,10 @@ if (
     exit;
 }
 
-// ✅ Conexão com o banco de dados
+/* ========================= Conexão DB ============================ */
 require '../../assets/php/conexao.php';
 
-// ✅ Buscar nome e tipo do usuário logado
-$nomeUsuario = 'Usuário';
-$tipoUsuario = 'Comum';
-$usuario_id  = (int)$_SESSION['usuario_id'];
-
-try {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-    $stmt->execute();
-    if ($u = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $nomeUsuario = $u['usuario'] ?? 'Usuário';
-        $tipoUsuario = ucfirst((string)($u['nivel'] ?? 'Comum'));
-    } else {
-        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-        exit;
-    }
-} catch (PDOException $e) {
-    echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
-    exit;
-}
-
-// ✅ Valida o tipo de empresa e o acesso permitido
+/* ===================== Checagem de escopo ======================== */
 $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
@@ -61,35 +63,206 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
     $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
-
 if (!$acessoPermitido) {
-    echo "<script>
-          alert('Acesso negado!');
-          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
-        </script>";
+    http_response_code(403);
+    echo "Acesso negado.";
     exit;
 }
 
-// ✅ Buscar logo da empresa (opcional)
-try {
-    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
-    $stmt->execute();
-    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+/* ================= ROTEADOR: PDF dentro do MESMO arquivo =================
+   op=pdf  → orquestrador/entrega do comprovante
+   - Sem mode (apenas op=pdf)                → baixa/armazenar tmp e retorna HTML com iframe(preview)+auto-download
+   - mode=inline & f=TOKEN                   → serve inline
+   - mode=download & f=TOKEN                 → serve como attachment
+========================================================================== */
+if (($_GET['op'] ?? '') === 'pdf') {
 
-    $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
-        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
-        : "../../assets/img/favicon/logo.png";
-} catch (PDOException $e) {
-    $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
+    // Pasta temporária
+    $baseTmpDir = realpath(__DIR__ . '/../../assets/tmp');
+    if ($baseTmpDir === false) {
+        $tryDir = __DIR__ . '/../../assets/tmp';
+        if (!is_dir($tryDir)) @mkdir($tryDir, 0775, true);
+        $baseTmpDir = realpath($tryDir);
+    }
+    if ($baseTmpDir === false) {
+        http_response_code(500);
+        echo "Não foi possível preparar o diretório temporário.";
+        exit;
+    }
+    $comprovantesDir = $baseTmpDir . '/comprovantes';
+    if (!is_dir($comprovantesDir)) {
+        @mkdir($comprovantesDir, 0775, true);
+    }
+
+    // Modo de entrega direto?
+    $mode = $_GET['mode'] ?? '';
+    if ($mode === 'inline' || $mode === 'download') {
+        $fileToken = cleanToken($_GET['f'] ?? '');
+        $pid       = isset($_GET['pid']) ? (int)$_GET['pid'] : 0; // opcional (apenas para nome)
+        if (!$fileToken) {
+            http_response_code(400);
+            echo "Token de arquivo inválido.";
+            exit;
+        }
+        $fullPath = realpath($comprovantesDir . '/' . $fileToken);
+        if ($fullPath === false || strpos($fullPath, $comprovantesDir) !== 0) {
+            http_response_code(400);
+            echo "Caminho inválido.";
+            exit;
+        }
+        $filename = 'comprovante_' . ($pid ?: 'sol') . '.pdf';
+        servePdf($fullPath, $filename, $mode === 'download');
+    }
+
+    // Orquestrador (sem mode) → buscar URL do comprovante da FILIAL, baixar para tmp e exibir HTML
+    $pid = isset($_GET['pid']) ? (int)$_GET['pid'] : 0;
+    if (!$pid) {
+        http_response_code(400);
+        echo "Parâmetro 'pid' ausente.";
+        exit;
+    }
+
+    try {
+        $sql = "
+            SELECT 
+                sp.id,
+                sp.id_matriz,
+                sp.id_solicitante,
+                sp.comprovante_url,
+                u.id   AS unidade_id,
+                u.tipo AS unidade_tipo
+            FROM solicitacoes_pagamento sp
+            JOIN unidades u
+              ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
+            WHERE sp.id = :id
+              AND sp.id_matriz = :matriz
+              AND (u.tipo = 'Filial' OR u.tipo = 'filial')
+            LIMIT 1
+        ";
+        $st = $pdo->prepare($sql);
+        $st->execute([':id' => $pid, ':matriz' => $idSelecionado]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['comprovante_url'])) {
+            http_response_code(404);
+            echo "Comprovante não encontrado.";
+            exit;
+        }
+        $src = $row['comprovante_url'];
+    } catch (PDOException $e) {
+        http_response_code(500);
+        echo "Erro de banco: " . e($e->getMessage());
+        exit;
+    }
+
+    // Baixa/copia para tmp
+    $token   = 'pdf_' . $pid . '_' . bin2hex(random_bytes(6)) . '.pdf';
+    $tmpPath = $comprovantesDir . '/' . $token;
+
+    if (!isRemote($src)) {
+        // local
+        $localPath = $src;
+        if (strpos($localPath, '..') !== false) {
+            http_response_code(400);
+            echo "Caminho inválido.";
+            exit;
+        }
+        if (!is_file($localPath) || !is_readable($localPath)) {
+            http_response_code(404);
+            echo "Arquivo local não encontrado.";
+            exit;
+        }
+        if (!copy($localPath, $tmpPath)) {
+            http_response_code(500);
+            echo "Falha ao preparar arquivo temporário.";
+            exit;
+        }
+    } else {
+        // remoto
+        $ch = curl_init($src);
+        $fp = fopen($tmpPath, 'wb');
+        if ($fp === false) {
+            http_response_code(500);
+            echo "Falha ao criar arquivo temporário.";
+            exit;
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_FILE           => $fp,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 3,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_USERAGENT      => 'Mozilla/5.0',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ]);
+        $ok   = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        fclose($fp);
+
+        if ($ok === false || $code >= 400 || filesize($tmpPath) === 0) {
+            @unlink($tmpPath);
+            http_response_code(502);
+            echo "Falha ao baixar o PDF remoto.";
+            exit;
+        }
+    }
+
+    // URLs internas (mesmo arquivo)
+    $inlineUrl   = e("contasFiliais.php?op=pdf&mode=inline&id={$idSelecionado}&pid={$pid}&f={$token}");
+    $downloadUrl = e("contasFiliais.php?op=pdf&mode=download&id={$idSelecionado}&pid={$pid}&f={$token}");
+
+    // Limpa temporários antigos (> 1 dia)
+    foreach (glob($comprovantesDir . '/pdf_*.pdf') as $f) {
+        if (@filemtime($f) !== false && (time() - filemtime($f)) > 86400) {
+            @unlink($f);
+        }
+    }
+
+    // HTML minimalista de orquestração (preview + auto-download)
+    ?>
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="utf-8">
+      <title>Comprovante #<?= (int)$pid ?> — Pré-visualização</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        html, body { height: 100%; margin: 0; }
+        .topbar {
+          padding: 10px 12px; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+          display: flex; gap: 8px; align-items: center; background: #f6f7f9; border-bottom: 1px solid #e5e7eb;
+        }
+        .topbar a { text-decoration: none; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; color: #111827; font-size: 14px; background: #fff; }
+        .viewer { height: calc(100% - 48px); }
+        .viewer iframe { width: 100%; height: 100%; border: 0; }
+      </style>
+    </head>
+    <body>
+      <div class="topbar">
+        <strong>Comprovante #<?= (int)$pid ?></strong>
+        <a id="dl" href="<?= $downloadUrl ?>">Baixar PDF</a>
+        <a href="<?= $inlineUrl ?>" target="_blank">Abrir em nova aba</a>
+      </div>
+      <div class="viewer">
+        <iframe src="<?= $inlineUrl ?>" allow="autoplay"></iframe>
+      </div>
+      <script>
+        // Dispara o download automaticamente após carregar a página
+        try {
+          const a = document.getElementById('dl');
+          if (a) setTimeout(() => a.click(), 250);
+        } catch (e) {}
+      </script>
+    </body>
+    </html>
+    <?php
+    exit;
 }
 
-/* ==========================================================
-   ROTAS AJAX (aprovar/recusar e detalhes) — mesmo arquivo
-   ========================================================== */
+/* ================== Rotas AJAX (POST) no MESMO arquivo ================== */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json; charset=UTF-8');
-
     $action = $_POST['action'];
 
     if ($action === 'update_status') {
@@ -97,12 +270,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $newStatus = $_POST['status'] ?? '';
 
         if (!in_array($newStatus, ['aprovado','reprovado'], true)) {
-            echo json_encode(['ok' => false, 'msg' => 'Status inválido']);
-            exit;
+            echo json_encode(['ok' => false, 'msg' => 'Status inválido']); exit;
         }
-
         try {
-            // Atualiza somente se estiver pendente
             $up = $pdo->prepare("
                 UPDATE solicitacoes_pagamento
                    SET status = :st, updated_at = NOW()
@@ -112,22 +282,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ");
             $up->execute([':st' => $newStatus, ':id' => $idPay]);
 
-            if ($up->rowCount() > 0) {
-                echo json_encode(['ok' => true]);
-            } else {
-                echo json_encode(['ok' => false, 'msg' => 'Nada atualizado (já aprovado/recusado ou ID inválido).']);
-            }
+            echo json_encode(['ok' => $up->rowCount() > 0, 'msg' => $up->rowCount() ? '' : 'Nada atualizado.']);
             exit;
         } catch (PDOException $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Erro DB: '.$e->getMessage()]);
-            exit;
+            echo json_encode(['ok' => false, 'msg' => 'Erro DB: '.$e->getMessage()]); exit;
         }
     }
 
     if ($action === 'get_details') {
         $idPay = (int)($_POST['id'] ?? 0);
         try {
-            // Junta unidade (tipo, nome, etc) pela regra unidade_X -> X
             $sql = "
                 SELECT 
                     sp.id,
@@ -160,21 +324,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             exit;
         } catch (PDOException $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Erro DB: '.$e->getMessage()]);
-            exit;
+            echo json_encode(['ok' => false, 'msg' => 'Erro DB: '.$e->getMessage()]); exit;
         }
     }
 
-    echo json_encode(['ok' => false, 'msg' => 'Ação inválida']);
+    echo json_encode(['ok' => false, 'msg' => 'Ação inválida']); exit;
+}
+
+/* ====================== Busca logo/usuário (UI) ======================== */
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id  = (int)$_SESSION['usuario_id'];
+
+try {
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    if ($u = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $nomeUsuario = $u['usuario'] ?? 'Usuário';
+        $tipoUsuario = ucfirst((string)($u['nivel'] ?? 'Comum'));
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
+} catch (PDOException $e) {
+    echo "<script>alert('Erro ao carregar usuário: " . e($e->getMessage()) . "'); history.back();</script>";
     exit;
 }
 
-/* ==========================================================
-   LISTAGEM: apenas unidades do tipo FILIAL (duas tabelas)
-   - id_matriz = $idSelecionado (escopo)
-   - u.tipo = 'Filial' (ou 'filial')
-   - join por: unidades.id = número do final de sp.id_solicitante (ex.: unidade_3 -> 3)
-   ========================================================== */
+try {
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
+    $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+    $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
+        ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+        : "../../assets/img/favicon/logo.png";
+} catch (PDOException $e) {
+    $logoEmpresa = "../../assets/img/favicon/logo.png";
+}
+
+/* ===================== LISTAGEM (apenas FILIAL) ======================== */
 $pagamentos = [];
 try {
     $sql = "
@@ -184,11 +374,11 @@ try {
             sp.id_solicitante,
             sp.status,
             sp.fornecedor,
-            sp.documento,                        -- número/código do doc (NF/boleto/etc)
+            sp.documento,
             sp.descricao,
             sp.vencimento,
             sp.valor,
-            COALESCE(sp.comprovante_url, '') AS comprovante_url,  -- link do PDF
+            COALESCE(sp.comprovante_url, '') AS comprovante_url,
             u.id        AS unidade_id,
             u.nome      AS unidade_nome,
             u.tipo      AS unidade_tipo
@@ -206,10 +396,6 @@ try {
     $pagamentos = [];
 }
 
-// Helpers
-function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
-function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -218,6 +404,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>ERP - Filial</title>
+
     <link rel="icon" type="image/x-icon" href="<?= e($logoEmpresa) ?>" />
 
     <!-- Fonts & Icons -->
@@ -384,7 +571,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     <img src="<?= e($logoEmpresa) ?>" alt="Avatar" class="w-px-40 h-auto rounded-circle" />
                                 </div>
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownUser">
                                 <li>
                                     <a class="dropdown-item" href="#">
                                         <div class="d-flex">
@@ -421,7 +608,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                     <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das filiais</span>
                 </h5>
 
-                <!-- Tabela -->
                 <div class="card">
                     <h5 class="card-header">Lista de Pagamentos (apenas Filiais)</h5>
                     <div class="table-responsive text-nowrap">
@@ -460,7 +646,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                                     <td><?= $p['vencimento'] ? date('d/m/Y', strtotime($p['vencimento'])) : '—' ?></td>
                                     <td>
                                         <?php if (!empty($p['comprovante_url'])): ?>
-                                            <a href="./comprovante_View.php?id=<?= $id ?>&matriz=<?= urlencode($idSelecionado) ?>" target="_blank" class="text-primary">Abrir</a>
+                                            <a href="./contasFiliais.php?op=pdf&pid=<?= $id ?>&id=<?= urlencode($idSelecionado) ?>" target="_blank" class="text-primary">Abrir</a>
                                         <?php else: ?>
                                             <span class="text-muted">—</span>
                                         <?php endif; ?>
@@ -489,7 +675,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                         </table>
                     </div>
                 </div>
-                <!-- /Tabela -->
 
                 <!-- Modal Detalhes -->
                 <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
@@ -516,13 +701,15 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
             <!-- Footer -->
             <footer class="content-footer footer bg-footer-theme text-center">
-                <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
+                <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                     <div class="mb-2 mb-md-0">
-                        &copy;<script>document.write(new Date().getFullYear());</script>,
-                        <strong>Açaínhadinhos</strong>. Todos os direitos reservados. Desenvolvido por <strong>CodeGeek</strong>.
+                        &copy; <script>document.write(new Date().getFullYear());</script>,
+                        <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                        Desenvolvido por <strong>CodeGeek</strong>.
                     </div>
                 </div>
             </footer>
+
             <div class="content-backdrop fade"></div>
         </div>
     </div>
@@ -567,16 +754,13 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
             else $status.classList.add('bg-label-secondary');
         }
         if ($acoes && newStatus !== 'pendente'){
-            // Remove botões Aprovar/Recusar e mantém só Detalhes
             $acoes.querySelectorAll('.btn-aprovar, .btn-recusar').forEach(btn => btn.remove());
         }
     }
 
-    // Delegação de eventos na tabela
     document.getElementById('tbody-pagamentos')?.addEventListener('click', function(e){
         const t = e.target;
 
-        // Aprovar
         if (t.classList.contains('btn-aprovar')){
             const id = t.getAttribute('data-id');
             if (!id) return;
@@ -593,12 +777,10 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 .catch(() => alert('Falha de rede ao aprovar.'));
         }
 
-        // Recusar
         if (t.classList.contains('btn-recusar')){
             const id = t.getAttribute('data-id');
             if (!id) return;
             const motivo = prompt('Motivo da recusa (opcional):', '');
-            // (Para salvar motivo, adicione coluna e envie no POST)
             if (!confirm('Confirmar recusa deste pagamento?')) return;
 
             post('update_status', {id, status:'reprovado'})
@@ -612,7 +794,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                 .catch(() => alert('Falha de rede ao recusar.'));
         }
 
-        // Detalhes
         if (t.classList.contains('btn-detalhes')){
             const id = t.getAttribute('data-id');
             const box = document.getElementById('detalhes-conteudo');
@@ -638,7 +819,7 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
                           <div class="col-12">
                             <p><strong>Comprovante:</strong> ${
                               d.comprovante_url
-                                ? `<a href="./comprovante_View.php?id=${Number(d.id)}&matriz=${encodeURIComponent('<?= $idSelecionado ?>')}" target="_blank">Abrir</a>`
+                                ? `<a href="./contasFiliais.php?op=pdf&pid=${Number(d.id)}&id=<?= e($idSelecionado) ?>" target="_blank">Abrir</a>`
                                 : '<span class="text-muted">—</span>'
                             }</p>
                           </div>
@@ -658,7 +839,6 @@ function e($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         if (!iso) return '—';
         const d = new Date(iso);
         if (isNaN(d.getTime())) {
-            // tenta tratar 'YYYY-MM-DD' como UTC
             const parts = String(iso).split(' ')[0]?.split('-');
             if (parts && parts.length === 3){
                 return `${parts[2].padStart(2,'0')}/${parts[1].padStart(2,'0')}/${parts[0]}`;
