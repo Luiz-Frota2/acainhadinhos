@@ -492,7 +492,7 @@ y>
                             </li>
 
                             <!-- Produtos solicitados pelas filiais -->
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Produtos Solicitados</div>
                                 </a>
@@ -520,7 +520,7 @@ y>
                             </li>
 
                             <!-- Gestão de Estoque Central -->
-                            <li class="menu-item active">
+                            <li class="menu-item ">
                                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div>Estoque Matriz</div>
                                 </a>
