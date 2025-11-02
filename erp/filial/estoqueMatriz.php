@@ -1027,16 +1027,6 @@ foreach ($produtosEstoque as $p) {
             <input type="text" name="categoria" value="<?= htmlspecialchars($fil_categoria) ?>" class="form-control form-control-sm" placeholder="Categoria">
         </div>
 
-        <div class="col-12 col-md-2">
-            <label class="form-label">Status</label>
-            <select name="status" class="form-select form-select-sm">
-                <option value="">Todos</option>
-                <option value="Baixo"   <?= $fil_status==='Baixo'   ? 'selected' : '' ?>>Baixo</option>
-                <option value="Estável" <?= $fil_status==='Estável' ? 'selected' : '' ?>>Estável</option>
-                <option value="Alto"    <?= $fil_status==='Alto'    ? 'selected' : '' ?>>Alto</option>
-            </select>
-        </div>
-
         <div class="col-12 col-md-3 d-flex gap-2">
             <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
             <a href="?id=<?= htmlspecialchars($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
