@@ -444,7 +444,7 @@ function badgeStatus(string $s): string
                   <div id="autocomplete-list" class="autocomplete-list d-none" role="listbox" aria-label="Sugestões"></div>
                 </div>
 
-                <div class="filter-col col-12 col-lg-3 d-flex gap-2 form-control form-control-sm">
+                <div class="filter-col col-12 col-lg-3 d-flex gap-2">
                   <button class="btn btn-primary btn-sm w-100"><i class="bx bx-filter-alt"></i> Filtrar</button>
                   <a class="btn btn-outline-secondary btn-sm w-100" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-reset"></i> Limpar</a>
                 </div>
