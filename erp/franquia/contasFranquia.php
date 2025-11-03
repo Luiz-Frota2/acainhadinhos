@@ -420,7 +420,7 @@ function badgeStatus(string $s): string
 
               <div class="filter-col d-flex align-items-center" style="gap:.5rem; min-width:150px;">
                 <label class="form-label mb-0 small-muted" style="font-size:.8rem;">STATUS</label>
-                <select name="status" class="form-select form-select-sm" style="height:38px;">
+                <select name="status" class="form-select form-select-sm" style="height:28px;">
                 <option value="">Todos</option>
                 <option value="pendente" <?= $status === 'pendente' ? 'selected' : ''; ?>>Pendente</option>
                 <option value="aprovado" <?= $status === 'aprovado' ? 'selected' : ''; ?>>Aprovado</option>
@@ -430,25 +430,25 @@ function badgeStatus(string $s): string
 
               <div class="filter-col d-flex align-items-center" style="gap:.5rem; min-width:160px;">
                 <label class="form-label mb-0 small-muted" style="font-size:.8rem;">DE</label>
-                <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control form-control-sm" style="height:38px; min-width:120px;">
+                <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control form-control-sm" style="height:28px; min-width:120px;">
               </div>
 
               <div class="filter-col d-flex align-items-center" style="gap:.5rem; min-width:160px;">
                 <label class="form-label mb-0 small-muted" style="font-size:.8rem;">ATÉ</label>
-                <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control form-control-sm" style="height:38px; min-width:120px;">
+                <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control form-control-sm" style="height:28px; min-width:120px;">
               </div>
 
               <div class="filter-col autocomplete flex-grow-1 d-flex align-items-center" style="gap:.5rem; min-width:220px;">
                 <label class="form-label mb-0 small-muted" style="font-size:.8rem; white-space:nowrap;">BUSCAR</label>
                 <div style="flex:1; min-width:180px; position:relative;">
-                <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." style="height:38px;" />
+                <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." style="height:28px;" />
                 <div id="autocomplete-list" class="autocomplete-list d-none" role="listbox" aria-label="Sugestões"></div>
                 </div>
               </div>
 
               <div class="filter-col d-flex align-items-center" style="gap:.5rem;">
-                <button class="btn btn-primary btn-sm" style="height:38px; padding-left:10px; padding-right:10px;"><i class="bx bx-filter-alt"></i> Filtrar</button>
-                <a class="btn btn-outline-secondary btn-sm" href="?id=<?= urlencode($idSelecionado) ?>" style="height:38px; padding-left:10px; padding-right:10px;"><i class="bx bx-reset"></i> Limpar</a>
+                <button class="btn btn-primary btn-sm" style="height:28px; padding-left:10px; padding-right:10px;"><i class="bx bx-filter-alt"></i> Filtrar</button>
+                <a class="btn btn-outline-secondary btn-sm" href="?id=<?= urlencode($idSelecionado) ?>" style="height:28px; padding-left:10px; padding-right:10px;"><i class="bx bx-reset"></i> Limpar</a>
               </div>
               </form>
 
