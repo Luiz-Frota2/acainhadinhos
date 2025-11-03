@@ -360,10 +360,276 @@ $periodoLabel = [
 
 $iniTxt = $ini->format('d/m/Y');
 $fimTxt = $fim->format('d/m/Y');
+// ✅ Usa a mesma conexão já carregada acima
+// require '../../assets/php/conexao.php'; // JÁ ESTÁ EXECUTADO NO TOPO DO SEU ARQUIVO
+// ✅ Buscar dados reais do estoque da empresa atual
+try {
 
+    // 1) Quantidade de códigos de produtos ativos
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) AS total_produtos
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card1 = (int)$stmt->fetchColumn();
+
+    // 2) Soma da quantidade disponível
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(quantidade_produto), 0) AS total_quantidade
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card2 = (int)$stmt->fetchColumn();
+
+   
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(reservado), 0) AS total_reservado
+        FROM estoque
+        WHERE empresa_id = :empresa
+    ");
+    $stmt->execute([':empresa' => $idSelecionado]);
+    $card3 = (int)$stmt->fetchColumn();
+
+   $stmt = $pdo->prepare("
+    SELECT COUNT(*) AS total_transferencias
+    FROM solicitacoes_b2b s
+    INNER JOIN unidades u
+        ON u.id = CAST(SUBSTRING_INDEX(s.id_solicitante, '_', -1) AS UNSIGNED)
+       AND u.tipo = 'Filial'
+       AND u.empresa_id = s.id_matriz
+    WHERE s.id_matriz = :empresa
+      AND s.status = 'entregue'
+");
+$stmt->execute([':empresa' => $idSelecionado]);
+$card4 = (int)$stmt->fetchColumn();
+
+} catch (PDOException $e) {
+    $card1 = $card2 = $card3 = $card4 = 0;
+}
+// ✅ Garante que só executa com POST vindo do botão
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['gerar_transferencia'])) {
+
+    // Capturar variáveis do formulário
+    $produto_id = (int)$_POST['produto_id'];
+    $id_filial = (int)$_POST['id_filial'];
+    $quantidade = (int)$_POST['quantidade'];
+    $prioridade = $_POST['prioridade'];
+    $observacao = $_POST['observacao'];
+
+    try {
+        $pdo->beginTransaction();
+
+        // ✅ Buscar produto
+        $produto = $pdo->prepare("SELECT * FROM estoque WHERE id = :id AND empresa_id = :empresa");
+        $produto->execute([
+            ':id' => $produto_id,
+            ':empresa' => $idSelecionado
+        ]);
+        $p = $produto->fetch(PDO::FETCH_ASSOC);
+
+        if (!$p) {
+            throw new Exception("Produto não encontrado.");
+        }
+
+        // ✅ Validação: quantidade maior que disponível → bloquear
+if ($quantidade < 1) {
+    throw new Exception("A quantidade deve ser maior que zero.");
+}
+
+// Quantidade disponível real considerando o reservado
+$disponivel_real = $p['quantidade_produto'] - $p['reservado'];
+
+if ($quantidade < 1) {
+    throw new Exception("A quantidade deve ser maior que zero.");
+}
+
+if ($quantidade > $disponivel_real) {
+    throw new Exception(
+        "Quantidade solicitada ({$quantidade}) é maior que a quantidade disponível ({$disponivel_real})."
+    );
+}
+
+
+      // ✅ Calcular total estimado
+$total_estimado = $p['preco_produto'] * $quantidade;
+
+// ✅ Criar solicitação
+$stmt = $pdo->prepare("
+    INSERT INTO solicitacoes_b2b 
+    (id_matriz, id_solicitante, criado_por_usuario_id, status, prioridade, observacao, total_estimado)
+    VALUES (:matriz, :solicitante, :usuario, 'aprovada', :prioridade, :obs, :total)
+");
+$stmt->execute([
+    ':matriz'      => $idSelecionado,
+    ':solicitante' => 'unidade_' . $id_filial,
+    ':usuario'     => $usuario_id,
+    ':prioridade'  => $prioridade,
+    ':obs'         => $observacao,
+    ':total'       => $total_estimado
+]);
+
+$solicitacao_id = $pdo->lastInsertId();
+
+        // ✅ Inserir item
+        $stmtItem = $pdo->prepare("
+            INSERT INTO solicitacoes_b2b_itens
+            (solicitacao_id, produto_id, codigo_produto, nome_produto, unidade, preco_unitario, quantidade, subtotal)
+            VALUES (:solicitacao, :produto, :codigo, :nome, :unidade, :preco, :quantidade, :subtotal)
+        ");
+        $stmtItem->execute([
+            ':solicitacao' => $solicitacao_id,
+            ':produto'     => $p['id'],
+            ':codigo'      => $p['codigo_produto'],
+            ':nome'        => $p['nome_produto'],
+            ':unidade'     => $p['unidade'],
+            ':preco'       => $p['preco_produto'],
+            ':quantidade'  => $quantidade,
+            ':subtotal'    => $p['preco_produto'] * $quantidade
+        ]);
+
+        // ✅ Atualizar reserva
+        $stmtEstoque = $pdo->prepare("
+            UPDATE estoque SET reservado = reservado + :qtd 
+            WHERE id = :id AND empresa_id = :empresa
+        ");
+        $stmtEstoque->execute([
+            ':qtd'     => $quantidade,
+            ':id'      => $p['id'],
+            ':empresa' => $idSelecionado
+        ]);
+
+        $pdo->commit();
+
+        // ✅ PRG (Post Redirect Get) → evita duplicação ao atualizar
+        $_SESSION['success_msg'] = "Transferência gerada com sucesso!";
+
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit;
+
+    } catch (Exception $e) {
+        $pdo->rollBack();
+
+        $_SESSION['error_msg'] = $e->getMessage();
+        header("Location: " . $_SERVER['REQUEST_URI']);
+        exit;
+    }
+}
+// ==========================
+// 1️⃣ Captura dos filtros e página atual
+// ==========================
+$idSelecionado = $_GET['id'] ?? '';
+$fil_produto   = trim($_GET['produto'] ?? '');
+$fil_codigo    = trim($_GET['codigo'] ?? '');
+$fil_categoria = trim($_GET['categoria'] ?? '');
+$fil_status    = trim($_GET['status'] ?? '');
+$pagina        = max(1, intval($_GET['pagina'] ?? 1));
+$itensPorPagina = 8;
+
+// ==========================
+// 2️⃣ Função de status
+// ==========================
+function calcularStatusEstoque($quantidade, $min)
+{
+    if ($quantidade < $min) {
+        return ['Baixo', 'danger'];
+    } elseif ($quantidade >= $min && $quantidade <= ($min * 2)) {
+        return ['Estável', 'success'];
+    } else {
+        return ['Alto', 'primary'];
+    }
+}
+
+// ==========================
+// 3️⃣ Busca no banco
+// ==========================
+try {
+    $where = ['e.empresa_id = :empresa'];
+    $params = [':empresa' => $idSelecionado];
+
+    if ($fil_produto !== '') {
+        $where[] = 'e.nome_produto LIKE :produto';
+        $params[':produto'] = "%$fil_produto%";
+    }
+
+    if ($fil_codigo !== '') {
+        $where[] = 'e.codigo_produto LIKE :codigo';
+        $params[':codigo'] = "%$fil_codigo%";
+    }
+
+    if ($fil_categoria !== '') {
+        $where[] = 'e.categoria_produto LIKE :categoria';
+        $params[':categoria'] = "%$fil_categoria%";
+    }
+
+    // ==========================
+    // Contar total de registros para paginação
+    // ==========================
+    $stmtTotal = $pdo->prepare("
+        SELECT COUNT(*) FROM estoque e
+        WHERE " . implode(' AND ', $where)
+    );
+    foreach ($params as $k => $v) { $stmtTotal->bindValue($k, $v); }
+    $stmtTotal->execute();
+    $totalRegistros = $stmtTotal->fetchColumn();
+    $totalPaginas = ceil($totalRegistros / $itensPorPagina);
+
+    // ==========================
+    // Buscar registros da página atual
+    // ==========================
+    $offset = ($pagina - 1) * $itensPorPagina;
+
+    $sql = "
+        SELECT 
+            e.id,
+            e.empresa_id,
+            e.codigo_produto,
+            e.nome_produto,
+            e.categoria_produto,
+            e.unidade,
+            e.quantidade_produto,
+            e.reservado,
+            COUNT(sbi.id) AS total_transferencias
+        FROM estoque e
+        LEFT JOIN solicitacoes_b2b_itens sbi
+            ON sbi.produto_id = e.id
+        LEFT JOIN solicitacoes_b2b sb
+            ON sb.id = sbi.solicitacao_id
+            AND sb.status = 'entregue'
+            AND sb.id_matriz = e.empresa_id
+        LEFT JOIN unidades u
+            ON u.id = CAST(SUBSTRING_INDEX(sb.id_solicitante, '_', -1) AS UNSIGNED)
+            AND u.tipo = 'Filial'
+            AND u.empresa_id = e.empresa_id
+        WHERE " . implode(' AND ', $where) . "
+        GROUP BY e.id
+        ORDER BY e.nome_produto ASC
+        LIMIT $itensPorPagina OFFSET $offset
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) { $stmt->bindValue($k, $v); }
+    $stmt->execute();
+    $produtosEstoque = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<tr><td colspan='10'>Erro ao carregar estoque: " . htmlspecialchars($e->getMessage()) . "</td></tr>";
+    $produtosEstoque = [];
+}
 ?>
 
 <!DOCTYPE html>
+<?php if(isset($_SESSION['success_msg'])): ?>
+    <script>alert("<?= $_SESSION['success_msg'] ?>");</script>
+    <?php unset($_SESSION['success_msg']); ?>
+<?php endif; ?>
+
+<?php if(isset($_SESSION['error_msg'])): ?>
+    <script>alert("Erro: <?= $_SESSION['error_msg'] ?>");</script>
+    <?php unset($_SESSION['error_msg']); ?>
+<?php endif; ?>
+
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
     data-assets-path="../assets/">
 
@@ -687,90 +953,93 @@ $fimTxt = $fim->format('d/m/Y');
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Visão geral do estoque central</span>
                     </h5>
+      
 
-                    <!-- Cards resumo -->
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">SKUs ativos</p>
-                                            <h4 class="mb-0">148</h4>
-                                        </div>
-                                        <i class="bx bx-box fs-2 text-primary"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Qtde disponível</p>
-                                            <h4 class="mb-0">12.430</h4>
-                                        </div>
-                                        <i class="bx bx-package fs-2 text-success"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Reservado</p>
-                                            <h4 class="mb-0">1.130</h4>
-                                        </div>
-                                        <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-sm-6 col-lg-3">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Em transferência</p>
-                                            <h4 class="mb-0">820</h4>
-                                        </div>
-                                        <i class="bx bx-transfer fs-2 text-info"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                  <!-- Cards resumo -->
+<div class="row g-3 mb-3">
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Código Produto ativos</p>
+                        <h4 class="mb-0"><?= number_format($card1, 0, ',', '.') ?></h4>
                     </div>
+                    <i class="bx bx-box fs-2 text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    <!-- Ações rápidas -->
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Qtde disponível</p>
+                        <h4 class="mb-0"><?= number_format($card2, 0, ',', '.') ?></h4>
+                    </div>
+                    <i class="bx bx-package fs-2 text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Reservado</p>
+                        <h4 class="mb-0"><?= number_format($card3, 0, ',', '.') ?></h4>
+                    </div>
+                    <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 text-muted">Em transferência</p>
+                        <h4 class="mb-0"><?= number_format($card4, 0, ',', '.') ?></h4>
+                    </div>
+                    <i class="bx bx-transfer fs-2 text-info"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
                     <div class="card mb-3">
-                        <div class="card-body">
-                            <div class="row g-2">
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-primary w-100">
-                                        <i class="bx bx-plus-circle me-2"></i> Movimentar estoque
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#modalTransferir">
-                                        <i class="bx bx-right-arrow me-2"></i> Transferir p/ Filial
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-secondary w-100" data-bs-toggle="modal" data-bs-target="#modalHistorico">
-                                        <i class="bx bx-time-five me-2"></i> Histórico de movimentações
-                                    </button>
-                                </div>
-                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
-                                    <button class="btn btn-outline-dark w-100">
-                                        <i class="bx bx-download me-2"></i> Exportar CSV
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+
+        <div class="col-12 col-md-3">
+            <label class="form-label">Produto</label>
+            <input type="text" name="produto" value="<?= htmlspecialchars($fil_produto) ?>" class="form-control form-control-sm" placeholder="Nome do produto">
+        </div>
+
+        <div class="col-12 col-md-2">
+            <label class="form-label">Código</label>
+            <input type="text" name="codigo" value="<?= htmlspecialchars($fil_codigo) ?>" class="form-control form-control-sm" placeholder="Código">
+        </div>
+
+        <div class="col-12 col-md-2">
+            <label class="form-label">Categoria</label>
+            <input type="text" name="categoria" value="<?= htmlspecialchars($fil_categoria) ?>" class="form-control form-control-sm" placeholder="Categoria">
+        </div>
+
+        <div class="col-12 col-md-3 d-flex gap-2">
+            <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+            <a href="?id=<?= htmlspecialchars($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+        </div>
+    </form>
+</div>
 
 
                     <!-- Tabela principal -->
@@ -780,134 +1049,107 @@ $fimTxt = $fim->format('d/m/Y');
                             <table class="table table-hover align-middle">
                                 <thead>
                                     <tr>
-                                        <th>SKU</th>
+                                        <th>Codigo Produto</th>
                                         <th>Produto</th>
                                         <th>Categoria</th>
-                                        <th>Lote</th>
-                                        <th>Validade</th>
+                                        <th>Unidade</th>
                                         <th>Min</th>
                                         <th>Disp.</th>
                                         <th>Reserv.</th>
                                         <th>Transf.</th>
-                                        <th>Local</th>
                                         <th>Status</th>
                                         <th class="text-end">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
                                     <!-- Linha 1 -->
-                                    <tr>
-                                        <td><strong>ACA-500</strong></td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>Congelados</td>
-                                        <td>L2309-01</td>
-                                        <td>30/11/2025</td>
-                                        <td>200</td>
-                                        <td>1.420</td>
-                                        <td>120</td>
-                                        <td>80</td>
-                                        <td>Câmara Fria A</td>
-                                        <td><span class="badge bg-label-success">Estável</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-500">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-500">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-500">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    
+<tbody class="table-border-bottom-0">
 
-                                    <!-- Linha 2 -->
-                                    <tr>
-                                        <td><strong>ACA-1KG</strong></td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>Congelados</td>
-                                        <td>L2309-05</td>
-                                        <td>15/12/2025</td>
-                                        <td>150</td>
-                                        <td>380</td>
-                                        <td>80</td>
-                                        <td>120</td>
-                                        <td>Câmara Fria B</td>
-                                        <td><span class="badge bg-label-warning">Baixo</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="ACA-1KG">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="ACA-1KG">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="ACA-1KG">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
+<?php foreach ($produtosEstoque as $p): ?>
 
-                                    <!-- Linha 3 -->
-                                    <tr>
-                                        <td><strong>COPO-300</strong></td>
-                                        <td>Copo 300ml</td>
-                                        <td>Displays</td>
-                                        <td>L2401-12</td>
-                                        <td>—</td>
-                                        <td>1.000</td>
-                                        <td>6.200</td>
-                                        <td>200</td>
-                                        <td>0</td>
-                                        <td>Armazém 02</td>
-                                        <td><span class="badge bg-label-success">Estável</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="COPO-300">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="COPO-300">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="COPO-300">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
+    <?php
+        // ✅ Valor MIN = 10% da quantidade
+        $min = max(1, $p['quantidade_produto'] * 0.10);
 
-                                    <!-- Linha 4 -->
-                                    <tr>
-                                        <td><strong>GRAN-200</strong></td>
-                                        <td>Granola 200g</td>
-                                        <td>Secos</td>
-                                        <td>L2407-03</td>
-                                        <td>05/08/2026</td>
-                                        <td>300</td>
-                                        <td>260</td>
-                                        <td>0</td>
-                                        <td>0</td>
-                                        <td>Corredor C - Prat. 4</td>
-                                        <td><span class="badge bg-label-danger">Crítico</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="GRAN-200">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="GRAN-200">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="GRAN-200">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
+        // ✅ Calcular status
+        list($statusTexto, $statusCor) = calcularStatusEstoque($p['quantidade_produto'], $min);
+    ?>
 
-                                    <!-- Linha 5 -->
-                                    <tr>
-                                        <td><strong>COL-12</strong></td>
-                                        <td>Colher biodegradável (cx c/ 1.000)</td>
-                                        <td>Descartáveis</td>
-                                        <td>L2305-09</td>
-                                        <td>—</td>
-                                        <td>50</td>
-                                        <td>410</td>
-                                        <td>30</td>
-                                        <td>0</td>
-                                        <td>Armazém 01</td>
-                                        <td><span class="badge bg-label-success">Estável</span></td>
-                                        <td class="text-end">
-                                            <div class="btn-group">
-                                                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProduto" data-sku="COL-12">Detalhes</button>
-                                                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalMovimentar" data-sku="COL-12">Mov.</button>
-                                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalTransferir" data-sku="COL-12">Transf.</button>
-                                            </div>
-                                        </td>
-                                    </tr>
+    <tr>
+        <td><strong><?= htmlspecialchars($p['codigo_produto']) ?></strong></td>
+        <td><?= htmlspecialchars($p['nome_produto']) ?></td>
+        <td><?= htmlspecialchars($p['categoria_produto']) ?></td>
+        <td><?= htmlspecialchars($p['unidade']) ?></td>
+
+        <!-- ✅ MIN calculado -->
+        <td><?= number_format($min, 0, ',', '.') ?></td>
+
+        <!-- ✅ DISPONÍVEL -->
+        <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
+
+        <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
+        <td><?= htmlspecialchars($p['reservado']) ?></td> <!-- Reservado -->
+        <td><?= number_format($p['total_transferencias'], 0, ',', '.') ?></td>
+
+
+        <!-- ✅ Status automático -->
+        <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
+
+        <td class="text-end">
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary"
+        data-bs-toggle="modal"
+        data-bs-target="#modalProduto"
+        data-sku="<?= htmlspecialchars($p['codigo_produto']) ?>"
+        data-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
+        data-categoria="<?= htmlspecialchars($p['categoria_produto']) ?>"
+        data-unidade="<?= htmlspecialchars($p['unidade']) ?>"
+        data-min="<?= number_format(max(1, $p['quantidade_produto'] * 0.10), 0, ',', '.') ?>"
+        data-disp="<?= number_format($p['quantidade_produto'], 0, ',', '.') ?>"
+        data-res="<?= htmlspecialchars($p['reservado']) ?>"
+        data-transf="<?= htmlspecialchars($p['total_transferencias']) ?>"
+>
+    Detalhes
+</button>
+
+
+        <button class="btn btn-sm btn-outline-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#modalTransferir"
+        data-produto-id="<?= $p['id'] ?>"
+        data-produto-nome="<?= htmlspecialchars($p['nome_produto']) ?>"
+        data-produto-qtd="<?= $p['quantidade_produto'] ?>"
+        data-produto-reservado="<?= $p['reservado'] ?>">
+    Transf.
+</button>
+
+
+
+            </div>
+        </td>
+    </tr>
+
+<?php endforeach; ?>
+
+</tbody>
 
                                 </tbody>
                             </table>
                         </div>
+                         <div class="card-footer d-flex justify-content-between">
+        <div>
+            Página <?= $pagina ?> de <?= $totalPaginas ?>
+        </div>
+        <div>
+            <?php if ($pagina > 1): ?>
+                <a href="?<?= http_build_query(array_merge($_GET, ['pagina' => $pagina-1])) ?>" class="btn btn-sm btn-outline-primary">← Anterior</a>
+            <?php endif; ?>
+            <?php if ($pagina < $totalPaginas): ?>
+                <a href="?<?= http_build_query(array_merge($_GET, ['pagina' => $pagina+1])) ?>" class="btn btn-sm btn-outline-primary">Próximo →</a>
+            <?php endif; ?>
+        </div>
+    </div>
                     </div>
                 </div>
                 <!-- ===== Modais ===== -->
@@ -923,7 +1165,7 @@ $fimTxt = $fim->format('d/m/Y');
                             <div class="modal-body">
                                 <div class="row g-3 mb-2">
                                     <div class="col-md-4">
-                                        <p class="mb-1"><strong>SKU:</strong> <span id="det-sku">—</span></p>
+                                        <p class="mb-1"><strong>Codigo Produto:</strong> <span id="det-sku">—</span></p>
                                     </div>
                                     <div class="col-md-8">
                                         <p class="mb-1"><strong>Produto:</strong> <span id="det-nome">—</span></p>
@@ -932,10 +1174,7 @@ $fimTxt = $fim->format('d/m/Y');
                                         <p class="mb-1"><strong>Categoria:</strong> <span id="det-categoria">—</span></p>
                                     </div>
                                     <div class="col-md-4">
-                                        <p class="mb-1"><strong>Lote:</strong> <span id="det-lote">—</span></p>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <p class="mb-1"><strong>Validade:</strong> <span id="det-validade">—</span></p>
+                                        <p class="mb-1"><strong>Unidade:</strong> <span id="det-validade">—</span></p>
                                     </div>
                                     <div class="col-md-3">
                                         <p class="mb-1"><strong>Mínimo:</strong> <span id="det-min">—</span></p>
@@ -949,12 +1188,10 @@ $fimTxt = $fim->format('d/m/Y');
                                     <div class="col-md-3">
                                         <p class="mb-1"><strong>Em transf.:</strong> <span id="det-transf">—</span></p>
                                     </div>
-                                    <div class="col-12">
-                                        <p class="mb-0"><strong>Local:</strong> <span id="det-local">—</span></p>
-                                    </div>
+                                    
                                 </div>
                                 <div class="alert alert-info mb-0">
-                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Mov.</strong> para entrada/saída/ajuste ou em <strong>Transf.</strong> para enviar às Filiais.
+                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Transf.</strong> para enviar às Filiais.
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -963,140 +1200,149 @@ $fimTxt = $fim->format('d/m/Y');
                         </div>
                     </div>
                 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalProduto = document.getElementById('modalProduto');
+    
+    modalProduto.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
 
-                <!-- Modal: Movimentar Estoque -->
-                <div class="modal fade" id="modalMovimentar" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Movimentar Estoque</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+        // Puxar os dados do botão
+        const sku = button.getAttribute('data-sku');
+        const nome = button.getAttribute('data-nome');
+        const categoria = button.getAttribute('data-categoria');
+        const unidade = button.getAttribute('data-unidade');
+        const min = button.getAttribute('data-min');
+        const disp = button.getAttribute('data-disp');
+        const res = button.getAttribute('data-res');
+        const transf = button.getAttribute('data-transf');
+
+        // Preencher os spans da modal
+        modalProduto.querySelector('#det-sku').textContent = sku;
+        modalProduto.querySelector('#det-nome').textContent = nome;
+        modalProduto.querySelector('#det-categoria').textContent = categoria;
+        modalProduto.querySelector('#det-validade').textContent = unidade;
+        modalProduto.querySelector('#det-min').textContent = min;
+        modalProduto.querySelector('#det-disp').textContent = disp;
+        modalProduto.querySelector('#det-res').textContent = res;
+        modalProduto.querySelector('#det-transf').textContent = transf;
+    });
+});
+</script>
+
+
+               <!-- Modal: Transferir p/ Filial -->
+<div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title">Transferir para Filial</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+    <label class="form-label">Produto selecionado</label>
+    <input type="text" id="transfer-produto-nome" class="form-control" readonly>
+</div>
+
+
+                            <div class="col-12">
+                                <label class="form-label">Filial</label>
+                                <select name="id_filial" class="form-select" required>
+                                    <?php
+                                    // Puxar filiais da empresa
+                                    $filiais = $pdo->query("SELECT id, nome FROM unidades WHERE empresa_id = '{$idSelecionado}' AND tipo='Filial' AND status='Ativa'")->fetchAll(PDO::FETCH_ASSOC);
+                                    foreach($filiais as $f){
+                                        echo "<option value='{$f['id']}'>".htmlspecialchars($f['nome'])."</option>";
+                                    }
+                                    ?>
+                                </select>
                             </div>
-                            <div class="modal-body">
-                                <form>
-                                    <div class="row g-3">
-                                        <div class="col-12">
-                                            <label class="form-label">SKU</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
-                                        </div>
-                                        <div class="col-12">
-                                            <label class="form-label">Tipo de movimentação</label>
-                                            <div class="d-flex gap-3 flex-wrap">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movEntrada" value="entrada" checked>
-                                                    <label class="form-check-label" for="movEntrada">Entrada</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movSaida" value="saida">
-                                                    <label class="form-check-label" for="movSaida">Saída</label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="tipo_mov" id="movAjuste" value="ajuste">
-                                                    <label class="form-check-label" for="movAjuste">Ajuste</label>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        <div class="col-md-6">
-                                            <label class="form-label">Quantidade</label>
-                                            <input type="number" class="form-control" min="1" placeholder="0">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Documento (NF/OS)</label>
-                                            <input type="text" class="form-control" placeholder="Opcional">
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Lote</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: L2309-01">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Validade</label>
-                                            <input type="date" class="form-control" placeholder="">
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Motivo</label>
-                                            <select class="form-select">
-                                                <option>Reposição de fornecedor</option>
-                                                <option>Devolução</option>
-                                                <option>Perda/avaria</option>
-                                                <option>Inventário</option>
-                                                <option>Outros</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Observações</label>
-                                            <textarea class="form-control" rows="3" placeholder="Detalhe a movimentação..."></textarea>
-                                        </div>
-                                    </div>
-                                </form>
+                            <div class="col-md-6">
+                                <label class="form-label">Quantidade</label>
+                                <input type="number" class="form-control" name="quantidade" min="1" placeholder="0" required>
                             </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button class="btn btn-primary">Salvar movimentação</button>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Prioridade</label>
+                                <select name="prioridade" class="form-select" required>
+                                    <option value="Baixa">Baixa</option>
+                                    <option value="Media">Média</option>
+                                    <option value="Alta">Alta</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Observações</label>
+                                <textarea name="observacao" class="form-control" rows="3" placeholder="Instruções de envio, embalagem, etc."></textarea>
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <!-- Modal: Transferir p/ Filial -->
-                <div class="modal fade" id="modalTransferir" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Transferir para Filial</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                                <form>
-                                    <div class="row g-3">
-                                        <div class="col-12">
-                                            <label class="form-label">SKU</label>
-                                            <input type="text" class="form-control" placeholder="Ex.: ACA-500" value="">
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Filial</label>
-                                            <select class="form-select">
-                                                <option>Filial Centro</option>
-                                                <option>Filial Norte</option>
-                                                <option>Filial Sul</option>
-                                                <option>Filial Leste</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-md-6">
-                                            <label class="form-label">Quantidade</label>
-                                            <input type="number" class="form-control" min="1" placeholder="0">
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Prioridade</label>
-                                            <select class="form-select">
-                                                <option>Baixa</option>
-                                                <option>Média</option>
-                                                <option>Alta</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="col-12">
-                                            <label class="form-label">Observações</label>
-                                            <textarea class="form-control" rows="3" placeholder="Instruções de envio, embalagem, etc."></textarea>
-                                        </div>
-                                    </div>
-                                </form>
-                                <div class="alert alert-warning mt-3 mb-0">
-                                    <i class="bx bx-error-circle me-1"></i> A transferência reserva a quantidade informada até o envio.
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button class="btn btn-primary">Gerar transferência</button>
-                            </div>
+                        <div class="alert alert-warning mt-3 mb-0">
+                            <i class="bx bx-error-circle me-1"></i> A transferência reserva a quantidade informada até o envio.
                         </div>
-                    </div>
                 </div>
+                <div class="modal-footer">
+                    <input type="hidden" id="transfer-disponivel">
+<input type="hidden" id="transfer-reservado">
+
+                    <input type="hidden" name="produto_id" id="transfer-produto-id">
+                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" name="gerar_transferencia" class="btn btn-primary">Gerar transferência</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    const modalTransferir = document.getElementById('modalTransferir');
+
+    modalTransferir.addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+
+    const produtoId   = button.getAttribute('data-produto-id');
+    const produtoNome = button.getAttribute('data-produto-nome');
+    const produtoQtd  = parseInt(button.getAttribute('data-produto-qtd'));
+    const produtoRes  = parseInt(button.getAttribute('data-produto-reservado'));
+
+    modalTransferir.querySelector('#transfer-produto-id').value   = produtoId;
+    modalTransferir.querySelector('#transfer-produto-nome').value = produtoNome;
+    modalTransferir.querySelector('#transfer-disponivel').value   = produtoQtd;
+    modalTransferir.querySelector('#transfer-reservado').value    = produtoRes;
+
+    // Atualizar aviso visual
+    const disponivel_real = produtoQtd - produtoRes;
+    const aviso = modalTransferir.querySelector('.alert-warning');
+    aviso.innerHTML = `⚠ Quantidade disponível real: ${disponivel_real} (total ${produtoQtd} - reservado ${produtoRes})`;
+});
+
+
+    // ✅ Validação antes do envio
+    const form = modalTransferir.querySelector("form");
+
+  form.addEventListener("submit", function(e) {
+    const disponivel = parseInt(document.getElementById("transfer-disponivel").value);
+    const reservado = parseInt(document.getElementById("transfer-reservado").value);
+    const qtd = parseInt(form.querySelector("input[name='quantidade']").value);
+
+    const disponivel_real = disponivel - reservado;
+
+    if (qtd > disponivel_real) {
+        e.preventDefault();
+        alert(`Quantidade solicitada (${qtd}) maior que disponível real (${disponivel_real}).`);
+        return false;
+    }
+});
+
+
+});
+</script>
+
+
 
                 <!-- Modal: Histórico de Movimentações -->
                 <div class="modal fade" id="modalHistorico" tabindex="-1" aria-hidden="true">
@@ -1112,11 +1358,10 @@ $fimTxt = $fim->format('d/m/Y');
                                         <thead>
                                             <tr>
                                                 <th>Data/Hora</th>
-                                                <th>SKU</th>
+                                                <th>Codigo Produto</th>
                                                 <th>Produto</th>
                                                 <th>Tipo</th>
                                                 <th>Qtd</th>
-                                                <th>Lote</th>
                                                 <th>Doc</th>
                                                 <th>Motivo</th>
                                                 <th>Usuário</th>
