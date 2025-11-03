@@ -476,7 +476,6 @@ function badgeStatus(string $s): string
                 <thead>
                   <tr>
                     <th class="col-num">#</th>
-                    <th class="col-solicitante">SOLICITANTE</th>
                     <th class="col-unidade">NOME DA UNIDADE</th>
                     <th class="col-fornecedor">FORNECEDOR</th>
                     <th class="col-documento">DOCUMENTO</th>
@@ -493,6 +492,7 @@ function badgeStatus(string $s): string
                       <td colspan="10" class="text-center text-muted py-4">Nenhuma solicitação encontrada.</td>
                     </tr>
                   <?php else: ?>
+
                     <?php foreach ($rows as $r): ?>
                       <?php
                       $dataCriado = $r['criado_em'] ? date('d/m/Y', strtotime($r['criado_em'])) : '—';
@@ -507,12 +507,6 @@ function badgeStatus(string $s): string
                       ?>
                       <tr>
                         <td class="text-nowrap"><?= (int)$r['id_solicitacao'] ?></td>
-                        <td>
-                          <div class="d-flex align-items-center">
-                            <div><?= $solicitante_raw ?></div>
-                            <div class="label-franquia">FRANQUIA</div>
-                          </div>
-                        </td>
                         <td><strong><?= $unit_name_attr ?></strong></td>
                         <td class="truncate" title="<?= $fornecedor_attr ?>"><?= $fornecedor_attr ?></td>
                         <td class="truncate" title="<?= $documento_attr ?>"><?= $documento_attr ?></td>
