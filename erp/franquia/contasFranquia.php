@@ -242,14 +242,6 @@ function badgeStatus(string $s): string
       border-bottom: 1px solid #eef2f6;
     }
 
-    .table {
-      table-layout: fixed;
-      width: 100%;
-    }
-
-    .table thead th {
-      color: #6b7280;
-    }
 
     .status-badge {
       font-size: .78rem;
