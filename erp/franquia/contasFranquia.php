@@ -418,7 +418,7 @@ function badgeStatus(string $s): string
               <form class="toolbar row gx-3 gy-2 align-items-end" method="get" id="formFiltro">
                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
 
-                <div class="filter-col col-12 col-lg-1">
+                <div class="filter-col col-12 col-lg-2">
                   <label class="form-label mb-1">STATUS</label>
                   <select name="status" class="form-select form-select-sm">
                     <option value="">Todos</option>
@@ -428,12 +428,12 @@ function badgeStatus(string $s): string
                   </select>
                 </div>
 
-                <div class="filter-col col-6 col-lg-1">
+                <div class="filter-col col-6 col-lg-2">
                   <label class="form-label mb-1">DE</label>
                   <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control form-control-sm">
                 </div>
 
-                <div class="filter-col col-6 col-lg-1">
+                <div class="filter-col col-6 col-lg-2">
                   <label class="form-label mb-1">ATÉ</label>
                   <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control form-control-sm">
                 </div>
