@@ -438,6 +438,7 @@ function badgeStatus(string $s): string
                   <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control form-control-sm w-100" style="min-height:30px;">
                 </div>
 
+                <!-- Filtros (labels acima dos inputs, layout responsivo) -->
                 <div class="filter-col autocomplete d-flex flex-column flex-grow-1 align-items-stretch" style="min-width:220px; gap:.35rem;">
                   <label class="form-label mb-0 small-muted" style="font-size:.8rem; white-space:nowrap;">BUSCAR</label>
                   <div style="position:relative; width:100%;">
@@ -643,57 +644,6 @@ function badgeStatus(string $s): string
 
   <script>
     (function() {
-      // Detalhes
-      document.querySelectorAll('.btn-detalhes').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const g = (k) => btn.getAttribute('data-' + k) || '—';
-          document.getElementById('det-id').textContent = g('id');
-          document.getElementById('det-unidade').textContent = g('unidade');
-          document.getElementById('det-unidadeid').textContent = g('unidadeid');
-          document.getElementById('det-status').textContent = g('status');
-          document.getElementById('det-fornecedor').textContent = g('fornecedor');
-          document.getElementById('det-documento').textContent = g('documento');
-          document.getElementById('det-valor').textContent = g('valor');
-          document.getElementById('det-venc').textContent = g('venc');
-          document.getElementById('det-descricao').textContent = g('descricao');
-          const anexo = g('anexo');
-          document.getElementById('det-anexo').innerHTML = (anexo && anexo !== '—') ?
-            `<a href="${anexo}" target="_blank">abrir</a>` : '—';
-          document.getElementById('det-criado').textContent = g('criado');
-        });
-      });
-
-      // Status modal logic
-      const wrapObs = document.getElementById('st-obs-wrap');
-      const selAcao = document.getElementById('st-acao');
-      const txtObs = document.getElementById('st-obs');
-
-      const toggleObs = () => {
-        if (selAcao.value === 'reprovado') {
-          wrapObs.classList.remove('d-none');
-          txtObs.setAttribute('required', 'required');
-        } else {
-          wrapObs.classList.add('d-none');
-          txtObs.removeAttribute('required');
-          txtObs.value = '';
-        }
-      };
-      selAcao.addEventListener('change', toggleObs);
-
-      document.querySelectorAll('.btn-status').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.getElementById('st-id').value = btn.getAttribute('data-id');
-          const info = `#${btn.getAttribute('data-id')} · ${btn.getAttribute('data-fornecedor')} · Doc.: ${btn.getAttribute('data-documento')} · Status atual: ${btn.getAttribute('data-status')}`;
-          document.getElementById('st-info').textContent = info;
-
-          selAcao.value = '';
-          toggleObs();
-        });
-      });
-
-      /* ---------------------------
-         Autocomplete (partial search)
-         --------------------------- */
       const inputQ = document.getElementById('q');
       const listBox = document.getElementById('autocomplete-list');
 
@@ -713,7 +663,6 @@ function badgeStatus(string $s): string
         const url = new URL(window.location.href);
         url.searchParams.set('ajax_search', '1');
         url.searchParams.set('term', term);
-        // keep id param already in URL
         fetch(url.toString(), {
             credentials: 'same-origin'
           })
@@ -745,18 +694,15 @@ function badgeStatus(string $s): string
 
           const right = document.createElement('div');
           right.className = 'right autocomplete-tag';
-          // show unidade as tag if available
           right.textContent = it.unidade ? it.unidade : '';
 
           row.appendChild(left);
           row.appendChild(right);
 
           row.addEventListener('click', () => {
-            // Behavior: fill search input with solicitante (first token before '·')
             const val = it.label.split('·')[0].trim();
             inputQ.value = val;
             listBox.classList.add('d-none');
-            // auto-submit form to filter results immediately
             document.getElementById('formFiltro').submit();
           });
 
@@ -769,14 +715,12 @@ function badgeStatus(string $s): string
         listBox.classList.remove('d-none');
       }
 
-      // close suggestions when clicking outside
       document.addEventListener('click', (e) => {
         if (!e.target.closest('.autocomplete')) {
           listBox.classList.add('d-none');
         }
       });
 
-      // Allow keyboard navigation inside autocomplete
       inputQ.addEventListener('keydown', function(e) {
         const items = Array.from(listBox.querySelectorAll('.autocomplete-item'));
         if (!items.length || listBox.classList.contains('d-none')) return;
@@ -809,7 +753,6 @@ function badgeStatus(string $s): string
           listBox.classList.add('d-none');
         }
       });
-
     })();
   </script>
 </body>
