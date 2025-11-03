@@ -371,8 +371,7 @@ function badgeStatus(string $s): string
           <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
-                <i class="bx bx-file fs-4 lh-0"></i>
-                <span class="ms-2">Pagamentos Solicitados</span>
+
               </div>
             </div>
             <ul class="navbar-nav flex-row align-items-center ms-auto">
@@ -461,7 +460,7 @@ function badgeStatus(string $s): string
 
           <!-- Tabela (estilo igual Produtos Solicitados) -->
           <div class="card">
-            <h5 class="card-header">Lista de Pagamentos Solicitados (Somente Franquias)</h5>
+            <h5 class="card-header">Lista de Pagamentos Solicitados</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover align-middle">
                 <thead>
