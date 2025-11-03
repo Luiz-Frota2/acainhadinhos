@@ -14,6 +14,7 @@ function brMoneyToFloat($v)
     $v = str_replace(['.', ','], ['', '.'], $v);
     return (float)$v;
 }
+
 /** Definição simplificada: sempre aponta para a matriz principal */
 function resolve_id_matriz(string $idSelecionado): string
 {
@@ -45,7 +46,7 @@ if (!isset($_SESSION['usuario_logado'], $_SESSION['empresa_id'], $_SESSION['tipo
 }
 
 /* ==================== Conexão ==================== */
-require __DIR__ . '/../conexao.php'; // assets/php/matriz -> assets/php/conexao.php
+require __DIR__ . '/../conexao.php';
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     js_alert_and_back('Erro: conexão indisponível.');
 }
@@ -104,10 +105,8 @@ try {
 
         /**
          * Diretório público: /public/pagamentos
-         * - Cria se não existir
-         * - Nome no banco DEVE conter o diretório: "./pagamentos/NOME.ext"
          */
-        $publicPagamentosDir = dirname(__DIR__, 3) . '/public/pagamentos';
+        $publicPagamentosDir = __DIR__ . '/../../../public/pagamentos';
         if (!is_dir($publicPagamentosDir) && !mkdir($publicPagamentosDir, 0755, true)) {
             throw new RuntimeException('Não foi possível criar o diretório ./pagamentos/.');
         }
@@ -121,13 +120,13 @@ try {
             throw new RuntimeException('Falha ao mover o arquivo enviado.');
         }
 
-        // >>> AQUI já salvamos COM o nome do diretório, para gravar no banco assim:
+        // Salva caminho relativo no banco
         $comprovante_url = "./pagamentos/" . $newName;
     }
 
     /* ============ Inserção no banco ============ */
     $id_matriz      = resolve_id_matriz($idSelecionado); // 'principal_1'
-    $id_solicitante = $idSelecionado;                    // unidade_1 / filial_* / franquia_*
+    $id_solicitante = $idSelecionado;
 
     $sql = "INSERT INTO solicitacoes_pagamento
             (id_matriz, id_solicitante, status, fornecedor, documento, descricao, vencimento, valor, comprovante_url, created_at)
@@ -144,15 +143,16 @@ try {
         ':descricao'       => $descricao,
         ':vencimento'      => $vencSql,
         ':valor'           => $valor,
-        ':comprovante_url' => $comprovante_url // << já vem "./pagamentos/arquivo.ext"
+        ':comprovante_url' => $comprovante_url
     ]);
 
     if (!$ok) {
         throw new RuntimeException('Não foi possível salvar a solicitação.');
     }
 
-    // Sucesso: alerta + redirect com id selecionado na URL
+    // Sucesso
     js_alert_and_redirect('Solicitação registrada com sucesso!', '../../../erp/matriz/novaSolicitacaoPagamento.php?id=' . urlencode($id_solicitante));
+
 } catch (Throwable $e) {
     js_alert_and_back('Erro: ' . $e->getMessage());
 }
