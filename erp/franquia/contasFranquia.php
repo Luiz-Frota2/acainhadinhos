@@ -49,6 +49,7 @@ $acessoPermitido   = false;
 $idEmpresaSession  = $_SESSION['empresa_id'];
 $tipoSession       = $_SESSION['tipo_empresa'];
 
+// Mantive a lógica original: verifica prefixo do idSelecionado
 if (str_starts_with($idSelecionado, 'principal_')) {
   $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
@@ -86,7 +87,16 @@ $csrfStatus = $_SESSION['csrf_pagto_status'];
 if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
   $term = trim((string)($_GET['term'] ?? ''));
   $out = [];
+
   if ($term !== '') {
+    // Determina tipo da unidade com base no idSelecionado (compatível com a tabela unidades.tipo)
+    $expectedTipo = 'Franquia';
+    if (str_starts_with($idSelecionado, 'franquia_')) $expectedTipo = 'Franquia';
+    elseif (str_starts_with($idSelecionado, 'filial_')) $expectedTipo = 'Filial';
+    elseif (str_starts_with($idSelecionado, 'unidade_')) $expectedTipo = 'Unidade';
+    elseif (str_starts_with($idSelecionado, 'principal_')) $expectedTipo = 'Principal';
+
+    // Consulta: busca por correspondência parcial em várias colunas
     $sqlA = "
       SELECT
         sp.ID as id,
@@ -98,7 +108,7 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
       FROM solicitacoes_pagamento sp
       LEFT JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
       WHERE sp.id_matriz = :id_matriz
-        AND u.tipo = :tipo
+        AND (u.tipo = :tipo OR :tipo IS NULL)
         AND (
           sp.fornecedor LIKE :t OR
           sp.documento LIKE :t OR
@@ -112,7 +122,14 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
     try {
       $stm = $pdo->prepare($sqlA);
       $like = "%{$term}%";
-      $stm->execute([':id_matriz' => $idSelecionado, ':tipo' => 'Franquia', ':t' => $like]);
+      // se tipo não for reconhecido, envia NULL para :tipo e a condição aceita qualquer tipo
+      $tipoParam = $expectedTipo ?: null;
+      $paramsExec = [
+        ':id_matriz' => $idSelecionado,
+        ':tipo' => $tipoParam,
+        ':t' => $like
+      ];
+      $stm->execute($paramsExec);
       $res = $stm->fetchAll(PDO::FETCH_ASSOC);
       foreach ($res as $r) {
         $label = trim(sprintf("%s · %s · %s · %s", $r['id_solicitante'], $r['unidade_nome'] ?: '—', $r['fornecedor'] ?: '—', $r['documento'] ?: '—'));
@@ -121,13 +138,16 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
           'label' => $label,
           'fornecedor' => $r['fornecedor'],
           'documento' => $r['documento'],
-          'unidade' => $r['unidade_nome']
+          'unidade' => $r['unidade_nome'],
+          'valor' => $r['valor']
         ];
       }
     } catch (PDOException $e) {
+      // Em erro, retorna lista vazia (front-end trata)
       $out = [];
     }
   }
+
   header('Content-Type: application/json; charset=utf-8');
   echo json_encode($out);
   exit;
@@ -139,8 +159,20 @@ $dtIni  = $_GET['venc_ini'] ?? '';             // YYYY-MM-DD
 $dtFim  = $_GET['venc_fim'] ?? '';             // YYYY-MM-DD
 $q      = trim($_GET['q']   ?? '');            // texto livre
 
-$params = [':id_matriz' => $idSelecionado, ':tipo' => 'Franquia'];
-$where  = ["sp.id_matriz = :id_matriz", "u.tipo = :tipo"]; // <-- SOMENTE FRANQUIA
+// Determina o tipo a filtrar nas unidades (manter somente franquia se idSelecionado começa com franquia_)
+$filterTipo = null;
+if (str_starts_with($idSelecionado, 'franquia_')) $filterTipo = 'Franquia';
+elseif (str_starts_with($idSelecionado, 'filial_')) $filterTipo = 'Filial';
+elseif (str_starts_with($idSelecionado, 'unidade_')) $filterTipo = 'Unidade';
+elseif (str_starts_with($idSelecionado, 'principal_')) $filterTipo = 'Principal';
+
+$params = [':id_matriz' => $idSelecionado];
+$where  = ["sp.id_matriz = :id_matriz"];
+
+if ($filterTipo !== null) {
+  $where[] = "u.tipo = :tipo";
+  $params[':tipo'] = $filterTipo;
+}
 
 if ($status !== '' && in_array($status, ['pendente', 'aprovado', 'reprovado'], true)) {
   $where[] = "sp.status = :status";
@@ -200,6 +232,33 @@ function badgeStatus(string $s): string
   if ($s === 'reprovado') return '<span class="badge bg-label-danger status-badge">REPROVADO</span>';
   return '<span class="badge bg-label-warning status-badge">PENDENTE</span>';
 }
+
+/**
+ * Normaliza o href do comprovante:
+ * - Se começar com "http" -> retorna tal como está
+ * - Se começar com "./" -> remove "./" e transforma em caminho relativo seguro (prefixa com /public/ se necessário)
+ * - Se for apenas um nome de arquivo ou começar com "pagamentos/" -> prefixa com caminho relativo padrão
+ *
+ * Ajuste a variável $publicBase caso precise apontar para outro caminho real.
+ */
+function buildComprovanteHref(?string $path): ?string
+{
+  if (empty($path)) return null;
+  $p = trim($path);
+  // path absoluto (http/https)
+  if (preg_match('#^https?://#i', $p)) return $p;
+  // remove prefixo "./" se presente
+  if (str_starts_with($p, './')) $p = substr($p, 2);
+  // se já começa com slash -> tratar como relativo a raiz do site
+  if (str_starts_with($p, '/')) {
+    return $p;
+  }
+  // Se veio apenas "pagamentos/..." ou "arquivo.pdf", consideramos que já é relativo ao diretório público.
+  // Ajuste $publicBase conforme sua estrutura (ex.: '/public/' ou '../../public/').
+  $publicBase = '../../public/'; // <- ajuste se necessário no seu ambiente de hospedagem
+  return $publicBase . $p;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -255,7 +314,12 @@ function badgeStatus(string $s): string
       border: 1px solid #e6e9ef;
       border-radius: .5rem;
       box-shadow: 0 10px 24px rgba(24, 28, 50, .12);
-      z-index: 2060
+      z-index: 2060;
+      display: none;
+    }
+
+    .autocomplete-list.show {
+      display: block;
     }
 
     .autocomplete-item {
@@ -263,7 +327,8 @@ function badgeStatus(string $s): string
       cursor: pointer;
       display: flex;
       justify-content: space-between;
-      gap: .75rem
+      gap: .75rem;
+      align-items: center;
     }
 
     .autocomplete-item:hover,
@@ -325,7 +390,6 @@ function badgeStatus(string $s): string
       position: relative;
     }
 
-    /* small refinements for the suggestions items to include an extra tag on right */
     .autocomplete-item .left {
       flex: 1;
       overflow: hidden;
@@ -410,7 +474,7 @@ function badgeStatus(string $s): string
             <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
             Pagamentos Solicitados
           </h4>
-          <p class="small-muted mb-3">Pedidos de pagamento enviados por <strong>Franquias</strong></p>
+          <p class="small-muted mb-3">Pedidos de pagamento enviados por <strong><?= htmlspecialchars($filterTipo ?? 'Franquias', ENT_QUOTES) ?></strong></p>
 
           <!-- Filtros (labels acima dos inputs, layout responsivo) -->
           <div class="card mb-3">
@@ -441,8 +505,8 @@ function badgeStatus(string $s): string
                 <div class="filter-col autocomplete d-flex flex-column flex-grow-1 align-items-stretch" style="min-width:220px; gap:.35rem;">
                   <label class="form-label mb-0 small-muted" style="font-size:.8rem; white-space:nowrap;">BUSCAR</label>
                   <div style="position:relative; width:100%;">
-                    <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm w-100" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." style="min-height:30px;" />
-                    <div id="autocomplete-list" class="autocomplete-list d-none" role="listbox" aria-label="Sugestões"></div>
+                    <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm w-100" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." style="min-height:30px;" aria-autocomplete="list" aria-controls="autocomplete-list" aria-expanded="false" />
+                    <div id="autocomplete-list" class="autocomplete-list" role="listbox" aria-label="Sugestões"></div>
                   </div>
                 </div>
 
@@ -453,14 +517,14 @@ function badgeStatus(string $s): string
               </form>
 
               <div class="mt-2 muted" style="font-size:.9rem;">
-                Encontradas <strong><?= count($rows) ?></strong> solicitações (somente <strong>Franquias</strong>) · Página 1 de 1
+                Encontradas <strong><?= count($rows) ?></strong> solicitações (<?= htmlspecialchars($filterTipo ?? 'Franquias', ENT_QUOTES) ?>) · Página 1 de 1
               </div>
             </div>
           </div>
 
           <!-- Tabela (estilo igual Produtos Solicitados) -->
           <div class="card">
-            <h5 class="card-header">Lista de Pagamentos Solicitados (Somente Franquias)</h5>
+            <h5 class="card-header">Lista de Pagamentos Solicitados (<?= htmlspecialchars($filterTipo ?? 'Franquias', ENT_QUOTES) ?>)</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover align-middle">
                 <thead>
@@ -494,6 +558,9 @@ function badgeStatus(string $s): string
                       $unit_name_attr = htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES);
                       $fornecedor_attr = htmlspecialchars($r['fornecedor'] ?: '—', ENT_QUOTES);
                       $documento_attr = htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES);
+
+                      // normaliza href do comprovante para garantir link clicável
+                      $hrefComprovante = buildComprovanteHref($r['comprovante_url']);
                       ?>
                       <tr>
                         <td class="text-nowrap"><?= (int)$r['id_solicitacao'] ?></td>
@@ -504,7 +571,11 @@ function badgeStatus(string $s): string
                         <td><?= $venc ?></td>
                         <td class="text-center">
                           <?php if (!empty($r['comprovante_url'])): ?>
-                            <a href="<?= htmlspecialchars($r['comprovante_url'], ENT_QUOTES) ?>" target="_blank" class="text-primary">baixar</a>
+                            <?php if ($hrefComprovante): ?>
+                              <a href="<?= htmlspecialchars($hrefComprovante, ENT_QUOTES) ?>" target="_blank" class="text-primary">baixar</a>
+                            <?php else: ?>
+                              <span class="text-muted">—</span>
+                            <?php endif; ?>
                           <?php else: ?>
                             <span class="text-muted">—</span>
                           <?php endif; ?>
@@ -522,7 +593,7 @@ function badgeStatus(string $s): string
                             data-descricao="<?= htmlspecialchars($r['descricao'] ?: '—', ENT_QUOTES) ?>"
                             data-valor="<?= htmlspecialchars($valorFmt, ENT_QUOTES) ?>"
                             data-venc="<?= $venc ?>"
-                            data-anexo="<?= htmlspecialchars($r['comprovante_url'] ?: '—', ENT_QUOTES) ?>"
+                            data-anexo="<?= htmlspecialchars($hrefComprovante ?: ($r['comprovante_url'] ?: '—'), ENT_QUOTES) ?>"
                             data-status="<?= htmlspecialchars(strtoupper($r['status']), ENT_QUOTES) ?>"
                             data-criado="<?= $dataCriado ?>">
                             <i class="bx bx-detail"></i> Detalhes
@@ -698,12 +769,15 @@ function badgeStatus(string $s): string
       const listBox = document.getElementById('autocomplete-list');
 
       let debounceTimer = null;
+      let currentItems = [];
+
       inputQ.addEventListener('input', function() {
         const v = this.value.trim();
         if (debounceTimer) clearTimeout(debounceTimer);
         if (v.length === 0) {
-          listBox.classList.add('d-none');
+          listBox.classList.remove('show');
           listBox.innerHTML = '';
+          inputQ.setAttribute('aria-expanded', 'false');
           return;
         }
         debounceTimer = setTimeout(() => fetchSuggestions(v), 250);
@@ -713,7 +787,7 @@ function badgeStatus(string $s): string
         const url = new URL(window.location.href);
         url.searchParams.set('ajax_search', '1');
         url.searchParams.set('term', term);
-        // keep id param already in URL
+        // mantém id presente
         fetch(url.toString(), {
             credentials: 'same-origin'
           })
@@ -722,22 +796,27 @@ function badgeStatus(string $s): string
             renderSuggestions(data);
           })
           .catch(e => {
-            listBox.classList.add('d-none');
+            listBox.classList.remove('show');
             listBox.innerHTML = '';
+            inputQ.setAttribute('aria-expanded', 'false');
             console.error(e);
           });
       }
 
       function renderSuggestions(list) {
         listBox.innerHTML = '';
+        currentItems = list || [];
         if (!list || !list.length) {
-          listBox.classList.add('d-none');
+          listBox.classList.remove('show');
+          inputQ.setAttribute('aria-expanded', 'false');
           return;
         }
-        list.forEach(it => {
+        list.forEach((it, idx) => {
           const row = document.createElement('div');
           row.className = 'autocomplete-item';
           row.tabIndex = 0;
+          row.setAttribute('role', 'option');
+          row.setAttribute('data-idx', String(idx));
 
           const left = document.createElement('div');
           left.className = 'left';
@@ -745,18 +824,18 @@ function badgeStatus(string $s): string
 
           const right = document.createElement('div');
           right.className = 'right autocomplete-tag';
-          // show unidade as tag if available
           right.textContent = it.unidade ? it.unidade : '';
 
           row.appendChild(left);
           row.appendChild(right);
 
           row.addEventListener('click', () => {
-            // Behavior: fill search input with solicitante (first token before '·')
+            // Behavior: fill search input with solicitante (primeiro token antes de "·")
             const val = it.label.split('·')[0].trim();
             inputQ.value = val;
-            listBox.classList.add('d-none');
-            // auto-submit form to filter results immediately
+            listBox.classList.remove('show');
+            inputQ.setAttribute('aria-expanded', 'false');
+            // auto-submit form para filtrar resultados
             document.getElementById('formFiltro').submit();
           });
 
@@ -766,20 +845,22 @@ function badgeStatus(string $s): string
 
           listBox.appendChild(row);
         });
-        listBox.classList.remove('d-none');
+        listBox.classList.add('show');
+        inputQ.setAttribute('aria-expanded', 'true');
       }
 
       // close suggestions when clicking outside
       document.addEventListener('click', (e) => {
         if (!e.target.closest('.autocomplete')) {
-          listBox.classList.add('d-none');
+          listBox.classList.remove('show');
+          inputQ.setAttribute('aria-expanded', 'false');
         }
       });
 
       // Allow keyboard navigation inside autocomplete
       inputQ.addEventListener('keydown', function(e) {
         const items = Array.from(listBox.querySelectorAll('.autocomplete-item'));
-        if (!items.length || listBox.classList.contains('d-none')) return;
+        if (!items.length || !listBox.classList.contains('show')) return;
         const active = listBox.querySelector('.autocomplete-item.active');
         if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -806,7 +887,8 @@ function badgeStatus(string $s): string
             prev.focus();
           }
         } else if (e.key === 'Escape') {
-          listBox.classList.add('d-none');
+          listBox.classList.remove('show');
+          inputQ.setAttribute('aria-expanded', 'false');
         }
       });
 
