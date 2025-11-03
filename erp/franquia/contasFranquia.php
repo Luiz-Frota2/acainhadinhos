@@ -677,7 +677,7 @@ function badgeStatus(string $s): string
 
   <div class="modal fade" id="modalStatus" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-      <form class="modal-content" method="post" action="../../assets/php/matriz/solicitacaoPagamentoStatus.php">
+      <form class="modal-content" method="post" action="../../assets/php/matriz/solicitacaoPagamentoStatus.php" id="formStatus">
         <div class="modal-header">
           <h5 class="modal-title">Mudar status da solicitação</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
@@ -833,6 +833,65 @@ function badgeStatus(string $s): string
           listBox.classList.add('d-none');
         }
       });
+
+      // --- Modal Status behavior (show/hide textarea when "reprovado" selected) ---
+      const modalStatusEl = document.getElementById('modalStatus');
+      const stId = document.getElementById('st-id');
+      const stInfo = document.getElementById('st-info');
+      const stAcao = document.getElementById('st-acao');
+      const stObsWrap = document.getElementById('st-obs-wrap');
+      const stObs = document.getElementById('st-obs');
+      const formStatus = document.getElementById('formStatus');
+
+      // When modal is shown, populate fields from triggering button and reset inputs
+      modalStatusEl.addEventListener('show.bs.modal', function(e) {
+        const trigger = e.relatedTarget;
+        if (!trigger) return;
+        stId.value = trigger.getAttribute('data-id') || '';
+        const fornecedor = trigger.getAttribute('data-fornecedor') || '';
+        const documento = trigger.getAttribute('data-documento') || '';
+        const currentStatus = (trigger.getAttribute('data-status') || '').toUpperCase();
+        stInfo.textContent = `${fornecedor} · ${documento} · status atual: ${currentStatus || '—'}`;
+
+        // reset action and obs
+        stAcao.value = '';
+        stObs.value = '';
+        stObs.required = false;
+        stObsWrap.classList.add('d-none');
+      });
+
+      // Toggle textarea visibility and required attribute based on selection
+      stAcao.addEventListener('change', function() {
+        if (this.value === 'reprovado') {
+          stObsWrap.classList.remove('d-none');
+          stObs.required = true;
+          stObs.focus();
+        } else {
+          stObsWrap.classList.add('d-none');
+          stObs.required = false;
+        }
+      });
+
+      // Ensure on modal hide we clean up
+      modalStatusEl.addEventListener('hidden.bs.modal', function() {
+        stAcao.value = '';
+        stObs.value = '';
+        stObs.required = false;
+        stObsWrap.classList.add('d-none');
+        stInfo.textContent = '—';
+        stId.value = '';
+      });
+
+      // Extra guard on submit: prevent submit if reprovar and no comment
+      formStatus.addEventListener('submit', function(evt) {
+        if (stAcao.value === 'reprovado' && stObs.value.trim() === '') {
+          evt.preventDefault();
+          stObs.required = true;
+          stObs.focus();
+          alert('Por favor, informe o comentário ao reprovar.');
+        }
+      });
+
     })();
   </script>
 </body>
