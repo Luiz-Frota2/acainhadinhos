@@ -412,49 +412,51 @@ function badgeStatus(string $s): string
           </h4>
           <p class="small-muted mb-3">Pedidos de pagamento enviados por <strong>Franquias</strong></p>
 
-          <!-- Filtros (igual layout Produtos Solicitados, usando o CSS que você pediu) -->
-          <div class="card mb-3">
+            <!-- Filtros (layout condensado: tudo em uma linha em telas maiores, botões com mesma altura dos inputs) -->
+            <div class="card mb-3">
             <div class="card-body">
-              <form class="toolbar row gx-3 gy-2 align-items-end" method="get" id="formFiltro">
-                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
+              <form class="toolbar d-flex flex-column flex-lg-row flex-wrap flex-lg-nowrap align-items-center gap-2" method="get" id="formFiltro">
+              <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
 
-                <div class="filter-col col-12 col-lg-2">
-                  <label class="form-label mb-1">STATUS</label>
-                  <select name="status" class="form-select form-select-sm">
-                    <option value="">Todos</option>
-                    <option value="pendente" <?= $status === 'pendente' ? 'selected' : ''; ?>>Pendente</option>
-                    <option value="aprovado" <?= $status === 'aprovado' ? 'selected' : ''; ?>>Aprovado</option>
-                    <option value="reprovado" <?= $status === 'reprovado' ? 'selected' : ''; ?>>Reprovado</option>
-                  </select>
-                </div>
+              <div class="filter-col d-flex align-items-center" style="gap:.5rem; min-width:150px;">
+                <label class="form-label mb-0 small-muted" style="font-size:.8rem;">STATUS</label>
+                <select name="status" class="form-select form-select-sm" style="height:38px;">
+                <option value="">Todos</option>
+                <option value="pendente" <?= $status === 'pendente' ? 'selected' : ''; ?>>Pendente</option>
+                <option value="aprovado" <?= $status === 'aprovado' ? 'selected' : ''; ?>>Aprovado</option>
+                <option value="reprovado" <?= $status === 'reprovado' ? 'selected' : ''; ?>>Reprovado</option>
+                </select>
+              </div>
 
-                <div class="filter-col col-6 col-lg-2">
-                  <label class="form-label mb-1">DE</label>
-                  <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control form-control-sm">
-                </div>
+              <div class="filter-col d-flex align-items-center" style="gap:.5rem; min-width:160px;">
+                <label class="form-label mb-0 small-muted" style="font-size:.8rem;">DE</label>
+                <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control form-control-sm" style="height:38px; min-width:120px;">
+              </div>
 
-                <div class="filter-col col-6 col-lg-2">
-                  <label class="form-label mb-1">ATÉ</label>
-                  <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control form-control-sm">
-                </div>
+              <div class="filter-col d-flex align-items-center" style="gap:.5rem; min-width:160px;">
+                <label class="form-label mb-0 small-muted" style="font-size:.8rem;">ATÉ</label>
+                <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control form-control-sm" style="height:38px; min-width:120px;">
+              </div>
 
-                <div class="filter-col col-12 col-lg-5 autocomplete">
-                  <label class="form-label mb-1">BUSCAR</label>
-                  <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." />
-                  <div id="autocomplete-list" class="autocomplete-list d-none" role="listbox" aria-label="Sugestões"></div>
+              <div class="filter-col autocomplete flex-grow-1 d-flex align-items-center" style="gap:.5rem; min-width:220px;">
+                <label class="form-label mb-0 small-muted" style="font-size:.8rem; white-space:nowrap;">BUSCAR</label>
+                <div style="flex:1; min-width:180px; position:relative;">
+                <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." style="height:38px;" />
+                <div id="autocomplete-list" class="autocomplete-list d-none" role="listbox" aria-label="Sugestões"></div>
                 </div>
+              </div>
 
-                <div class="filter-col col-12 col-lg-3 d-flex gap-2">
-                  <button class="btn btn-primary btn-sm w-100"><i class="bx bx-filter-alt"></i> Filtrar</button>
-                  <a class="btn btn-outline-secondary btn-sm w-100" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-reset"></i> Limpar</a>
-                </div>
+              <div class="filter-col d-flex align-items-center" style="gap:.5rem;">
+                <button class="btn btn-primary btn-sm" style="height:38px; padding-left:10px; padding-right:10px;"><i class="bx bx-filter-alt"></i> Filtrar</button>
+                <a class="btn btn-outline-secondary btn-sm" href="?id=<?= urlencode($idSelecionado) ?>" style="height:38px; padding-left:10px; padding-right:10px;"><i class="bx bx-reset"></i> Limpar</a>
+              </div>
               </form>
 
-              <div class="mt-2 muted">
-                Encontradas <strong><?= count($rows) ?></strong> solicitações (somente <strong>Franquias</strong>) · Página 1 de 1
+              <div class="mt-1 muted" style="font-size:.9rem;">
+              Encontradas <strong><?= count($rows) ?></strong> solicitações (somente <strong>Franquias</strong>) · Página 1 de 1
               </div>
             </div>
-          </div>
+            </div>
 
           <!-- Tabela (estilo igual Produtos Solicitados) -->
           <div class="card">
