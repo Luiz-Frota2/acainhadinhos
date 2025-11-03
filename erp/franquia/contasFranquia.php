@@ -87,14 +87,14 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
   $term = trim((string)($_GET['term'] ?? ''));
   $out = [];
   if ($term !== '') {
-    // pesquisa parcial em várias colunas, retornando pequenas sugestões
     $sqlA = "
       SELECT
         sp.ID as id,
         sp.fornecedor as fornecedor,
         sp.documento as documento,
         COALESCE(u.nome, '') as unidade_nome,
-        sp.valor as valor
+        sp.valor as valor,
+        sp.id_solicitante as id_solicitante
       FROM solicitacoes_pagamento sp
       LEFT JOIN unidades u ON u.id = CAST(SUBSTRING_INDEX(sp.id_solicitante, '_', -1) AS UNSIGNED)
       WHERE sp.id_matriz = :id_matriz
@@ -103,7 +103,8 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
           sp.fornecedor LIKE :t OR
           sp.documento LIKE :t OR
           sp.descricao LIKE :t OR
-          u.nome LIKE :t
+          u.nome LIKE :t OR
+          sp.id_solicitante LIKE :t
         )
       ORDER BY sp.created_at DESC
       LIMIT 15
@@ -114,11 +115,10 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
       $stm->execute([':id_matriz' => $idSelecionado, ':tipo' => 'Franquia', ':t' => $like]);
       $res = $stm->fetchAll(PDO::FETCH_ASSOC);
       foreach ($res as $r) {
-        $label = trim(sprintf("#%s · %s · %s · %s", $r['id'], $r['unidade_nome'] ?: '—', $r['fornecedor'] ?: '—', $r['documento'] ?: '—'));
-        $out[] = ['id' => (int)$r['id'], 'label' => $label, 'fornecedor' => $r['fornecedor'], 'documento' => $r['documento'], 'unidade' => $r['unidade_nome'], 'valor' => $r['valor']];
+        $label = trim(sprintf("%s · %s · %s · %s", $r['id_solicitante'], $r['unidade_nome'] ?: '—', $r['fornecedor'] ?: '—', $r['documento'] ?: '—'));
+        $out[] = ['id' => (int)$r['id'], 'label' => $label, 'fornecedor' => $r['fornecedor'], 'documento' => $r['documento'], 'unidade' => $r['unidade_nome']];
       }
     } catch (PDOException $e) {
-      // return empty list on error
       $out = [];
     }
   }
@@ -149,7 +149,6 @@ if ($dtFim !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dtFim)) {
   $params[':vfim'] = $dtFim;
 }
 if ($q !== '') {
-  // mantém pesquisa parcial (LIKE %q%)
   $where[] = "(sp.fornecedor LIKE :q OR sp.documento LIKE :q OR sp.descricao LIKE :q OR sp.id_solicitante LIKE :q OR u.nome LIKE :q)";
   $params[':q'] = "%$q%";
 }
@@ -157,11 +156,10 @@ if ($q !== '') {
 $whereSql = 'WHERE ' . implode(' AND ', $where);
 
 /* ==================== Consulta principal ==================== */
-/* usamos aliases claros para evitar confusão de nomes */
 $sql = "
   SELECT
     sp.ID as id_solicitacao,
-    sp.id_solicitante as raw_id_solicitante,
+    sp.id_solicitante as id_solicitante,
     sp.status as status,
     sp.fornecedor as fornecedor,
     sp.documento as documento,
@@ -170,7 +168,6 @@ $sql = "
     sp.valor as valor,
     sp.comprovante_url as comprovante_url,
     sp.created_at as criado_em,
-    sp.updated_at as atualizado_em,
     u.id         AS unidade_id,
     u.nome       AS unidade_nome,
     u.tipo       AS unidade_tipo
@@ -217,6 +214,7 @@ function badgeStatus(string $s): string
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
   <style>
+    /* Adaptação visual para ficar igual à página Produtos Solicitados */
     .toolbar {
       display: flex;
       gap: .75rem;
@@ -235,9 +233,15 @@ function badgeStatus(string $s): string
 
     .muted {
       color: #6b7280;
+      font-size: 0.95rem;
     }
 
-    /* Forçar layout fixo para evitar desalinhamento quando colunas longas aparecem */
+    .card-header {
+      font-weight: 600;
+      background: transparent;
+      border-bottom: 1px solid #eef2f6;
+    }
+
     .table {
       table-layout: fixed;
       width: 100%;
@@ -245,53 +249,65 @@ function badgeStatus(string $s): string
 
     .table thead th {
       white-space: nowrap;
+      font-size: .85rem;
+      color: #6b7280;
     }
 
-    .col-id {
+    .col-num {
       width: 60px;
+    }
+
+    .col-solicitante {
+      width: 160px;
     }
 
     .col-unidade {
       width: 220px;
     }
 
-    .col-fornecedor {
-      width: 200px;
-    }
-
-    .col-documento {
-      width: 160px;
-    }
-
-    .col-valor {
-      width: 110px;
-      text-align: right;
-    }
-
-    .col-venc {
-      width: 110px;
-    }
-
-    .col-anexo {
+    .col-itens {
       width: 80px;
       text-align: center;
     }
 
-    .col-status {
-      width: 110px;
+    .col-qtd {
+      width: 80px;
       text-align: center;
     }
 
-    .col-criado {
-      width: 120px;
+    .col-total {
+      width: 130px;
+      text-align: right;
     }
 
-    .col-actions {
+    .col-criado {
+      width: 140px;
+    }
+
+    .col-status {
+      width: 120px;
+      text-align: center;
+    }
+
+    .col-acoes {
       width: 170px;
+      text-align: right;
+    }
+
+    .label-franquia {
+      display: inline-block;
+      background: #e7f6ff;
+      color: #0b67a8;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      margin-left: 8px;
+      vertical-align: middle;
     }
 
     .truncate {
-      max-width: 180px;
+      max-width: 220px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -302,37 +318,36 @@ function badgeStatus(string $s): string
       font-size: .78rem;
     }
 
-    .col-actions .btn {
-      margin-right: .35rem;
-    }
-
-    .card-header {
-      padding-bottom: .25rem;
-    }
-
-    /* datalist / suggestions styling fallback */
-    .suggestions {
-      position: absolute;
-      background: #fff;
-      border: 1px solid #ddd;
-      max-height: 220px;
-      overflow: auto;
-      z-index: 2000;
-      width: 100%;
-    }
-
-    .suggestions .item {
-      padding: 8px 10px;
-      cursor: pointer;
-      border-bottom: 1px solid #f1f1f1;
-    }
-
-    .suggestions .item:hover {
-      background: #f8f9fb;
+    .small-muted {
+      font-size: 12px;
+      color: #9aa6b2;
     }
 
     .search-wrap {
       position: relative;
+    }
+
+    .suggestions {
+      position: absolute;
+      background: #fff;
+      border: 1px solid #e6ebf3;
+      max-height: 260px;
+      overflow: auto;
+      z-index: 2000;
+      width: 100%;
+      box-shadow: 0 6px 18px rgba(38, 51, 77, 0.06);
+      border-radius: 6px;
+    }
+
+    .suggestions .item {
+      padding: 10px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f1f4f7;
+      font-size: 14px;
+    }
+
+    .suggestions .item:hover {
+      background: #f6fbff;
     }
   </style>
 </head>
@@ -340,7 +355,7 @@ function badgeStatus(string $s): string
 <body>
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
-      <!-- ASIDE resumido -->
+      <!-- ASIDE (mantido igual) -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
@@ -355,12 +370,12 @@ function badgeStatus(string $s): string
           <li class="menu-item"><a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div>Dashboard</div>
             </a></li>
-          <!-- resto do menu omitido para brevidade (mantive na versão original) -->
+          <!-- resto do menu omitido para brevidade -->
         </ul>
       </aside>
 
       <div class="layout-page">
-        <!-- Navbar omitida para brevidade (mantida na versão original) -->
+        <!-- Navbar -->
         <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
           <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
             <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)"><i class="bx bx-menu bx-sm"></i></a>
@@ -400,18 +415,16 @@ function badgeStatus(string $s): string
             </ul>
           </div>
         </nav>
+        <!-- /Navbar -->
 
         <div class="container-xxl flex-grow-1 container-p-y">
-
           <h4 class="fw-bold mb-0">
             <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
             Pagamentos Solicitados
           </h4>
-          <h5 class="fw-bold mt-3 mb-3">
-            <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das unidades</span>
-          </h5>
+          <p class="small-muted mb-3">Pedidos de pagamento enviados por <strong>Franquias</strong></p>
 
-          <!-- Filtros (somente o que pediu) -->
+          <!-- Filtros (igual layout Produtos Solicitados) -->
           <div class="card mb-3">
             <div class="card-body">
               <form class="toolbar" method="get" id="formFiltro">
@@ -428,19 +441,18 @@ function badgeStatus(string $s): string
                 </div>
 
                 <div>
-                  <label class="form-label mb-1">Venc. de</label>
+                  <label class="form-label mb-1">De</label>
                   <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control">
                 </div>
 
                 <div>
-                  <label class="form-label mb-1">até</label>
+                  <label class="form-label mb-1">Até</label>
                   <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control">
                 </div>
 
-                <div style="min-width:320px;" class="search-wrap">
+                <div style="min-width:420px;" class="search-wrap">
                   <label class="form-label mb-1">Buscar</label>
-                  <!-- input com datalist + suggestions via JS -->
-                  <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control" placeholder="fornecedor, doc, descrição, unidade_1..." />
+                  <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." />
                   <div id="suggestions" class="suggestions d-none" aria-hidden="true"></div>
                 </div>
 
@@ -451,28 +463,28 @@ function badgeStatus(string $s): string
               </form>
 
               <div class="mt-2 muted">
-                Encontradas <strong><?= count($rows) ?></strong> solicitações (somente <strong>Franquias</strong>).
+                Encontradas <strong><?= count($rows) ?></strong> solicitações (somente <strong>Franquias</strong>) · Página 1 de 1
               </div>
             </div>
           </div>
 
-          <!-- Tabela (colunas essenciais) -->
+          <!-- Tabela (estilo igual Produtos Solicitados) -->
           <div class="card">
-            <h5 class="card-header">Lista de Pagamentos Solicitados</h5>
+            <h5 class="card-header">Lista de Pagamentos Solicitados (Somente Franquias)</h5>
             <div class="table-responsive text-nowrap">
               <table class="table table-hover align-middle">
                 <thead>
                   <tr>
-                    <th class="col-id">ID</th>
-                    <th class="col-unidade">Unidade</th>
-                    <th class="col-fornecedor">Fornecedor</th>
-                    <th class="col-documento">Documento</th>
-                    <th class="col-valor">Valor</th>
-                    <th class="col-venc">Vencimento</th>
-                    <th class="col-anexo">Anexo</th>
-                    <th class="col-status">Status</th>
-                    <th class="col-criado">Criado em</th>
-                    <th class="text-end col-actions">Ações</th>
+                    <th class="col-num">#</th>
+                    <th class="col-solicitante">SOLICITANTE</th>
+                    <th class="col-unidade">NOME DA UNIDADE</th>
+                    <th class="col-fornecedor">FORNECEDOR</th>
+                    <th class="col-documento">DOCUMENTO</th>
+                    <th class="col-total">VALOR</th>
+                    <th class="col-venc">VENCIMENTO</th>
+                    <th class="col-anexo">ANEXO</th>
+                    <th class="col-status">STATUS</th>
+                    <th class="col-acoes">AÇÕES</th>
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
@@ -485,16 +497,22 @@ function badgeStatus(string $s): string
                       <?php
                       $dataCriado = $r['criado_em'] ? date('d/m/Y', strtotime($r['criado_em'])) : '—';
                       $venc = $r['vencimento'] ? date('d/m/Y', strtotime($r['vencimento'])) : '—';
-                      // formata valor mesmo que venha como string com vírgula/ponto
                       $valorNum = (float)str_replace([',', 'R$', ' '], ['', '.', ''], $r['valor']);
                       $valorFmt = 'R$ ' . number_format($valorNum, 2, ',', '.');
-                      // valores seguros para atributos data-*
+
+                      $solicitante_raw = htmlspecialchars($r['id_solicitante'] ?: '—', ENT_QUOTES);
                       $unit_name_attr = htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES);
                       $fornecedor_attr = htmlspecialchars($r['fornecedor'] ?: '—', ENT_QUOTES);
                       $documento_attr = htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES);
                       ?>
                       <tr>
                         <td class="text-nowrap"><?= (int)$r['id_solicitacao'] ?></td>
+                        <td>
+                          <div class="d-flex align-items-center">
+                            <div><?= $solicitante_raw ?></div>
+                            <div class="label-franquia">FRANQUIA</div>
+                          </div>
+                        </td>
                         <td><strong><?= $unit_name_attr ?></strong></td>
                         <td class="truncate" title="<?= $fornecedor_attr ?>"><?= $fornecedor_attr ?></td>
                         <td class="truncate" title="<?= $documento_attr ?>"><?= $documento_attr ?></td>
@@ -502,20 +520,19 @@ function badgeStatus(string $s): string
                         <td><?= $venc ?></td>
                         <td class="text-center">
                           <?php if (!empty($r['comprovante_url'])): ?>
-                            <a href="<?= htmlspecialchars($r['comprovante_url'], ENT_QUOTES) ?>" target="_blank" class="text-primary">abrir</a>
+                            <a href="<?= htmlspecialchars($r['comprovante_url'], ENT_QUOTES) ?>" target="_blank" class="text-primary">baixar</a>
                           <?php else: ?>
                             <span class="text-muted">—</span>
                           <?php endif; ?>
                         </td>
                         <td class="text-center"><?= badgeStatus($r['status']) ?></td>
-                        <td><?= $dataCriado ?></td>
-                        <td class="text-end col-actions">
+                        <td class="text-end">
                           <button
                             class="btn btn-sm btn-outline-secondary btn-detalhes"
                             data-bs-toggle="modal" data-bs-target="#modalDetalhes"
                             data-id="<?= (int)$r['id_solicitacao'] ?>"
                             data-unidade="<?= $unit_name_attr ?>"
-                            data-unidadeid="<?= htmlspecialchars($r['raw_id_solicitante'], ENT_QUOTES) ?>"
+                            data-unidadeid="<?= $solicitante_raw ?>"
                             data-fornecedor="<?= $fornecedor_attr ?>"
                             data-documento="<?= $documento_attr ?>"
                             data-descricao="<?= htmlspecialchars($r['descricao'] ?: '—', ENT_QUOTES) ?>"
@@ -550,7 +567,7 @@ function badgeStatus(string $s): string
     </div><!-- /layout-container -->
   </div>
 
-  <!-- ======= Modais ======= -->
+  <!-- Modais (mesmos que antes) -->
   <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
@@ -737,7 +754,9 @@ function badgeStatus(string $s): string
           div.textContent = it.label;
           div.dataset.value = it.label;
           div.addEventListener('click', () => {
-            inputQ.value = it.label;
+            // when user clicks suggestion we fill the search field with the solicitante raw (first token) to match layout behaviour
+            const val = it.label.split('·')[0].trim(); // e.g. "unidade_1" or "#5"
+            inputQ.value = val;
             suggestionsBox.classList.add('d-none');
             // auto-submit form to filter results immediately
             document.getElementById('formFiltro').submit();
