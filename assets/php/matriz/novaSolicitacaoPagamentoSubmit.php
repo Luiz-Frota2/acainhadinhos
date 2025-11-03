@@ -15,19 +15,19 @@ function brMoneyToFloat($v)
     return (float)$v;
 }
 
-/** Definição simplificada: sempre aponta para a matriz principal */
 function resolve_id_matriz(string $idSelecionado): string
 {
     return 'principal_1';
 }
 
-/* Utilitários JS */
+/* ==================== Utilitários JS ==================== */
 function js_alert_and_back(string $msg): void
 {
     $safe = json_encode($msg, JSON_UNESCAPED_UNICODE);
     echo "<script>alert($safe); history.back();</script>";
     exit;
 }
+
 function js_alert_and_redirect(string $msg, string $url): void
 {
     $safe = json_encode($msg, JSON_UNESCAPED_UNICODE);
@@ -36,11 +36,12 @@ function js_alert_and_redirect(string $msg, string $url): void
     exit;
 }
 
-/* ==================== Checagem básica da sessão ==================== */
+/* ==================== Checagem da sessão ==================== */
 $idSelecionado = $_POST['id'] ?? '';
 if (!$idSelecionado) {
     js_alert_and_redirect('Sessão expirada. Faça login novamente.', '../../../public/login.php');
 }
+
 if (!isset($_SESSION['usuario_logado'], $_SESSION['empresa_id'], $_SESSION['tipo_empresa'], $_SESSION['usuario_id'])) {
     js_alert_and_redirect('Sessão inválida. Faça login novamente.', '../../../public/login.php?id=' . urlencode($idSelecionado));
 }
@@ -54,10 +55,10 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 /* ==================== CSRF ==================== */
 if (!isset($_POST['csrf'], $_SESSION['csrf_pagamento']) || $_POST['csrf'] !== $_SESSION['csrf_pagamento']) {
-    unset($_SESSION['csrf_pagamento']); // invalida mesmo assim
+    unset($_SESSION['csrf_pagamento']);
     js_alert_and_redirect('Token de segurança inválido. Tente novamente.', '../../../public/b2b/solicitarPagamentoConta.php?id=' . urlencode($idSelecionado));
 }
-unset($_SESSION['csrf_pagamento']); // invalida o token para evitar re-post
+unset($_SESSION['csrf_pagamento']);
 
 /* ==================== Coleta/validação dos campos ==================== */
 try {
@@ -68,19 +69,18 @@ try {
     $valorBR    = trim($_POST['valor'] ?? '');
     $valor      = brMoneyToFloat($valorBR);
 
-    if ($fornecedor === '')        throw new RuntimeException('Informe o fornecedor.');
-    if ($valor <= 0)               throw new RuntimeException('Informe um valor maior que zero.');
-    if ($vencimento === '')        throw new RuntimeException('Informe o vencimento.');
+    if ($fornecedor === '') throw new RuntimeException('Informe o fornecedor.');
+    if ($valor <= 0) throw new RuntimeException('Informe um valor maior que zero.');
+    if ($vencimento === '') throw new RuntimeException('Informe o vencimento.');
 
-    // Normaliza vencimento (YYYY-MM-DD)
     $vencData = date_create_from_format('Y-m-d', $vencimento) ?: date_create_from_format('d/m/Y', $vencimento);
-    if (!$vencData)                throw new RuntimeException('Data de vencimento inválida.');
+    if (!$vencData) throw new RuntimeException('Data de vencimento inválida.');
     $vencSql = $vencData->format('Y-m-d');
 
-    /* ============ Upload opcional ============ */
+    /* ==================== Upload do arquivo ==================== */
     $comprovante_url = null;
 
-    if (isset($_FILES['arquivo']) && is_uploaded_file($_FILES['arquivo']['tmp_name'])) {
+    if (!empty($_FILES['arquivo']['name']) && is_uploaded_file($_FILES['arquivo']['tmp_name'])) {
         $f = $_FILES['arquivo'];
 
         if ($f['error'] !== UPLOAD_ERR_OK) {
@@ -98,34 +98,33 @@ try {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'application/vnd.ms-excel'
         ];
+
         $mime = mime_content_type($f['tmp_name']);
         if ($mime && !in_array($mime, $allowed, true)) {
             throw new RuntimeException('Tipo de arquivo não permitido.');
         }
 
-        /**
-         * Diretório público: /public/pagamentos
-         */
-        $publicPagamentosDir = __DIR__ . '/../../../public/pagamentos';
-        if (!is_dir($publicPagamentosDir) && !mkdir($publicPagamentosDir, 0755, true)) {
-            throw new RuntimeException('Não foi possível criar o diretório ./pagamentos/.');
+        // Diretório relativo ./pagamentos/ na mesma pasta do script
+        $uploadDir = __DIR__ . '/pagamentos'; // ajusta conforme sua estrutura
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+            throw new RuntimeException('Não foi possível criar o diretório ./pagamentos/');
         }
 
-        $ext      = pathinfo($f['name'], PATHINFO_EXTENSION);
+        $ext = pathinfo($f['name'], PATHINFO_EXTENSION);
         $safeBase = preg_replace('/[^a-zA-Z0-9_\-]/', '_', pathinfo($f['name'], PATHINFO_FILENAME));
-        $newName  = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '_' . $safeBase . ($ext ? '.' . $ext : '');
-        $destPath = $publicPagamentosDir . '/' . $newName;
+        $newName = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '_' . $safeBase . ($ext ? '.' . $ext : '');
+        $destPath = $uploadDir . '/' . $newName;
 
         if (!move_uploaded_file($f['tmp_name'], $destPath)) {
             throw new RuntimeException('Falha ao mover o arquivo enviado.');
         }
 
-        // Salva caminho relativo no banco
-        $comprovante_url = "./pagamentos/" . $newName;
+        // Caminho relativo para salvar no banco
+        $comprovante_url = './pagamentos/' . $newName;
     }
 
-    /* ============ Inserção no banco ============ */
-    $id_matriz      = resolve_id_matriz($idSelecionado); // 'principal_1'
+    /* ==================== Inserção no banco ==================== */
+    $id_matriz      = resolve_id_matriz($idSelecionado);
     $id_solicitante = $idSelecionado;
 
     $sql = "INSERT INTO solicitacoes_pagamento
@@ -146,11 +145,8 @@ try {
         ':comprovante_url' => $comprovante_url
     ]);
 
-    if (!$ok) {
-        throw new RuntimeException('Não foi possível salvar a solicitação.');
-    }
+    if (!$ok) throw new RuntimeException('Não foi possível salvar a solicitação.');
 
-    // Sucesso
     js_alert_and_redirect('Solicitação registrada com sucesso!', '../../../erp/matriz/novaSolicitacaoPagamento.php?id=' . urlencode($id_solicitante));
 
 } catch (Throwable $e) {
