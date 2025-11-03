@@ -253,47 +253,6 @@ function badgeStatus(string $s): string
       color: #6b7280;
     }
 
-    .col-num {
-      width: 60px;
-    }
-
-    .col-solicitante {
-      width: 160px;
-    }
-
-    .col-unidade {
-      width: 220px;
-    }
-
-    .col-itens {
-      width: 80px;
-      text-align: center;
-    }
-
-    .col-qtd {
-      width: 80px;
-      text-align: center;
-    }
-
-    .col-total {
-      width: 130px;
-      text-align: right;
-    }
-
-    .col-criado {
-      width: 140px;
-    }
-
-    .col-status {
-      width: 120px;
-      text-align: center;
-    }
-
-    .col-acoes {
-      width: 170px;
-      text-align: right;
-    }
-
     .label-franquia {
       display: inline-block;
       background: #e7f6ff;
