@@ -121,7 +121,8 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
           'label' => $label,
           'fornecedor' => $r['fornecedor'],
           'documento' => $r['documento'],
-          'unidade' => $r['unidade_nome']
+          'unidade' => $r['unidade_nome'],
+          'id_solicitante' => $r['id_solicitante'] // ADICIONADO para pesquisa
         ];
       }
     } catch (PDOException $e) {
@@ -155,7 +156,15 @@ if ($dtFim !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dtFim)) {
   $params[':vfim'] = $dtFim;
 }
 if ($q !== '') {
-  $where[] = "(sp.fornecedor LIKE :q OR sp.documento LIKE :q OR sp.descricao LIKE :q OR sp.id_solicitante LIKE :q OR u.nome LIKE :q)";
+  // CORREÇÃO: Buscar pelo ID da solicitação ou outros campos
+  $where[] = "(sp.ID = :q_id OR sp.fornecedor LIKE :q OR sp.documento LIKE :q OR sp.descricao LIKE :q OR sp.id_solicitante LIKE :q OR u.nome LIKE :q)";
+  
+  // Verificar se é um número (ID da solicitação)
+  if (is_numeric($q)) {
+    $params[':q_id'] = (int)$q;
+  } else {
+    $params[':q_id'] = 0; // Se não for número, não encontrará por ID
+  }
   $params[':q'] = "%$q%";
 }
 
@@ -522,7 +531,7 @@ function badgeStatus(string $s): string
                 <div class="filter-col autocomplete d-flex flex-column flex-grow-1 align-items-stretch" style="min-width:220px; gap:.35rem;">
                   <label class="form-label mb-0 small-muted" style="font-size:.8rem; white-space:nowrap;">BUSCAR</label>
                   <div style="position:relative; width:100%;">
-                    <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm w-100" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." style="min-height:30px;" />
+                    <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm w-100" placeholder="ID, Solicitante, Fornecedor, Documento..." style="min-height:30px;" />
                     <div id="autocomplete-list" class="autocomplete-list d-none" role="listbox" aria-label="Sugestões"></div>
                   </div>
                 </div>
@@ -575,19 +584,19 @@ function badgeStatus(string $s): string
                       $unit_name_attr = htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES);
                       $fornecedor_attr = htmlspecialchars($r['fornecedor'] ?: '—', ENT_QUOTES);
                       $documento_attr = htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES);
-
+                      
                       // CORREÇÃO: Tratar o comprovante URL
                       $comprovante_url = $r['comprovante_url'] ?? '';
                       $comprovante_display = '—';
                       $comprovante_link = '#';
-
+                      
                       if (!empty($comprovante_url)) {
-                        // Se já começa com ./, remove para construir o caminho correto
-                        if (strpos($comprovante_url, './') === 0) {
-                          $comprovante_url = substr($comprovante_url, 2);
-                        }
-                        $comprovante_link = "../../" . $comprovante_url;
-                        $comprovante_display = 'baixar';
+                          // Se já começa com ./, remove para construir o caminho correto
+                          if (strpos($comprovante_url, './') === 0) {
+                              $comprovante_url = substr($comprovante_url, 2);
+                          }
+                          $comprovante_link = "../../" . $comprovante_url;
+                          $comprovante_display = 'baixar';
                       }
                       ?>
                       <tr>
@@ -676,7 +685,7 @@ function badgeStatus(string $s): string
               <div id="det-descricao" class="border rounded p-2" style="min-height:60px; white-space:pre-wrap;"></div>
             </div>
             <div class="col-12">
-              <p><strong>Anexo:</strong>
+              <p><strong>Anexo:</strong> 
                 <span id="det-anexo-text">—</span>
                 <span id="det-anexo-link" class="ms-1"></span>
               </p>
@@ -799,8 +808,8 @@ function badgeStatus(string $s): string
           row.appendChild(right);
 
           row.addEventListener('click', () => {
-            // CORREÇÃO: Enviar o label completo para a pesquisa
-            inputQ.value = it.label;
+            // CORREÇÃO: Pesquisar pelo ID da solicitação
+            inputQ.value = it.id_solicitante; // Usa o ID do solicitante para pesquisa
             listBox.classList.add('d-none');
             document.getElementById('formFiltro').submit();
           });
@@ -857,7 +866,7 @@ function badgeStatus(string $s): string
       const modalDetalhes = document.getElementById('modalDetalhes');
       modalDetalhes.addEventListener('show.bs.modal', function(e) {
         const trigger = e.relatedTarget;
-
+        
         // CORREÇÃO: Preencher todos os campos da modal de detalhes
         document.getElementById('det-id').textContent = trigger.getAttribute('data-id') || '—';
         document.getElementById('det-unidade').textContent = trigger.getAttribute('data-unidade') || '—';
@@ -869,16 +878,16 @@ function badgeStatus(string $s): string
         document.getElementById('det-descricao').textContent = trigger.getAttribute('data-descricao') || '—';
         document.getElementById('det-status').textContent = trigger.getAttribute('data-status') || '—';
         document.getElementById('det-criado').textContent = trigger.getAttribute('data-criado') || '—';
-
+        
         // CORREÇÃO: Tratar o anexo corretamente
         const anexoText = trigger.getAttribute('data-anexo') || '—';
         const anexoLink = trigger.getAttribute('data-anexo-link') || '#';
-
+        
         document.getElementById('det-anexo-text').textContent = anexoText;
-
+        
         const anexoLinkSpan = document.getElementById('det-anexo-link');
         anexoLinkSpan.innerHTML = '';
-
+        
         if (anexoText !== '—' && anexoLink !== '#') {
           const link = document.createElement('a');
           link.href = anexoLink;
