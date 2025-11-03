@@ -447,7 +447,7 @@ function badgeStatus(string $s): string
               </div>
 
               <div class="filter-col d-flex align-items-end" style="gap:.5rem;">
-                <button class="btn btn-primary btn-sm" style="height:34px; padding-left:10px; padding-right:10px; margin-top: 34px;"><i class="bx bx-filter-alt"></i> Filtrar</button>
+                <button class="btn btn-primary btn-sm" style="height:34px; padding-left:10px; padding-right:10px; margin-top: 30px;"><i class="bx bx-filter-alt"></i> Filtrar</button>
                 <a class="btn btn-outline-secondary btn-sm" href="?id=<?= urlencode($idSelecionado) ?>" style="height:34px; padding-left:10px; padding-right:10px; margin-top: 34px;"><i class="bx bx-reset"></i> Limpar</a>
               </div>
               </form>
