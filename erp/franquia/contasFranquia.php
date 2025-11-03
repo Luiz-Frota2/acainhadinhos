@@ -415,7 +415,7 @@ function badgeStatus(string $s): string
             <!-- Filtros (labels acima dos inputs, layout responsivo) -->
             <div class="card mb-3">
             <div class="card-body">
-              <form class="toolbar d-flex flex-column flex-lg-row flex-wrap flex-lg-nowrap align-items-start gap-2" method="get" id="formFiltro">
+              <form class="toolbar d-flex flex-column flex-lg-row flex-wrap align-items-start gap-2" method="get" id="formFiltro">
               <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
 
               <div class="filter-col d-flex flex-column align-items-start" style="min-width:150px; gap:.35rem;">
@@ -447,8 +447,8 @@ function badgeStatus(string $s): string
               </div>
 
               <div class="filter-col d-flex align-items-end" style="gap:.5rem;">
-                <button class="btn btn-primary btn-sm" style="height:34px; padding-left:10px; padding-right:10px;"><i class="bx bx-filter-alt"></i> Filtrar</button>
-                <a class="btn btn-outline-secondary btn-sm" href="?id=<?= urlencode($idSelecionado) ?>" style="height:34px; padding-left:10px; padding-right:10px;"><i class="bx bx-reset"></i> Limpar</a>
+                <button class="btn btn-primary btn-sm" style="height:34px; padding-left:10px; padding-right:10px; margin-top: 34px;"><i class="bx bx-filter-alt"></i> Filtrar</button>
+                <a class="btn btn-outline-secondary btn-sm" href="?id=<?= urlencode($idSelecionado) ?>" style="height:34px; padding-left:10px; padding-right:10px; margin-top: 34px;"><i class="bx bx-reset"></i> Limpar</a>
               </div>
               </form>
 

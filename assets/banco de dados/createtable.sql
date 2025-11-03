@@ -652,6 +652,7 @@ CREATE TABLE solicitacoes_pagamento (
     fornecedor                              VARCHAR(150) NOT NULL,
     documento                               VARCHAR(80),
     descricao                               TEXT,
+    obs_reprovacao                          TEXT,
     vencimento                              DATE NOT NULL,
     valor                                   DECIMAL(12,2) NOT NULL DEFAULT 0.00,
     comprovante_url                         VARCHAR(300),
