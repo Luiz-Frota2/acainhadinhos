@@ -546,9 +546,12 @@ function badgeStatus(string $s): string
             </div>
           </div>
 
-        </div><!-- /container -->
-      </div><!-- /layout-page -->
-    </div><!-- /layout-container -->
+        </div>
+        <!-- /container -->
+      </div>
+      <!-- /layout-page -->
+    </div>
+    <!-- /layout-container -->
   </div>
 
   <!-- Modais (mesmos que antes) -->
