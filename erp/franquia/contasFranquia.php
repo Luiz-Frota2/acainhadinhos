@@ -343,11 +343,12 @@ function badgeStatus(string $s): string
 <body>
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
-      <!-- ASIDE (mantido igual) -->
+
+      <!-- ===== ASIDE ===== -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform: capitalize;">Açaínhadinhos</span>
+            <span class="app-brand-text demo menu-text fw-bolder ms-2" style="text-transform:capitalize;">Açaínhadinhos</span>
           </a>
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
             <i class="bx bx-chevron-left bx-sm align-middle"></i>
@@ -358,9 +359,89 @@ function badgeStatus(string $s): string
           <li class="menu-item"><a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-home-circle"></i>
               <div>Dashboard</div>
             </a></li>
-          <!-- resto do menu omitido para brevidade -->
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração Franquias</span></li>
+          <li class="menu-item ">
+            <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-building"></i>
+              <div>Franquias</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item"><a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Adicionadas</div>
+                </a></li>
+            </ul>
+          </li>
+          <li class="menu-item active open">
+            <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div>B2B - Matriz</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item active"><a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Pagamentos Solic.</div>
+                </a></li>
+              <li class="menu-item"><a href="#" class="menu-link">
+                  <div>Produtos Solicitados</div>
+                </a></li>
+              <li class="menu-item"><a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Produtos Enviados</div>
+                </a></li>
+              <li class="menu-item"><a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Transf. Pendentes</div>
+                </a></li>
+              <li class="menu-item"><a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Histórico Transf.</div>
+                </a></li>
+              <li class="menu-item"><a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Estoque Matriz</div>
+                </a></li>
+              <li class="menu-item"><a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Relatórios B2B</div>
+                </a></li>
+            </ul>
+          </li>
+          <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-link menu-toggle"><i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+              <div>Relatórios</div>
+            </a>
+            <ul class="menu-sub">
+              <li class="menu-item"><a href="./VendasFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Vendas por Franquias</div>
+                </a></li>
+              <li class="menu-item"><a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Mais Vendidos</div>
+                </a></li>
+              <li class="menu-item"><a href="./FinanceiroFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div>Financeiro</div>
+                </a></li>
+            </ul>
+          </li>
+          <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+          <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+              <div>RH</div>
+            </a></li>
+          <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i>
+              <div>Finanças</div>
+            </a></li>
+          <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i>
+              <div>PDV</div>
+            </a></li>
+          <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
+              <div>Empresa</div>
+            </a></li>
+          <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i>
+              <div>Estoque</div>
+            </a></li>
+          <li class="menu-item"><a href="../filial/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-building"></i>
+              <div>Filial</div>
+            </a></li>
+          <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+              <div>Usuários</div>
+            </a></li>
+          <li class="menu-item"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
+              <div>Suporte</div>
+            </a></li>
         </ul>
       </aside>
+      <!-- ===== /ASIDE ===== -->
 
       <div class="layout-page">
         <!-- Navbar -->
