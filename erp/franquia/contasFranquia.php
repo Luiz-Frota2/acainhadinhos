@@ -248,29 +248,7 @@ function badgeStatus(string $s): string
     }
 
     .table thead th {
-      white-space: nowrap;
-      font-size: .85rem;
       color: #6b7280;
-    }
-
-    .label-franquia {
-      display: inline-block;
-      background: #e7f6ff;
-      color: #0b67a8;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 12px;
-      font-size: 11px;
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-
-    .truncate {
-      max-width: 220px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: inline-block;
     }
 
     .status-badge {
