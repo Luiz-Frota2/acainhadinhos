@@ -575,6 +575,20 @@ function badgeStatus(string $s): string
                       $unit_name_attr = htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES);
                       $fornecedor_attr = htmlspecialchars($r['fornecedor'] ?: '—', ENT_QUOTES);
                       $documento_attr = htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES);
+
+                      // CORREÇÃO: Tratar o comprovante URL
+                      $comprovante_url = $r['comprovante_url'] ?? '';
+                      $comprovante_display = '—';
+                      $comprovante_link = '#';
+
+                      if (!empty($comprovante_url)) {
+                        // Se já começa com ./, remove para construir o caminho correto
+                        if (strpos($comprovante_url, './') === 0) {
+                          $comprovante_url = substr($comprovante_url, 2);
+                        }
+                        $comprovante_link = "../../" . $comprovante_url;
+                        $comprovante_display = 'baixar';
+                      }
                       ?>
                       <tr>
                         <td class="text-nowrap"><?= (int)$r['id_solicitacao'] ?></td>
@@ -584,8 +598,8 @@ function badgeStatus(string $s): string
                         <td class="text-end"><?= $valorFmt ?></td>
                         <td><?= $venc ?></td>
                         <td class="text-center">
-                          <?php if (!empty($r['comprovante_url'])): ?>
-                            <a href="<?= htmlspecialchars($r['comprovante_url'], ENT_QUOTES) ?>" target="_blank" class="text-primary">baixar</a>
+                          <?php if (!empty($comprovante_url)): ?>
+                            <a href="<?= htmlspecialchars($comprovante_link, ENT_QUOTES) ?>" target="_blank" class="text-primary"><?= $comprovante_display ?></a>
                           <?php else: ?>
                             <span class="text-muted">—</span>
                           <?php endif; ?>
@@ -603,7 +617,8 @@ function badgeStatus(string $s): string
                             data-descricao="<?= htmlspecialchars($r['descricao'] ?: '—', ENT_QUOTES) ?>"
                             data-valor="<?= htmlspecialchars($valorFmt, ENT_QUOTES) ?>"
                             data-venc="<?= $venc ?>"
-                            data-anexo="<?= htmlspecialchars($r['comprovante_url'] ?: '—', ENT_QUOTES) ?>"
+                            data-anexo="<?= !empty($comprovante_url) ? htmlspecialchars($comprovante_display, ENT_QUOTES) : '—' ?>"
+                            data-anexo-link="<?= !empty($comprovante_url) ? htmlspecialchars($comprovante_link, ENT_QUOTES) : '#' ?>"
                             data-status="<?= htmlspecialchars(strtoupper($r['status']), ENT_QUOTES) ?>"
                             data-criado="<?= $dataCriado ?>">
                             <i class="bx bx-detail"></i> Detalhes
@@ -635,7 +650,7 @@ function badgeStatus(string $s): string
     <!-- /layout-container -->
   </div>
 
-  <!-- Modais (mesmos que antes) -->
+  <!-- Modais -->
   <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
@@ -661,7 +676,10 @@ function badgeStatus(string $s): string
               <div id="det-descricao" class="border rounded p-2" style="min-height:60px; white-space:pre-wrap;"></div>
             </div>
             <div class="col-12">
-              <p><strong>Anexo:</strong> <span id="det-anexo">—</span></p>
+              <p><strong>Anexo:</strong>
+                <span id="det-anexo-text">—</span>
+                <span id="det-anexo-link" class="ms-1"></span>
+              </p>
             </div>
             <div class="col-12">
               <p class="text-muted">Criado em: <span id="det-criado">—</span></p>
@@ -724,6 +742,7 @@ function badgeStatus(string $s): string
 
   <script>
     (function() {
+      // --- Autocomplete ---
       const inputQ = document.getElementById('q');
       const listBox = document.getElementById('autocomplete-list');
 
@@ -780,8 +799,8 @@ function badgeStatus(string $s): string
           row.appendChild(right);
 
           row.addEventListener('click', () => {
-            const val = it.label.split('·')[0].trim();
-            inputQ.value = val;
+            // CORREÇÃO: Enviar o label completo para a pesquisa
+            inputQ.value = it.label;
             listBox.classList.add('d-none');
             document.getElementById('formFiltro').submit();
           });
@@ -834,7 +853,43 @@ function badgeStatus(string $s): string
         }
       });
 
-      // --- Modal Status behavior (show/hide textarea when "reprovado" selected) ---
+      // --- Modal Detalhes ---
+      const modalDetalhes = document.getElementById('modalDetalhes');
+      modalDetalhes.addEventListener('show.bs.modal', function(e) {
+        const trigger = e.relatedTarget;
+
+        // CORREÇÃO: Preencher todos os campos da modal de detalhes
+        document.getElementById('det-id').textContent = trigger.getAttribute('data-id') || '—';
+        document.getElementById('det-unidade').textContent = trigger.getAttribute('data-unidade') || '—';
+        document.getElementById('det-unidadeid').textContent = trigger.getAttribute('data-unidadeid') || '—';
+        document.getElementById('det-fornecedor').textContent = trigger.getAttribute('data-fornecedor') || '—';
+        document.getElementById('det-documento').textContent = trigger.getAttribute('data-documento') || '—';
+        document.getElementById('det-valor').textContent = trigger.getAttribute('data-valor') || '—';
+        document.getElementById('det-venc').textContent = trigger.getAttribute('data-venc') || '—';
+        document.getElementById('det-descricao').textContent = trigger.getAttribute('data-descricao') || '—';
+        document.getElementById('det-status').textContent = trigger.getAttribute('data-status') || '—';
+        document.getElementById('det-criado').textContent = trigger.getAttribute('data-criado') || '—';
+
+        // CORREÇÃO: Tratar o anexo corretamente
+        const anexoText = trigger.getAttribute('data-anexo') || '—';
+        const anexoLink = trigger.getAttribute('data-anexo-link') || '#';
+
+        document.getElementById('det-anexo-text').textContent = anexoText;
+
+        const anexoLinkSpan = document.getElementById('det-anexo-link');
+        anexoLinkSpan.innerHTML = '';
+
+        if (anexoText !== '—' && anexoLink !== '#') {
+          const link = document.createElement('a');
+          link.href = anexoLink;
+          link.target = '_blank';
+          link.className = 'text-primary';
+          link.textContent = '(baixar)';
+          anexoLinkSpan.appendChild(link);
+        }
+      });
+
+      // --- Modal Status ---
       const modalStatusEl = document.getElementById('modalStatus');
       const stId = document.getElementById('st-id');
       const stInfo = document.getElementById('st-info');
@@ -843,7 +898,6 @@ function badgeStatus(string $s): string
       const stObs = document.getElementById('st-obs');
       const formStatus = document.getElementById('formStatus');
 
-      // When modal is shown, populate fields from triggering button and reset inputs
       modalStatusEl.addEventListener('show.bs.modal', function(e) {
         const trigger = e.relatedTarget;
         if (!trigger) return;
@@ -860,7 +914,6 @@ function badgeStatus(string $s): string
         stObsWrap.classList.add('d-none');
       });
 
-      // Toggle textarea visibility and required attribute based on selection
       stAcao.addEventListener('change', function() {
         if (this.value === 'reprovado') {
           stObsWrap.classList.remove('d-none');
@@ -872,7 +925,6 @@ function badgeStatus(string $s): string
         }
       });
 
-      // Ensure on modal hide we clean up
       modalStatusEl.addEventListener('hidden.bs.modal', function() {
         stAcao.value = '';
         stObs.value = '';
@@ -882,7 +934,6 @@ function badgeStatus(string $s): string
         stId.value = '';
       });
 
-      // Extra guard on submit: prevent submit if reprovar and no comment
       formStatus.addEventListener('submit', function(evt) {
         if (stAcao.value === 'reprovado' && stObs.value.trim() === '') {
           evt.preventDefault();
