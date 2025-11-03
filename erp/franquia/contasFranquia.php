@@ -449,7 +449,7 @@ function badgeStatus(string $s): string
                           <?php endif; ?>
                         </td>
                         <td class="text-center"><?= badgeStatus($r['status']) ?></td>
-                        <td class="text-end">
+                        <td class="text-center">
                           <button
                             class="btn btn-sm btn-outline-secondary btn-detalhes"
                             data-bs-toggle="modal" data-bs-target="#modalDetalhes"
