@@ -116,7 +116,13 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
       $res = $stm->fetchAll(PDO::FETCH_ASSOC);
       foreach ($res as $r) {
         $label = trim(sprintf("%s · %s · %s · %s", $r['id_solicitante'], $r['unidade_nome'] ?: '—', $r['fornecedor'] ?: '—', $r['documento'] ?: '—'));
-        $out[] = ['id' => (int)$r['id'], 'label' => $label, 'fornecedor' => $r['fornecedor'], 'documento' => $r['documento'], 'unidade' => $r['unidade_nome']];
+        $out[] = [
+          'id' => (int)$r['id'],
+          'label' => $label,
+          'fornecedor' => $r['fornecedor'],
+          'documento' => $r['documento'],
+          'unidade' => $r['unidade_nome']
+        ];
       }
     } catch (PDOException $e) {
       $out = [];
@@ -213,118 +219,123 @@ function badgeStatus(string $s): string
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
   <script src="../../assets/vendor/js/helpers.js"></script>
   <script src="../../assets/js/config.js"></script>
+
   <style>
-    /* ===== Layout geral ===== */
-    body {
-      background-color: #f9fafb;
-      font-family: "Inter", sans-serif;
+    /* ======= Your requested base styles (integrated) ======= */
+    .table thead th {
+      white-space: nowrap
     }
 
-    .card {
-      border-radius: 12px;
+    .status-badge {
+      font-size: .78rem
     }
 
-    /* ===== Filtros ===== */
+    .pagination .page-link {
+      min-width: 38px;
+      text-align: center
+    }
+
+    .small-muted {
+      font-size: .8rem;
+      color: #8b98a8
+    }
+
+    .autocomplete {
+      position: relative
+    }
+
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      max-height: 260px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid #e6e9ef;
+      border-radius: .5rem;
+      box-shadow: 0 10px 24px rgba(24, 28, 50, .12);
+      z-index: 2060
+    }
+
+    .autocomplete-item {
+      padding: .5rem .75rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      gap: .75rem
+    }
+
+    .autocomplete-item:hover,
+    .autocomplete-item.active {
+      background: #f5f7fb
+    }
+
+    .autocomplete-tag {
+      font-size: .75rem;
+      color: #6b7280
+    }
+
+    @media (max-width: 991.98px) {
+      .filter-col {
+        width: 100%
+      }
+    }
+
+    .sticky-actions {
+      white-space: nowrap
+    }
+
+    /* ===== Additional styles to match the rest of the page (kept minimal) ===== */
     .toolbar {
-      margin-bottom: 0 !important;
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      align-items: end;
     }
 
-    .toolbar .form-label {
-      font-size: 0.8rem;
-    }
-
-    .toolbar .form-control,
-    .toolbar .form-select {
+    .toolbar .form-select,
+    .toolbar .form-control {
+      min-width: 180px;
       border-radius: 8px;
-      border: 1px solid #d1d5db;
     }
 
     .toolbar .btn {
-      height: 36px;
-      font-size: 0.85rem;
-      font-weight: 500;
+      height: 38px;
       border-radius: 8px;
     }
 
-    .toolbar .btn i {
-      font-size: 1rem;
-      vertical-align: middle;
-      margin-right: 3px;
+    .muted {
+      color: #6b7280;
+      font-size: 0.95rem;
+    }
+
+    .card-header {
+      font-weight: 600;
+      background: transparent;
+      border-bottom: 1px solid #eef2f6;
+    }
+
+    .small-muted {
+      font-size: 12px;
+      color: #9aa6b2;
     }
 
     .search-wrap {
       position: relative;
     }
 
-    .suggestions {
-      position: absolute;
-      background: #fff;
-      border: 1px solid #e6ebf3;
-      max-height: 240px;
-      overflow: auto;
-      z-index: 2000;
-      width: 100%;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-      border-radius: 6px;
+    /* small refinements for the suggestions items to include an extra tag on right */
+    .autocomplete-item .left {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
     }
 
-    .suggestions .item {
-      padding: 8px 10px;
-      cursor: pointer;
-      border-bottom: 1px solid #f1f4f7;
-      font-size: 14px;
-    }
-
-    .suggestions .item:hover {
-      background: #f6fbff;
-    }
-
-    @media (max-width: 768px) {
-
-      .toolbar .col-12,
-      .toolbar .col-6 {
-        flex: 0 0 100%;
-        max-width: 100%;
-      }
-
-      .toolbar .btn {
-        width: 100%;
-      }
-    }
-
-    /* ===== Tabela ===== */
-    table thead {
-      background: #f1f5f9;
-    }
-
-    table th {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: #374151;
-    }
-
-    table td {
-      font-size: 0.85rem;
-      vertical-align: middle;
-    }
-
-    .badge {
-      font-size: 0.75rem;
-    }
-
-    .status-pendente {
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .status-aprovado {
-      background: #d1e7dd;
-      color: #0f5132;
-    }
-
-    .status-reprovado {
-      background: #f8d7da;
-      color: #842029;
+    .autocomplete-item .right {
+      flex: 0 0 auto;
+      text-align: right;
     }
   </style>
 </head>
@@ -401,15 +412,15 @@ function badgeStatus(string $s): string
           </h4>
           <p class="small-muted mb-3">Pedidos de pagamento enviados por <strong>Franquias</strong></p>
 
-          <!-- Filtros (igual layout Produtos Solicitados) -->
+          <!-- Filtros (igual layout Produtos Solicitados, usando o CSS que você pediu) -->
           <div class="card mb-3">
             <div class="card-body">
-              <form class="toolbar" method="get" id="formFiltro">
+              <form class="toolbar row gx-3 gy-2 align-items-end" method="get" id="formFiltro">
                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado, ENT_QUOTES) ?>">
 
-                <div>
-                  <label class="form-label mb-1">Status</label>
-                  <select name="status" class="form-select">
+                <div class="filter-col col-12 col-lg-2">
+                  <label class="form-label mb-1">STATUS</label>
+                  <select name="status" class="form-select form-select-sm">
                     <option value="">Todos</option>
                     <option value="pendente" <?= $status === 'pendente' ? 'selected' : ''; ?>>Pendente</option>
                     <option value="aprovado" <?= $status === 'aprovado' ? 'selected' : ''; ?>>Aprovado</option>
@@ -417,25 +428,25 @@ function badgeStatus(string $s): string
                   </select>
                 </div>
 
-                <div>
-                  <label class="form-label mb-1">De</label>
-                  <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control">
+                <div class="filter-col col-6 col-lg-2">
+                  <label class="form-label mb-1">DE</label>
+                  <input type="date" name="venc_ini" value="<?= htmlspecialchars($dtIni, ENT_QUOTES) ?>" class="form-control form-control-sm">
                 </div>
 
-                <div>
-                  <label class="form-label mb-1">Até</label>
-                  <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control">
+                <div class="filter-col col-6 col-lg-2">
+                  <label class="form-label mb-1">ATÉ</label>
+                  <input type="date" name="venc_fim" value="<?= htmlspecialchars($dtFim, ENT_QUOTES) ?>" class="form-control form-control-sm">
                 </div>
 
-                <div style="min-width:420px;" class="search-wrap">
-                  <label class="form-label mb-1">Buscar</label>
-                  <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." />
-                  <div id="suggestions" class="suggestions d-none" aria-hidden="true"></div>
+                <div class="filter-col col-12 col-lg-5 autocomplete">
+                  <label class="form-label mb-1">BUSCAR</label>
+                  <input type="text" id="q" name="q" autocomplete="off" value="<?= htmlspecialchars($q, ENT_QUOTES) ?>" class="form-control form-control-sm" placeholder="Solicitante (ex.: unidade_1), fornecedor, doc..." />
+                  <div id="autocomplete-list" class="autocomplete-list d-none" role="listbox" aria-label="Sugestões"></div>
                 </div>
 
-                <div>
-                  <button class="btn btn-primary"><i class="bx bx-filter-alt"></i> Filtrar</button>
-                  <a class="btn btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-reset"></i> Limpar</a>
+                <div class="filter-col col-12 col-lg-1 d-flex gap-2">
+                  <button class="btn btn-primary btn-sm w-100"><i class="bx bx-filter-alt"></i> Filtrar</button>
+                  <a class="btn btn-outline-secondary btn-sm w-100" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-reset"></i> Limpar</a>
                 </div>
               </form>
 
@@ -497,7 +508,7 @@ function badgeStatus(string $s): string
                           <?php endif; ?>
                         </td>
                         <td class=""><?= badgeStatus($r['status']) ?></td>
-                        <td class="">
+                        <td class="sticky-actions">
                           <button
                             class="btn btn-sm btn-outline-secondary btn-detalhes"
                             data-bs-toggle="modal" data-bs-target="#modalDetalhes"
@@ -679,15 +690,15 @@ function badgeStatus(string $s): string
          Autocomplete (partial search)
          --------------------------- */
       const inputQ = document.getElementById('q');
-      const suggestionsBox = document.getElementById('suggestions');
+      const listBox = document.getElementById('autocomplete-list');
 
       let debounceTimer = null;
       inputQ.addEventListener('input', function() {
         const v = this.value.trim();
         if (debounceTimer) clearTimeout(debounceTimer);
         if (v.length === 0) {
-          suggestionsBox.classList.add('d-none');
-          suggestionsBox.innerHTML = '';
+          listBox.classList.add('d-none');
+          listBox.innerHTML = '';
           return;
         }
         debounceTimer = setTimeout(() => fetchSuggestions(v), 250);
@@ -697,7 +708,7 @@ function badgeStatus(string $s): string
         const url = new URL(window.location.href);
         url.searchParams.set('ajax_search', '1');
         url.searchParams.set('term', term);
-        // keep id param
+        // keep id param already in URL
         fetch(url.toString(), {
             credentials: 'same-origin'
           })
@@ -706,44 +717,91 @@ function badgeStatus(string $s): string
             renderSuggestions(data);
           })
           .catch(e => {
-            suggestionsBox.classList.add('d-none');
-            suggestionsBox.innerHTML = '';
+            listBox.classList.add('d-none');
+            listBox.innerHTML = '';
             console.error(e);
           });
       }
 
       function renderSuggestions(list) {
-        suggestionsBox.innerHTML = '';
+        listBox.innerHTML = '';
         if (!list || !list.length) {
-          suggestionsBox.classList.add('d-none');
+          listBox.classList.add('d-none');
           return;
         }
         list.forEach(it => {
-          const div = document.createElement('div');
-          div.className = 'item';
-          div.tabIndex = 0;
-          div.textContent = it.label;
-          div.dataset.value = it.label;
-          div.addEventListener('click', () => {
-            // when user clicks suggestion we fill the search field with the solicitante raw (first token) to match layout behaviour
-            const val = it.label.split('·')[0].trim(); // e.g. "unidade_1" or "#5"
+          const row = document.createElement('div');
+          row.className = 'autocomplete-item';
+          row.tabIndex = 0;
+
+          const left = document.createElement('div');
+          left.className = 'left';
+          left.textContent = it.label;
+
+          const right = document.createElement('div');
+          right.className = 'right autocomplete-tag';
+          // show unidade as tag if available
+          right.textContent = it.unidade ? it.unidade : '';
+
+          row.appendChild(left);
+          row.appendChild(right);
+
+          row.addEventListener('click', () => {
+            // Behavior: fill search input with solicitante (first token before '·')
+            const val = it.label.split('·')[0].trim();
             inputQ.value = val;
-            suggestionsBox.classList.add('d-none');
+            listBox.classList.add('d-none');
             // auto-submit form to filter results immediately
             document.getElementById('formFiltro').submit();
           });
-          div.addEventListener('keydown', (ev) => {
-            if (ev.key === 'Enter') div.click();
+
+          row.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') row.click();
           });
-          suggestionsBox.appendChild(div);
+
+          listBox.appendChild(row);
         });
-        suggestionsBox.classList.remove('d-none');
+        listBox.classList.remove('d-none');
       }
 
       // close suggestions when clicking outside
       document.addEventListener('click', (e) => {
-        if (!e.target.closest('.search-wrap')) {
-          suggestionsBox.classList.add('d-none');
+        if (!e.target.closest('.autocomplete')) {
+          listBox.classList.add('d-none');
+        }
+      });
+
+      // Allow keyboard navigation inside autocomplete
+      inputQ.addEventListener('keydown', function(e) {
+        const items = Array.from(listBox.querySelectorAll('.autocomplete-item'));
+        if (!items.length || listBox.classList.contains('d-none')) return;
+        const active = listBox.querySelector('.autocomplete-item.active');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (!active) {
+            items[0].classList.add('active');
+            items[0].focus();
+          } else {
+            const idx = items.indexOf(active);
+            active.classList.remove('active');
+            const next = items[idx + 1] || items[0];
+            next.classList.add('active');
+            next.focus();
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (!active) {
+            items[items.length - 1].classList.add('active');
+            items[items.length - 1].focus();
+          } else {
+            const idx = items.indexOf(active);
+            active.classList.remove('active');
+            const prev = items[idx - 1] || items[items.length - 1];
+            prev.classList.add('active');
+            prev.focus();
+          }
+        } else if (e.key === 'Escape') {
+          listBox.classList.add('d-none');
         }
       });
 
