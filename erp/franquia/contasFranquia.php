@@ -426,7 +426,6 @@ function badgeStatus(string $s): string
                         <td><?= (int)$r['ID'] ?></td>
                         <td>
                           <strong><?= htmlspecialchars($r['unidade_nome'] ?: '—', ENT_QUOTES) ?></strong>
-                          <div class="text-muted small"><?= htmlspecialchars($r['id_solicitante'], ENT_QUOTES) ?></div>
                         </td>
                         <td class="truncate" title="<?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?>"><?= htmlspecialchars($r['fornecedor'], ENT_QUOTES) ?></td>
                         <td class="truncate" title="<?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?>"><?= htmlspecialchars($r['documento'] ?: '—', ENT_QUOTES) ?></td>
