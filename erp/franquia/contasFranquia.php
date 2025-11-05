@@ -595,7 +595,7 @@ function badgeStatus(string $s): string
                           if (strpos($comprovante_url, './') === 0) {
                               $comprovante_url = substr($comprovante_url, 2);
                           }
-                          $comprovante_link = "../../" . $comprovante_url;
+                          $comprovante_link = "../../assets/php/matriz/" . $comprovante_url;
                           $comprovante_display = 'baixar';
                       }
                       ?>
