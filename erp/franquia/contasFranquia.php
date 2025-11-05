@@ -112,7 +112,7 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
     try {
       $stm = $pdo->prepare($sqlA);
       $like = "%{$term}%";
-      $stm->execute([':id_matriz' => $idSelecionado, ':tipo' => 'Filial', ':t' => $like]);
+      $stm->execute([':id_matriz' => $idSelecionado, ':tipo' => 'Franquia', ':t' => $like]);
       $res = $stm->fetchAll(PDO::FETCH_ASSOC);
       foreach ($res as $r) {
         $label = trim(sprintf("%s · %s · %s · %s", $r['id_solicitante'], $r['unidade_nome'] ?: '—', $r['fornecedor'] ?: '—', $r['documento'] ?: '—'));
@@ -140,7 +140,7 @@ $dtIni  = $_GET['venc_ini'] ?? '';             // YYYY-MM-DD
 $dtFim  = $_GET['venc_fim'] ?? '';             // YYYY-MM-DD
 $q      = trim($_GET['q']   ?? '');            // texto livre
 
-$params = [':id_matriz' => $idSelecionado, ':tipo' => 'Filial'];
+$params = [':id_matriz' => $idSelecionado, ':tipo' => 'Franquia'];
 $where  = ["sp.id_matriz = :id_matriz", "u.tipo = :tipo"]; // <-- SOMENTE FRANQUIA
 
 if ($status !== '' && in_array($status, ['pendente', 'aprovado', 'reprovado'], true)) {
