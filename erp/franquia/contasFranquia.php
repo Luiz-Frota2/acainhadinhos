@@ -140,7 +140,7 @@ $dtIni  = $_GET['venc_ini'] ?? '';             // YYYY-MM-DD
 $dtFim  = $_GET['venc_fim'] ?? '';             // YYYY-MM-DD
 $q      = trim($_GET['q']   ?? '');            // texto livre
 
-$params = [':id_matriz' => $idSelecionado, ':tipo' => 'Franquia'];
+$params = [':id_matriz' => $idSelecionado, ':tipo' => 'Filial'];
 $where  = ["sp.id_matriz = :id_matriz", "u.tipo = :tipo"]; // <-- SOMENTE FRANQUIA
 
 if ($status !== '' && in_array($status, ['pendente', 'aprovado', 'reprovado'], true)) {
