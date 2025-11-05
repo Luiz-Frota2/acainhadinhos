@@ -112,7 +112,7 @@ if (isset($_GET['ajax_search']) && $_GET['ajax_search'] == '1') {
     try {
       $stm = $pdo->prepare($sqlA);
       $like = "%{$term}%";
-      $stm->execute([':id_matriz' => $idSelecionado, ':tipo' => 'Franquia', ':t' => $like]);
+      $stm->execute([':id_matriz' => $idSelecionado, ':tipo' => 'Filial', ':t' => $like]);
       $res = $stm->fetchAll(PDO::FETCH_ASSOC);
       foreach ($res as $r) {
         $label = trim(sprintf("%s · %s · %s · %s", $r['id_solicitante'], $r['unidade_nome'] ?: '—', $r['fornecedor'] ?: '—', $r['documento'] ?: '—'));
