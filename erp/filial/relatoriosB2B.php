@@ -1231,48 +1231,114 @@ if (!empty($filiais)) {
 <!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                                   -->
 <!-- ======================================================================== -->
 
+<?php
+// ========================================================================
+// 1. BUSCAR IDS DAS FILIAIS
+// ========================================================================
+$sqlFiliais = $pdo->query("SELECT id FROM unidades WHERE tipo = 'Filial'");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
+
+$pendQtd = $pendValor = 0;
+$aprovQtd = $aprovValor = 0;
+$reprovQtd = $reprovValor = 0;
+
+if (!empty($filiais)) {
+
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
+
+    // ========================================================================
+    // 2. PAGAMENTOS SOLICITADOS (pendente)
+    // ========================================================================
+    $sqlPend = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'pendente'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlPend->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $r = $sqlPend->fetch(PDO::FETCH_ASSOC);
+
+    $pendQtd = (int)$r["qtd"];
+    $pendValor = (float)($r["total"] ?? 0);
+
+    // ========================================================================
+    // 3. PAGAMENTOS APROVADOS (aprovado)
+    // ========================================================================
+    $sqlAprov = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'aprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlAprov->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $r = $sqlAprov->fetch(PDO::FETCH_ASSOC);
+
+    $aprovQtd = (int)$r["qtd"];
+    $aprovValor = (float)($r["total"] ?? 0);
+
+    // ========================================================================
+    // 4. PAGAMENTOS REPROVADOS (reprovado)
+    // ========================================================================
+    $sqlReprov = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'reprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlReprov->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $r = $sqlReprov->fetch(PDO::FETCH_ASSOC);
+
+    $reprovQtd = (int)$r["qtd"];
+    $reprovValor = (float)($r["total"] ?? 0);
+}
+?>
+
+
 <div class="card mb-3">
     <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
     <div class="table-responsive">
         <table class="table table-hover">
             <thead>
-            <tr>
-                <th>Métrica</th>
-                <th>Quantidade</th>
-                <th>Valor (R$)</th>
-                <th>Status Principal</th>
-            </tr>
+                <tr>
+                    <th>Métrica</th>
+                    <th>Quantidade</th>
+                    <th>Valor (R$)</th>
+                    <th>Status</th>
+                </tr>
             </thead>
             <tbody>
+                <!-- Solicitados -->
+                <tr>
+                    <td>Pagamentos Solicitados</td>
+                    <td><?= $pendQtd ?></td>
+                    <td>R$ <?= number_format($pendValor, 2, ',', '.') ?></td>
+                    <td>Pendente</td>
+                </tr>
 
-            <!-- Pagamentos Solicitados -->
-            <tr>
-                <td>Pagamentos Solicitados</td>
-                <td><?= $pagSolicitadosQtd ?></td>
-                <td>R$ <?= number_format($pagSolicitadosValor, 2, ',', '.') ?></td>
-                <td>Pendente / Análise</td>
-            </tr>
+                <!-- Aprovados -->
+                <tr>
+                    <td>Pagamentos Aprovados</td>
+                    <td><?= $aprovQtd ?></td>
+                    <td>R$ <?= number_format($aprovValor, 2, ',', '.') ?></td>
+                    <td>Aprovado</td>
+                </tr>
 
-            <!-- Remessas Enviadas -->
-            <tr>
-                <td>Remessas Enviadas</td>
-                <td><?= $remessasEnviadas ?></td>
-                <td>—</td>
-                <td>Aprovado</td>
-            </tr>
-
-            <!-- Remessas Concluídas -->
-            <tr>
-                <td>Remessas Concluídas</td>
-                <td><?= $remessasConcluidas ?></td>
-                <td>—</td>
-                <td>Reprovado</td>
-            </tr>
-
+                <!-- Reprovados -->
+                <tr>
+                    <td>Pagamentos Reprovados</td>
+                    <td><?= $reprovQtd ?></td>
+                    <td>R$ <?= number_format($reprovValor, 2, ',', '.') ?></td>
+                    <td>Reprovado</td>
+                </tr>
             </tbody>
         </table>
     </div>
 </div>
+
 
                 </div>
                 <!-- / Content -->
