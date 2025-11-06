@@ -1041,61 +1041,120 @@ foreach ($listaFiliais as $i => $f) {
         </table>
     </div>
 </div>
+<?php
+// ==================================================================
+// 1. BUSCAR IDS DE TODAS AS FILIAIS
+// ==================================================================
+$sqlFiliais = $pdo->query("
+    SELECT id 
+    FROM unidades 
+    WHERE tipo = 'Filial'
+");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
 
-                    <!-- Produtos Mais Solicitados -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Produtos Mais Solicitados</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>codigo do Produto</th>
-                                        <th>Produto</th>
-                                        <th>Quantidade</th>
-                                        <th>Pedidos</th>
-                                        <th>Participação</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>1.980</td>
-                                        <td>96</td>
-                                        <td>36%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>1.210</td>
-                                        <td>64</td>
-                                        <td>22%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td>1.050</td>
-                                        <td>51</td>
-                                        <td>19%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>COLH-PP</td>
-                                        <td>Colher PP</td>
-                                        <td>890</td>
-                                        <td>40</td>
-                                        <td>16%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>GRAN-200</td>
-                                        <td>Granola 200g</td>
-                                        <td>300</td>
-                                        <td>18</td>
-                                        <td>7%</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+if (!empty($filiais)) {
+
+    // Converte para "unidade_X"
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
+
+    // ==================================================================
+    // 2. PEGAR TODAS AS SOLICITAÇÕES B2B REALIZADAS POR FILIAIS
+    // ==================================================================
+    $sqlSolic = $pdo->prepare("
+        SELECT id
+        FROM solicitacoes_b2b
+        WHERE id_solicitante IN ($inFiliais)
+        AND created_at BETWEEN ? AND ?
+    ");
+
+    $sqlSolic->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $solicitacoesIds = $sqlSolic->fetchAll(PDO::FETCH_COLUMN);
+
+    $produtosLista = [];
+
+    if (!empty($solicitacoesIds)) {
+
+        // ==================================================================
+        // 3. PEGAR PRODUTOS MAIS SOLICITADOS (AGRUPADOS)
+        // ==================================================================
+        $inSolic = implode(",", array_fill(0, count($solicitacoesIds), "?"));
+
+        $sqlItens = $pdo->prepare("
+            SELECT 
+                codigo_produto,
+                nome_produto,
+                SUM(quantidade) AS total_quantidade,
+                COUNT(DISTINCT solicitacao_id) AS total_pedidos
+            FROM solicitacoes_b2b_itens
+            WHERE solicitacao_id IN ($inSolic)
+            GROUP BY codigo_produto, nome_produto
+            ORDER BY total_quantidade DESC
+        ");
+
+        $sqlItens->execute($solicitacoesIds);
+        $produtosLista = $sqlItens->fetchAll(PDO::FETCH_ASSOC);
+
+        // ==================================================================
+        // 4. CALCULAR PARTICIPAÇÃO
+        // ==================================================================
+        $totalGeral = array_sum(array_column($produtosLista, "total_quantidade"));
+
+        foreach ($produtosLista as $i => $prod) {
+            $perc = $totalGeral > 0 
+                ? ($prod["total_quantidade"] / $totalGeral) * 100 
+                : 0;
+
+            $produtosLista[$i]["perc"] = $perc;
+        }
+    }
+}
+?>
+
+
+<!-- ================================================================== -->
+<!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS) -->
+<!-- ================================================================== -->
+
+<div class="card mb-3">
+    <h5 class="card-header">Produtos Mais Solicitados</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Pedidos</th>
+                <th>Participação</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <?php if (!empty($produtosLista)): ?>
+                <?php foreach ($produtosLista as $p): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($p["codigo_produto"]) ?></td>
+                        <td><?= htmlspecialchars($p["nome_produto"]) ?></td>
+
+                        <td><?= (int)$p["total_quantidade"] ?></td>
+
+                        <td><?= (int)$p["total_pedidos"] ?></td>
+
+                        <td><?= number_format($p["perc"], 1, ',', '.') ?>%</td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr>
+                    <td colspan="5" class="text-center">Nenhum produto solicitado por filiais no período.</td>
+                </tr>
+            <?php endif; ?>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
 
                     <!-- SLA de Atendimento de Pedidos -->
                     <div class="card mb-3">
