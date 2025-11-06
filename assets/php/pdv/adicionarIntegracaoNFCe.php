@@ -53,16 +53,16 @@ function codigoUfPorUf(string $uf): ?int
 
 try {
     // Recebe os dados do formulário
-    $empresa_id          = $_POST['empresa_id'];
+    $empresa_id          = $_POST['empresa_id'] ?? null;
     $cnpj                = preg_replace('/\D+/', '', $_POST['cnpj'] ?? '');
     $razao_social        = trim($_POST['razao_social'] ?? '');
     $nome_fantasia       = trim($_POST['nome_fantasia'] ?? '');
     $inscricao_estadual  = trim($_POST['inscricao_estadual'] ?? '');
-    $inscricao_municipal = $_POST['inscricao_municipal'] ?? null;
+    $inscricao_municipal = trim($_POST['inscricao_municipal'] ?? null);
     $cep                 = preg_replace('/\D+/', '', $_POST['cep'] ?? '');
     $logradouro          = trim($_POST['logradouro'] ?? '');
     $numero_endereco     = trim($_POST['numero_endereco'] ?? '');
-    $complemento         = $_POST['complemento'] ?? null;
+    $complemento         = trim($_POST['complemento'] ?? null);
     $bairro              = trim($_POST['bairro'] ?? '');
     $cidade              = trim($_POST['cidade'] ?? '');
     $uf                  = trim($_POST['uf'] ?? '');
@@ -79,8 +79,8 @@ try {
         ? (int)$_POST['ultimo_numero_nfce'] : 1;
     if ($ultimo_numero_nfce < 0) $ultimo_numero_nfce = 0;
 
-    $csc                 = $_POST['csc'] ?? null;
-    $csc_id              = $_POST['csc_id'] ?? null;
+    $csc                 = trim($_POST['csc'] ?? null);
+    $csc_id              = trim($_POST['csc_id'] ?? null);
 
     $tipo_emissao        = (int)($_POST['tipo_emissao'] ?? 1);
     $finalidade          = (int)($_POST['finalidade'] ?? 1);
@@ -180,10 +180,14 @@ try {
         }
     }
 
-    // Verifica se já existe integração para esta empresa
-    $stmt = $pdo->prepare("SELECT id, certificado_digital FROM integracao_nfce WHERE empresa_id = ?");
-    $stmt->execute([$empresa_id]);
+    // VERIFICA EXISTÊNCIA
+    $stmt = $pdo->prepare("SELECT id, certificado_digital FROM integracao_nfce WHERE empresa_id = :empresa_id");
+    $stmt->execute([':empresa_id' => $empresa_id]);
     $existe = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Definir atributos para evitar surpresas (opcional)
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false); // opcional
 
     if ($existe) {
         // Se enviou novo certificado, apaga o antigo
@@ -192,72 +196,75 @@ try {
             if (is_file($old_file)) @unlink($old_file);
         }
 
-        // ATENÇÃO: usamos NULLIF(?, '') para tratar string vazia como NULL;
-        // daí COALESCE mantém o valor atual se vier vazio.
+        // UPDATE com placeholders nomeados
         $sql = "UPDATE integracao_nfce SET 
-            cnpj = ?, 
-            razao_social = ?, 
-            nome_fantasia = ?, 
-            inscricao_estadual = ?, 
-            inscricao_municipal = ?,
-            cep = ?, 
-            logradouro = ?, 
-            numero_endereco = ?, 
-            complemento = ?, 
-            bairro = ?, 
-            cidade = ?, 
-            uf = ?,
-            codigo_uf = ?,
-            codigo_municipio = ?,
-            telefone = ?,
-            certificado_digital = COALESCE(?, certificado_digital), 
-            senha_certificado   = COALESCE(NULLIF(?, ''), senha_certificado), 
-            ambiente = ?, 
-            regime_tributario = ?,
-            serie_nfce = ?,
-            ultimo_numero_nfce = ?,
-            csc = ?, 
-            csc_id = ?,
-            tipo_emissao = ?,
-            finalidade = ?,
-            ind_pres = ?,
-            tipo_impressao = ?,
+            cnpj = :cnpj, 
+            razao_social = :razao_social, 
+            nome_fantasia = :nome_fantasia, 
+            inscricao_estadual = :inscricao_estadual, 
+            inscricao_municipal = :inscricao_municipal,
+            cep = :cep, 
+            logradouro = :logradouro, 
+            numero_endereco = :numero_endereco, 
+            complemento = :complemento, 
+            bairro = :bairro, 
+            cidade = :cidade, 
+            uf = :uf,
+            codigo_uf = :codigo_uf,
+            codigo_municipio = :codigo_municipio,
+            telefone = :telefone,
+            certificado_digital = COALESCE(:certificado_digital, certificado_digital), 
+            senha_certificado   = COALESCE(NULLIF(:senha_certificado, ''), senha_certificado), 
+            ambiente = :ambiente, 
+            regime_tributario = :regime_tributario,
+            serie_nfce = :serie_nfce,
+            ultimo_numero_nfce = :ultimo_numero_nfce,
+            csc = :csc, 
+            csc_id = :csc_id,
+            tipo_emissao = :tipo_emissao,
+            finalidade = :finalidade,
+            ind_pres = :ind_pres,
+            tipo_impressao = :tipo_impressao,
             atualizado_em = NOW() 
-            WHERE empresa_id = ?";
+            WHERE empresa_id = :empresa_id";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            $cnpj,
-            $razao_social,
-            $nome_fantasia,
-            $inscricao_estadual,
-            $inscricao_municipal,
-            $cep,
-            $logradouro,
-            $numero_endereco,
-            $complemento,
-            $bairro,
-            $cidade,
-            $uf,
-            $codigo_uf,
-            $codigo_municipio,
-            $telefone,
-            $certificado_nome,                 // se null -> mantém
-            $senha_certificado_informada,      // se '' -> mantém (graças ao NULLIF)
-            $ambiente,
-            $regime_tributario,
-            $serie_nfce,
-            $ultimo_numero_nfce,
-            $csc,
-            $csc_id,
-            $tipo_emissao,
-            $finalidade,
-            $ind_pres,
-            $tipo_impressao,
-            $empresa_id
-        ]);
+
+        // Monta array nomeado — atenção aos NULLs
+        $params = [
+            ':cnpj' => $cnpj,
+            ':razao_social' => $razao_social,
+            ':nome_fantasia' => $nome_fantasia,
+            ':inscricao_estadual' => $inscricao_estadual,
+            ':inscricao_municipal' => $inscricao_municipal !== '' ? $inscricao_municipal : null,
+            ':cep' => $cep,
+            ':logradouro' => $logradouro,
+            ':numero_endereco' => $numero_endereco,
+            ':complemento' => $complemento !== '' ? $complemento : null,
+            ':bairro' => $bairro,
+            ':cidade' => $cidade,
+            ':uf' => $uf,
+            ':codigo_uf' => $codigo_uf,
+            ':codigo_municipio' => $codigo_municipio,
+            ':telefone' => $telefone !== '' ? $telefone : null,
+            ':certificado_digital' => $certificado_nome, // se null -> mantém (COALESCE)
+            ':senha_certificado' => $senha_certificado_informada ?? '',
+            ':ambiente' => $ambiente,
+            ':regime_tributario' => $regime_tributario,
+            ':serie_nfce' => $serie_nfce,
+            ':ultimo_numero_nfce' => $ultimo_numero_nfce,
+            ':csc' => $csc !== '' ? $csc : null,
+            ':csc_id' => $csc_id !== '' ? $csc_id : null,
+            ':tipo_emissao' => $tipo_emissao,
+            ':finalidade' => $finalidade,
+            ':ind_pres' => $ind_pres,
+            ':tipo_impressao' => $tipo_impressao,
+            ':empresa_id' => $empresa_id
+        ];
+
+        $stmt->execute($params);
     } else {
-        // Inserção de novo registro
+        // INSERT com nomeados
         $sql = "INSERT INTO integracao_nfce (
             empresa_id, cnpj, razao_social, nome_fantasia, 
             inscricao_estadual, inscricao_municipal, cep, logradouro, 
@@ -266,43 +273,53 @@ try {
             senha_certificado, ambiente, regime_tributario, 
             serie_nfce, ultimo_numero_nfce, csc, csc_id, tipo_emissao, finalidade,
             ind_pres, tipo_impressao, criado_em, atualizado_em
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+        ) VALUES (
+            :empresa_id, :cnpj, :razao_social, :nome_fantasia,
+            :inscricao_estadual, :inscricao_municipal, :cep, :logradouro,
+            :numero_endereco, :complemento, :bairro, :cidade, :uf,
+            :codigo_uf, :codigo_municipio, :telefone, :certificado_digital,
+            :senha_certificado, :ambiente, :regime_tributario,
+            :serie_nfce, :ultimo_numero_nfce, :csc, :csc_id, :tipo_emissao, :finalidade,
+            :ind_pres, :tipo_impressao, NOW(), NOW()
+        )";
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            $empresa_id,
-            $cnpj,
-            $razao_social,
-            $nome_fantasia,
-            $inscricao_estadual,
-            $inscricao_municipal,
-            $cep,
-            $logradouro,
-            $numero_endereco,
-            $complemento,
-            $bairro,
-            $cidade,
-            $uf,
-            $codigo_uf,
-            $codigo_municipio,
-            $telefone,
-            $certificado_nome,                // pode ser null (se ainda não enviou)
-            // para INSERT, se não houver certificado, a senha pode ficar null também
-            ($enviouNovoCertificado ? $senha_certificado_informada : null),
-            $ambiente,
-            $regime_tributario,
-            $serie_nfce,
-            $ultimo_numero_nfce,
-            $csc,
-            $csc_id,
-            $tipo_emissao,
-            $finalidade,
-            $ind_pres,
-            $tipo_impressao
-        ]);
+
+        $params = [
+            ':empresa_id' => $empresa_id,
+            ':cnpj' => $cnpj,
+            ':razao_social' => $razao_social,
+            ':nome_fantasia' => $nome_fantasia,
+            ':inscricao_estadual' => $inscricao_estadual,
+            ':inscricao_municipal' => $inscricao_municipal !== '' ? $inscricao_municipal : null,
+            ':cep' => $cep,
+            ':logradouro' => $logradouro,
+            ':numero_endereco' => $numero_endereco,
+            ':complemento' => $complemento !== '' ? $complemento : null,
+            ':bairro' => $bairro,
+            ':cidade' => $cidade,
+            ':uf' => $uf,
+            ':codigo_uf' => $codigo_uf,
+            ':codigo_municipio' => $codigo_municipio,
+            ':telefone' => $telefone !== '' ? $telefone : null,
+            ':certificado_digital' => $certificado_nome,
+            ':senha_certificado' => $enviouNovoCertificado ? $senha_certificado_informada : null,
+            ':ambiente' => $ambiente,
+            ':regime_tributario' => $regime_tributario,
+            ':serie_nfce' => $serie_nfce,
+            ':ultimo_numero_nfce' => $ultimo_numero_nfce,
+            ':csc' => $csc !== '' ? $csc : null,
+            ':csc_id' => $csc_id !== '' ? $csc_id : null,
+            ':tipo_emissao' => $tipo_emissao,
+            ':finalidade' => $finalidade,
+            ':ind_pres' => $ind_pres,
+            ':tipo_impressao' => $tipo_impressao
+        ];
+
+        $stmt->execute($params);
     }
 
-    echo "<script>alert('Configurações salvas com sucesso!'); window.location.href='../../../erp/pdv/adicionarNFCe.php?id=$empresa_id';</script>";
+    echo "<script>alert('Configurações salvas com sucesso!'); window.location.href='../../../erp/pdv/adicionarNFCe.php?id=" . rawurlencode($empresa_id) . "';</script>";
     exit;
 } catch (Exception $e) {
     if (!empty($destino) && file_exists($destino)) {
