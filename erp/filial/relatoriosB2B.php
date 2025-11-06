@@ -700,6 +700,36 @@ $fimTxt = $fim->format('d/m/Y');
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
                     </h5>
+
+
+
+                    <div class="card mb-3">
+    <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+
+        <div class="col-12 col-md-3">
+            <label class="form-label">Produto</label>
+            <input type="text" name="produto" value="<?= htmlspecialchars($fil_produto) ?>" class="form-control form-control-sm" placeholder="Nome do produto">
+        </div>
+
+        <div class="col-12 col-md-2">
+            <label class="form-label">Código</label>
+            <input type="text" name="codigo" value="<?= htmlspecialchars($fil_codigo) ?>" class="form-control form-control-sm" placeholder="Código">
+        </div>
+
+        <div class="col-12 col-md-2">
+            <label class="form-label">Categoria</label>
+            <input type="text" name="categoria" value="<?= htmlspecialchars($fil_categoria) ?>" class="form-control form-control-sm" placeholder="Categoria">
+        </div>
+
+        <div class="col-12 col-md-3 d-flex gap-2">
+            <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+            <a href="?id=<?= htmlspecialchars($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+        </div>
+    </form>
+</div>
+
+
                   <?php
 // ==========================================
 // 1. FUNÇÃO QUE CALCULA OS DADOS DO PERÍODO
