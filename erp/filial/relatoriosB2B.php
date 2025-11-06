@@ -729,12 +729,12 @@ $fimTxt = $fim->format('d/m/Y');
         <div class="col-12 col-md-3 d-flex gap-2">
             <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
             <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-             <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+             <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Exportar</a>
               <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-               <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+               <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Exportar</a>
 
 
-         
+            
              
         </div>
     </form>
