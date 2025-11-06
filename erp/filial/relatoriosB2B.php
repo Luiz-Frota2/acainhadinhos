@@ -728,6 +728,9 @@ $fimTxt = $fim->format('d/m/Y');
                                 <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
                             </div>
                         </div>
+                        <div class="small text-muted mt-2">
+                            Resultados: <strong><?= count($historico) ?></strong> registros
+                        </div>
                     </div>
                 </form>
 
