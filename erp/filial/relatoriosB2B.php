@@ -714,12 +714,12 @@ $fimTxt = $fim->format('d/m/Y');
 
         <div class="col-12 col-md-2">
             <label class="form-label">de</label>
-            <input type="date" name="codigo"  class="form-control form-control-sm" placeholder="Código">
+            <input type="date" name="codigo"  class="form-control form-control-sm">
         </div>
 
         <div class="col-12 col-md-2">
             <label class="form-label">até</label>
-            <input type="date" name="categoria"  class="form-control form-control-sm" placeholder="Categoria">
+            <input type="date" name="categoria"  class="form-control form-control-sm" >
         </div>
 
         <div class="col-12 col-md-3 d-flex gap-2">
