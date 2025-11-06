@@ -708,11 +708,11 @@ $fimTxt = $fim->format('d/m/Y');
         <input type="hidden" name="id" >
 
         <div class="col-12 col-md-3">
-            <label class="form-label mb-1">Filial</label>
-                                <select class="form-select form-select-sm" name="status">
+           <label>Filial</label>
+                                <select  name="status">
                                     <option value="">Todas as Filias</option>
-                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>Filial do norte</option>
-                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>filial dop SUl</option>
+                                    <option >Filial do norte</option>
+                                    <option >filial dop SUl</option>
                                 </select>
         </div>
 
