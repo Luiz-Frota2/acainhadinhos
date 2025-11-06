@@ -1013,7 +1013,7 @@ foreach ($filiais as $f) {
     $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
 
     $itens = (int)($dadosItens["total_itens"] ?? 0);
-}
+
 
     // ✅ Ticket médio
     $ticket = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
