@@ -691,77 +691,48 @@ $fimTxt = $fim->format('d/m/Y');
                     </div>
                 </nav>
 
-                <?php
-                // =========================================================
-// FILTRO DE PERÍODO
-// =========================================================
-$periodo = $_GET['periodo'] ?? 'mes';
-$filialFiltro = $_GET['filial'] ?? 'todas';
+                   <!-- ===== Filtros ===== -->
+                <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
+                    <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
+                    <div class="card-body">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">Status</label>
+                                <select class="form-select form-select-sm" name="status">
+                                    <option value="">Entregue + Cancelada (padrão)</option>
+                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>Entregue</option>
+                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>Cancelada</option>
+                                </select>
+                            </div>
 
-$dataAtual = date('Y-m-d');
-$inicioAtual = $fimAtual = "";
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">De</label>
+                                <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
+                            </div>
 
-switch ($periodo) {
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">Até</label>
+                                <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
+                            </div>
 
-    case 'mes':
-        $inicioAtual = date('Y-m-01');
-        $fimAtual = date('Y-m-t');
-        break;
+                            <div class="col-12 col-md flex-grow-1 filter-col">
+                                <label class="form-label mb-1">Buscar</label>
+                                <div class="autocomplete">
+                                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante (ex.: unidade_3), SKU ou Produto…" value="<?= e($q) ?>" autocomplete="off">
+                                    <div class="autocomplete-list d-none" id="qList"></div>
+                                </div>
+                            </div>
 
-    case '30dias':
-        $inicioAtual = date('Y-m-d', strtotime('-30 days'));
-        $fimAtual = $dataAtual;
-        break;
-
-    case '90dias':
-        $inicioAtual = date('Y-m-d', strtotime('-90 days'));
-        $fimAtual = $dataAtual;
-        break;
-
-    case 'ano':
-        $inicioAtual = date('Y-01-01');
-        $fimAtual = date('Y-12-31');
-        break;
-}
-
-                ?>
-                <!-- Content -->
-                <div class="container-xxl flex-grow-1 container-p-y">
-                    <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="#">Filiais</a>/</span>
-                        Relatórios B2B
-                    </h4>
-                    <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
-                    </h5>
-
-                    <!-- Filtros (HTML estático por enquanto) -->
-                    <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap toolbar">
-                         <form method="GET" class="d-flex align-items-center mb-3">
-
-    <!-- Filtro de período -->
-    <select name="periodo" class="form-select me-2">
-        <option value="mes"        <?= ($_GET['periodo'] ?? '') == 'mes' ? 'selected' : '' ?>>Período: Mês Atual</option>
-        <option value="30dias"     <?= ($_GET['periodo'] ?? '') == '30dias' ? 'selected' : '' ?>>Últimos 30 dias</option>
-        <option value="90dias"     <?= ($_GET['periodo'] ?? '') == '90dias' ? 'selected' : '' ?>>Últimos 90 dias</option>
-        <option value="ano"        <?= ($_GET['periodo'] ?? '') == 'ano' ? 'selected' : '' ?>>Este ano</option>
-    </select>
-
-    <!-- Filtro de filial -->
-    <select name="filial" class="form-select me-2">
-        <option value="todas" <?= ($_GET['filial'] ?? '') == 'todas' ? 'selected' : '' ?>>Todas as Filiais</option>
-
-        <?php foreach ($filiais as $f): ?>
-            <option value="<?= $f['empresa_id'] ?>"
-                <?= (($_GET['filial'] ?? '') == $f['empresa_id']) ? 'selected' : '' ?>>
-                <?= $f['nome'] ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
-
-  <button class="btn btn-outline-secondary me-2"><i class="bx bx-filter-alt me-1"></i> Aplicar</button>
-</form>
+                            <div class="col-12 col-md-auto d-flex gap-2 filter-col">
+                                <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+                                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                            </div>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            Resultados: <strong><?= count($historico) ?></strong> registros
+                        </div>
+                    </div>
+                </form>
 
                             <div class="ms-auto d-flex gap-2">
                                 <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
