@@ -709,7 +709,7 @@ $fimTxt = $fim->format('d/m/Y');
 
         <div class="col-12 col-md-3">
             <label class="form-label">filial</label>
-            <input type="text" name="produto"  class="form-control form-control-sm" placeholder="Nome do produto">
+            <select name="" id="">filial</select>
         </div>
 
         <div class="col-12 col-md-2">
