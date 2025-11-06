@@ -703,11 +703,12 @@ $fimTxt = $fim->format('d/m/Y');
                         <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
                     </h5>
 
-                 
+                    <!-- Filtros (HTML estático por enquanto) -->
                     <div class="card mb-3">
                         <div class="card-body d-flex flex-wrap toolbar">
                          <form method="GET" class="d-flex align-items-center mb-3">
 
+    <!-- Filtro de período -->
     <select name="periodo" class="form-select me-2">
         <option value="mes"        <?= ($_GET['periodo'] ?? '') == 'mes' ? 'selected' : '' ?>>Período: Mês Atual</option>
         <option value="30dias"     <?= ($_GET['periodo'] ?? '') == '30dias' ? 'selected' : '' ?>>Últimos 30 dias</option>
@@ -715,7 +716,7 @@ $fimTxt = $fim->format('d/m/Y');
         <option value="ano"        <?= ($_GET['periodo'] ?? '') == 'ano' ? 'selected' : '' ?>>Este ano</option>
     </select>
 
-
+    <!-- Filtro de filial -->
     <select name="filial" class="form-select me-2">
         <option value="todas" <?= ($_GET['filial'] ?? '') == 'todas' ? 'selected' : '' ?>>Todas as Filiais</option>
 
@@ -727,9 +728,7 @@ $fimTxt = $fim->format('d/m/Y');
         <?php endforeach; ?>
     </select>
 
-    <button class="btn btn-outline-secondary me-2">
-        <i class="bx bx-filter-alt me-1"></i> Aplicar
-    </button>
+  <button class="btn btn-outline-secondary me-2"><i class="bx bx-filter-alt me-1"></i> Aplicar</button>
 </form>
 
                             <div class="ms-auto d-flex gap-2">
