@@ -1321,7 +1321,7 @@ if (!empty($filiais)) {
 
                 <!-- Aprovados -->
                 <tr>
-                    <td>Pagamentos Aprovados</td>
+                    <td>Remessa Concluida</td>
                     <td><?= $aprovQtd ?></td>
                     <td>R$ <?= number_format($aprovValor, 2, ',', '.') ?></td>
                     <td>Aprovado</td>
@@ -1329,7 +1329,7 @@ if (!empty($filiais)) {
 
                 <!-- Reprovados -->
                 <tr>
-                    <td>Pagamentos Reprovados</td>
+                    <td>Remessa Reprovada</td>
                     <td><?= $reprovQtd ?></td>
                     <td>R$ <?= number_format($reprovValor, 2, ',', '.') ?></td>
                     <td>Reprovado</td>
