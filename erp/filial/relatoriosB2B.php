@@ -691,8 +691,20 @@ $fimTxt = $fim->format('d/m/Y');
                     </div>
                 </nav>
 
-                   <!-- ===== Filtros ===== -->
-                <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
+                <!-- Content -->
+                <div class="container-xxl flex-grow-1 container-p-y">
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light"><a href="#">Filiais</a>/</span>
+                        Relatórios B2B
+                    </h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font">
+                        <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
+                    </h5>
+
+                    <!-- Filtros (HTML estático por enquanto) -->
+                    <div class="card mb-3">
+                        <div class="card-body d-flex flex-wrap toolbar">
+                         <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
                     <input type="hidden" name="id" >
                     <div class="card-body">
                         <div class="row g-3 align-items-end">
@@ -733,6 +745,7 @@ $fimTxt = $fim->format('d/m/Y');
                         </div>
                     </div>
                 </form>
+
 
                             <div class="ms-auto d-flex gap-2">
                                 <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
