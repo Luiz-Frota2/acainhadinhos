@@ -966,31 +966,30 @@ $resumo = [
 // 1. BUSCAR TODAS AS FILIAIS
 // =========================================================
 $sqlFiliais = $pdo->query("
-    SELECT id, nome, empresa_id
+    SELECT id, nome
     FROM unidades
     WHERE tipo = 'Filial'
 ");
 $filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
 
-
 // =========================================================
-// 2. CALCULAR VENDAS POR FILIAL
+// 2. CALCULAR VENDAS POR FILIAL (USANDO 'unidade_{id}')
 // =========================================================
 
 $listaFiliais = [];
 $totalFaturamentoGeral = 0;
 
-// ✅ Paginação
+// Paginação
 $itensPorPagina = 5;
 $paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
 
 foreach ($filiais as $f) {
 
-    // ✅ Correção real: empresa_id é a chave usada na tabela vendas
-    $empresaId = $f["empresa_id"];
+    // Monta a chave que existe em vendas.empresa_id e solicitacoes_b2b.id_solicitante
+    $empresaKey = "unidade_" . $f["id"]; // EX: 'unidade_3'
     $nomeFilial = $f["nome"];
 
-    // ✅ Buscar total de pedidos (vendas)
+    // Buscar total de pedidos (número de vendas da filial)
     $sqlV = $pdo->prepare("
         SELECT 
             COUNT(*) AS pedidos,
@@ -999,13 +998,13 @@ foreach ($filiais as $f) {
         WHERE empresa_id = ?
         AND data_venda BETWEEN ? AND ?
     ");
-    $sqlV->execute([$empresaId, $inicioAtual, $fimAtual]);
+    $sqlV->execute([$empresaKey, $inicioAtual, $fimAtual]);
     $dados = $sqlV->fetch(PDO::FETCH_ASSOC);
 
-    $pedidos = (int)$dados["pedidos"];
-    $faturamento = (float)$dados["total_faturamento"];
+    $pedidos = (int)($dados["pedidos"] ?? 0);
+    $faturamento = (float)($dados["total_faturamento"] ?? 0.0);
 
-    // ✅ Buscar total de itens vendidos
+    // Buscar total de itens vendidos (somando itens_venda via join com vendas)
     $sqlItens = $pdo->prepare("
         SELECT SUM(iv.quantidade) AS total_itens
         FROM itens_venda iv
@@ -1013,18 +1012,18 @@ foreach ($filiais as $f) {
         WHERE v.empresa_id = ?
         AND v.data_venda BETWEEN ? AND ?
     ");
-    $sqlItens->execute([$empresaId, $inicioAtual, $fimAtual]);
+    $sqlItens->execute([$empresaKey, $inicioAtual, $fimAtual]);
     $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
 
     $itens = (int)($dadosItens["total_itens"] ?? 0);
 
-    // ✅ Ticket médio
+    // Ticket médio
     $ticket = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
 
-    // ✅ Acumular faturamento geral
+    // Acumular faturamento geral
     $totalFaturamentoGeral += $faturamento;
 
-    // ✅ Armazenar dados da filial
+    // Armazenar dados da filial
     $listaFiliais[] = [
         "nome" => $nomeFilial,
         "pedidos" => $pedidos,
@@ -1033,7 +1032,6 @@ foreach ($filiais as $f) {
         "ticket" => $ticket
     ];
 }
-
 
 // =========================================================
 // 3. CALCULAR % DO TOTAL PARA CADA FILIAL
@@ -1046,18 +1044,15 @@ foreach ($listaFiliais as $i => $f) {
     $listaFiliais[$i]["perc"] = $perc;
 }
 
-
 // =========================================================
-// 4. PAGINAÇÃO
+// 4. PAGINAÇÃO - CORTAR ARRAY EM PEDAÇOS
 // =========================================================
 $totalRegistros = count($listaFiliais);
-$totalPaginas = ceil($totalRegistros / $itensPorPagina);
+$totalPaginas = max(1, ceil($totalRegistros / $itensPorPagina));
 
 $offset = ($paginaAtual - 1) * $itensPorPagina;
 $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
-
 ?>
-
 
 
 
