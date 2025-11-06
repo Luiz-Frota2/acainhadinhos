@@ -700,39 +700,6 @@ $fimTxt = $fim->format('d/m/Y');
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
                     </h5>
-
-                    <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
-                    <input type="hidden" name="id" >
-                    <div class="card-body">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-12 col-md-auto filter-col">
-                                <label class="form-label mb-1">Filial</label>
-                                <select class="form-select form-select-sm" name="status">
-                                    <option value="">Todas as Filiais</option>
-                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>filial do sol</option>
-                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>filial do norte</option>
-                                </select>
-                            </div>
-
-                            <div class="col-12 col-md-auto filter-col">
-                                <label class="form-label mb-1">De</label>
-                                <input type="date" class="form-control form-control-sm" name="de" >
-                            </div>
-
-                            <div class="col-12 col-md-auto filter-col">
-                                <label class="form-label mb-1">Até</label>
-                                <input type="date" class="form-control form-control-sm" name="ate" >
-                            </div>
-                            <div class="col-12 col-md-auto filter-col">
-                                <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
-                                <a class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-                                
-                            </div>
-                        </div>
-                    </div>
-                </form>
-
-
                   <?php
 // ==========================================
 // 1. FUNÇÃO QUE CALCULA OS DADOS DO PERÍODO
