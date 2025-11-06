@@ -708,7 +708,8 @@ $fimTxt = $fim->format('d/m/Y');
         <input type="hidden" name="id" >
 
         <div class="col-12 col-md-3">
-            <select name="" id="">filial</select>
+            <option value=""><select name="" id="">filial</select>
+            </option>
         </div>
 
         <div class="col-12 col-md-2">
