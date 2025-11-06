@@ -798,13 +798,7 @@ function calcularPeriodo(PDO $pdo, $inicio, $fim)
     $sqlPedidos = $pdo->prepare("
         SELECT id 
         FROM solicitacoes_b2b
-        WHERE 1
-<?php if ($filialFiltro !== 'todas'): ?>
-    AND id_solicitante = '<?= $filialFiltro ?>'
-<?php else: ?>
-    AND id_solicitante IN ($inFiliais)
-<?php endif; ?>
-
+        WHERE id_solicitante IN ($inFiliais)
         AND created_at BETWEEN ? AND ?
     ");
     $sqlPedidos->execute([...$filialKeys, $inicio, $fim]);
@@ -999,11 +993,7 @@ foreach ($filiais as $f) {
             COUNT(*) AS pedidos,
             SUM(valor_total) AS total_faturamento
         FROM vendas
-       WHERE 1
-<?php if ($filialFiltro !== 'todas'): ?>
-    AND empresa_id = '<?= $filialFiltro ?>'
-<?php endif; ?>
-
+        WHERE empresa_id = ?
         AND data_venda BETWEEN ? AND ?
     ");
     $sqlV->execute([$empresaId, $inicioAtual, $fimAtual]);
@@ -1017,11 +1007,7 @@ foreach ($filiais as $f) {
         SELECT SUM(iv.quantidade) AS total_itens
         FROM itens_venda iv
         INNER JOIN vendas v ON v.id = iv.venda_id
-        WHERE 1
-<?php if ($filialFiltro !== 'todas'): ?>
-    AND empresa_id = '<?= $filialFiltro ?>'
-<?php endif; ?>
-
+        WHERE v.empresa_id = ?
         AND v.data_venda BETWEEN ? AND ?
     ");
     $sqlItens->execute([$empresaId, $inicioAtual, $fimAtual]);
@@ -1171,13 +1157,7 @@ if (!empty($filiais)) {
     $sqlSolic = $pdo->prepare("
         SELECT id
         FROM solicitacoes_b2b
-       WHERE 1
-<?php if ($filialFiltro !== 'todas'): ?>
-    AND id_solicitante = '<?= $filialFiltro ?>'
-<?php else: ?>
-    AND id_solicitante IN ($inFiliais)
-<?php endif; ?>
-
+        WHERE id_solicitante IN ($inFiliais)
         AND created_at BETWEEN ? AND ?
     ");
 
@@ -1366,13 +1346,7 @@ if (!empty($filiais)) {
     $sqlPend = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
-        1
-<?php if ($filialFiltro !== 'todas'): ?>
-    AND id_solicitante = '<?= $filialFiltro ?>'
-<?php else: ?>
-    AND id_solicitante IN ($inFiliais)
-<?php endif; ?>
-
+        WHERE id_solicitante IN ($inFiliais)
         AND status = 'pendente'
         AND created_at BETWEEN ? AND ?
     ");
@@ -1388,13 +1362,7 @@ if (!empty($filiais)) {
     $sqlAprov = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
-        1
-<?php if ($filialFiltro !== 'todas'): ?>
-    AND id_solicitante = '<?= $filialFiltro ?>'
-<?php else: ?>
-    AND id_solicitante IN ($inFiliais)
-<?php endif; ?>
-
+        WHERE id_solicitante IN ($inFiliais)
         AND status = 'aprovado'
         AND created_at BETWEEN ? AND ?
     ");
@@ -1410,13 +1378,7 @@ if (!empty($filiais)) {
     $sqlReprov = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
-       1
-<?php if ($filialFiltro !== 'todas'): ?>
-    AND id_solicitante = '<?= $filialFiltro ?>'
-<?php else: ?>
-    AND id_solicitante IN ($inFiliais)
-<?php endif; ?>
-
+        WHERE id_solicitante IN ($inFiliais)
         AND status = 'reprovado'
         AND created_at BETWEEN ? AND ?
     ");
