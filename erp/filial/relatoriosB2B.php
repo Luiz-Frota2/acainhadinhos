@@ -1156,48 +1156,6 @@ if (!empty($filiais)) {
     </div>
 </div>
 
-
-                    <!-- SLA de Atendimento de Pedidos -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">SLA de Atendimento</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Faixa de SLA</th>
-                                        <th>Pedidos</th>
-                                        <th>SLA Médio</th>
-                                        <th>Dentro do Prazo</th>
-                                        <th>Observações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>0–24h</td>
-                                        <td>98</td>
-                                        <td>12h</td>
-                                        <td>92%</td>
-                                        <td>Meta batida</td>
-                                    </tr>
-                                    <tr>
-                                        <td>24–48h</td>
-                                        <td>56</td>
-                                        <td>31h</td>
-                                        <td>78%</td>
-                                        <td>Gargalo separação</td>
-                                    </tr>
-                                    <tr>
-                                        <td>> 48h</td>
-                                        <td>30</td>
-                                        <td>54h</td>
-                                        <td>40%</td>
-                                        <td>Revisar logística Norte</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
                     <!-- Pagamentos x Entregas (resumo simples) -->
                     <div class="card mb-3">
                         <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
