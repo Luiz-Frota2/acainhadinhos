@@ -697,11 +697,11 @@ $fimTxt = $fim->format('d/m/Y');
                     <div class="card-body">
                         <div class="row g-3 align-items-end">
                             <div class="col-12 col-md-auto filter-col">
-                                <label class="form-label mb-1">Status</label>
+                                <label class="form-label mb-1">Filial</label>
                                 <select class="form-select form-select-sm" name="status">
-                                    <option value="">Entregue + Cancelada (padrão)</option>
-                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>Entregue</option>
-                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>Cancelada</option>
+                                    <option value="">Todas as Filiais</option>
+                                    <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>filial do sol</option>
+                                    <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>filial do norte</option>
                                 </select>
                             </div>
 
@@ -727,9 +727,6 @@ $fimTxt = $fim->format('d/m/Y');
                                 <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
                             </div>
-                        </div>
-                        <div class="small text-muted mt-2">
-                            Resultados: <strong><?= count($historico) ?></strong> registros
                         </div>
                     </div>
                 </form>
