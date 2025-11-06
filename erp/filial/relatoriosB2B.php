@@ -1,4 +1,4 @@
-<?php
+    <?php
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -706,19 +706,31 @@ $fimTxt = $fim->format('d/m/Y');
                     <!-- Filtros (HTML estático por enquanto) -->
                     <div class="card mb-3">
                         <div class="card-body d-flex flex-wrap toolbar">
-                            <select class="form-select me-2">
-                                <option>Período: Mês Atual</option>
-                                <option>Últimos 30 dias</option>
-                                <option>Últimos 90 dias</option>
-                                <option>Este ano</option>
-                            </select>
-                            <select class="form-select me-2">
-                                <option>Todas as Filiais</option>
-                                <option>Filial Centro</option>
-                                <option>Filial Norte</option>
-                                <option>Filial Sul</option>
-                            </select>
-                            <button class="btn btn-outline-secondary me-2"><i class="bx bx-filter-alt me-1"></i> Aplicar</button>
+                         <form method="GET" class="d-flex align-items-center mb-3">
+
+    <!-- Filtro de período -->
+    <select name="periodo" class="form-select me-2">
+        <option value="mes"        <?= ($_GET['periodo'] ?? '') == 'mes' ? 'selected' : '' ?>>Período: Mês Atual</option>
+        <option value="30dias"     <?= ($_GET['periodo'] ?? '') == '30dias' ? 'selected' : '' ?>>Últimos 30 dias</option>
+        <option value="90dias"     <?= ($_GET['periodo'] ?? '') == '90dias' ? 'selected' : '' ?>>Últimos 90 dias</option>
+        <option value="ano"        <?= ($_GET['periodo'] ?? '') == 'ano' ? 'selected' : '' ?>>Este ano</option>
+    </select>
+
+    <!-- Filtro de filial -->
+    <select name="filial" class="form-select me-2">
+        <option value="todas" <?= ($_GET['filial'] ?? '') == 'todas' ? 'selected' : '' ?>>Todas as Filiais</option>
+
+        <?php foreach ($filiais as $f): ?>
+            <option value="<?= $f['empresa_id'] ?>"
+                <?= (($_GET['filial'] ?? '') == $f['empresa_id']) ? 'selected' : '' ?>>
+                <?= $f['nome'] ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+
+  <button class="btn btn-outline-secondary me-2"><i class="bx bx-filter-alt me-1"></i> Aplicar</button>
+</form>
+
                             <div class="ms-auto d-flex gap-2">
                                 <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
                                 <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
@@ -727,226 +739,667 @@ $fimTxt = $fim->format('d/m/Y');
                         </div>
                     </div>
 
-                    <!-- Resumo Mensal -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Resumo do Período</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Métrica</th>
-                                        <th>Valor</th>
-                                        <th>Variação</th>
-                                        <th>Obs.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Pedidos B2B</td>
-                                        <td>184</td>
-                                        <td><span class="text-success">+12,3%</span></td>
-                                        <td>Alta puxada por Centro</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Itens Solicitados</td>
-                                        <td>5.430</td>
-                                        <td><span class="text-success">+8,1%</span></td>
-                                        <td>SKU ACA-500 liderando</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Faturamento Estimado</td>
-                                        <td>R$ 128.450,00</td>
-                                        <td><span class="text-danger">-3,5%</span></td>
-                                        <td>Ticket menor no Sul</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Ticket Médio</td>
-                                        <td>R$ 698,10</td>
-                                        <td><span class="text-danger">-5,2%</span></td>
-                                        <td>Mix com mais descartáveis</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                  <?php
+// ==========================================
+// 1. FUNÇÃO QUE CALCULA OS DADOS DO PERÍODO
+// ==========================================
+function calcularPeriodo(PDO $pdo, $inicio, $fim)
+{
+    // ---- A) Busca IDS das FILIAIS ----
+    $filiais = $pdo->query("SELECT id FROM unidades WHERE tipo = 'Filial'")
+                   ->fetchAll(PDO::FETCH_COLUMN);
 
-                    <!-- Vendas por Franquia -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Vendas / Pedidos por Franquia</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Franquia</th>
-                                        <th>Pedidos</th>
-                                        <th>Itens</th>
-                                        <th>Faturamento (R$)</th>
-                                        <th>Ticket Médio (R$)</th>
-                                        <th>% do Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><strong>Franquia Centro</strong></td>
-                                        <td>74</td>
-                                        <td>2.140</td>
-                                        <td>R$ 58.700,00</td>
-                                        <td>R$ 793,24</td>
-                                        <td>45%</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Norte</strong></td>
-                                        <td>58</td>
-                                        <td>1.720</td>
-                                        <td>R$ 41.320,00</td>
-                                        <td>R$ 712,41</td>
-                                        <td>32%</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Sul</strong></td>
-                                        <td>52</td>
-                                        <td>1.570</td>
-                                        <td>R$ 28.430,00</td>
-                                        <td>R$ 546,73</td>
-                                        <td>23%</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+    if (!$filiais) {
+        return [
+            "pedidos" => 0,
+            "itens" => 0,
+            "faturamento" => 0,
+            "ticket" => 0
+        ];
+    }
 
-                    <!-- Produtos Mais Solicitados -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Produtos Mais Solicitados</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>SKU</th>
-                                        <th>Produto</th>
-                                        <th>Quantidade</th>
-                                        <th>Pedidos</th>
-                                        <th>Participação</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td>1.980</td>
-                                        <td>96</td>
-                                        <td>36%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td>1.210</td>
-                                        <td>64</td>
-                                        <td>22%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td>1.050</td>
-                                        <td>51</td>
-                                        <td>19%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>COLH-PP</td>
-                                        <td>Colher PP</td>
-                                        <td>890</td>
-                                        <td>40</td>
-                                        <td>16%</td>
-                                    </tr>
-                                    <tr>
-                                        <td>GRAN-200</td>
-                                        <td>Granola 200g</td>
-                                        <td>300</td>
-                                        <td>18</td>
-                                        <td>7%</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+    // ex: unidade_3, unidade_7, unidade_9
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais  = implode(",", array_fill(0, count($filialKeys), "?"));
 
-                    <!-- SLA de Atendimento de Pedidos -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">SLA de Atendimento</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Faixa de SLA</th>
-                                        <th>Pedidos</th>
-                                        <th>SLA Médio</th>
-                                        <th>Dentro do Prazo</th>
-                                        <th>Observações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>0–24h</td>
-                                        <td>98</td>
-                                        <td>12h</td>
-                                        <td>92%</td>
-                                        <td>Meta batida</td>
-                                    </tr>
-                                    <tr>
-                                        <td>24–48h</td>
-                                        <td>56</td>
-                                        <td>31h</td>
-                                        <td>78%</td>
-                                        <td>Gargalo separação</td>
-                                    </tr>
-                                    <tr>
-                                        <td>> 48h</td>
-                                        <td>30</td>
-                                        <td>54h</td>
-                                        <td>40%</td>
-                                        <td>Revisar logística Norte</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+    // ---- B) Pedidos B2B somente de FILIAIS ----
+    $sqlPedidos = $pdo->prepare("
+        SELECT id 
+        FROM solicitacoes_b2b
+        WHERE id_solicitante IN ($inFiliais)
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlPedidos->execute([...$filialKeys, $inicio, $fim]);
 
-                    <!-- Pagamentos x Entregas (resumo simples) -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Métrica</th>
-                                        <th>Quantidade</th>
-                                        <th>Valor (R$)</th>
-                                        <th>Status Principal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Pagamentos Solicitados</td>
-                                        <td>62</td>
-                                        <td>R$ 72.300,00</td>
-                                        <td>Pendente/Análise</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Remessas Enviadas</td>
-                                        <td>48</td>
-                                        <td>—</td>
-                                        <td>Em Trânsito</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Remessas Concluídas</td>
-                                        <td>39</td>
-                                        <td>—</td>
-                                        <td>Entregue</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+    $idsPedidos = $sqlPedidos->fetchAll(PDO::FETCH_COLUMN);
+    $totalPedidos = count($idsPedidos);
+
+    if ($totalPedidos == 0) {
+        return [
+            "pedidos" => 0,
+            "itens" => 0,
+            "faturamento" => 0,
+            "ticket" => 0
+        ];
+    }
+
+    // ---- C) Itens + Faturamento ----
+    $inPedidos = implode(",", array_fill(0, count($idsPedidos), "?"));
+
+    $sqlItens = $pdo->prepare("
+        SELECT 
+            SUM(quantidade) AS totalItens,
+            SUM(subtotal) AS totalFaturamento
+        FROM solicitacoes_b2b_itens
+        WHERE solicitacao_id IN ($inPedidos)
+    ");
+    $sqlItens->execute($idsPedidos);
+    $dados = $sqlItens->fetch(PDO::FETCH_ASSOC);
+
+    $totalItens = $dados["totalItens"] ?? 0;
+    $totalFaturamento = $dados["totalFaturamento"] ?? 0;
+
+    // ---- D) Ticket Média ----
+    $ticket = $totalPedidos > 0 ? ($totalFaturamento / $totalPedidos) : 0;
+
+    return [
+        "pedidos" => (int)$totalPedidos,
+        "itens" => (int)$totalItens,
+        "faturamento" => (float)$totalFaturamento,
+        "ticket" => (float)$ticket,
+    ];
+}
+
+
+
+// ==========================================
+// 2. FUNÇÃO PARA CALCULAR VARIAÇÃO (%)
+// ==========================================
+function variacao($atual, $anterior)
+{
+    if ($anterior <= 0) return 0;
+    return (($atual - $anterior) / $anterior) * 100;
+}
+
+
+
+// ==========================================
+// 3. CALCULA O PERÍODO ATUAL E ANTERIOR
+// ==========================================
+
+// Você pode substituir por datas dinâmicas depois
+$inicioAtual = "2025-11-01";
+$fimAtual    = "2025-11-30";
+
+$inicioAnterior = "2025-10-01";
+$fimAnterior    = "2025-10-30";
+
+$atual    = calcularPeriodo($pdo, $inicioAtual, $fimAtual);
+$anterior = calcularPeriodo($pdo, $inicioAnterior, $fimAnterior);
+
+
+// Prepara estrutura para tabela
+$resumo = [
+    "pedidos" => [
+        "valor" => $atual["pedidos"],
+        "var"   => variacao($atual["pedidos"], $anterior["pedidos"])
+    ],
+    "itens" => [
+        "valor" => $atual["itens"],
+        "var"   => variacao($atual["itens"], $anterior["itens"])
+    ],
+    "faturamento" => [
+        "valor" => $atual["faturamento"],
+        "var"   => variacao($atual["faturamento"], $anterior["faturamento"])
+    ],
+    "ticket" => [
+        "valor" => $atual["ticket"],
+        "var"   => variacao($atual["ticket"], $anterior["ticket"])
+    ]
+];
+?>
+
+<!-- ============================================== -->
+<!-- 4. TABELA HTML — AGORA TOTALMENTE DINÂMICA -->
+<!-- ============================================== -->
+
+<div class="card mb-3">
+    <h5 class="card-header">Resumo do Período</h5>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+            <tr>
+                <th>Métrica</th>
+                <th>Valor</th>
+                <th>Variação</th>
+                <th>Obs.</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <!-- Pedidos -->
+            <tr>
+                <td>Pedidos B2B</td>
+                <td><?= $resumo["pedidos"]["valor"] ?></td>
+                <td>
+                    <span class="<?= $resumo["pedidos"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["pedidos"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Somente solicitações feitas por filiais</td>
+            </tr>
+
+            <!-- Itens -->
+            <tr>
+                <td>Itens Solicitados</td>
+                <td><?= $resumo["itens"]["valor"] ?></td>
+                <td>
+                    <span class="<?= $resumo["itens"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["itens"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Total somado dos itens solicitados</td>
+            </tr>
+
+            <!-- Faturamento -->
+            <tr>
+                <td>Faturamento Estimado</td>
+                <td>R$ <?= number_format($resumo["faturamento"]["valor"], 2, ',', '.') ?></td>
+                <td>
+                    <span class="<?= $resumo["faturamento"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["faturamento"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Subtotal total</td>
+            </tr>
+
+            <!-- Ticket Médio -->
+            <tr>
+                <td>Ticket Médio</td>
+                <td>R$ <?= number_format($resumo["ticket"]["valor"], 2, ',', '.') ?></td>
+                <td>
+                    <span class="<?= $resumo["ticket"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["ticket"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Faturamento / número de pedidos</td>
+            </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+            <?php
+// =========================================================
+// 1. BUSCAR TODAS AS FILIAIS
+// =========================================================
+$sqlFiliais = $pdo->query("
+    SELECT id, nome, empresa_id
+    FROM unidades
+    WHERE tipo = 'Filial'
+");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
+
+
+// =========================================================
+// 2. CALCULAR VENDAS POR FILIAL
+// =========================================================
+
+$listaFiliais = [];
+$totalFaturamentoGeral = 0;
+
+foreach ($filiais as $f) {
+
+    $empresaId = $f["empresa_id"];
+    $nomeFilial = $f["nome"];
+
+    // ✅ Buscar total de pedidos (vendas)
+    $sqlV = $pdo->prepare("
+        SELECT 
+            COUNT(*) AS pedidos,
+            SUM(valor_total) AS total_faturamento
+        FROM vendas
+        WHERE empresa_id = ?
+        AND data_venda BETWEEN ? AND ?
+    ");
+    $sqlV->execute([$empresaId, $inicioAtual, $fimAtual]);
+    $dados = $sqlV->fetch(PDO::FETCH_ASSOC);
+
+    $pedidos = (int)$dados["pedidos"];
+    $faturamento = (float)$dados["total_faturamento"];
+
+    // ✅ Buscar total de itens vendidos (somando tabela itens_venda)
+    $sqlItens = $pdo->prepare("
+        SELECT SUM(iv.quantidade) AS total_itens
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        WHERE v.empresa_id = ?
+        AND v.data_venda BETWEEN ? AND ?
+    ");
+    $sqlItens->execute([$empresaId, $inicioAtual, $fimAtual]);
+    $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
+
+    $itens = (int)($dadosItens["total_itens"] ?? 0);
+
+    // ✅ Ticket médio
+    $ticket = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
+
+    // ✅ Acumular faturamento geral
+    $totalFaturamentoGeral += $faturamento;
+// =========================================================
+// PAGINAÇÃO
+// =========================================================
+$itensPorPagina = 5; // ✅ quantidade por página
+$paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
+
+    // ✅ Armazenar dados da filial
+    $listaFiliais[] = [
+        "nome" => $nomeFilial,
+        "pedidos" => $pedidos,
+        "itens" => $itens,
+        "faturamento" => $faturamento,
+        "ticket" => $ticket
+    ];
+}
+
+
+// =========================================================
+// 3. CALCULAR % DO TOTAL PARA CADA FILIAL
+// =========================================================
+foreach ($listaFiliais as $i => $f) {
+    $perc = ($totalFaturamentoGeral > 0)
+        ? ($f["faturamento"] / $totalFaturamentoGeral) * 100
+        : 0;
+
+    $listaFiliais[$i]["perc"] = $perc;
+}
+// =========================================================
+// 4. PAGINAÇÃO - CORTAR ARRAY EM PEDAÇOS
+// =========================================================
+$totalRegistros = count($listaFiliais);
+$totalPaginas = ceil($totalRegistros / $itensPorPagina);
+
+$offset = ($paginaAtual - 1) * $itensPorPagina;
+
+// Lista final exibida
+$listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
+
+?>
+
+
+<!-- ========================================================= -->
+<!-- TABELA: VENDAS / PEDIDOS POR FILIAL                      -->
+<!-- ========================================================= -->
+
+<div class="card mb-3">
+    <h5 class="card-header">Vendas / Pedidos por Filial</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>Filial</th>
+                <th>Pedidos</th>
+                <th>Itens</th>
+                <th>Faturamento (R$)</th>
+                <th>Ticket Médio (R$)</th>
+                <th>% do Total</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <?php foreach ($listaPaginada as $f): ?>
+
+                <tr>
+                    <td><strong><?= htmlspecialchars($f["nome"]) ?></strong></td>
+
+                    <td><?= $f["pedidos"] ?></td>
+
+                    <td><?= $f["itens"] ?></td>
+
+                    <td>R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
+
+                    <td>R$ <?= number_format($f["ticket"], 2, ',', '.') ?></td>
+
+                    <td><?= number_format($f["perc"], 1, ',', '.') ?>%</td>
+                </tr>
+            <?php endforeach; ?>
+
+            </tbody>
+        </table>
+        <!-- ========================================= -->
+<!-- PAGINAÇÃO                                 -->
+<!-- ========================================= -->
+<!-- ========================================= -->
+<!-- PAGINAÇÃO MINIMALISTA                     -->
+<!-- ========================================= -->
+
+<div class="d-flex justify-content-center mt-2">
+    <nav>
+        <ul class="pagination pagination-sm m-0">
+
+            <!-- Botão Anterior -->
+            <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link" href="?pagina=<?= $paginaAtual - 1 ?>" tabindex="-1">Anterior</a>
+            </li>
+
+            <!-- Página atual (não clicável) -->
+            <li class="page-item active">
+                <span class="page-link"><?= $paginaAtual ?></span>
+            </li>
+
+            <!-- Botão Próxima -->
+            <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
+                <a class="page-link" href="?pagina=<?= $paginaAtual + 1 ?>">Próximo</a>
+            </li>
+
+        </ul>
+    </nav>
+</div>
+
+
+
+    </div>
+</div>
+<?php
+// ==================================================================
+// 1. BUSCAR IDS DE TODAS AS FILIAIS
+// ==================================================================
+$sqlFiliais = $pdo->query("
+    SELECT id 
+    FROM unidades 
+    WHERE tipo = 'Filial'
+");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
+
+if (!empty($filiais)) {
+
+    // Converte para "unidade_X"
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
+
+    // ==================================================================
+    // 2. PEGAR TODAS AS SOLICITAÇÕES B2B REALIZADAS POR FILIAIS
+    // ==================================================================
+    $sqlSolic = $pdo->prepare("
+        SELECT id
+        FROM solicitacoes_b2b
+        WHERE id_solicitante IN ($inFiliais)
+        AND created_at BETWEEN ? AND ?
+    ");
+
+    $sqlSolic->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $solicitacoesIds = $sqlSolic->fetchAll(PDO::FETCH_COLUMN);
+
+    $produtosLista = [];
+
+    if (!empty($solicitacoesIds)) {
+
+        // ==================================================================
+        // 3. PEGAR PRODUTOS MAIS SOLICITADOS (AGRUPADOS)
+        // ==================================================================
+        $inSolic = implode(",", array_fill(0, count($solicitacoesIds), "?"));
+
+     $sqlItens = $pdo->prepare("
+    SELECT 
+        codigo_produto,
+        nome_produto,
+        SUM(quantidade) AS total_quantidade,
+        COUNT(DISTINCT solicitacao_id) AS total_pedidos
+    FROM solicitacoes_b2b_itens
+    WHERE solicitacao_id IN ($inSolic)
+    GROUP BY codigo_produto, nome_produto
+    ORDER BY total_quantidade DESC
+    LIMIT 5
+");
+
+        $sqlItens->execute($solicitacoesIds);
+        $produtosLista = $sqlItens->fetchAll(PDO::FETCH_ASSOC);
+
+        // ==================================================================
+        // 4. CALCULAR PARTICIPAÇÃO
+        // ==================================================================
+        $totalGeral = array_sum(array_column($produtosLista, "total_quantidade"));
+
+        foreach ($produtosLista as $i => $prod) {
+            $perc = $totalGeral > 0 
+                ? ($prod["total_quantidade"] / $totalGeral) * 100 
+                : 0;
+
+            $produtosLista[$i]["perc"] = $perc;
+        }
+    }
+}
+?>
+
+
+<!-- ================================================================== -->
+<!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS) -->
+<!-- ================================================================== -->
+
+<div class="card mb-3">
+    <h5 class="card-header">Produtos Mais Solicitados</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>SKU</th>
+                <th>Produto</th>
+                <th>Quantidade</th>
+                <th>Pedidos</th>
+                <th>Participação</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <?php if (!empty($produtosLista)): ?>
+                <?php foreach ($produtosLista as $p): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($p["codigo_produto"]) ?></td>
+                        <td><?= htmlspecialchars($p["nome_produto"]) ?></td>
+
+                        <td><?= (int)$p["total_quantidade"] ?></td>
+
+                        <td><?= (int)$p["total_pedidos"] ?></td>
+
+                        <td><?= number_format($p["perc"], 1, ',', '.') ?>%</td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <tr>
+                    <td colspan="5" class="text-center">Nenhum produto solicitado por filiais no período.</td>
+                </tr>
+            <?php endif; ?>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
+                   
+                 <?php
+// ========================================================================
+// 1. BUSCAR IDS DAS FILIAIS
+// ========================================================================
+$sqlFiliais = $pdo->query("
+    SELECT id 
+    FROM unidades
+    WHERE tipo = 'Filial'
+");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
+
+$pagSolicitadosQtd = 0;
+$pagSolicitadosValor = 0;
+
+$remessasEnviadas = 0;
+$remessasConcluidas = 0;
+
+if (!empty($filiais)) {
+
+    // Converte ids para formato unidade_X
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
+
+    // ========================================================================
+    // 2. PEGAR PAGAMENTOS SOLICITADOS (status pendente)
+    // ========================================================================
+    $sqlPendentes = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'pendente'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlPendentes->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $pend = $sqlPendentes->fetch(PDO::FETCH_ASSOC);
+
+    $pagSolicitadosQtd = (int)$pend["qtd"];
+    $pagSolicitadosValor = (float)($pend["total"] ?? 0);
+
+
+    // ========================================================================
+    // 3. REMESSAS ENVIADAS (status aprovado)
+    // ========================================================================
+    $sqlAprovado = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'aprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlAprovado->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $remessasEnviadas = (int)$sqlAprovado->fetchColumn();
+
+
+    // ========================================================================
+    // 4. REMESSAS CONCLUÍDAS (status reprovado)
+    // ========================================================================
+    $sqlReprovado = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'reprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlReprovado->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $remessasConcluidas = (int)$sqlReprovado->fetchColumn();
+}
+?>
+
+
+<!-- ======================================================================== -->
+<!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                                   -->
+<!-- ======================================================================== -->
+
+<?php
+// ========================================================================
+// 1. BUSCAR IDS DAS FILIAIS
+// ========================================================================
+$sqlFiliais = $pdo->query("SELECT id FROM unidades WHERE tipo = 'Filial'");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
+
+$pendQtd = $pendValor = 0;
+$aprovQtd = $aprovValor = 0;
+$reprovQtd = $reprovValor = 0;
+
+if (!empty($filiais)) {
+
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
+
+    // ========================================================================
+    // 2. PAGAMENTOS SOLICITADOS (pendente)
+    // ========================================================================
+    $sqlPend = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'pendente'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlPend->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $r = $sqlPend->fetch(PDO::FETCH_ASSOC);
+
+    $pendQtd = (int)$r["qtd"];
+    $pendValor = (float)($r["total"] ?? 0);
+
+    // ========================================================================
+    // 3. PAGAMENTOS APROVADOS (aprovado)
+    // ========================================================================
+    $sqlAprov = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'aprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlAprov->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $r = $sqlAprov->fetch(PDO::FETCH_ASSOC);
+
+    $aprovQtd = (int)$r["qtd"];
+    $aprovValor = (float)($r["total"] ?? 0);
+
+    // ========================================================================
+    // 4. PAGAMENTOS REPROVADOS (reprovado)
+    // ========================================================================
+    $sqlReprov = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'reprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlReprov->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $r = $sqlReprov->fetch(PDO::FETCH_ASSOC);
+
+    $reprovQtd = (int)$r["qtd"];
+    $reprovValor = (float)($r["total"] ?? 0);
+}
+?>
+
+
+<div class="card mb-3">
+    <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Métrica</th>
+                    <th>Quantidade</th>
+                    <th>Valor (R$)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Solicitados -->
+                <tr>
+                    <td>Pagamentos Solicitados</td>
+                    <td><?= $pendQtd ?></td>
+                    <td>R$ <?= number_format($pendValor, 2, ',', '.') ?></td>
+                    <td>Pendente</td>
+                </tr>
+
+                <!-- Aprovados -->
+                <tr>
+                    <td>Remessa Concluida</td>
+                    <td><?= $aprovQtd ?></td>
+                    <td>R$ <?= number_format($aprovValor, 2, ',', '.') ?></td>
+                    <td>Aprovado</td>
+                </tr>
+
+                <!-- Reprovados -->
+                <tr>
+                    <td>Remessa Reprovada</td>
+                    <td><?= $reprovQtd ?></td>
+                    <td>R$ <?= number_format($reprovValor, 2, ',', '.') ?></td>
+                    <td>Reprovado</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 
                 </div>
                 <!-- / Content -->
