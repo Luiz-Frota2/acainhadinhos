@@ -705,26 +705,29 @@ $fimTxt = $fim->format('d/m/Y');
 
                     <div class="card mb-3">
     <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
-        <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+        <input type="hidden" name="id" >
 
         <div class="col-12 col-md-3">
             <label class="form-label">Produto</label>
-            <input type="text" name="produto" value="<?= htmlspecialchars($fil_produto) ?>" class="form-control form-control-sm" placeholder="Nome do produto">
+            <input type="text" name="produto"  class="form-control form-control-sm" placeholder="Nome do produto">
         </div>
 
         <div class="col-12 col-md-2">
             <label class="form-label">Código</label>
-            <input type="text" name="codigo" value="<?= htmlspecialchars($fil_codigo) ?>" class="form-control form-control-sm" placeholder="Código">
+            <input type="text" name="codigo"  class="form-control form-control-sm" placeholder="Código">
         </div>
 
         <div class="col-12 col-md-2">
             <label class="form-label">Categoria</label>
-            <input type="text" name="categoria" value="<?= htmlspecialchars($fil_categoria) ?>" class="form-control form-control-sm" placeholder="Categoria">
+            <input type="text" name="categoria"  class="form-control form-control-sm" placeholder="Categoria">
         </div>
 
         <div class="col-12 col-md-3 d-flex gap-2">
             <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
-            <a href="?id=<?= htmlspecialchars($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+            <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+             <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
+                                <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
+                                <button class="btn btn-outline-dark"><i class="bx bx-printer me-1"></i> Imprimir</button>
         </div>
     </form>
 </div>
