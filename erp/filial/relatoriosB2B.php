@@ -1063,7 +1063,7 @@ $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
 <!-- PAGINAÇÃO MINIMALISTA                     -->
 <!-- ========================================= -->
 
-<div class="d-flex justify-content-end mt-2">
+<div class="d-flex justify-content-center mt-2">
     <nav>
         <ul class="pagination pagination-sm m-0">
 
@@ -1085,6 +1085,7 @@ $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
         </ul>
     </nav>
 </div>
+
 
 
     </div>
