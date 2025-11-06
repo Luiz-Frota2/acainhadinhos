@@ -703,22 +703,35 @@ $fimTxt = $fim->format('d/m/Y');
                         <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
                     </h5>
 
-                    <!-- Filtros (HTML estático por enquanto) -->
+                 
                     <div class="card mb-3">
                         <div class="card-body d-flex flex-wrap toolbar">
-                            <select class="form-select me-2">
-                                <option>Período: Mês Atual</option>
-                                <option>Últimos 30 dias</option>
-                                <option>Últimos 90 dias</option>
-                                <option>Este ano</option>
-                            </select>
-                            <select class="form-select me-2">
-                                <option>Todas as Filiais</option>
-                                <option>Filial Centro</option>
-                                <option>Filial Norte</option>
-                                <option>Filial Sul</option>
-                            </select>
-                            <button class="btn btn-outline-secondary me-2"><i class="bx bx-filter-alt me-1"></i> Aplicar</button>
+                         <form method="GET" class="d-flex align-items-center mb-3">
+
+    <select name="periodo" class="form-select me-2">
+        <option value="mes"        <?= ($_GET['periodo'] ?? '') == 'mes' ? 'selected' : '' ?>>Período: Mês Atual</option>
+        <option value="30dias"     <?= ($_GET['periodo'] ?? '') == '30dias' ? 'selected' : '' ?>>Últimos 30 dias</option>
+        <option value="90dias"     <?= ($_GET['periodo'] ?? '') == '90dias' ? 'selected' : '' ?>>Últimos 90 dias</option>
+        <option value="ano"        <?= ($_GET['periodo'] ?? '') == 'ano' ? 'selected' : '' ?>>Este ano</option>
+    </select>
+
+
+    <select name="filial" class="form-select me-2">
+        <option value="todas" <?= ($_GET['filial'] ?? '') == 'todas' ? 'selected' : '' ?>>Todas as Filiais</option>
+
+        <?php foreach ($filiais as $f): ?>
+            <option value="<?= $f['empresa_id'] ?>"
+                <?= (($_GET['filial'] ?? '') == $f['empresa_id']) ? 'selected' : '' ?>>
+                <?= $f['nome'] ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+
+    <button class="btn btn-outline-secondary me-2">
+        <i class="bx bx-filter-alt me-1"></i> Aplicar
+    </button>
+</form>
+
                             <div class="ms-auto d-flex gap-2">
                                 <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
                                 <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
