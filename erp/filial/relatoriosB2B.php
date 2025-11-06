@@ -1080,17 +1080,18 @@ if (!empty($filiais)) {
         // ==================================================================
         $inSolic = implode(",", array_fill(0, count($solicitacoesIds), "?"));
 
-        $sqlItens = $pdo->prepare("
-            SELECT 
-                codigo_produto,
-                nome_produto,
-                SUM(quantidade) AS total_quantidade,
-                COUNT(DISTINCT solicitacao_id) AS total_pedidos
-            FROM solicitacoes_b2b_itens
-            WHERE solicitacao_id IN ($inSolic)
-            GROUP BY codigo_produto, nome_produto
-            ORDER BY total_quantidade DESC
-        ");
+     $sqlItens = $pdo->prepare("
+    SELECT 
+        codigo_produto,
+        nome_produto,
+        SUM(quantidade) AS total_quantidade,
+        COUNT(DISTINCT solicitacao_id) AS total_pedidos
+    FROM solicitacoes_b2b_itens
+    WHERE solicitacao_id IN ($inSolic)
+    GROUP BY codigo_produto, nome_produto
+    ORDER BY total_quantidade DESC
+    LIMIT 5
+");
 
         $sqlItens->execute($solicitacoesIds);
         $produtosLista = $sqlItens->fetchAll(PDO::FETCH_ASSOC);
