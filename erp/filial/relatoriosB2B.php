@@ -919,50 +919,128 @@ $resumo = [
 </div>
 
 
-                    <!-- Vendas por Franquia -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Vendas / Pedidos por Franquia</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Franquia</th>
-                                        <th>Pedidos</th>
-                                        <th>Itens</th>
-                                        <th>Faturamento (R$)</th>
-                                        <th>Ticket Médio (R$)</th>
-                                        <th>% do Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><strong>Franquia Centro</strong></td>
-                                        <td>74</td>
-                                        <td>2.140</td>
-                                        <td>R$ 58.700,00</td>
-                                        <td>R$ 793,24</td>
-                                        <td>45%</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Norte</strong></td>
-                                        <td>58</td>
-                                        <td>1.720</td>
-                                        <td>R$ 41.320,00</td>
-                                        <td>R$ 712,41</td>
-                                        <td>32%</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Sul</strong></td>
-                                        <td>52</td>
-                                        <td>1.570</td>
-                                        <td>R$ 28.430,00</td>
-                                        <td>R$ 546,73</td>
-                                        <td>23%</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+            <?php
+// =========================================================
+// 1. BUSCAR TODAS AS FILIAIS
+// =========================================================
+$sqlFiliais = $pdo->query("
+    SELECT id, nome, empresa_id
+    FROM unidades
+    WHERE tipo = 'Filial'
+");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
+
+
+// =========================================================
+// 2. CALCULAR VENDAS POR FILIAL
+// =========================================================
+
+$listaFiliais = [];
+$totalFaturamentoGeral = 0;
+
+foreach ($filiais as $f) {
+
+    $empresaId = $f["empresa_id"];
+    $nomeFilial = $f["nome"];
+
+    // ✅ Buscar total de pedidos (vendas)
+    $sqlV = $pdo->prepare("
+        SELECT 
+            COUNT(*) AS pedidos,
+            SUM(valor_total) AS total_faturamento
+        FROM vendas
+        WHERE empresa_id = ?
+        AND data_venda BETWEEN ? AND ?
+    ");
+    $sqlV->execute([$empresaId, $inicioAtual, $fimAtual]);
+    $dados = $sqlV->fetch(PDO::FETCH_ASSOC);
+
+    $pedidos = (int)$dados["pedidos"];
+    $faturamento = (float)$dados["total_faturamento"];
+
+    // ✅ Buscar total de itens vendidos (somando tabela itens_venda)
+    $sqlItens = $pdo->prepare("
+        SELECT SUM(iv.quantidade) AS total_itens
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        WHERE v.empresa_id = ?
+        AND v.data_venda BETWEEN ? AND ?
+    ");
+    $sqlItens->execute([$empresaId, $inicioAtual, $fimAtual]);
+    $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
+
+    $itens = (int)($dadosItens["total_itens"] ?? 0);
+
+    // ✅ Ticket médio
+    $ticket = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
+
+    // ✅ Acumular faturamento geral
+    $totalFaturamentoGeral += $faturamento;
+
+    // ✅ Armazenar dados da filial
+    $listaFiliais[] = [
+        "nome" => $nomeFilial,
+        "pedidos" => $pedidos,
+        "itens" => $itens,
+        "faturamento" => $faturamento,
+        "ticket" => $ticket
+    ];
+}
+
+
+// =========================================================
+// 3. CALCULAR % DO TOTAL PARA CADA FILIAL
+// =========================================================
+foreach ($listaFiliais as $i => $f) {
+    $perc = ($totalFaturamentoGeral > 0)
+        ? ($f["faturamento"] / $totalFaturamentoGeral) * 100
+        : 0;
+
+    $listaFiliais[$i]["perc"] = $perc;
+}
+?>
+
+
+<!-- ========================================================= -->
+<!-- TABELA: VENDAS / PEDIDOS POR FILIAL                      -->
+<!-- ========================================================= -->
+
+<div class="card mb-3">
+    <h5 class="card-header">Vendas / Pedidos por Filial</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>Filial</th>
+                <th>Pedidos</th>
+                <th>Itens</th>
+                <th>Faturamento (R$)</th>
+                <th>Ticket Médio (R$)</th>
+                <th>% do Total</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <?php foreach ($listaFiliais as $f): ?>
+                <tr>
+                    <td><strong><?= htmlspecialchars($f["nome"]) ?></strong></td>
+
+                    <td><?= $f["pedidos"] ?></td>
+
+                    <td><?= $f["itens"] ?></td>
+
+                    <td>R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
+
+                    <td>R$ <?= number_format($f["ticket"], 2, ',', '.') ?></td>
+
+                    <td><?= number_format($f["perc"], 1, ',', '.') ?>%</td>
+                </tr>
+            <?php endforeach; ?>
+
+            </tbody>
+        </table>
+    </div>
+</div>
 
                     <!-- Produtos Mais Solicitados -->
                     <div class="card mb-3">
