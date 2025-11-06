@@ -723,7 +723,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <label class="form-label mb-1">Até</label>
                                 <input type="date" class="form-control form-control-sm" name="ate" >
                             </div>
-                            <div class="col-12 col-md-auto d-flex gap-2 filter-col">
+                            <div class="col-12 col-md-auto d-flex  filter-col">
                                 <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                                 
