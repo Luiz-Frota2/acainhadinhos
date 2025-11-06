@@ -1157,41 +1157,122 @@ if (!empty($filiais)) {
 </div>
 
                    
-                    <div class="card mb-3">
-                        <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Métrica</th>
-                                        <th>Quantidade</th>
-                                        <th>Valor (R$)</th>
-                                        <th>Status Principal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Pagamentos Solicitados</td>
-                                        <td>62</td>
-                                        <td>R$ 72.300,00</td>
-                                        <td>Pendente/Análise</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Remessas Enviadas</td>
-                                        <td>48</td>
-                                        <td>—</td>
-                                        <td>Em Trânsito</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Remessas Concluídas</td>
-                                        <td>39</td>
-                                        <td>—</td>
-                                        <td>Entregue</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                 <?php
+// ========================================================================
+// 1. BUSCAR IDS DAS FILIAIS
+// ========================================================================
+$sqlFiliais = $pdo->query("
+    SELECT id 
+    FROM unidades
+    WHERE tipo = 'Filial'
+");
+$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
+
+$pagSolicitadosQtd = 0;
+$pagSolicitadosValor = 0;
+
+$remessasEnviadas = 0;
+$remessasConcluidas = 0;
+
+if (!empty($filiais)) {
+
+    // Converte ids para formato unidade_X
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
+
+    // ========================================================================
+    // 2. PEGAR PAGAMENTOS SOLICITADOS (status pendente)
+    // ========================================================================
+    $sqlPendentes = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'pendente'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlPendentes->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $pend = $sqlPendentes->fetch(PDO::FETCH_ASSOC);
+
+    $pagSolicitadosQtd = (int)$pend["qtd"];
+    $pagSolicitadosValor = (float)($pend["total"] ?? 0);
+
+
+    // ========================================================================
+    // 3. REMESSAS ENVIADAS (status aprovado)
+    // ========================================================================
+    $sqlAprovado = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'aprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlAprovado->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $remessasEnviadas = (int)$sqlAprovado->fetchColumn();
+
+
+    // ========================================================================
+    // 4. REMESSAS CONCLUÍDAS (status reprovado)
+    // ========================================================================
+    $sqlReprovado = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'reprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlReprovado->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $remessasConcluidas = (int)$sqlReprovado->fetchColumn();
+}
+?>
+
+
+<!-- ======================================================================== -->
+<!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                                   -->
+<!-- ======================================================================== -->
+
+<div class="card mb-3">
+    <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+            <tr>
+                <th>Métrica</th>
+                <th>Quantidade</th>
+                <th>Valor (R$)</th>
+                <th>Status Principal</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <!-- Pagamentos Solicitados -->
+            <tr>
+                <td>Pagamentos Solicitados</td>
+                <td><?= $pagSolicitadosQtd ?></td>
+                <td>R$ <?= number_format($pagSolicitadosValor, 2, ',', '.') ?></td>
+                <td>Pendente / Análise</td>
+            </tr>
+
+            <!-- Remessas Enviadas -->
+            <tr>
+                <td>Remessas Enviadas</td>
+                <td><?= $remessasEnviadas ?></td>
+                <td>—</td>
+                <td>Aprovado</td>
+            </tr>
+
+            <!-- Remessas Concluídas -->
+            <tr>
+                <td>Remessas Concluídas</td>
+                <td><?= $remessasConcluidas ?></td>
+                <td>—</td>
+                <td>Reprovado</td>
+            </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
 
                 </div>
                 <!-- / Content -->
