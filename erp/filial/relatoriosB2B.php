@@ -979,7 +979,7 @@ foreach ($filiais as $f) {
 // =========================================================
 // PAGINAÇÃO
 // =========================================================
-$itensPorPagina = 10; // ✅ quantidade por página
+$itensPorPagina = 5; // ✅ quantidade por página
 $paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
 
     // ✅ Armazenar dados da filial
@@ -1059,32 +1059,33 @@ $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
         <!-- ========================================= -->
 <!-- PAGINAÇÃO                                 -->
 <!-- ========================================= -->
-<div class="d-flex justify-content-center my-3">
+<!-- ========================================= -->
+<!-- PAGINAÇÃO MINIMALISTA                     -->
+<!-- ========================================= -->
 
+<div class="d-flex justify-content-end mt-2">
     <nav>
-        <ul class="pagination">
+        <ul class="pagination pagination-sm m-0">
 
             <!-- Botão Anterior -->
             <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
-                <a class="page-link" href="?pagina=<?= $paginaAtual - 1 ?>">Anterior</a>
+                <a class="page-link" href="?pagina=<?= $paginaAtual - 1 ?>" tabindex="-1">Anterior</a>
             </li>
 
-            <!-- Números das páginas -->
-            <?php for ($i = 1; $i <= $totalPaginas; $i++): ?>
-                <li class="page-item <?= ($i == $paginaAtual) ? 'active' : '' ?>">
-                    <a class="page-link" href="?pagina=<?= $i ?>"><?= $i ?></a>
-                </li>
-            <?php endfor; ?>
+            <!-- Página atual (não clicável) -->
+            <li class="page-item active">
+                <span class="page-link"><?= $paginaAtual ?></span>
+            </li>
 
             <!-- Botão Próxima -->
             <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
-                <a class="page-link" href="?pagina=<?= $paginaAtual + 1 ?>">Próxima</a>
+                <a class="page-link" href="?pagina=<?= $paginaAtual + 1 ?>">Próximo</a>
             </li>
 
         </ul>
     </nav>
-
 </div>
+
 
     </div>
 </div>
