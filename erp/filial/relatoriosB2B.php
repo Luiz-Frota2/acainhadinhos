@@ -984,10 +984,9 @@ $totalFaturamentoGeral = 0;
 
 foreach ($filiais as $f) {
 
-    $empresaId = $f["empresa_id"];
-    $nomeFilial = $f["nome"];
+    $empresaId = $f["id"]; // ✅ o certo!
 
-    // ✅ Buscar total de pedidos (vendas)
+    // Buscar total de pedidos
     $sqlV = $pdo->prepare("
         SELECT 
             COUNT(*) AS pedidos,
@@ -1002,7 +1001,7 @@ foreach ($filiais as $f) {
     $pedidos = (int)$dados["pedidos"];
     $faturamento = (float)$dados["total_faturamento"];
 
-    // ✅ Buscar total de itens vendidos (somando tabela itens_venda)
+    // Itens vendidos
     $sqlItens = $pdo->prepare("
         SELECT SUM(iv.quantidade) AS total_itens
         FROM itens_venda iv
@@ -1014,6 +1013,7 @@ foreach ($filiais as $f) {
     $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
 
     $itens = (int)($dadosItens["total_itens"] ?? 0);
+}
 
     // ✅ Ticket médio
     $ticket = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
