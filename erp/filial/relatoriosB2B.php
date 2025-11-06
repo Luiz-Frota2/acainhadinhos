@@ -708,7 +708,6 @@ $fimTxt = $fim->format('d/m/Y');
         <input type="hidden" name="id" >
 
         <div class="col-12 col-md-3">
-            <label class="form-label">filial</label>
             <select name="" id="">filial</select>
         </div>
 
