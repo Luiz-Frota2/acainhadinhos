@@ -737,9 +737,6 @@ $fimTxt = $fim->format('d/m/Y');
                                 <a class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                             </div>
                         </div>
-                        <div class="small text-muted mt-2">
-                            Resultados: <strong></strong> registros
-                        </div>
                     </div>
                 </form>
 
