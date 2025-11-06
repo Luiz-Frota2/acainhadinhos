@@ -707,19 +707,16 @@ $fimTxt = $fim->format('d/m/Y');
     <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
         <input type="hidden" name="id" >
 
-        <div class="col-12 col-md-3">
-           <select name="" id="" placeholder="filial"> <option value="filial do norte"></option></select>
-        </div>
+        <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">De</label>
+                                <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
+                            </div>
 
-        <div class="col-12 col-md-2">
-            <label class="form-label">de</label>
-            <input type="date" name="codigo"  class="form-control form-control-sm">
-        </div>
+                            <div class="col-12 col-md-auto filter-col">
+                                <label class="form-label mb-1">Até</label>
+                                <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
+                            </div>
 
-        <div class="col-12 col-md-2">
-            <label class="form-label">até</label>
-            <input type="date" name="categoria"  class="form-control form-control-sm" >
-        </div>
 
         <div class="col-12 col-md-3 d-flex gap-2">
             <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
