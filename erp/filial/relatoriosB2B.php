@@ -961,13 +961,12 @@ $resumo = [
         </table>
     </div>
 </div>
-
 <?php
 // =========================================================
 // 1. BUSCAR TODAS AS FILIAIS
 // =========================================================
 $sqlFiliais = $pdo->query("
-    SELECT id, nome
+    SELECT id, nome, empresa_id
     FROM unidades
     WHERE tipo = 'Filial'
 ");
@@ -987,8 +986,8 @@ $paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
 
 foreach ($filiais as $f) {
 
-    // ✅ Correção principal: usar 'id' e NÃO 'empresa_id'
-    $empresaId = $f["id"];
+    // ✅ Correção real: empresa_id é a chave usada na tabela vendas
+    $empresaId = $f["empresa_id"];
     $nomeFilial = $f["nome"];
 
     // ✅ Buscar total de pedidos (vendas)
@@ -1049,7 +1048,7 @@ foreach ($listaFiliais as $i => $f) {
 
 
 // =========================================================
-// 4. PAGINAÇÃO - CORTAR ARRAY EM PEDAÇOS
+// 4. PAGINAÇÃO
 // =========================================================
 $totalRegistros = count($listaFiliais);
 $totalPaginas = ceil($totalRegistros / $itensPorPagina);
@@ -1058,6 +1057,7 @@ $offset = ($paginaAtual - 1) * $itensPorPagina;
 $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
 
 ?>
+
 
 
 
