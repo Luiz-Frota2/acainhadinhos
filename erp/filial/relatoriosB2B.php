@@ -976,6 +976,11 @@ foreach ($filiais as $f) {
 
     // ✅ Acumular faturamento geral
     $totalFaturamentoGeral += $faturamento;
+// =========================================================
+// PAGINAÇÃO
+// =========================================================
+$itensPorPagina = 10; // ✅ quantidade por página
+$paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
 
     // ✅ Armazenar dados da filial
     $listaFiliais[] = [
