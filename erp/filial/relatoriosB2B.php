@@ -702,53 +702,73 @@ $fimTxt = $fim->format('d/m/Y');
                     </h5>
 
 
+<?php
+// ==========================================
+// FILTERS (CAPTURA)
+// ==========================================
+$filialFiltro = $_GET['status'] ?? "";
 
-                    <div class="card mb-3">
+// datas
+$inicioAtual = $_GET['codigo'] ?? "";
+$fimAtual    = $_GET['categoria'] ?? "";
+
+// Se datas vierem vazias, usa padrão (primeiro e último dia do mês atual)
+if ($inicioAtual == "") $inicioAtual = date("Y-m-01");
+if ($fimAtual == "")    $fimAtual    = date("Y-m-t");
+
+// paginação padrão
+$paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
+?>
+
+<!------------------ FORMULÁRIO DE FILTRO ------------------>
+<div class="card mb-3">
     <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
-        <input type="hidden" name="id" >
+        <input type="hidden" name="id">
 
         <div class="col-12 col-md-3">
-           <label>Filial</label>
-                                <select class="form-select form-select-sm" name="status">
-                                    <option value="">Todas as Filias</option>
-                                    <option >Filial do norte</option>
-                                    <option >filial dop SUl</option>
-                                </select>
+            <label>Filial</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="">Todas as Filiais</option>
+                <option value="Filial do norte" <?= ($filialFiltro=="Filial do norte"?"selected":"") ?>>Filial do norte</option>
+                <option value="filial do sul" <?= ($filialFiltro=="filial do sul"?"selected":"") ?>>filial do sul</option>
+            </select>
         </div>
 
         <div class="col-12 col-md-2">
             <label class="form-label">de</label>
-            <input type="date" name="codigo"  class="form-control form-control-sm">
+            <input type="date" name="codigo" value="<?= htmlspecialchars($inicioAtual) ?>" class="form-control form-control-sm">
         </div>
 
         <div class="col-12 col-md-2">
             <label class="form-label">até</label>
-            <input type="date" name="categoria"  class="form-control form-control-sm" >
+            <input type="date" name="categoria" value="<?= htmlspecialchars($fimAtual) ?>" class="form-control form-control-sm">
         </div>
 
         <div class="col-12 col-md-3 d-flex gap-2">
             <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
-            <a  class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-             <a  class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
-              <a  class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
-               <a  class="btn btn-sm btn-outline-secondary">Imprimir</a>
-
-
-           
+            <a href="?" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+            <a class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
+            <a class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
+            <a class="btn btn-sm btn-outline-secondary">Imprimir</a>
         </div>
     </form>
 </div>
 
-
-                  <?php
+<?php
 // ==========================================
-// 1. FUNÇÃO QUE CALCULA OS DADOS DO PERÍODO
+// FUNÇÃO calcularPeriodo (ajustada p/filialFiltro)
 // ==========================================
-function calcularPeriodo(PDO $pdo, $inicio, $fim)
+function calcularPeriodo(PDO $pdo, $inicio, $fim, $filialFiltro = "")
 {
-    // ---- A) Busca IDS das FILIAIS ----
-    $filiais = $pdo->query("SELECT id FROM unidades WHERE tipo = 'Filial'")
-                   ->fetchAll(PDO::FETCH_COLUMN);
+    // BUSCAR IDS DAS FILIAIS (filtradas ou todas)
+    if ($filialFiltro != "") {
+        $sql = $pdo->prepare("SELECT id FROM unidades WHERE tipo = 'Filial' AND nome = ?");
+        $sql->execute([$filialFiltro]);
+    } else {
+        $sql = $pdo->query("SELECT id FROM unidades WHERE tipo = 'Filial'");
+    }
+
+    $filiais = $sql->fetchAll(PDO::FETCH_COLUMN);
 
     if (!$filiais) {
         return [
@@ -759,11 +779,11 @@ function calcularPeriodo(PDO $pdo, $inicio, $fim)
         ];
     }
 
-    // ex: unidade_3, unidade_7, unidade_9
+    // monta keys unidade_X
     $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
     $inFiliais  = implode(",", array_fill(0, count($filialKeys), "?"));
 
-    // ---- B) Pedidos B2B somente de FILIAIS ----
+    // Pedidos B2B feitos por filiais
     $sqlPedidos = $pdo->prepare("
         SELECT id 
         FROM solicitacoes_b2b
@@ -784,7 +804,7 @@ function calcularPeriodo(PDO $pdo, $inicio, $fim)
         ];
     }
 
-    // ---- C) Itens + Faturamento ----
+    // Itens + faturamento
     $inPedidos = implode(",", array_fill(0, count($idsPedidos), "?"));
 
     $sqlItens = $pdo->prepare("
@@ -800,7 +820,6 @@ function calcularPeriodo(PDO $pdo, $inicio, $fim)
     $totalItens = $dados["totalItens"] ?? 0;
     $totalFaturamento = $dados["totalFaturamento"] ?? 0;
 
-    // ---- D) Ticket Média ----
     $ticket = $totalPedidos > 0 ? ($totalFaturamento / $totalPedidos) : 0;
 
     return [
@@ -811,10 +830,8 @@ function calcularPeriodo(PDO $pdo, $inicio, $fim)
     ];
 }
 
-
-
 // ==========================================
-// 2. FUNÇÃO PARA CALCULAR VARIAÇÃO (%)
+// função variacao
 // ==========================================
 function variacao($atual, $anterior)
 {
@@ -822,24 +839,16 @@ function variacao($atual, $anterior)
     return (($atual - $anterior) / $anterior) * 100;
 }
 
-
-
 // ==========================================
-// 3. CALCULA O PERÍODO ATUAL E ANTERIOR
+// CALCULA PERÍODO ATUAL E ANTERIOR (30 dias atrás)
 // ==========================================
+$inicioAnterior = date("Y-m-d", strtotime("$inicioAtual -30 days"));
+$fimAnterior    = date("Y-m-d", strtotime("$fimAtual -30 days"));
 
-// Você pode substituir por datas dinâmicas depois
-$inicioAtual = "2025-11-01";
-$fimAtual    = "2025-11-30";
+$atual    = calcularPeriodo($pdo, $inicioAtual, $fimAtual, $filialFiltro);
+$anterior = calcularPeriodo($pdo, $inicioAnterior, $fimAnterior, $filialFiltro);
 
-$inicioAnterior = "2025-10-01";
-$fimAnterior    = "2025-10-30";
-
-$atual    = calcularPeriodo($pdo, $inicioAtual, $fimAtual);
-$anterior = calcularPeriodo($pdo, $inicioAnterior, $fimAnterior);
-
-
-// Prepara estrutura para tabela
+// Prepara estrutura resumo
 $resumo = [
     "pedidos" => [
         "valor" => $atual["pedidos"],
@@ -861,9 +870,8 @@ $resumo = [
 ?>
 
 <!-- ============================================== -->
-<!-- 4. TABELA HTML — AGORA TOTALMENTE DINÂMICA -->
+<!--  Resumo do Período (HTML)                       -->
 <!-- ============================================== -->
-
 <div class="card mb-3">
     <h5 class="card-header">Resumo do Período</h5>
     <div class="table-responsive">
@@ -930,31 +938,40 @@ $resumo = [
         </table>
     </div>
 </div>
+
 <?php
-// =========================================================
-// 1. BUSCAR TODAS AS FILIAIS
-// =========================================================
-$sqlFiliais = $pdo->query("
-    SELECT id, nome
-    FROM unidades
-    WHERE tipo = 'Filial'
-");
-$filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
+// ==========================================
+// 1) BUSCAR FILIAIS (com filtro aplicado)
+// ==========================================
+if ($filialFiltro != "") {
+    $sqlFiliais = $pdo->prepare("
+        SELECT id, nome
+        FROM unidades
+        WHERE tipo = 'Filial'
+        AND nome = ?
+    ");
+    $sqlFiliais->execute([$filialFiltro]);
+    $filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $sqlFiliais = $pdo->query("
+        SELECT id, nome
+        FROM unidades
+        WHERE tipo = 'Filial'
+    ");
+    $filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
+}
 
-// =========================================================
-// 2. CALCULAR VENDAS POR FILIAL (USANDO 'unidade_{id}')
-// =========================================================
-
+// ==========================================
+// 2) CALCULAR VENDAS POR FILIAL (USANDO 'unidade_{id}')
+// ==========================================
 $listaFiliais = [];
 $totalFaturamentoGeral = 0;
 
-// Paginação
+// Paginação (itens por página)
 $itensPorPagina = 5;
-$paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
 
 foreach ($filiais as $f) {
 
-    // Monta a chave que existe em vendas.empresa_id e solicitacoes_b2b.id_solicitante
     $empresaKey = "unidade_" . $f["id"]; // EX: 'unidade_3'
     $nomeFilial = $f["nome"];
 
@@ -1002,9 +1019,9 @@ foreach ($filiais as $f) {
     ];
 }
 
-// =========================================================
-// 3. CALCULAR % DO TOTAL PARA CADA FILIAL
-// =========================================================
+// ==========================================
+// 3) CALCULAR % DO TOTAL PARA CADA FILIAL
+// ==========================================
 foreach ($listaFiliais as $i => $f) {
     $perc = ($totalFaturamentoGeral > 0)
         ? ($f["faturamento"] / $totalFaturamentoGeral) * 100
@@ -1013,9 +1030,9 @@ foreach ($listaFiliais as $i => $f) {
     $listaFiliais[$i]["perc"] = $perc;
 }
 
-// =========================================================
-// 4. PAGINAÇÃO - CORTAR ARRAY EM PEDAÇOS
-// =========================================================
+// ==========================================
+// 4) PAGINAÇÃO - CORTAR ARRAY EM PEDAÇOS
+// ==========================================
 $totalRegistros = count($listaFiliais);
 $totalPaginas = max(1, ceil($totalRegistros / $itensPorPagina));
 
@@ -1023,12 +1040,9 @@ $offset = ($paginaAtual - 1) * $itensPorPagina;
 $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
 ?>
 
-
-
 <!-- ========================================================= -->
 <!-- TABELA: VENDAS / PEDIDOS POR FILIAL                      -->
 <!-- ========================================================= -->
-
 <div class="card mb-3">
     <h5 class="card-header">Vendas / Pedidos por Filial</h5>
     <div class="table-responsive">
@@ -1046,134 +1060,102 @@ $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
             <tbody>
 
             <?php foreach ($listaPaginada as $f): ?>
-
                 <tr>
                     <td><strong><?= htmlspecialchars($f["nome"]) ?></strong></td>
-
                     <td><?= $f["pedidos"] ?></td>
-
                     <td><?= $f["itens"] ?></td>
-
                     <td>R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
-
                     <td>R$ <?= number_format($f["ticket"], 2, ',', '.') ?></td>
-
                     <td><?= number_format($f["perc"], 1, ',', '.') ?>%</td>
                 </tr>
             <?php endforeach; ?>
 
             </tbody>
         </table>
-        <!-- ========================================= -->
-<!-- PAGINAÇÃO                                 -->
-<!-- ========================================= -->
-<!-- ========================================= -->
-<!-- PAGINAÇÃO MINIMALISTA                     -->
-<!-- ========================================= -->
 
-<div class="d-flex justify-content-center mt-2">
-    <nav>
-        <ul class="pagination pagination-sm m-0">
+        <!-- PAGINAÇÃO -->
+        <div class="d-flex justify-content-center mt-2">
+            <nav>
+                <ul class="pagination pagination-sm m-0">
+                    <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
+                        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual-1])) ?>" tabindex="-1">Anterior</a>
+                    </li>
 
-            <!-- Botão Anterior -->
-            <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
-                <a class="page-link" href="?pagina=<?= $paginaAtual - 1 ?>" tabindex="-1">Anterior</a>
-            </li>
+                    <li class="page-item active">
+                        <span class="page-link"><?= $paginaAtual ?></span>
+                    </li>
 
-            <!-- Página atual (não clicável) -->
-            <li class="page-item active">
-                <span class="page-link"><?= $paginaAtual ?></span>
-            </li>
-
-            <!-- Botão Próxima -->
-            <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
-                <a class="page-link" href="?pagina=<?= $paginaAtual + 1 ?>">Próximo</a>
-            </li>
-
-        </ul>
-    </nav>
-</div>
-
-
+                    <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
+                        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual+1])) ?>">Próximo</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
 
     </div>
 </div>
+
 <?php
-// ==================================================================
-// 1. BUSCAR IDS DE TODAS AS FILIAIS
-// ==================================================================
-$sqlFiliais = $pdo->query("
-    SELECT id 
-    FROM unidades 
-    WHERE tipo = 'Filial'
-");
-$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
+// =========================================================
+// PRODUTOS MAIS SOLICITADOS (FILIAIS)
+// =========================================================
 
-if (!empty($filiais)) {
+// BUSCAR IDS DAS FILIAIS (apenas ids coluna)
+$sqlFiliaisIds = $pdo->prepare("SELECT id FROM unidades WHERE tipo = 'Filial' " . ($filialFiltro != "" ? "AND nome = ?" : ""));
+if ($filialFiltro != "") {
+    $sqlFiliaisIds->execute([$filialFiltro]);
+} else {
+    $sqlFiliaisIds->execute();
+}
+$filiaisIds = $sqlFiliaisIds->fetchAll(PDO::FETCH_COLUMN);
 
-    // Converte para "unidade_X"
-    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+$produtosLista = [];
+
+if (!empty($filiaisIds)) {
+
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiaisIds);
     $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
 
-    // ==================================================================
-    // 2. PEGAR TODAS AS SOLICITAÇÕES B2B REALIZADAS POR FILIAIS
-    // ==================================================================
+    // pegar solicitações b2b
     $sqlSolic = $pdo->prepare("
         SELECT id
         FROM solicitacoes_b2b
         WHERE id_solicitante IN ($inFiliais)
         AND created_at BETWEEN ? AND ?
     ");
-
     $sqlSolic->execute([...$filialKeys, $inicioAtual, $fimAtual]);
     $solicitacoesIds = $sqlSolic->fetchAll(PDO::FETCH_COLUMN);
 
-    $produtosLista = [];
-
     if (!empty($solicitacoesIds)) {
-
-        // ==================================================================
-        // 3. PEGAR PRODUTOS MAIS SOLICITADOS (AGRUPADOS)
-        // ==================================================================
         $inSolic = implode(",", array_fill(0, count($solicitacoesIds), "?"));
 
-     $sqlItens = $pdo->prepare("
-    SELECT 
-        codigo_produto,
-        nome_produto,
-        SUM(quantidade) AS total_quantidade,
-        COUNT(DISTINCT solicitacao_id) AS total_pedidos
-    FROM solicitacoes_b2b_itens
-    WHERE solicitacao_id IN ($inSolic)
-    GROUP BY codigo_produto, nome_produto
-    ORDER BY total_quantidade DESC
-    LIMIT 5
-");
-
+        $sqlItens = $pdo->prepare("
+            SELECT 
+                codigo_produto,
+                nome_produto,
+                SUM(quantidade) AS total_quantidade,
+                COUNT(DISTINCT solicitacao_id) AS total_pedidos
+            FROM solicitacoes_b2b_itens
+            WHERE solicitacao_id IN ($inSolic)
+            GROUP BY codigo_produto, nome_produto
+            ORDER BY total_quantidade DESC
+            LIMIT 5
+        ");
         $sqlItens->execute($solicitacoesIds);
         $produtosLista = $sqlItens->fetchAll(PDO::FETCH_ASSOC);
 
-        // ==================================================================
-        // 4. CALCULAR PARTICIPAÇÃO
-        // ==================================================================
         $totalGeral = array_sum(array_column($produtosLista, "total_quantidade"));
-
         foreach ($produtosLista as $i => $prod) {
-            $perc = $totalGeral > 0 
-                ? ($prod["total_quantidade"] / $totalGeral) * 100 
-                : 0;
-
+            $perc = $totalGeral > 0 ? ($prod["total_quantidade"] / $totalGeral) * 100 : 0;
             $produtosLista[$i]["perc"] = $perc;
         }
     }
 }
 ?>
 
-
-<!-- ================================================================== -->
-<!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS) -->
-<!-- ================================================================== -->
-
+<!-- ========================================================= -->
+<!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS)                -->
+<!-- ========================================================= -->
 <div class="card mb-3">
     <h5 class="card-header">Produtos Mais Solicitados</h5>
     <div class="table-responsive">
@@ -1194,11 +1176,8 @@ if (!empty($filiais)) {
                     <tr>
                         <td><?= htmlspecialchars($p["codigo_produto"]) ?></td>
                         <td><?= htmlspecialchars($p["nome_produto"]) ?></td>
-
                         <td><?= (int)$p["total_quantidade"] ?></td>
-
                         <td><?= (int)$p["total_pedidos"] ?></td>
-
                         <td><?= number_format($p["perc"], 1, ',', '.') ?>%</td>
                     </tr>
                 <?php endforeach; ?>
@@ -1213,100 +1192,26 @@ if (!empty($filiais)) {
     </div>
 </div>
 
-                   
-                 <?php
+<?php
 // ========================================================================
-// 1. BUSCAR IDS DAS FILIAIS
+// PAGAMENTOS E REMESSAS (RESUMO) - UTILIZANDO FILIAIS FILTRADAS
 // ========================================================================
-$sqlFiliais = $pdo->query("
-    SELECT id 
-    FROM unidades
-    WHERE tipo = 'Filial'
-");
-$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
-
 $pagSolicitadosQtd = 0;
 $pagSolicitadosValor = 0;
 
 $remessasEnviadas = 0;
 $remessasConcluidas = 0;
 
-if (!empty($filiais)) {
-
-    // Converte ids para formato unidade_X
-    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
-    $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
-
-    // ========================================================================
-    // 2. PEGAR PAGAMENTOS SOLICITADOS (status pendente)
-    // ========================================================================
-    $sqlPendentes = $pdo->prepare("
-        SELECT COUNT(*) AS qtd, SUM(valor) AS total
-        FROM solicitacoes_pagamento
-        WHERE id_solicitante IN ($inFiliais)
-        AND status = 'pendente'
-        AND created_at BETWEEN ? AND ?
-    ");
-    $sqlPendentes->execute([...$filialKeys, $inicioAtual, $fimAtual]);
-    $pend = $sqlPendentes->fetch(PDO::FETCH_ASSOC);
-
-    $pagSolicitadosQtd = (int)$pend["qtd"];
-    $pagSolicitadosValor = (float)($pend["total"] ?? 0);
-
-
-    // ========================================================================
-    // 3. REMESSAS ENVIADAS (status aprovado)
-    // ========================================================================
-    $sqlAprovado = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM solicitacoes_pagamento
-        WHERE id_solicitante IN ($inFiliais)
-        AND status = 'aprovado'
-        AND created_at BETWEEN ? AND ?
-    ");
-    $sqlAprovado->execute([...$filialKeys, $inicioAtual, $fimAtual]);
-    $remessasEnviadas = (int)$sqlAprovado->fetchColumn();
-
-
-    // ========================================================================
-    // 4. REMESSAS CONCLUÍDAS (status reprovado)
-    // ========================================================================
-    $sqlReprovado = $pdo->prepare("
-        SELECT COUNT(*) 
-        FROM solicitacoes_pagamento
-        WHERE id_solicitante IN ($inFiliais)
-        AND status = 'reprovado'
-        AND created_at BETWEEN ? AND ?
-    ");
-    $sqlReprovado->execute([...$filialKeys, $inicioAtual, $fimAtual]);
-    $remessasConcluidas = (int)$sqlReprovado->fetchColumn();
-}
-?>
-
-
-<!-- ======================================================================== -->
-<!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                                   -->
-<!-- ======================================================================== -->
-
-<?php
-// ========================================================================
-// 1. BUSCAR IDS DAS FILIAIS
-// ========================================================================
-$sqlFiliais = $pdo->query("SELECT id FROM unidades WHERE tipo = 'Filial'");
-$filiais = $sqlFiliais->fetchAll(PDO::FETCH_COLUMN);
-
 $pendQtd = $pendValor = 0;
 $aprovQtd = $aprovValor = 0;
 $reprovQtd = $reprovValor = 0;
 
-if (!empty($filiais)) {
+if (!empty($filiaisIds)) {
 
-    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiaisIds);
     $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
 
-    // ========================================================================
-    // 2. PAGAMENTOS SOLICITADOS (pendente)
-    // ========================================================================
+    // PAGAMENTOS SOLICITADOS (pendente)
     $sqlPend = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
@@ -1316,13 +1221,10 @@ if (!empty($filiais)) {
     ");
     $sqlPend->execute([...$filialKeys, $inicioAtual, $fimAtual]);
     $r = $sqlPend->fetch(PDO::FETCH_ASSOC);
-
     $pendQtd = (int)$r["qtd"];
     $pendValor = (float)($r["total"] ?? 0);
 
-    // ========================================================================
-    // 3. PAGAMENTOS APROVADOS (aprovado)
-    // ========================================================================
+    // PAGAMENTOS APROVADOS (aprovado)
     $sqlAprov = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
@@ -1332,13 +1234,10 @@ if (!empty($filiais)) {
     ");
     $sqlAprov->execute([...$filialKeys, $inicioAtual, $fimAtual]);
     $r = $sqlAprov->fetch(PDO::FETCH_ASSOC);
-
     $aprovQtd = (int)$r["qtd"];
     $aprovValor = (float)($r["total"] ?? 0);
 
-    // ========================================================================
-    // 4. PAGAMENTOS REPROVADOS (reprovado)
-    // ========================================================================
+    // PAGAMENTOS REPROVADOS (reprovado)
     $sqlReprov = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
@@ -1348,13 +1247,36 @@ if (!empty($filiais)) {
     ");
     $sqlReprov->execute([...$filialKeys, $inicioAtual, $fimAtual]);
     $r = $sqlReprov->fetch(PDO::FETCH_ASSOC);
-
     $reprovQtd = (int)$r["qtd"];
     $reprovValor = (float)($r["total"] ?? 0);
+
+    // Remessas enviadas (exemplo contagem status aprovado dentro do mesmo)
+    $sqlAprovadoCount = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'aprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlAprovadoCount->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $remessasEnviadas = (int)$sqlAprovadoCount->fetchColumn();
+
+    // Remessas concluidas (exemplo status reprovado)
+    $sqlReprovadoCount = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'reprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlReprovadoCount->execute([...$filialKeys, $inicioAtual, $fimAtual]);
+    $remessasConcluidas = (int)$sqlReprovadoCount->fetchColumn();
 }
 ?>
 
-
+<!-- ========================================================= -->
+<!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                    -->
+<!-- ========================================================= -->
 <div class="card mb-3">
     <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
     <div class="table-responsive">
@@ -1397,8 +1319,7 @@ if (!empty($filiais)) {
 </div>
 
 
-                </div>
-                <!-- / Content -->
+          <!-- / Content -->
 
                 <!-- Footer -->
                 <footer class="content-footer footer bg-footer-theme text-center">
