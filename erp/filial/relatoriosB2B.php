@@ -707,12 +707,14 @@ $fimTxt = $fim->format('d/m/Y');
     <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
         <input type="hidden" name="id" >
 
-         <label class="form-label mb-1">Filial</label>
+        <div class="col-12 col-md-3">
+            <label class="form-label mb-1">Filial</label>
                                 <select class="form-select form-select-sm" name="status">
                                     <option value="">Todas as Filias</option>
                                     <option value="entregue"  <?= $status==='entregue'  ? 'selected' : '' ?>>Filial do norte</option>
                                     <option value="cancelada" <?= $status==='cancelada' ? 'selected' : '' ?>>filial dop SUl</option>
                                 </select>
+        </div>
 
         <div class="col-12 col-md-2">
             <label class="form-label">de</label>
