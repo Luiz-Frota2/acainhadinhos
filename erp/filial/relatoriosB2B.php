@@ -708,18 +708,18 @@ $fimTxt = $fim->format('d/m/Y');
         <input type="hidden" name="id" >
 
         <div class="col-12 col-md-3">
-            <label class="form-label">Produto</label>
+            <label class="form-label">filial</label>
             <input type="text" name="produto"  class="form-control form-control-sm" placeholder="Nome do produto">
         </div>
 
         <div class="col-12 col-md-2">
-            <label class="form-label">Código</label>
-            <input type="text" name="codigo"  class="form-control form-control-sm" placeholder="Código">
+            <label class="form-label">de</label>
+            <input type="date" name="codigo"  class="form-control form-control-sm" placeholder="Código">
         </div>
 
         <div class="col-12 col-md-2">
-            <label class="form-label">Categoria</label>
-            <input type="text" name="categoria"  class="form-control form-control-sm" placeholder="Categoria">
+            <label class="form-label">até</label>
+            <input type="date" name="categoria"  class="form-control form-control-sm" placeholder="Categoria">
         </div>
 
         <div class="col-12 col-md-3 d-flex gap-2">
