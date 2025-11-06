@@ -1049,7 +1049,7 @@ foreach ($listaFiliais as $i => $f) {
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th>SKU</th>
+                                        <th>codigo do Produto</th>
                                         <th>Produto</th>
                                         <th>Quantidade</th>
                                         <th>Pedidos</th>
