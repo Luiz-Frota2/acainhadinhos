@@ -1156,7 +1156,7 @@ if (!empty($filiais)) {
     </div>
 </div>
 
-                    <!-- Pagamentos x Entregas (resumo simples) -->
+                   
                     <div class="card mb-3">
                         <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
                         <div class="table-responsive">
