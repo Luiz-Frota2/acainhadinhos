@@ -709,7 +709,7 @@ $fimTxt = $fim->format('d/m/Y');
 
         <div class="col-12 col-md-3">
            <label>Filial</label>
-                                <select  name="status">
+                                <select class="form-select form-select-sm" name="status">
                                     <option value="">Todas as Filias</option>
                                     <option >Filial do norte</option>
                                     <option >filial dop SUl</option>
