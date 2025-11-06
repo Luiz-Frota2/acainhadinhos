@@ -691,8 +691,40 @@ $fimTxt = $fim->format('d/m/Y');
                     </div>
                 </nav>
 
-                <!-- / Navbar -->
+                <?php
+                // =========================================================
+// FILTRO DE PERÍODO
+// =========================================================
+$periodo = $_GET['periodo'] ?? 'mes';
+$filialFiltro = $_GET['filial'] ?? 'todas';
 
+$dataAtual = date('Y-m-d');
+$inicioAtual = $fimAtual = "";
+
+switch ($periodo) {
+
+    case 'mes':
+        $inicioAtual = date('Y-m-01');
+        $fimAtual = date('Y-m-t');
+        break;
+
+    case '30dias':
+        $inicioAtual = date('Y-m-d', strtotime('-30 days'));
+        $fimAtual = $dataAtual;
+        break;
+
+    case '90dias':
+        $inicioAtual = date('Y-m-d', strtotime('-90 days'));
+        $fimAtual = $dataAtual;
+        break;
+
+    case 'ano':
+        $inicioAtual = date('Y-01-01');
+        $fimAtual = date('Y-12-31');
+        break;
+}
+
+                ?>
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
@@ -766,7 +798,13 @@ function calcularPeriodo(PDO $pdo, $inicio, $fim)
     $sqlPedidos = $pdo->prepare("
         SELECT id 
         FROM solicitacoes_b2b
-        WHERE id_solicitante IN ($inFiliais)
+        WHERE 1
+<?php if ($filialFiltro !== 'todas'): ?>
+    AND id_solicitante = '<?= $filialFiltro ?>'
+<?php else: ?>
+    AND id_solicitante IN ($inFiliais)
+<?php endif; ?>
+
         AND created_at BETWEEN ? AND ?
     ");
     $sqlPedidos->execute([...$filialKeys, $inicio, $fim]);
@@ -961,7 +999,11 @@ foreach ($filiais as $f) {
             COUNT(*) AS pedidos,
             SUM(valor_total) AS total_faturamento
         FROM vendas
-        WHERE empresa_id = ?
+       WHERE 1
+<?php if ($filialFiltro !== 'todas'): ?>
+    AND empresa_id = '<?= $filialFiltro ?>'
+<?php endif; ?>
+
         AND data_venda BETWEEN ? AND ?
     ");
     $sqlV->execute([$empresaId, $inicioAtual, $fimAtual]);
@@ -975,7 +1017,11 @@ foreach ($filiais as $f) {
         SELECT SUM(iv.quantidade) AS total_itens
         FROM itens_venda iv
         INNER JOIN vendas v ON v.id = iv.venda_id
-        WHERE v.empresa_id = ?
+        WHERE 1
+<?php if ($filialFiltro !== 'todas'): ?>
+    AND empresa_id = '<?= $filialFiltro ?>'
+<?php endif; ?>
+
         AND v.data_venda BETWEEN ? AND ?
     ");
     $sqlItens->execute([$empresaId, $inicioAtual, $fimAtual]);
@@ -1125,7 +1171,13 @@ if (!empty($filiais)) {
     $sqlSolic = $pdo->prepare("
         SELECT id
         FROM solicitacoes_b2b
-        WHERE id_solicitante IN ($inFiliais)
+       WHERE 1
+<?php if ($filialFiltro !== 'todas'): ?>
+    AND id_solicitante = '<?= $filialFiltro ?>'
+<?php else: ?>
+    AND id_solicitante IN ($inFiliais)
+<?php endif; ?>
+
         AND created_at BETWEEN ? AND ?
     ");
 
@@ -1314,7 +1366,13 @@ if (!empty($filiais)) {
     $sqlPend = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
-        WHERE id_solicitante IN ($inFiliais)
+        1
+<?php if ($filialFiltro !== 'todas'): ?>
+    AND id_solicitante = '<?= $filialFiltro ?>'
+<?php else: ?>
+    AND id_solicitante IN ($inFiliais)
+<?php endif; ?>
+
         AND status = 'pendente'
         AND created_at BETWEEN ? AND ?
     ");
@@ -1330,7 +1388,13 @@ if (!empty($filiais)) {
     $sqlAprov = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
-        WHERE id_solicitante IN ($inFiliais)
+        1
+<?php if ($filialFiltro !== 'todas'): ?>
+    AND id_solicitante = '<?= $filialFiltro ?>'
+<?php else: ?>
+    AND id_solicitante IN ($inFiliais)
+<?php endif; ?>
+
         AND status = 'aprovado'
         AND created_at BETWEEN ? AND ?
     ");
@@ -1346,7 +1410,13 @@ if (!empty($filiais)) {
     $sqlReprov = $pdo->prepare("
         SELECT COUNT(*) AS qtd, SUM(valor) AS total
         FROM solicitacoes_pagamento
-        WHERE id_solicitante IN ($inFiliais)
+       1
+<?php if ($filialFiltro !== 'todas'): ?>
+    AND id_solicitante = '<?= $filialFiltro ?>'
+<?php else: ?>
+    AND id_solicitante IN ($inFiliais)
+<?php endif; ?>
+
         AND status = 'reprovado'
         AND created_at BETWEEN ? AND ?
     ");
