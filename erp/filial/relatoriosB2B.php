@@ -701,10 +701,7 @@ $fimTxt = $fim->format('d/m/Y');
                         <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
                     </h5>
 
-                    <!-- Filtros (HTML estático por enquanto) -->
-                    <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap toolbar">
-                         <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
+                    <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
                     <input type="hidden" name="id" >
                     <div class="card-body">
                         <div class="row g-3 align-items-end">
@@ -746,14 +743,6 @@ $fimTxt = $fim->format('d/m/Y');
                     </div>
                 </form>
 
-
-                            <div class="ms-auto d-flex gap-2">
-                                <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
-                                <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
-                                <button class="btn btn-outline-dark"><i class="bx bx-printer me-1"></i> Imprimir</button>
-                            </div>
-                        </div>
-                    </div>
 
                   <?php
 // ==========================================
