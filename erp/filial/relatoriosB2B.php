@@ -693,7 +693,7 @@ $fimTxt = $fim->format('d/m/Y');
 
                    <!-- ===== Filtros ===== -->
                 <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
-                    <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
+                    <input type="hidden" name="id" >
                     <div class="card-body">
                         <div class="row g-3 align-items-end">
                             <div class="col-12 col-md-auto filter-col">
@@ -707,29 +707,29 @@ $fimTxt = $fim->format('d/m/Y');
 
                             <div class="col-12 col-md-auto filter-col">
                                 <label class="form-label mb-1">De</label>
-                                <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
+                                <input type="date" class="form-control form-control-sm" name="de" >
                             </div>
 
                             <div class="col-12 col-md-auto filter-col">
                                 <label class="form-label mb-1">Até</label>
-                                <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
+                                <input type="date" class="form-control form-control-sm" name="ate" >
                             </div>
 
                             <div class="col-12 col-md flex-grow-1 filter-col">
                                 <label class="form-label mb-1">Buscar</label>
                                 <div class="autocomplete">
-                                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante (ex.: unidade_3), SKU ou Produto…" value="<?= e($q) ?>" autocomplete="off">
+                                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante (ex.: unidade_3), SKU ou Produto…" autocomplete="off">
                                     <div class="autocomplete-list d-none" id="qList"></div>
                                 </div>
                             </div>
 
                             <div class="col-12 col-md-auto d-flex gap-2 filter-col">
                                 <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
-                                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                                <a class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                             </div>
                         </div>
                         <div class="small text-muted mt-2">
-                            Resultados: <strong><?= count($historico) ?></strong> registros
+                            Resultados: <strong></strong> registros
                         </div>
                     </div>
                 </form>
