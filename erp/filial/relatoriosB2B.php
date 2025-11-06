@@ -723,21 +723,10 @@ $fimTxt = $fim->format('d/m/Y');
                                 <label class="form-label mb-1">Até</label>
                                 <input type="date" class="form-control form-control-sm" name="ate" >
                             </div>
-
-                            <div class="col-12 col-md flex-grow-1 filter-col">
-                                <label class="form-label mb-1">Buscar</label>
-                                <div class="autocomplete">
-                                    <input type="text" class="form-control form-control-sm" id="qInput" name="q" placeholder="Solicitante (ex.: unidade_3), SKU ou Produto…" autocomplete="off">
-                                    <div class="autocomplete-list d-none" id="qList"></div>
-                                </div>
-                            </div>
-
                             <div class="col-12 col-md-auto d-flex gap-2 filter-col">
                                 <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-                                    <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
-                                <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
-                                <button class="btn btn-outline-dark"><i class="bx bx-printer me-1"></i> Imprimir</button>
+                                
                             </div>
                         </div>
                     </div>
