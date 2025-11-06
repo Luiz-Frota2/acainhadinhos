@@ -727,48 +727,197 @@ $fimTxt = $fim->format('d/m/Y');
                         </div>
                     </div>
 
-                    <!-- Resumo Mensal -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Resumo do Período</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Métrica</th>
-                                        <th>Valor</th>
-                                        <th>Variação</th>
-                                        <th>Obs.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Pedidos B2B</td>
-                                        <td>184</td>
-                                        <td><span class="text-success">+12,3%</span></td>
-                                        <td>Alta puxada por Centro</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Itens Solicitados</td>
-                                        <td>5.430</td>
-                                        <td><span class="text-success">+8,1%</span></td>
-                                        <td>SKU ACA-500 liderando</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Faturamento Estimado</td>
-                                        <td>R$ 128.450,00</td>
-                                        <td><span class="text-danger">-3,5%</span></td>
-                                        <td>Ticket menor no Sul</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Ticket Médio</td>
-                                        <td>R$ 698,10</td>
-                                        <td><span class="text-danger">-5,2%</span></td>
-                                        <td>Mix com mais descartáveis</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                  <?php
+// ==========================================
+// 1. FUNÇÃO QUE CALCULA OS DADOS DO PERÍODO
+// ==========================================
+function calcularPeriodo(PDO $pdo, $inicio, $fim)
+{
+    // ---- A) Busca IDS das FILIAIS ----
+    $filiais = $pdo->query("SELECT id FROM unidades WHERE tipo = 'Filial'")
+                   ->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!$filiais) {
+        return [
+            "pedidos" => 0,
+            "itens" => 0,
+            "faturamento" => 0,
+            "ticket" => 0
+        ];
+    }
+
+    // ex: unidade_3, unidade_7, unidade_9
+    $filialKeys = array_map(fn($id) => "unidade_" . $id, $filiais);
+    $inFiliais  = implode(",", array_fill(0, count($filialKeys), "?"));
+
+    // ---- B) Pedidos B2B somente de FILIAIS ----
+    $sqlPedidos = $pdo->prepare("
+        SELECT id 
+        FROM solicitacoes_b2b
+        WHERE id_solicitante IN ($inFiliais)
+        AND created_at BETWEEN ? AND ?
+    ");
+    $sqlPedidos->execute([...$filialKeys, $inicio, $fim]);
+
+    $idsPedidos = $sqlPedidos->fetchAll(PDO::FETCH_COLUMN);
+    $totalPedidos = count($idsPedidos);
+
+    if ($totalPedidos == 0) {
+        return [
+            "pedidos" => 0,
+            "itens" => 0,
+            "faturamento" => 0,
+            "ticket" => 0
+        ];
+    }
+
+    // ---- C) Itens + Faturamento ----
+    $inPedidos = implode(",", array_fill(0, count($idsPedidos), "?"));
+
+    $sqlItens = $pdo->prepare("
+        SELECT 
+            SUM(quantidade) AS totalItens,
+            SUM(subtotal) AS totalFaturamento
+        FROM solicitacoes_b2b_itens
+        WHERE solicitacao_id IN ($inPedidos)
+    ");
+    $sqlItens->execute($idsPedidos);
+    $dados = $sqlItens->fetch(PDO::FETCH_ASSOC);
+
+    $totalItens = $dados["totalItens"] ?? 0;
+    $totalFaturamento = $dados["totalFaturamento"] ?? 0;
+
+    // ---- D) Ticket Média ----
+    $ticket = $totalPedidos > 0 ? ($totalFaturamento / $totalPedidos) : 0;
+
+    return [
+        "pedidos" => (int)$totalPedidos,
+        "itens" => (int)$totalItens,
+        "faturamento" => (float)$totalFaturamento,
+        "ticket" => (float)$ticket,
+    ];
+}
+
+
+
+// ==========================================
+// 2. FUNÇÃO PARA CALCULAR VARIAÇÃO (%)
+// ==========================================
+function variacao($atual, $anterior)
+{
+    if ($anterior <= 0) return 0;
+    return (($atual - $anterior) / $anterior) * 100;
+}
+
+
+
+// ==========================================
+// 3. CALCULA O PERÍODO ATUAL E ANTERIOR
+// ==========================================
+
+// Você pode substituir por datas dinâmicas depois
+$inicioAtual = "2025-11-01";
+$fimAtual    = "2025-11-30";
+
+$inicioAnterior = "2025-10-01";
+$fimAnterior    = "2025-10-30";
+
+$atual    = calcularPeriodo($pdo, $inicioAtual, $fimAtual);
+$anterior = calcularPeriodo($pdo, $inicioAnterior, $fimAnterior);
+
+
+// Prepara estrutura para tabela
+$resumo = [
+    "pedidos" => [
+        "valor" => $atual["pedidos"],
+        "var"   => variacao($atual["pedidos"], $anterior["pedidos"])
+    ],
+    "itens" => [
+        "valor" => $atual["itens"],
+        "var"   => variacao($atual["itens"], $anterior["itens"])
+    ],
+    "faturamento" => [
+        "valor" => $atual["faturamento"],
+        "var"   => variacao($atual["faturamento"], $anterior["faturamento"])
+    ],
+    "ticket" => [
+        "valor" => $atual["ticket"],
+        "var"   => variacao($atual["ticket"], $anterior["ticket"])
+    ]
+];
+?>
+
+<!-- ============================================== -->
+<!-- 4. TABELA HTML — AGORA TOTALMENTE DINÂMICA -->
+<!-- ============================================== -->
+
+<div class="card mb-3">
+    <h5 class="card-header">Resumo do Período</h5>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+            <tr>
+                <th>Métrica</th>
+                <th>Valor</th>
+                <th>Variação</th>
+                <th>Obs.</th>
+            </tr>
+            </thead>
+            <tbody>
+
+            <!-- Pedidos -->
+            <tr>
+                <td>Pedidos B2B</td>
+                <td><?= $resumo["pedidos"]["valor"] ?></td>
+                <td>
+                    <span class="<?= $resumo["pedidos"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["pedidos"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Somente solicitações feitas por filiais</td>
+            </tr>
+
+            <!-- Itens -->
+            <tr>
+                <td>Itens Solicitados</td>
+                <td><?= $resumo["itens"]["valor"] ?></td>
+                <td>
+                    <span class="<?= $resumo["itens"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["itens"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Total somado dos itens solicitados</td>
+            </tr>
+
+            <!-- Faturamento -->
+            <tr>
+                <td>Faturamento Estimado</td>
+                <td>R$ <?= number_format($resumo["faturamento"]["valor"], 2, ',', '.') ?></td>
+                <td>
+                    <span class="<?= $resumo["faturamento"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["faturamento"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Subtotal total</td>
+            </tr>
+
+            <!-- Ticket Médio -->
+            <tr>
+                <td>Ticket Médio</td>
+                <td>R$ <?= number_format($resumo["ticket"]["valor"], 2, ',', '.') ?></td>
+                <td>
+                    <span class="<?= $resumo["ticket"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["ticket"]["var"], 1, ',', '.') ?>%
+                    </span>
+                </td>
+                <td>Faturamento / número de pedidos</td>
+            </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+
 
                     <!-- Vendas por Franquia -->
                     <div class="card mb-3">
