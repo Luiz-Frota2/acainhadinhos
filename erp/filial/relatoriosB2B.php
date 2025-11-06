@@ -998,6 +998,17 @@ foreach ($listaFiliais as $i => $f) {
 
     $listaFiliais[$i]["perc"] = $perc;
 }
+// =========================================================
+// 4. PAGINAÇÃO - CORTAR ARRAY EM PEDAÇOS
+// =========================================================
+$totalRegistros = count($listaFiliais);
+$totalPaginas = ceil($totalRegistros / $itensPorPagina);
+
+$offset = ($paginaAtual - 1) * $itensPorPagina;
+
+// Lista final exibida
+$listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
+
 ?>
 
 
@@ -1021,7 +1032,8 @@ foreach ($listaFiliais as $i => $f) {
             </thead>
             <tbody>
 
-            <?php foreach ($listaFiliais as $f): ?>
+            <?php foreach ($listaPaginada as $f): ?>
+
                 <tr>
                     <td><strong><?= htmlspecialchars($f["nome"]) ?></strong></td>
 
@@ -1039,6 +1051,36 @@ foreach ($listaFiliais as $i => $f) {
 
             </tbody>
         </table>
+        <!-- ========================================= -->
+<!-- PAGINAÇÃO                                 -->
+<!-- ========================================= -->
+<div class="d-flex justify-content-center my-3">
+
+    <nav>
+        <ul class="pagination">
+
+            <!-- Botão Anterior -->
+            <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
+                <a class="page-link" href="?pagina=<?= $paginaAtual - 1 ?>">Anterior</a>
+            </li>
+
+            <!-- Números das páginas -->
+            <?php for ($i = 1; $i <= $totalPaginas; $i++): ?>
+                <li class="page-item <?= ($i == $paginaAtual) ? 'active' : '' ?>">
+                    <a class="page-link" href="?pagina=<?= $i ?>"><?= $i ?></a>
+                </li>
+            <?php endfor; ?>
+
+            <!-- Botão Próxima -->
+            <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
+                <a class="page-link" href="?pagina=<?= $paginaAtual + 1 ?>">Próxima</a>
+            </li>
+
+        </ul>
+    </nav>
+
+</div>
+
     </div>
 </div>
 <?php
