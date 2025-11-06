@@ -962,13 +962,12 @@ $resumo = [
     </div>
 </div>
 
-
-            <?php
+<?php
 // =========================================================
 // 1. BUSCAR TODAS AS FILIAIS
 // =========================================================
 $sqlFiliais = $pdo->query("
-    SELECT id, nome, empresa_id
+    SELECT id, nome
     FROM unidades
     WHERE tipo = 'Filial'
 ");
@@ -982,11 +981,17 @@ $filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
 $listaFiliais = [];
 $totalFaturamentoGeral = 0;
 
+// ✅ Paginação
+$itensPorPagina = 5;
+$paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
+
 foreach ($filiais as $f) {
 
-    $empresaId = $f["id"]; // ✅ o certo!
+    // ✅ Correção principal: usar 'id' e NÃO 'empresa_id'
+    $empresaId = $f["id"];
+    $nomeFilial = $f["nome"];
 
-    // Buscar total de pedidos
+    // ✅ Buscar total de pedidos (vendas)
     $sqlV = $pdo->prepare("
         SELECT 
             COUNT(*) AS pedidos,
@@ -1001,7 +1006,7 @@ foreach ($filiais as $f) {
     $pedidos = (int)$dados["pedidos"];
     $faturamento = (float)$dados["total_faturamento"];
 
-    // Itens vendidos
+    // ✅ Buscar total de itens vendidos
     $sqlItens = $pdo->prepare("
         SELECT SUM(iv.quantidade) AS total_itens
         FROM itens_venda iv
@@ -1014,17 +1019,11 @@ foreach ($filiais as $f) {
 
     $itens = (int)($dadosItens["total_itens"] ?? 0);
 
-
     // ✅ Ticket médio
     $ticket = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
 
     // ✅ Acumular faturamento geral
     $totalFaturamentoGeral += $faturamento;
-// =========================================================
-// PAGINAÇÃO
-// =========================================================
-$itensPorPagina = 5; // ✅ quantidade por página
-$paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
 
     // ✅ Armazenar dados da filial
     $listaFiliais[] = [
@@ -1047,6 +1046,8 @@ foreach ($listaFiliais as $i => $f) {
 
     $listaFiliais[$i]["perc"] = $perc;
 }
+
+
 // =========================================================
 // 4. PAGINAÇÃO - CORTAR ARRAY EM PEDAÇOS
 // =========================================================
@@ -1054,11 +1055,10 @@ $totalRegistros = count($listaFiliais);
 $totalPaginas = ceil($totalRegistros / $itensPorPagina);
 
 $offset = ($paginaAtual - 1) * $itensPorPagina;
-
-// Lista final exibida
 $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
 
 ?>
+
 
 
 <!-- ========================================================= -->
