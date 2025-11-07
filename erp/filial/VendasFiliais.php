@@ -517,12 +517,15 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                         <div class="card-body d-flex flex-wrap toolbar">
                             <form class="d-flex flex-wrap w-100 gap-2" method="get">
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                <select class="form-select me-2" name="periodo">
-                                    <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
-                                    <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
-                                    <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
-                                    <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
-                                </select>
+                                <div class="col-12 col-md-2">
+                                <label class="form-label">de</label>
+                                <input type="date" name="codigo" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+                            </div>
+
+                            <div class="col-12 col-md-2">
+                                <label class="form-label">até</label>
+                                <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+                            </div>
 
                                 <select class="form-select me-2" name="">
                                     <option value="">Todas as Filial</option>
