@@ -279,12 +279,12 @@ try {
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./MaisVendidosFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="MaisVendidos">Mais Vendidos</div>
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./vendasPeriodoFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                <a href="./vendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div data-i18n="Pedidos">Vendas por Período</div>
                 </a>
               </li>
@@ -458,14 +458,14 @@ try {
                   </tr>
                 </thead>
                 <tbody class="table-border-bottom-0">
-                    <?php
-                    require '../../assets/php/conexao.php';
+                  <?php
+                  require '../../assets/php/conexao.php';
 
-                    try {
+                  try {
                     $stmt = $pdo->prepare("SELECT * FROM unidades WHERE tipo = 'Filial' ORDER BY nome");
                     $stmt->execute();
                     while ($filial = $stmt->fetch(PDO::FETCH_ASSOC)) {
-                    ?>
+                  ?>
                       <tr>
                         <td><strong><?= htmlspecialchars($filial['nome']) ?></strong></td>
                         <td><?= htmlspecialchars($filial['cnpj']) ?></td>

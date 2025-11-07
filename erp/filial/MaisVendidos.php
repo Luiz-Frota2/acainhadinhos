@@ -360,22 +360,29 @@ if (!empty($topGeral)) {
                         </ul>
                     </li>
 
-                    <li class="menu-item active open">
+                    <!-- Relatórios -->
+                    <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
-                            <div>Relatórios</div>
+                            <div data-i18n="Relatorios">Relatórios</div>
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item"><a class="menu-link" href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Vendas por Filial</div>
-                                </a></li>
-                            <li class="menu-item active"><a class="menu-link" href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Mais Vendidos</div>
-                                </a></li>
+                            <li class="menu-item">
+                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Vendas">Vendas por Filial</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./vendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Pedidos">Vendas por Período</div>
+                                </a>
+                            </li>
 
-                            <li class="menu-item"><a class="menu-link" href="./financeiroFilial.php?id=<?= urlencode($idSelecionado); ?>">
-                                    <div>Financeiro</div>
-                                </a></li>
                         </ul>
                     </li>
 
