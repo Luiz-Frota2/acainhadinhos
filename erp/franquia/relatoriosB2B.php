@@ -6,6 +6,7 @@ session_start();
 
 // ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
+
 if (!$idSelecionado) {
   header("Location: .././login.php");
   exit;
@@ -28,22 +29,23 @@ require '../../assets/php/conexao.php';
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id  = $_SESSION['usuario_id'];
+$usuario_id  = (int)$_SESSION['usuario_id'];
 
 try {
   $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
   $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
   $stmt->execute();
   $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+
   if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
+    $nomeUsuario = $usuario['usuario'] ?? 'Usuário';
+    $tipoUsuario = ucfirst((string)($usuario['nivel'] ?? 'Comum'));
   } else {
     echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
     exit;
   }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+  echo "<script>alert('Erro ao carregar usuário: " . htmlspecialchars($e->getMessage()) . "'); history.back();</script>";
   exit;
 }
 
@@ -63,67 +65,375 @@ if (str_starts_with($idSelecionado, 'principal_')) {
 }
 
 if (!$acessoPermitido) {
-  echo "<script>alert('Acesso negado!'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+  echo "<script>
+          alert('Acesso negado!');
+          window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
+        </script>";
   exit;
 }
 
-// ✅ Logo da empresa (fallback)
+// ✅ Buscar logo da empresa
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
-  $stmt->bindParam(':id', $idSelecionado, PDO::PARAM_STR);
+  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+  $stmt->bindParam(':id_selecionado', $idSelecionado, PDO::PARAM_STR);
   $stmt->execute();
-  $sobre = $stmt->fetch(PDO::FETCH_ASSOC);
-  $logoEmpresa = !empty($sobre['imagem']) ? "../../assets/img/empresa/" . $sobre['imagem'] : "../../assets/img/favicon/logo.png";
+  $empresaSobre = $stmt->fetch(PDO::FETCH_ASSOC);
+
+  $logoEmpresa = (!empty($empresaSobre) && !empty($empresaSobre['imagem']))
+    ? "../../assets/img/empresa/" . $empresaSobre['imagem']
+    : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
-  $logoEmpresa = "../../assets/img/favicon/logo.png";
+  $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
+
+/* ==========================================================
+   FILTROS DE PDV (período, caixa, forma, status NFC-e)
+   ========================================================== */
+
+function brToIsoDate($d)
+{
+  // aceita "YYYY-mm-dd" direto; se vier "dd/mm/YYYY", converte
+  if (preg_match('~^\d{4}-\d{2}-\d{2}$~', $d)) return $d;
+  if (preg_match('~^(\d{2})/(\d{2})/(\d{4})$~', $d, $m)) {
+    return "{$m[3]}-{$m[2]}-{$m[1]}";
+  }
+  return null;
+}
+
+$periodo   = $_GET['periodo'] ?? 'hoje'; // hoje|ontem|ult7|mes|mes_anterior|custom
+$dataIni   = $_GET['data_ini'] ?? '';
+$dataFim   = $_GET['data_fim'] ?? '';
+$caixaId   = isset($_GET['caixa_id']) && $_GET['caixa_id'] !== '' ? (int)$_GET['caixa_id'] : null;
+$formaPag  = $_GET['forma_pagamento'] ?? '';
+$statusNf  = $_GET['status_nfce'] ?? '';
+
+$now = new DateTime('now');
+$ini = new DateTime('today');
+$ini->setTime(0, 0, 0);
+$fim = new DateTime('today');
+$fim->setTime(23, 59, 59);
+
+switch ($periodo) {
+  case 'ontem':
+    $ini = (new DateTime('yesterday'))->setTime(0, 0, 0);
+    $fim = (new DateTime('yesterday'))->setTime(23, 59, 59);
+    break;
+  case 'ult7':
+    $ini = (new DateTime('today'))->modify('-6 days')->setTime(0, 0, 0);
+    $fim = (new DateTime('today'))->setTime(23, 59, 59);
+    break;
+  case 'mes':
+    $ini = (new DateTime('first day of this month'))->setTime(0, 0, 0);
+    $fim = (new DateTime('last day of this month'))->setTime(23, 59, 59);
+    break;
+  case 'mes_anterior':
+    $ini = (new DateTime('first day of last month'))->setTime(0, 0, 0);
+    $fim = (new DateTime('last day of last month'))->setTime(23, 59, 59);
+    break;
+  case 'custom':
+    $isoIni = brToIsoDate($dataIni);
+    $isoFim = brToIsoDate($dataFim);
+    if ($isoIni && $isoFim) {
+      $ini = new DateTime($isoIni . ' 00:00:00');
+      $fim = new DateTime($isoFim . ' 23:59:59');
+    }
+    break;
+  case 'hoje':
+  default:
+    // já setado
+    break;
+}
+
+// — Lista de caixas recentes (últimos 60 dias) para o filtro
+$listaCaixas = [];
+try {
+  $st = $pdo->prepare("
+    SELECT id, numero_caixa, responsavel, abertura_datetime, status
+      FROM aberturas
+     WHERE empresa_id = :empresa_id
+       AND abertura_datetime >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+  ORDER BY abertura_datetime DESC
+  ");
+  $st->execute([':empresa_id' => $idSelecionado]);
+  $listaCaixas = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+}
+
+/* ==========================================================
+   MÉTRICAS PDV (usando os FILTROS)
+   ========================================================== */
+
+$caixaAtual = null; // opcionalmente mostramos info do caixa aberto mais recente
+try {
+  $st = $pdo->prepare("
+    SELECT id, responsavel, numero_caixa, valor_abertura, valor_total, valor_sangrias, valor_suprimentos, valor_liquido,
+           abertura_datetime, fechamento_datetime, quantidade_vendas, status, cpf_responsavel
+      FROM aberturas
+     WHERE empresa_id = :empresa_id
+       AND status = 'aberto'
+  ORDER BY abertura_datetime DESC
+     LIMIT 1
+  ");
+  $st->execute([':empresa_id' => $idSelecionado]);
+  $caixaAtual = $st->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+}
+
+$vendasQtd        = 0;
+$vendasValor      = 0.00;
+$vendasTroco      = 0.00;
+$ticketMedio      = 0.00;
+$pagamentoSeries  = []; // forma_pagamento => total
+$vendasPorHora    = array_fill(0, 24, 0);
+$topProdutos      = [];
+$nfceStatusCont   = [];
+$ultimasVendas    = [];
+
+function bindPeriodo(&$params, DateTime $ini, DateTime $fim)
+{
+  $params[':ini'] = $ini->format('Y-m-d H:i:s');
+  $params[':fim'] = $fim->format('Y-m-d H:i:s');
+}
+
+function mountWhere(string $empresaId, ?int $caixaId, string $forma, string $status, array &$params): string
+{
+  $where = " WHERE empresa_id = :empresa_id AND data_venda BETWEEN :ini AND :fim ";
+  $params[':empresa_id'] = $empresaId;
+  if (!empty($forma)) {
+    $where .= " AND forma_pagamento = :forma_pagamento ";
+    $params[':forma_pagamento'] = $forma;
+  }
+  if (!empty($status)) {
+    $where .= " AND status_nfce = :status_nfce ";
+    $params[':status_nfce'] = $status;
+  }
+  if (!empty($caixaId)) {
+    $where .= " AND id_caixa = :id_caixa ";
+    $params[':id_caixa'] = $caixaId;
+  }
+  return $where;
+}
+
+try {
+  // 1) KPIs gerais do período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+
+  $sql = "SELECT COUNT(*) AS qtd,
+                 COALESCE(SUM(valor_total),0) AS soma_total,
+                 COALESCE(SUM(troco),0) AS soma_troco
+            FROM vendas
+           $whereV";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $r = $st->fetch(PDO::FETCH_ASSOC);
+  $vendasQtd   = (int)($r['qtd'] ?? 0);
+  $vendasValor = (float)($r['soma_total'] ?? 0.0);
+  $vendasTroco = (float)($r['soma_troco'] ?? 0.0);
+  $ticketMedio = $vendasQtd > 0 ? ($vendasValor / $vendasQtd) : 0.0;
+
+  // 2) Formas de pagamento (pizza)
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT forma_pagamento, COALESCE(SUM(valor_total),0) AS tot
+            FROM vendas
+           $whereV
+        GROUP BY forma_pagamento";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $fp = $row['forma_pagamento'] ?: 'Outros';
+    $pagamentoSeries[$fp] = (float)$row['tot'];
+  }
+
+  // 3) Vendas por hora
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT HOUR(data_venda) AS h, COUNT(*) AS qtd
+            FROM vendas
+           $whereV
+        GROUP BY HOUR(data_venda)";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $h = (int)$row['h'];
+    if ($h >= 0 && $h <= 23) $vendasPorHora[$h] = (int)$row['qtd'];
+  }
+
+  // 4) Top produtos por quantidade no período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  // aplica também filtros de forma/status/caixa via tabela vendas
+  $whereBase = " WHERE v.empresa_id = :empresa_id AND v.data_venda BETWEEN :ini AND :fim ";
+  if (!empty($formaPag)) {
+    $whereBase .= " AND v.forma_pagamento = :forma_pagamento ";
+    $params[':forma_pagamento'] = $formaPag;
+  }
+  if (!empty($statusNf)) {
+    $whereBase .= " AND v.status_nfce = :status_nfce ";
+    $params[':status_nfce'] = $statusNf;
+  }
+  if (!empty($caixaId)) {
+    $whereBase .= " AND v.id_caixa = :id_caixa ";
+    $params[':id_caixa'] = $caixaId;
+  }
+  $params[':empresa_id'] = $idSelecionado;
+
+  $sql = "SELECT iv.produto_nome,
+                 SUM(iv.quantidade) AS qtd,
+                 SUM(iv.quantidade * iv.preco_unitario) AS valor
+            FROM itens_venda iv
+            JOIN vendas v ON v.id = iv.venda_id
+           $whereBase
+        GROUP BY iv.produto_nome
+        ORDER BY qtd DESC
+           LIMIT 5";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $topProdutos = $st->fetchAll(PDO::FETCH_ASSOC);
+
+  // 5) NFC-e por status no período
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT COALESCE(status_nfce,'sem_status') AS st, COUNT(*) AS qtd
+            FROM vendas
+           $whereV
+        GROUP BY COALESCE(status_nfce,'sem_status')";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+    $nfceStatusCont[$row['st']] = (int)$row['qtd'];
+  }
+
+  // 6) Últimas vendas do período (5)
+  $params = [];
+  bindPeriodo($params, $ini, $fim);
+  $whereV = mountWhere($idSelecionado, $caixaId, $formaPag, $statusNf, $params);
+  $sql = "SELECT id, responsavel, forma_pagamento, valor_total, data_venda
+            FROM vendas
+           $whereV
+        ORDER BY data_venda DESC
+           LIMIT 5";
+  $st = $pdo->prepare($sql);
+  $st->execute($params);
+  $ultimasVendas = $st->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  // mantém valores padrão
+}
+
+// ==== Dados para gráficos/labels
+$labelsHoras = [];
+for ($h = 0; $h < 24; $h++) {
+  $labelsHoras[] = sprintf('%02d:00', $h);
+}
+
+$pagtoLabels = array_keys($pagamentoSeries);
+$pagtoValues = array_values($pagamentoSeries);
+
+$nfceLabels = array_keys($nfceStatusCont);
+$nfceValues = array_values($nfceStatusCont);
+
+$topProdLabels = [];
+$topProdQtd    = [];
+foreach ($topProdutos as $p) {
+  $topProdLabels[] = $p['produto_nome'];
+  $topProdQtd[]    = (int)$p['qtd'];
+}
+
+// Formatações úteis
+function moneyBr($v)
+{
+  return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
+$periodoLabel = [
+  'hoje' => 'Hoje',
+  'ontem' => 'Ontem',
+  'ult7' => 'Últimos 7 dias',
+  'mes' => 'Mês atual',
+  'mes_anterior' => 'Mês anterior',
+  'custom' => 'Personalizado'
+][$periodo] ?? 'Hoje';
+
+$iniTxt = $ini->format('d/m/Y');
+$fimTxt = $fim->format('d/m/Y');
+
 ?>
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+  data-assets-path="../assets/">
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>ERP — Relatórios B2B</title>
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+
+  <title>ERP - Franquia</title>
+
+  <meta name="description" content="" />
+
+  <!-- Favicon da empresa carregado dinamicamente -->
   <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+    rel="stylesheet" />
+
+  <!-- Icons. Uncomment required icon fonts -->
   <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
+
+  <!-- Core CSS -->
   <link rel="stylesheet" href="../../assets/vendor/css/core.css" class="template-customizer-core-css" />
   <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" class="template-customizer-theme-css" />
   <link rel="stylesheet" href="../../assets/css/demo.css" />
+
+  <!-- Vendors CSS -->
   <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+
+  <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
+
+  <!-- Page CSS -->
+
+  <!-- Helpers -->
   <script src="../../assets/vendor/js/helpers.js"></script>
+
+  <!--! Template customizer & Theme config files MUST be included after core stylesheets and helpers.js in the <head> section -->
   <script src="../../assets/js/config.js"></script>
-  <style>
-    .table thead th {
-      white-space: nowrap;
-    }
 
-    .toolbar {
-      gap: .5rem;
-    }
-
-    .toolbar .form-select,
-    .toolbar .form-control {
-      max-width: 220px;
-    }
-  </style>
 </head>
 
+<style>
+  .table thead th {
+    white-space: nowrap;
+  }
+
+  .toolbar {
+    gap: .5rem;
+  }
+
+  .toolbar .form-select,
+  .toolbar .form-control {
+    max-width: 220px;
+  }
+</style>
+
 <body>
+  <!-- Layout wrapper -->
   <div class="layout-wrapper layout-content-navbar">
     <div class="layout-container">
+      <!-- Menu -->
 
-      <!-- ====== ASIDE (EXATAMENTE COMO VOCÊ PADRONIZOU) ====== -->
       <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
         <div class="app-brand demo">
           <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-            <span class="app-brand-text demo menu-text fw-bolder ms-2"
-              style=" text-transform: capitalize;">Açaínhadinhos</span>
-
+            <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
           </a>
 
           <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
@@ -142,13 +452,13 @@ try {
             </a>
           </li>
 
-          <!-- Administração de Filiais -->
+          <!-- Administração de Franquias -->
           <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Administração Franquias</span>
           </li>
 
-          <!-- Adicionar Filial -->
-          <li class="menu-item ">
+          <!-- Adicionar Franquia -->
+          <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-building"></i>
               <div data-i18n="Adicionar">Franquias</div>
@@ -156,7 +466,7 @@ try {
             <ul class="menu-sub">
               <li class="menu-item">
                 <a href="./franquiaAdicionada.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Filiais">Adicionadas</div>
+                  <div data-i18n="Franquia">Adicionadas</div>
                 </a>
               </li>
             </ul>
@@ -167,47 +477,50 @@ try {
               <i class="menu-icon tf-icons bx bx-briefcase"></i>
               <div data-i18n="B2B">B2B - Matriz</div>
             </a>
-            <ul class="menu-sub">
-              <!-- Contas das Filiais -->
+            <ul class="menu-sub active">
+              <!-- Contas das Franquias -->
               <li class="menu-item">
                 <a href="./contasFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Pagamentos Solic.</div>
                 </a>
               </li>
 
-              <!-- Produtos solicitados -->
+              <!-- Produtos solicitados pelas franquias -->
               <li class="menu-item">
                 <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Solicitados</div>
                 </a>
               </li>
 
-              <!-- Produtos enviados -->
+              <!-- Produtos enviados pela matriz -->
               <li class="menu-item">
                 <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Produtos Enviados</div>
                 </a>
               </li>
 
-              <!-- Transferências -->
+              <!-- Transferências em andamento -->
               <li class="menu-item">
                 <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Transf. Pendentes</div>
                 </a>
               </li>
+
+              <!-- Histórico de transferências -->
               <li class="menu-item">
                 <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Histórico Transf.</div>
                 </a>
               </li>
 
-              <!-- Estoque & Políticas -->
+              <!-- Gestão de Estoque Central -->
               <li class="menu-item">
                 <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Estoque Matriz</div>
                 </a>
               </li>
-              <!-- ✅ Relatórios B2B (ATIVO) -->
+
+              <!-- Relatórios e indicadores B2B -->
               <li class="menu-item active">
                 <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                   <div>Relatórios B2B</div>
@@ -216,7 +529,7 @@ try {
             </ul>
           </li>
 
-          <!-- Relatórios (gerais) -->
+          <!-- Relatórios -->
           <li class="menu-item">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
               <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
@@ -225,7 +538,7 @@ try {
             <ul class="menu-sub">
               <li class="menu-item">
                 <a href="./VendasFranquias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Vendas">Vendas por Franquias</div>
+                  <div data-i18n="Vendas">Vendas por Franquia</div>
                 </a>
               </li>
               <li class="menu-item">
@@ -234,10 +547,11 @@ try {
                 </a>
               </li>
               <li class="menu-item">
-                <a href="./FinanceiroFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                  <div data-i18n="Financeiro">Financeiro</div>
+                <a href="./financeiroFranquia.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                  <div data-i18n="Pedidos">Financeiro</div>
                 </a>
               </li>
+
             </ul>
           </li>
 
@@ -276,9 +590,9 @@ try {
             </a>
           </li>
           <li class="menu-item">
-            <a href="../filial/index.php?id=principal_1" class="menu-link">
-              <i class="menu-icon tf-icons bx bx-building"></i>
-              <div data-i18n="Authentications">Filial</div>
+            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+              <i class="menu-icon tf-icons bx bx-store"></i>
+              <div data-i18n="Authentications">Franquias</div>
             </a>
           </li>
           <li class="menu-item">
@@ -287,7 +601,7 @@ try {
               <div data-i18n="Authentications">Usuários </div>
             </a>
           </li>
-          <li class="menu-item">
+          <li class="menu-item mb-5">
             <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
               <i class="menu-icon tf-icons bx bx-support"></i>
               <div data-i18n="Basic">Suporte</div>
@@ -296,12 +610,15 @@ try {
           <!--/MISC-->
         </ul>
       </aside>
-      <!-- ====== /ASIDE ====== -->
+      <!-- / Menu -->
 
       <!-- Layout container -->
       <div class="layout-page">
         <!-- Navbar -->
-        <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+
+        <nav
+          class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme"
+          id="layout-navbar">
           <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
             <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
               <i class="bx bx-menu bx-sm"></i>
@@ -309,14 +626,15 @@ try {
           </div>
 
           <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
+            <!-- Search -->
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
-                <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..." aria-label="Search..." />
               </div>
             </div>
+            <!-- /Search -->
 
             <ul class="navbar-nav flex-row align-items-center ms-auto">
+              <!-- User -->
               <li class="nav-item navbar-dropdown dropdown-user dropdown">
                 <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown" aria-expanded="false">
                   <div class="avatar avatar-online">
@@ -342,19 +660,36 @@ try {
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
-                  <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
-                  <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
+                  <li>
+                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
+                      <i class="bx bx-user me-2"></i>
+                      <span class="align-middle">Minha Conta</span>
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#">
+                      <i class="bx bx-cog me-2"></i>
+                      <span class="align-middle">Configurações</span>
+                    </a>
+                  </li>
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
-                  <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
+                  <li>
+                    <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
+                      <i class="bx bx-power-off me-2"></i>
+                      <span class="align-middle">Sair</span>
+                    </a>
+                  </li>
                 </ul>
               </li>
+              <!--/ User -->
             </ul>
+
           </div>
         </nav>
-        <!-- /Navbar -->
 
+        <!-- Content -->
         <div class="container-xxl flex-grow-1 container-p-y">
           <h4 class="fw-bold mb-0">
             <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
@@ -364,31 +699,348 @@ try {
             <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
           </h5>
 
-          <!-- Filtros (HTML estático por enquanto) -->
+          <?php
+          // ======================
+          // === INÍCIO BLOCO B2B: FILTROS E CONSULTAS CORRIGIDOS ====
+          // ======================
+
+          // Franquia B2B filter: passa o ID da franquia (value = id)
+          $franquiaFiltroId = isset($_GET['status']) && $_GET['status'] !== '' ? intval($_GET['status']) : null;
+
+          // Datas do filtro B2B (input date envia YYYY-MM-DD)
+          $inicioFiltro = isset($_GET['codigo']) && $_GET['codigo'] !== '' ? trim($_GET['codigo']) : '';
+          $fimFiltro    = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim($_GET['categoria']) : '';
+
+          // Se datas vierem vazias, usa padrão (primeiro e último dia do mês atual)
+          if ($inicioFiltro === "") $inicioFiltro = date("Y-m-01");
+          if ($fimFiltro === "")    $fimFiltro    = date("Y-m-t");
+
+          // Normaliza datetimes para comparação (incluir todo o dia final)
+          $inicioDatetime = $inicioFiltro . " 00:00:00";
+          $fimDatetime    = $fimFiltro    . " 23:59:59";
+
+          // paginação padrão para tabelas B2B
+          $paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
+
+          // POPULA SELECT DINÂMICO DE  FRANQUIAS PARA O FORM
+          try {
+            $sqlSel = $pdo->query("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' ORDER BY nome");
+            $franquiasSelect = $sqlSel->fetchAll(PDO::FETCH_ASSOC);
+          } catch (PDOException $e) {
+            $franquiasSelect = [];
+          }
+
+          // FUNÇÕES AUX
+          function placeholders(array $arr): string
+          {
+            if (empty($arr)) return "";
+            return implode(",", array_fill(0, count($arr), "?"));
+          }
+          function franquiaKeysFromIds(array $ids): array
+          {
+            return array_map(fn($id) => "unidade_" . $id, $ids);
+          }
+
+          // MONTAR LISTA DE FRANQUIAS APLICANDO O FILTRO (se houver)
+          if ($franquiaFiltroId !== null) {
+            $stmt = $pdo->prepare("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' AND id = ? ORDER BY nome");
+            $stmt->execute([$franquiaFiltroId]);
+            $franquias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+          } else {
+            $stmt = $pdo->query("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' ORDER BY nome");
+            $franquias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+          }
+
+          $franquiasIds = array_column($franquias, 'id');
+          $franquiaKeys = !empty($franquiasIds) ? franquiaKeysFromIds($franquiasIds) : [];
+
+          // FUNÇÃO calcularPeriodo (B2B)
+          function calcularPeriodo(PDO $pdo, string $inicioDT, string $fimDT, array $franquiaKeys)
+          {
+            if (empty($franquiaKeys)) {
+              return ["pedidos" => 0, "itens" => 0, "faturamento" => 0, "ticket" => 0];
+            }
+
+            $inFranquias = implode(",", array_fill(0, count($franquiaKeys), "?"));
+
+            $sql = "
+                      SELECT id
+                      FROM solicitacoes_b2b
+                      WHERE id_solicitante IN ($inFranquias)
+                      AND created_at BETWEEN ? AND ?
+                  ";
+            $params = array_merge($franquiaKeys, [$inicioDT, $fimDT]);
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $idsPedidos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (empty($idsPedidos)) {
+              return ["pedidos" => 0, "itens" => 0, "faturamento" => 0, "ticket" => 0];
+            }
+
+            $inPedidos = implode(",", array_fill(0, count($idsPedidos), "?"));
+            $sql2 = "
+                        SELECT 
+                            SUM(quantidade) AS totalItens,
+                            SUM(subtotal) AS totalFaturamento
+                        FROM solicitacoes_b2b_itens
+                        WHERE solicitacao_id IN ($inPedidos)
+                    ";
+            $stmt2 = $pdo->prepare($sql2);
+            $stmt2->execute($idsPedidos);
+            $dados = $stmt2->fetch(PDO::FETCH_ASSOC);
+
+            $totalItens = (int)($dados['totalItens'] ?? 0);
+            $totalFaturamento = (float)($dados['totalFaturamento'] ?? 0.0);
+            $totalPedidos = count($idsPedidos);
+
+            $ticket = $totalPedidos > 0 ? ($totalFaturamento / $totalPedidos) : 0;
+
+            return [
+              "pedidos" => $totalPedidos,
+              "itens" => $totalItens,
+              "faturamento" => $totalFaturamento,
+              "ticket" => $ticket
+            ];
+          }
+
+          // CALCULA ATUAL E ANTERIOR (30 dias)
+          $inicioAnterior = date("Y-m-d", strtotime($inicioFiltro . " -30 days"));
+          $fimAnterior    = date("Y-m-d", strtotime($fimFiltro . " -30 days"));
+
+          $atual = calcularPeriodo($pdo, $inicioDatetime, $fimDatetime, $franquiaKeys);
+          $anterior = calcularPeriodo($pdo, $inicioAnterior . " 00:00:00", $fimAnterior . " 23:59:59", $franquiaKeys);
+
+          function variacao($atual, $anterior)
+          {
+            if ($anterior <= 0) return 0;
+            return (($atual - $anterior) / $anterior) * 100;
+          }
+
+          $resumo = [
+            "pedidos" => [
+              "valor" => $atual["pedidos"],
+              "var"   => variacao($atual["pedidos"], $anterior["pedidos"])
+            ],
+            "itens" => [
+              "valor" => $atual["itens"],
+              "var"   => variacao($atual["itens"], $anterior["itens"])
+            ],
+            "faturamento" => [
+              "valor" => $atual["faturamento"],
+              "var"   => variacao($atual["faturamento"], $anterior["faturamento"])
+            ],
+            "ticket" => [
+              "valor" => $atual["ticket"],
+              "var"   => variacao($atual["ticket"], $anterior["ticket"])
+            ]
+          ];
+
+          // MONTAR LISTA DE VENDAS POR FRANQUIA (usa datetimes)
+          $listaFranquias = [];
+          $totalFaturamentoGeral = 0;
+          $itensPorPagina = 5;
+
+          foreach ($franquias as $f) {
+            $empresaKey = "unidade_" . $f["id"];
+            $nomeFranquia = $f["nome"];
+
+            $sqlV = $pdo->prepare("
+                                    SELECT 
+                                        COUNT(*) AS pedidos,
+                                        SUM(valor_total) AS total_faturamento
+                                    FROM vendas
+                                    WHERE empresa_id = ?
+                                    AND data_venda BETWEEN ? AND ?
+                                ");
+            $sqlV->execute([$empresaKey, $inicioDatetime, $fimDatetime]);
+            $dados = $sqlV->fetch(PDO::FETCH_ASSOC);
+
+            $pedidos = (int)($dados["pedidos"] ?? 0);
+            $faturamento = (float)($dados["total_faturamento"] ?? 0.0);
+
+            $sqlItens = $pdo->prepare("
+                                        SELECT SUM(iv.quantidade) AS total_itens
+                                        FROM itens_venda iv
+                                        INNER JOIN vendas v ON v.id = iv.venda_id
+                                        WHERE v.empresa_id = ?
+                                        AND v.data_venda BETWEEN ? AND ?
+                                    ");
+            $sqlItens->execute([$empresaKey, $inicioDatetime, $fimDatetime]);
+            $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
+            $itens = (int)($dadosItens["total_itens"] ?? 0);
+
+            $ticket = $pedidos > 0 ? ($faturamento / $pedidos) : 0;
+
+            $totalFaturamentoGeral += $faturamento;
+
+            $listaFranquias[] = [
+              "nome" => $nomeFranquia,
+              "pedidos" => $pedidos,
+              "itens" => $itens,
+              "faturamento" => $faturamento,
+              "ticket" => $ticket
+            ];
+          }
+
+          foreach ($listaFranquias as $i => $row) {
+            $perc = ($totalFaturamentoGeral > 0) ? ($row['faturamento'] / $totalFaturamentoGeral) * 100 : 0;
+            $listaFranquias[$i]['perc'] = $perc;
+          }
+
+          $totalRegistros = count($listaFranquias);
+          $totalPaginas = max(1, ceil($totalRegistros / $itensPorPagina));
+          $offset = ($paginaAtual - 1) * $itensPorPagina;
+          $listaPaginada = array_slice($listaFranquias, $offset, $itensPorPagina);
+
+          // PRODUTOS MAIS SOLICITADOS
+          $produtosLista = [];
+          if (!empty($franquiaKeys)) {
+            $inFranquias = placeholders($franquiaKeys);
+            $sqlSolic = $pdo->prepare("
+                                        SELECT id
+                                        FROM solicitacoes_b2b
+                                        WHERE id_solicitante IN ($inFranquias)
+                                        AND created_at BETWEEN ? AND ?
+                                    ");
+            $params = array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]);
+            $sqlSolic->execute($params);
+            $solicitacoesIds = $sqlSolic->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($solicitacoesIds)) {
+              $inSolic = placeholders($solicitacoesIds);
+              $sqlItens = $pdo->prepare("
+                                          SELECT 
+                                              codigo_produto,
+                                              nome_produto,
+                                              SUM(quantidade) AS total_quantidade,
+                                              COUNT(DISTINCT solicitacao_id) AS total_pedidos
+                                          FROM solicitacoes_b2b_itens
+                                          WHERE solicitacao_id IN ($inSolic)
+                                          GROUP BY codigo_produto, nome_produto
+                                          ORDER BY total_quantidade DESC
+                                          LIMIT 5
+                                      ");
+              $sqlItens->execute($solicitacoesIds);
+              $produtosLista = $sqlItens->fetchAll(PDO::FETCH_ASSOC);
+
+              $totalGeral = array_sum(array_column($produtosLista, "total_quantidade"));
+              foreach ($produtosLista as $i => $prod) {
+                $produtosLista[$i]["perc"] = $totalGeral > 0 ? ($prod["total_quantidade"] / $totalGeral) * 100 : 0;
+              }
+            }
+          }
+
+          // PAGAMENTOS X ENTREGAS (RESUMO)
+          $pendQtd = $pendValor = 0;
+          $aprovQtd = $aprovValor = 0;
+          $reprovQtd = $reprovValor = 0;
+          $remessasEnviadas = $remessasConcluidas = 0;
+
+          if (!empty($franquiaKeys)) {
+            $inFranquias = placeholders($franquiaKeys);
+
+            $sqlPend = $pdo->prepare("
+                                        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+                                        FROM solicitacoes_pagamento
+                                        WHERE id_solicitante IN ($inFranquias)
+                                        AND status = 'pendente'
+                                        AND created_at BETWEEN ? AND ?
+                                    ");
+            $sqlPend->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
+            $r = $sqlPend->fetch(PDO::FETCH_ASSOC);
+            $pendQtd = (int)($r['qtd'] ?? 0);
+            $pendValor = (float)($r['total'] ?? 0);
+
+            $sqlAprov = $pdo->prepare("
+                                          SELECT COUNT(*) AS qtd, SUM(valor) AS total
+                                          FROM solicitacoes_pagamento
+                                          WHERE id_solicitante IN ($inFranquias)
+                                          AND status = 'aprovado'
+                                          AND created_at BETWEEN ? AND ?
+                                      ");
+            $sqlAprov->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
+            $r = $sqlAprov->fetch(PDO::FETCH_ASSOC);
+            $aprovQtd = (int)($r['qtd'] ?? 0);
+            $aprovValor = (float)($r['total'] ?? 0);
+
+            $sqlReprov = $pdo->prepare("
+                                          SELECT COUNT(*) AS qtd, SUM(valor) AS total
+                                          FROM solicitacoes_pagamento
+                                          WHERE id_solicitante IN ($inFranquias)
+                                          AND status = 'reprovado'
+                                          AND created_at BETWEEN ? AND ?
+                                      ");
+            $sqlReprov->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
+            $r = $sqlReprov->fetch(PDO::FETCH_ASSOC);
+            $reprovQtd = (int)($r['qtd'] ?? 0);
+            $reprovValor = (float)($r['total'] ?? 0);
+
+            $sqlAprovadoCount = $pdo->prepare("
+                                                  SELECT COUNT(*)
+                                                  FROM solicitacoes_pagamento
+                                                  WHERE id_solicitante IN ($inFranquias)
+                                                  AND status = 'aprovado'
+                                                  AND created_at BETWEEN ? AND ?
+                                              ");
+            $sqlAprovadoCount->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
+            $remessasEnviadas = (int)$sqlAprovadoCount->fetchColumn();
+
+            $sqlReprovadoCount = $pdo->prepare("
+                                                  SELECT COUNT(*)
+                                                  FROM solicitacoes_pagamento
+                                                  WHERE id_solicitante IN ($inFranquias)
+                                                  AND status = 'reprovado'
+                                                  AND created_at BETWEEN ? AND ?
+                                              ");
+            $sqlReprovadoCount->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
+            $remessasConcluidas = (int)$sqlReprovadoCount->fetchColumn();
+          }
+
+          ?>
+          <!-- ====================== -->
+          <!-- FORMULÁRIO DE FILTRO B2B -->
+          <!-- ====================== -->
           <div class="card mb-3">
-            <div class="card-body d-flex flex-wrap toolbar">
-              <select class="form-select me-2">
-                <option>Período: Mês Atual</option>
-                <option>Últimos 30 dias</option>
-                <option>Últimos 90 dias</option>
-                <option>Este ano</option>
-              </select>
-              <select class="form-select me-2">
-                <option>Todas as Franquias</option>
-                <option>Franquia Centro</option>
-                <option>Franquia Norte</option>
-                <option>Franquia Sul</option>
-              </select>
-              <button class="btn btn-outline-secondary me-2"><i class="bx bx-filter-alt me-1"></i> Aplicar</button>
-              <div class="ms-auto d-flex gap-2">
-                <button class="btn btn-outline-dark"><i class="bx bx-file me-1"></i> Exportar XLSX</button>
-                <button class="btn btn-outline-dark"><i class="bx bx-download me-1"></i> Exportar CSV</button>
-                <button class="btn btn-outline-dark"><i class="bx bx-printer me-1"></i> Imprimir</button>
+            <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
+              <!-- preserva o contexto id -->
+              <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+
+              <div class="col-12 col-md-3">
+                <label>Franquia</label>
+                <select class="form-select form-select-sm" name="status">
+                  <option value="">Todas as Franquias</option>
+                  <?php foreach ($franquiasSelect as $fs): ?>
+                    <option value="<?= (int)$fs['id'] ?>" <?= ($franquiaFiltroId === (int)$fs['id']) ? 'selected' : '' ?>>
+                      <?= htmlspecialchars($fs['nome']) ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
               </div>
-            </div>
+
+              <div class="col-12 col-md-2">
+                <label class="form-label">de</label>
+                <input type="date" name="codigo" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+              </div>
+
+              <div class="col-12 col-md-2">
+                <label class="form-label">até</label>
+                <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+              </div>
+
+              <div class="col-12 col-md-3 d-flex gap-2">
+                <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+                <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                <a class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
+                <a class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
+                <a class="btn btn-sm btn-outline-secondary">Imprimir</a>
+              </div>
+            </form>
           </div>
 
-          <!-- Resumo Mensal -->
+          <!-- ============================================== -->
+          <!--  Resumo do Período (HTML)                       -->
+          <!-- ============================================== -->
           <div class="card mb-3">
             <h5 class="card-header">Resumo do Período</h5>
             <div class="table-responsive">
@@ -402,36 +1054,63 @@ try {
                   </tr>
                 </thead>
                 <tbody>
+
+                  <!-- Pedidos -->
                   <tr>
                     <td>Pedidos B2B</td>
-                    <td>184</td>
-                    <td><span class="text-success">+12,3%</span></td>
-                    <td>Alta puxada por Centro</td>
+                    <td><?= $resumo["pedidos"]["valor"] ?></td>
+                    <td>
+                      <span class="<?= $resumo["pedidos"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["pedidos"]["var"], 1, ',', '.') ?>%
+                      </span>
+                    </td>
+                    <td>Somente solicitações feitas por franquias</td>
                   </tr>
+
+                  <!-- Itens -->
                   <tr>
                     <td>Itens Solicitados</td>
-                    <td>5.430</td>
-                    <td><span class="text-success">+8,1%</span></td>
-                    <td>SKU ACA-500 liderando</td>
+                    <td><?= $resumo["itens"]["valor"] ?></td>
+                    <td>
+                      <span class="<?= $resumo["itens"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["itens"]["var"], 1, ',', '.') ?>%
+                      </span>
+                    </td>
+                    <td>Total somado dos itens solicitados</td>
                   </tr>
+
+                  <!-- Faturamento -->
                   <tr>
                     <td>Faturamento Estimado</td>
-                    <td>R$ 128.450,00</td>
-                    <td><span class="text-danger">-3,5%</span></td>
-                    <td>Ticket menor no Sul</td>
+                    <td>R$ <?= number_format($resumo["faturamento"]["valor"], 2, ',', '.') ?></td>
+                    <td>
+                      <span class="<?= $resumo["faturamento"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["faturamento"]["var"], 1, ',', '.') ?>%
+                      </span>
+                    </td>
+                    <td>Subtotal total</td>
                   </tr>
+
+                  <!-- Ticket Médio -->
                   <tr>
                     <td>Ticket Médio</td>
-                    <td>R$ 698,10</td>
-                    <td><span class="text-danger">-5,2%</span></td>
-                    <td>Mix com mais descartáveis</td>
+                    <td>R$ <?= number_format($resumo["ticket"]["valor"], 2, ',', '.') ?></td>
+                    <td>
+                      <span class="<?= $resumo["ticket"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                        <?= number_format($resumo["ticket"]["var"], 1, ',', '.') ?>%
+                      </span>
+                    </td>
+                    <td>Faturamento / número de pedidos</td>
                   </tr>
+
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Vendas por Franquia -->
+          <!-- ========================================================= -->
+          <!-- TABELA: VENDAS / PEDIDOS POR FRANQUIA                      -->
+          <!-- ========================================================= -->
           <div class="card mb-3">
             <h5 class="card-header">Vendas / Pedidos por Franquia</h5>
             <div class="table-responsive">
@@ -447,36 +1126,46 @@ try {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td><strong>Franquia Centro</strong></td>
-                    <td>74</td>
-                    <td>2.140</td>
-                    <td>R$ 58.700,00</td>
-                    <td>R$ 793,24</td>
-                    <td>45%</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Franquia Norte</strong></td>
-                    <td>58</td>
-                    <td>1.720</td>
-                    <td>R$ 41.320,00</td>
-                    <td>R$ 712,41</td>
-                    <td>32%</td>
-                  </tr>
-                  <tr>
-                    <td><strong>Franquia Sul</strong></td>
-                    <td>52</td>
-                    <td>1.570</td>
-                    <td>R$ 28.430,00</td>
-                    <td>R$ 546,73</td>
-                    <td>23%</td>
-                  </tr>
+
+                  <?php foreach ($listaPaginada as $f): ?>
+                    <tr>
+                      <td><strong><?= htmlspecialchars($f["nome"]) ?></strong></td>
+                      <td><?= $f["pedidos"] ?></td>
+                      <td><?= $f["itens"] ?></td>
+                      <td>R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
+                      <td>R$ <?= number_format($f["ticket"], 2, ',', '.') ?></td>
+                      <td><?= number_format($f["perc"], 1, ',', '.') ?>%</td>
+                    </tr>
+                  <?php endforeach; ?>
+
                 </tbody>
               </table>
+
+              <!-- PAGINAÇÃO -->
+              <div class="d-flex justify-content-center mt-2">
+                <nav>
+                  <ul class="pagination pagination-sm m-0">
+                    <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
+                      <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual - 1])) ?>" tabindex="-1">Anterior</a>
+                    </li>
+
+                    <li class="page-item active">
+                      <span class="page-link"><?= $paginaAtual ?></span>
+                    </li>
+
+                    <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
+                      <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual + 1])) ?>">Próximo</a>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
+
             </div>
           </div>
 
-          <!-- Produtos Mais Solicitados -->
+          <!-- ========================================================= -->
+          <!-- TABELA: PRODUTOS MAIS SOLICITADOS (FRANQUIAS)                -->
+          <!-- ========================================================= -->
           <div class="card mb-3">
             <h5 class="card-header">Produtos Mais Solicitados</h5>
             <div class="table-responsive">
@@ -491,88 +1180,31 @@ try {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>ACA-500</td>
-                    <td>Polpa Açaí 500g</td>
-                    <td>1.980</td>
-                    <td>96</td>
-                    <td>36%</td>
-                  </tr>
-                  <tr>
-                    <td>ACA-1KG</td>
-                    <td>Polpa Açaí 1kg</td>
-                    <td>1.210</td>
-                    <td>64</td>
-                    <td>22%</td>
-                  </tr>
-                  <tr>
-                    <td>COPO-300</td>
-                    <td>Copo 300ml</td>
-                    <td>1.050</td>
-                    <td>51</td>
-                    <td>19%</td>
-                  </tr>
-                  <tr>
-                    <td>COLH-PP</td>
-                    <td>Colher PP</td>
-                    <td>890</td>
-                    <td>40</td>
-                    <td>16%</td>
-                  </tr>
-                  <tr>
-                    <td>GRAN-200</td>
-                    <td>Granola 200g</td>
-                    <td>300</td>
-                    <td>18</td>
-                    <td>7%</td>
-                  </tr>
+
+                  <?php if (!empty($produtosLista)): ?>
+                    <?php foreach ($produtosLista as $p): ?>
+                      <tr>
+                        <td><?= htmlspecialchars($p["codigo_produto"]) ?></td>
+                        <td><?= htmlspecialchars($p["nome_produto"]) ?></td>
+                        <td><?= (int)$p["total_quantidade"] ?></td>
+                        <td><?= (int)$p["total_pedidos"] ?></td>
+                        <td><?= number_format($p["perc"], 1, ',', '.') ?>%</td>
+                      </tr>
+                    <?php endforeach; ?>
+                  <?php else: ?>
+                    <tr>
+                      <td colspan="5" class="text-center">Nenhum produto solicitado por franquias no período.</td>
+                    </tr>
+                  <?php endif; ?>
+
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- SLA de Atendimento de Pedidos -->
-          <div class="card mb-3">
-            <h5 class="card-header">SLA de Atendimento</h5>
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Faixa de SLA</th>
-                    <th>Pedidos</th>
-                    <th>SLA Médio</th>
-                    <th>Dentro do Prazo</th>
-                    <th>Observações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>0–24h</td>
-                    <td>98</td>
-                    <td>12h</td>
-                    <td>92%</td>
-                    <td>Meta batida</td>
-                  </tr>
-                  <tr>
-                    <td>24–48h</td>
-                    <td>56</td>
-                    <td>31h</td>
-                    <td>78%</td>
-                    <td>Gargalo separação</td>
-                  </tr>
-                  <tr>
-                    <td>> 48h</td>
-                    <td>30</td>
-                    <td>54h</td>
-                    <td>40%</td>
-                    <td>Revisar logística Norte</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Pagamentos x Entregas (resumo simples) -->
+          <!-- ========================================================= -->
+          <!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                    -->
+          <!-- ========================================================= -->
           <div class="card mb-3">
             <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
             <div class="table-responsive">
@@ -582,47 +1214,90 @@ try {
                     <th>Métrica</th>
                     <th>Quantidade</th>
                     <th>Valor (R$)</th>
-                    <th>Status Principal</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
+                  <!-- Solicitados -->
                   <tr>
                     <td>Pagamentos Solicitados</td>
-                    <td>62</td>
-                    <td>R$ 72.300,00</td>
-                    <td>Pendente/Análise</td>
+                    <td><?= $pendQtd ?></td>
+                    <td>R$ <?= number_format($pendValor, 2, ',', '.') ?></td>
+                    <td>Pendente</td>
                   </tr>
+
+                  <!-- Aprovados -->
                   <tr>
-                    <td>Remessas Enviadas</td>
-                    <td>48</td>
-                    <td>—</td>
-                    <td>Em Trânsito</td>
+                    <td>Remessa Concluida</td>
+                    <td><?= $aprovQtd ?></td>
+                    <td>R$ <?= number_format($aprovValor, 2, ',', '.') ?></td>
+                    <td>Aprovado</td>
                   </tr>
+
+                  <!-- Reprovados -->
                   <tr>
-                    <td>Remessas Concluídas</td>
-                    <td>39</td>
-                    <td>—</td>
-                    <td>Entregue</td>
+                    <td>Remessa Reprovada</td>
+                    <td><?= $reprovQtd ?></td>
+                    <td>R$ <?= number_format($reprovValor, 2, ',', '.') ?></td>
+                    <td>Reprovado</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
+          <!-- / Content -->
+
+          <!-- Footer -->
+          <footer class="content-footer footer bg-footer-theme text-center">
+            <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
+              <div class="mb-2 mb-md-0">
+                &copy;
+                <script>
+                  document.write(new Date().getFullYear());
+                </script>
+                , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                Desenvolvido por <strong>CodeGeek</strong>.
+              </div>
+            </div>
+          </footer>
+
+          <!-- / Footer -->
+
+          <div class="content-backdrop fade"></div>
         </div>
-        <!-- /container -->
-      </div><!-- /Layout page -->
-    </div><!-- /Layout container -->
+        <!-- Content wrapper -->
+      </div>
+      <!-- / Layout page -->
+
+    </div>
+
+    <!-- Overlay -->
+    <div class="layout-overlay layout-menu-toggle"></div>
   </div>
+  <!-- / Layout wrapper -->
 
   <!-- Core JS -->
+  <!-- build:js assets/vendor/js/core.js -->
   <script src="../../js/saudacao.js"></script>
   <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
   <script src="../../assets/vendor/libs/popper/popper.js"></script>
   <script src="../../assets/vendor/js/bootstrap.js"></script>
   <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+
   <script src="../../assets/vendor/js/menu.js"></script>
+  <!-- endbuild -->
+
+  <!-- Vendors JS -->
+  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+
+  <!-- Main JS -->
   <script src="../../assets/js/main.js"></script>
+
+  <!-- Page JS -->
+  <script src="../../assets/js/dashboards-analytics.js"></script>
+
+  <!-- Place this tag in your head or just before your close body tag. -->
   <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 
