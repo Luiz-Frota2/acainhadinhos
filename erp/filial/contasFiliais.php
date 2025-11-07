@@ -6,9 +6,16 @@ session_start();
 date_default_timezone_set('America/Manaus');
 
 /* ================= Helpers ================= */
-function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
-function moneyBr($v){ return 'R$ ' . number_format((float)$v, 2, ',', '.'); }
-function json_out(array $payload, int $code = 200){
+function e(string $s): string
+{
+    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+}
+function moneyBr($v)
+{
+    return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
+function json_out(array $payload, int $code = 200)
+{
     while (ob_get_level()) ob_end_clean();
     http_response_code($code);
     header('Content-Type: application/json; charset=UTF-8');
@@ -130,7 +137,10 @@ if (isset($_GET['download'])) {
 
         $baseLocal = null;
         foreach ($possiveisBases as $b) {
-            if ($b && is_dir($b)) { $baseLocal = $b; break; }
+            if ($b && is_dir($b)) {
+                $baseLocal = $b;
+                break;
+            }
         }
         if (!$baseLocal) {
             http_response_code(500);
@@ -140,7 +150,9 @@ if (isset($_GET['download'])) {
         }
 
         $segments = array_filter(explode('/', $raw), 'strlen');
-        foreach ($segments as &$seg) { $seg = str_replace(['..', "\0"], '', $seg); }
+        foreach ($segments as &$seg) {
+            $seg = str_replace(['..', "\0"], '', $seg);
+        }
         unset($seg);
 
         $nomeArquivo  = end($segments) ?: 'comprovante.pdf';
@@ -165,13 +177,15 @@ if (isset($_GET['download'])) {
 
         $fp = fopen($caminhoLocal, 'rb');
         if ($fp) {
-            while (!feof($fp)) { echo fread($fp, 8192); flush(); }
+            while (!feof($fp)) {
+                echo fread($fp, 8192);
+                flush();
+            }
             fclose($fp);
         } else {
             readfile($caminhoLocal);
         }
         exit;
-
     } catch (Throwable $e) {
         http_response_code(500);
         header('Content-Type: text/plain; charset=UTF-8');
@@ -191,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'update_status') {
         $idPay     = (int)($_POST['id'] ?? 0);
         $newStatus = $_POST['status'] ?? '';
-        if (!in_array($newStatus, ['aprovado','reprovado'], true)) {
+        if (!in_array($newStatus, ['aprovado', 'reprovado'], true)) {
             echo json_encode(['ok' => false, 'msg' => 'Status inválido']);
             exit;
         }
@@ -207,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['ok' => $up->rowCount() > 0]);
             exit;
         } catch (PDOException $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Erro DB: '.$e->getMessage()]);
+            echo json_encode(['ok' => false, 'msg' => 'Erro DB: ' . $e->getMessage()]);
             exit;
         }
     }
@@ -237,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             exit;
         } catch (PDOException $e) {
-            echo json_encode(['ok' => false, 'msg' => 'Erro DB: '.$e->getMessage()]);
+            echo json_encode(['ok' => false, 'msg' => 'Erro DB: ' . $e->getMessage()]);
             exit;
         }
     }
@@ -266,8 +280,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
             ORDER BY sp.id_solicitante
             LIMIT 10
         ");
-        $s1->execute([':matriz'=>$idSelecionado, ':q'=>"%{$term}%"]);
-        foreach ($s1 as $r) $out[] = ['label'=>$r['val'],'value'=>$r['val'],'tipo'=>$r['tipo']];
+        $s1->execute([':matriz' => $idSelecionado, ':q' => "%{$term}%"]);
+        foreach ($s1 as $r) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
 
         // descricao
         $s2 = $pdo->prepare("
@@ -282,9 +296,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'autocomplete') {
             ORDER BY sp.descricao
             LIMIT 10
         ");
-        $s2->execute([':matriz'=>$idSelecionado, ':q'=>"%{$term}%"]);
+        $s2->execute([':matriz' => $idSelecionado, ':q' => "%{$term}%"]);
         foreach ($s2 as $r) {
-            if (!empty($r['val'])) $out[] = ['label'=>$r['val'],'value'=>$r['val'],'tipo'=>$r['tipo']];
+            if (!empty($r['val'])) $out[] = ['label' => $r['val'], 'value' => $r['val'], 'tipo' => $r['tipo']];
         }
     }
     json_out($out);
@@ -308,7 +322,7 @@ $where[] = "u.tipo = 'Filial'";
 $where[] = "sp.id_matriz = :matriz";
 
 /* status: pendente/aprovado/reprovado */
-$validStatus = ['pendente','aprovado','reprovado'];
+$validStatus = ['pendente', 'aprovado', 'reprovado'];
 if ($status !== '' && in_array($status, $validStatus, true)) {
     $where[] = "sp.status = :status";
     $params[':status'] = $status;
@@ -357,7 +371,7 @@ try {
         ORDER BY sp.vencimento DESC, sp.id DESC
     ";
     $st = $pdo->prepare($sql);
-    foreach ($params as $k=>$v) $st->bindValue($k, $v);
+    foreach ($params as $k => $v) $st->bindValue($k, $v);
     $st->execute();
     $pagamentos = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -367,10 +381,11 @@ try {
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+        content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
     <title>ERP - Filial</title>
     <link rel="icon" type="image/x-icon" href="<?= e($logoEmpresa) ?>" />
 
@@ -390,325 +405,445 @@ try {
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
     <style>
-        .status-badge { text-transform: capitalize; }
-        .table td, .table th { vertical-align: middle; }
-        .filter-col{min-width:150px;}
-        .autocomplete{position:relative}
-        .autocomplete-list{
-            position:absolute;top:100%;left:0;right:0;max-height:260px;overflow:auto;
-            background:#fff;border:1px solid #e6e9ef;border-radius:.5rem;box-shadow:0 10px 24px rgba(24,28,50,.12);z-index:2060
+        .status-badge {
+            text-transform: capitalize;
         }
-        .autocomplete-item{padding:.5rem .75rem;cursor:pointer;display:flex;justify-content:space-between;gap:.75rem}
-        .autocomplete-item:hover,.autocomplete-item.active{background:#f5f7fb}
-        .autocomplete-tag{font-size:.75rem;color:#6b7280}
-        @media (max-width: 991.98px){.filter-col{width:100%}}
+
+        .table td,
+        .table th {
+            vertical-align: middle;
+        }
+
+        .filter-col {
+            min-width: 150px;
+        }
+
+        .autocomplete {
+            position: relative
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 260px;
+            overflow: auto;
+            background: #fff;
+            border: 1px solid #e6e9ef;
+            border-radius: .5rem;
+            box-shadow: 0 10px 24px rgba(24, 28, 50, .12);
+            z-index: 2060
+        }
+
+        .autocomplete-item {
+            padding: .5rem .75rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            gap: .75rem
+        }
+
+        .autocomplete-item:hover,
+        .autocomplete-item.active {
+            background: #f5f7fb
+        }
+
+        .autocomplete-tag {
+            font-size: .75rem;
+            color: #6b7280
+        }
+
+        @media (max-width: 991.98px) {
+            .filter-col {
+                width: 100%
+            }
+        }
     </style>
 </head>
+
 <body>
-<div class="layout-wrapper layout-content-navbar">
-    <div class="layout-container">
-        <!-- Menu -->
-        <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
-            <div class="app-brand demo">
-                <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
-                    <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
-                </a>
-                <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
-                    <i class="bx bx-chevron-left bx-sm align-middle"></i>
-                </a>
-            </div>
-            <div class="menu-inner-shadow"></div>
-
-            <ul class="menu-inner py-1">
-                <li class="menu-item">
-                    <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                        <i class="menu-icon tf-icons bx bx-home-circle"></i><div>Dashboard</div>
+    <div class="layout-wrapper layout-content-navbar">
+        <div class="layout-container">
+            <!-- Menu -->
+            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+                <div class="app-brand demo">
+                    <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
                     </a>
-                </li>
-
-                <li class="menu-header small text-uppercase">
-                    <span class="menu-header-text">Administração Filiais</span>
-                </li>
-
-                <li class="menu-item active open">
-                    <a href="javascript:void(0);" class="menu-link menu-toggle">
-                        <i class="menu-icon tf-icons bx bx-briefcase"></i><div>B2B - Matriz</div>
-                    </a>
-                    <ul class="menu-sub active">
-                        <li class="menu-item active">
-                            <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                <div>Pagamentos Solic.</div>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Solicitados</div></a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Produtos Enviados</div></a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Transf. Pendentes</div></a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Histórico Transf.</div></a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Estoque Matriz</div></a>
-                        </li>
-                        <li class="menu-item">
-                            <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><div>Relatórios B2B</div></a>
-                        </li>
-                    </ul>
-                </li>
-
-                <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
-                <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i><div>RH</div></a></li>
-                <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i><div>Finanças</div></a></li>
-                <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i><div>PDV</div></a></li>
-                <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i><div>Empresa</div></a></li>
-                <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i><div>Estoque</div></a></li>
-                <li class="menu-item"><a href="../franquia/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-store"></i><div>Franquias</div></a></li>
-                <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i><div>Usuários</div></a></li>
-                <li class="menu-item mb-5"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i><div>Suporte</div></a></li>
-            </ul>
-        </aside>
-        <!-- / Menu -->
-
-        <div class="layout-page">
-            <!-- Navbar -->
-            <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
-                <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
-                    <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                        <i class="bx bx-menu bx-sm"></i>
+                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                        <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
-            </nav>
-            <!-- / Navbar -->
+                <div class="menu-inner-shadow"></div>
 
-            <!-- Content -->
-            <div class="container-xxl flex-grow-1 container-p-y">
-                <h4 class="fw-bold mb-0">
-                    <span class="text-muted fw-light"><a href="#">Filiais</a> /</span> Pagamentos Solicitados
-                </h4>
-                <h5 class="fw-bold mt-3 mb-3">
-                    <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das filiais</span>
-                </h5>
+                <ul class="menu-inner py-1">
+                    <li class="menu-item">
+                        <a href="./index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                            <i class="menu-icon tf-icons bx bx-home-circle"></i>
+                            <div>Dashboard</div>
+                        </a>
+                    </li>
 
-                <!-- ===== Filtros ===== -->
-                <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
-                    <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
-                    <div class="card-body">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-12 col-md-auto filter-col">
-                                <label class="form-label mb-1">Status</label>
-                                <select class="form-select form-select-sm" name="status">
-                                    <option value="">Todos (pendente, aprovado, reprovado)</option>
-                                    <option value="pendente"  <?= $status==='pendente'  ? 'selected' : '' ?>>Pendente</option>
-                                    <option value="aprovado"  <?= $status==='aprovado'  ? 'selected' : '' ?>>Aprovado</option>
-                                    <option value="reprovado" <?= $status==='reprovado' ? 'selected' : '' ?>>Reprovado</option>
-                                </select>
-                            </div>
+                    <li class="menu-header small text-uppercase">
+                        <span class="menu-header-text">Administração Filiais</span>
+                    </li>
 
-                            <div class="col-12 col-md-auto filter-col">
-                                <label class="form-label mb-1">De</label>
-                                <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
-                            </div>
-
-                            <div class="col-12 col-md-auto filter-col">
-                                <label class="form-label mb-1">Até</label>
-                                <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
-                            </div>
-
-                            <div class="col-12 col-md flex-grow-1 filter-col">
-                                <label class="form-label mb-1">Buscar</label>
-                                <div class="autocomplete">
-                                    <input type="text" class="form-control form-control-sm" id="qInput" name="q"
-                                           placeholder="Solicitante (ex.: unidade_3) ou descrição…" value="<?= e($q) ?>" autocomplete="off">
-                                    <div class="autocomplete-list d-none" id="qList"></div>
-                                </div>
-                            </div>
-
-                            <div class="col-12 col-md-auto d-flex gap-2 filter-col">
-                                <button class="btn btn-sm btn-primary" type="submit">
-                                    <i class="bx bx-filter-alt me-1"></i> Filtrar
-                                </button>
-                                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">
-                                    <i class="bx bx-eraser me-1"></i> Limpar
+                    <li class="menu-item active open">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div>B2B - Matriz</div>
+                        </a>
+                        <ul class="menu-sub active">
+                            <li class="menu-item active">
+                                <a href="./contasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Pagamentos Solic.</div>
                                 </a>
-                            </div>
-                        </div>
-                        <div class="small text-muted mt-2">
-                            Resultados: <strong><?= count($pagamentos) ?></strong> registros
-                        </div>
-                    </div>
-                </form>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./produtosSolicitados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Produtos Solicitados</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./produtosEnviados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Produtos Enviados</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./transferenciasPendentes.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Transf. Pendentes</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./historicoTransferencias.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Histórico Transf.</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./estoqueMatriz.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Estoque Matriz</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./relatoriosB2B.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div>Relatórios B2B</div>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
 
-                <!-- Tabela -->
-                <div class="card">
-                    <h5 class="card-header">Lista de Pagamentos (Filiais)</h5>
-                    <div class="table-responsive text-nowrap">
-                        <table class="table table-hover">
-                            <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Filial</th>
-                                <th>Solicitante (id)</th>
-                                <th>Descrição</th>
-                                <th>Valor</th>
-                                <th>Vencimento</th>
-                                <th>Documento</th>
-                                <th>Status</th>
-                                <th class="text-end">Ações</th>
-                            </tr>
-                            </thead>
-                            <tbody class="table-border-bottom-0" id="tbody-pagamentos">
-                            <?php if (!$pagamentos): ?>
-                                <tr><td colspan="9" class="text-center text-muted py-4">Nenhum registro encontrado.</td></tr>
-                            <?php else: foreach ($pagamentos as $p): ?>
-                                <?php
-                                  $id = (int)$p['id'];
-                                  $isPendente = ($p['status'] === 'pendente');
-                                  $badge = 'bg-label-secondary';
-                                  if ($p['status'] === 'pendente')  $badge = 'bg-label-warning';
-                                  if ($p['status'] === 'aprovado')  $badge = 'bg-label-success';
-                                  if ($p['status'] === 'reprovado') $badge = 'bg-label-danger';
-                                ?>
-                                <tr id="row-<?= $id ?>">
-                                    <td><?= $id ?></td>
-                                    <td><strong><?= e($p['unidade_nome'] ?? ('Unidade #'.($p['unidade_id'] ?? ''))) ?></strong></td>
-                                    <td><?= e($p['id_solicitante']) ?></td>
-                                    <td><?= e($p['descricao']) ?></td>
-                                    <td><?= moneyBr($p['valor']) ?></td>
-                                    <td><?= $p['vencimento'] ? date('d/m/Y', strtotime($p['vencimento'])) : '—' ?></td>
-                                    <td>
-                                        <?php if (!empty($p['documento'])): ?>
-                                            <a href="?id=<?= urlencode($idSelecionado) ?>&download=<?= $id ?>" class="text-primary">Baixar</a>
-                                        <?php else: ?>
-                                            <span class="text-muted">—</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <span class="badge <?= $badge ?> status-badge" id="status-<?= $id ?>">
-                                            <?= e($p['status']) ?>
-                                        </span>
-                                    </td>
-                                    <td class="text-end" id="acoes-<?= $id ?>">
-                                        <?php if ($isPendente): ?>
-                                            <button class="btn btn-sm btn-success me-1 btn-aprovar"  data-id="<?= $id ?>">
-                                                <i class="bx"></i> Aprovar
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger me-1 btn-reprovar" data-id="<?= $id ?>">
-                                                <i class="bx"></i> Reprovar
-                                            </button>
-                                        <?php endif; ?>
-                                        <button class="btn btn-sm btn-outline-secondary btn-detalhes" data-id="<?= $id ?>" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
-                                    </td>
-                                </tr>
-                            <?php endforeach; endif; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <!-- /Tabela -->
+                    <!-- Relatórios -->
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+                            <div data-i18n="Relatorios">Relatórios</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Vendas">Vendas por Filial</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./vendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Pedidos">Vendas por Período</div>
+                                </a>
+                            </li>
 
-                <!-- Modal Detalhes -->
-                <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog modal-dialog-centered modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h5 class="modal-title">Detalhes da Solicitação</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div id="detalhes-conteudo">
-                                    <div class="text-center text-muted py-3">Carregando…</div>
+                        </ul>
+                    </li>
+
+                    <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
+                    <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+                            <div>RH</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../financas/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-dollar"></i>
+                            <div>Finanças</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../pdv/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-desktop"></i>
+                            <div>PDV</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../empresa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-briefcase"></i>
+                            <div>Empresa</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../estoque/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-box"></i>
+                            <div>Estoque</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../franquia/index.php?id=principal_1" class="menu-link"><i class="menu-icon tf-icons bx bx-store"></i>
+                            <div>Franquias</div>
+                        </a></li>
+                    <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
+                            <div>Usuários</div>
+                        </a></li>
+                    <li class="menu-item mb-5"><a href="https://wa.me/92991515710" target="_blank" class="menu-link"><i class="menu-icon tf-icons bx bx-support"></i>
+                            <div>Suporte</div>
+                        </a></li>
+                </ul>
+            </aside>
+            <!-- / Menu -->
+
+            <div class="layout-page">
+                <!-- Navbar -->
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached align-items-center bg-navbar-theme" id="layout-navbar">
+                    <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+                        <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
+                            <i class="bx bx-menu bx-sm"></i>
+                        </a>
+                    </div>
+                </nav>
+                <!-- / Navbar -->
+
+                <!-- Content -->
+                <div class="container-xxl flex-grow-1 container-p-y">
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light"><a href="#">Filiais</a> /</span> Pagamentos Solicitados
+                    </h4>
+                    <h5 class="fw-bold mt-3 mb-3">
+                        <span class="text-muted fw-light">Visualize e gerencie as solicitações de pagamento das filiais</span>
+                    </h5>
+
+                    <!-- ===== Filtros ===== -->
+                    <form class="card mb-3" method="get" id="filtroForm" autocomplete="off">
+                        <input type="hidden" name="id" value="<?= e($idSelecionado) ?>">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-12 col-md-auto filter-col">
+                                    <label class="form-label mb-1">Status</label>
+                                    <select class="form-select form-select-sm" name="status">
+                                        <option value="">Todos (pendente, aprovado, reprovado)</option>
+                                        <option value="pendente" <?= $status === 'pendente'  ? 'selected' : '' ?>>Pendente</option>
+                                        <option value="aprovado" <?= $status === 'aprovado'  ? 'selected' : '' ?>>Aprovado</option>
+                                        <option value="reprovado" <?= $status === 'reprovado' ? 'selected' : '' ?>>Reprovado</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-12 col-md-auto filter-col">
+                                    <label class="form-label mb-1">De</label>
+                                    <input type="date" class="form-control form-control-sm" name="de" value="<?= e($de) ?>">
+                                </div>
+
+                                <div class="col-12 col-md-auto filter-col">
+                                    <label class="form-label mb-1">Até</label>
+                                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= e($ate) ?>">
+                                </div>
+
+                                <div class="col-12 col-md flex-grow-1 filter-col">
+                                    <label class="form-label mb-1">Buscar</label>
+                                    <div class="autocomplete">
+                                        <input type="text" class="form-control form-control-sm" id="qInput" name="q"
+                                            placeholder="Solicitante (ex.: unidade_3) ou descrição…" value="<?= e($q) ?>" autocomplete="off">
+                                        <div class="autocomplete-list d-none" id="qList"></div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 col-md-auto d-flex gap-2 filter-col">
+                                    <button class="btn btn-sm btn-primary" type="submit">
+                                        <i class="bx bx-filter-alt me-1"></i> Filtrar
+                                    </button>
+                                    <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>">
+                                        <i class="bx bx-eraser me-1"></i> Limpar
+                                    </a>
                                 </div>
                             </div>
-                            <div class="modal-footer" id="detalhes-footer">
-                                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
-                                <!-- botão Baixar é injetado dinamicamente -->
+                            <div class="small text-muted mt-2">
+                                Resultados: <strong><?= count($pagamentos) ?></strong> registros
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Tabela -->
+                    <div class="card">
+                        <h5 class="card-header">Lista de Pagamentos (Filiais)</h5>
+                        <div class="table-responsive text-nowrap">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Filial</th>
+                                        <th>Solicitante (id)</th>
+                                        <th>Descrição</th>
+                                        <th>Valor</th>
+                                        <th>Vencimento</th>
+                                        <th>Documento</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="table-border-bottom-0" id="tbody-pagamentos">
+                                    <?php if (!$pagamentos): ?>
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">Nenhum registro encontrado.</td>
+                                        </tr>
+                                        <?php else: foreach ($pagamentos as $p): ?>
+                                            <?php
+                                            $id = (int)$p['id'];
+                                            $isPendente = ($p['status'] === 'pendente');
+                                            $badge = 'bg-label-secondary';
+                                            if ($p['status'] === 'pendente')  $badge = 'bg-label-warning';
+                                            if ($p['status'] === 'aprovado')  $badge = 'bg-label-success';
+                                            if ($p['status'] === 'reprovado') $badge = 'bg-label-danger';
+                                            ?>
+                                            <tr id="row-<?= $id ?>">
+                                                <td><?= $id ?></td>
+                                                <td><strong><?= e($p['unidade_nome'] ?? ('Unidade #' . ($p['unidade_id'] ?? ''))) ?></strong></td>
+                                                <td><?= e($p['id_solicitante']) ?></td>
+                                                <td><?= e($p['descricao']) ?></td>
+                                                <td><?= moneyBr($p['valor']) ?></td>
+                                                <td><?= $p['vencimento'] ? date('d/m/Y', strtotime($p['vencimento'])) : '—' ?></td>
+                                                <td>
+                                                    <?php if (!empty($p['documento'])): ?>
+                                                        <a href="?id=<?= urlencode($idSelecionado) ?>&download=<?= $id ?>" class="text-primary">Baixar</a>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">—</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <span class="badge <?= $badge ?> status-badge" id="status-<?= $id ?>">
+                                                        <?= e($p['status']) ?>
+                                                    </span>
+                                                </td>
+                                                <td class="text-end" id="acoes-<?= $id ?>">
+                                                    <?php if ($isPendente): ?>
+                                                        <button class="btn btn-sm btn-success me-1 btn-aprovar" data-id="<?= $id ?>">
+                                                            <i class="bx"></i> Aprovar
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-danger me-1 btn-reprovar" data-id="<?= $id ?>">
+                                                            <i class="bx"></i> Reprovar
+                                                        </button>
+                                                    <?php endif; ?>
+                                                    <button class="btn btn-sm btn-outline-secondary btn-detalhes" data-id="<?= $id ?>" data-bs-toggle="modal" data-bs-target="#modalDetalhes">Detalhes</button>
+                                                </td>
+                                            </tr>
+                                    <?php endforeach;
+                                    endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- /Tabela -->
+
+                    <!-- Modal Detalhes -->
+                    <div class="modal fade" id="modalDetalhes" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Detalhes da Solicitação</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div id="detalhes-conteudo">
+                                        <div class="text-center text-muted py-3">Carregando…</div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer" id="detalhes-footer">
+                                    <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                                    <!-- botão Baixar é injetado dinamicamente -->
+                                </div>
                             </div>
                         </div>
                     </div>
+
                 </div>
+                <!-- / Content -->
 
-            </div>
-            <!-- / Content -->
-
-            <footer class="content-footer footer bg-footer-theme text-center">
-                <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
-                    <div class="mb-2 mb-md-0">
-                        &copy;<script>document.write(new Date().getFullYear());</script>,
-                        <strong>Açaínhadinhos</strong>. Todos os direitos reservados. Desenvolvido por <strong>CodeGeek</strong>.
+                <footer class="content-footer footer bg-footer-theme text-center">
+                    <div class="container-xxl d-flex py-2 flex-md-row flex-column justify-content-center">
+                        <div class="mb-2 mb-md-0">
+                            &copy;<script>
+                                document.write(new Date().getFullYear());
+                            </script>,
+                            <strong>Açaínhadinhos</strong>. Todos os direitos reservados. Desenvolvido por <strong>CodeGeek</strong>.
+                        </div>
                     </div>
-                </div>
-            </footer>
-            <div class="content-backdrop fade"></div>
+                </footer>
+                <div class="content-backdrop fade"></div>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Core JS -->
-<script src="../../js/saudacao.js"></script>
-<script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-<script src="../../assets/vendor/libs/popper/popper.js"></script>
-<script src="../../assets/vendor/js/bootstrap.js"></script>
-<script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-<script src="../../assets/vendor/js/menu.js"></script>
-<script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-<script src="../../assets/js/main.js"></script>
+    <!-- Core JS -->
+    <script src="../../js/saudacao.js"></script>
+    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+    <script src="../../assets/vendor/libs/popper/popper.js"></script>
+    <script src="../../assets/vendor/js/bootstrap.js"></script>
+    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+    <script src="../../assets/vendor/js/menu.js"></script>
+    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+    <script src="../../assets/js/main.js"></script>
 
-<script>
-(function(){
-    function post(action, payload){
-        const data = new URLSearchParams();
-        data.append('action', action);
-        Object.keys(payload||{}).forEach(k => data.append(k, payload[k]));
-        return fetch(location.href, {
-            method: 'POST',
-            headers: {'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
-            body: data.toString()
-        }).then(r => r.json());
-    }
-    function formatMoney(v){
-        if (v == null) return 'R$ 0,00';
-        const n = Number(v);
-        return n.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-    }
-    function formatDate(iso){
-        if (!iso) return '—';
-        const d = new Date(iso);
-        if (isNaN(d.getTime())) return '—';
-        const dd = String(d.getDate()).padStart(2,'0');
-        const mm = String(d.getMonth()+1).padStart(2,'0');
-        const yyyy = d.getFullYear();
-        return `${dd}/${mm}/${yyyy}`;
-    }
-    function escapeHtml(s){
-        return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-    }
-
-    // Clique Aprovar / Reprovar
-    document.getElementById('tbody-pagamentos')?.addEventListener('click', function(e){
-        const btnAprovar  = e.target.closest('.btn-aprovar');
-        const btnReprovar = e.target.closest('.btn-reprovar');
-        const btnDetalhes = e.target.closest('.btn-detalhes');
-
-        // Detalhes
-        if (btnDetalhes){
-            const id = btnDetalhes.getAttribute('data-id');
-            const box = document.getElementById('detalhes-conteudo');
-            const footer = document.getElementById('detalhes-footer');
-            if (box) box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>';
-            if (footer){
-                const oldBtn = footer.querySelector('.btn-baixar-modal');
-                if (oldBtn) oldBtn.remove();
+    <script>
+        (function() {
+            function post(action, payload) {
+                const data = new URLSearchParams();
+                data.append('action', action);
+                Object.keys(payload || {}).forEach(k => data.append(k, payload[k]));
+                return fetch(location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                    },
+                    body: data.toString()
+                }).then(r => r.json());
             }
-            post('get_details', {id})
-              .then(json => {
-                  if (json && json.ok && json.data){
-                      const d = json.data;
-                      const html = `
+
+            function formatMoney(v) {
+                if (v == null) return 'R$ 0,00';
+                const n = Number(v);
+                return n.toLocaleString('pt-BR', {
+                    style: 'currency',
+                    currency: 'BRL'
+                });
+            }
+
+            function formatDate(iso) {
+                if (!iso) return '—';
+                const d = new Date(iso);
+                if (isNaN(d.getTime())) return '—';
+                const dd = String(d.getDate()).padStart(2, '0');
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                return `${dd}/${mm}/${yyyy}`;
+            }
+
+            function escapeHtml(s) {
+                return String(s ?? '').replace(/[&<>"']/g, m => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                } [m]));
+            }
+
+            // Clique Aprovar / Reprovar
+            document.getElementById('tbody-pagamentos')?.addEventListener('click', function(e) {
+                const btnAprovar = e.target.closest('.btn-aprovar');
+                const btnReprovar = e.target.closest('.btn-reprovar');
+                const btnDetalhes = e.target.closest('.btn-detalhes');
+
+                // Detalhes
+                if (btnDetalhes) {
+                    const id = btnDetalhes.getAttribute('data-id');
+                    const box = document.getElementById('detalhes-conteudo');
+                    const footer = document.getElementById('detalhes-footer');
+                    if (box) box.innerHTML = '<div class="text-center text-muted py-3">Carregando…</div>';
+                    if (footer) {
+                        const oldBtn = footer.querySelector('.btn-baixar-modal');
+                        if (oldBtn) oldBtn.remove();
+                    }
+                    post('get_details', {
+                            id
+                        })
+                        .then(json => {
+                            if (json && json.ok && json.data) {
+                                const d = json.data;
+                                const html = `
                         <div class="row g-3">
                           <div class="col-md-6">
                             <p><strong>Filial:</strong> ${escapeHtml(d.unidade_nome ?? '')} (ID: ${escapeHtml(d.unidade_id ?? '')})</p>
@@ -724,114 +859,153 @@ try {
                             <p><strong>Documento:</strong> ${d.documento ? 'Disponível' : '<span class="text-muted">—</span>'}</p>
                           </div>
                         </div>`;
-                      if (box) box.innerHTML = html;
+                                if (box) box.innerHTML = html;
 
-                      if (footer && d.documento){
-                        const a = document.createElement('a');
-                        a.className = 'btn btn-primary btn-baixar-modal';
-                        a.textContent = 'Baixar comprovante';
-                        a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(id))}`;
-                        footer.appendChild(a);
-                      }
-                  } else {
-                      if (box) box.innerHTML = `<div class="text-danger">Não foi possível carregar os detalhes.</div>`;
-                  }
-              })
-              .catch(() => { if (box) box.innerHTML = `<div class="text-danger">Falha de rede ao buscar detalhes.</div>`; });
-            return;
-        }
+                                if (footer && d.documento) {
+                                    const a = document.createElement('a');
+                                    a.className = 'btn btn-primary btn-baixar-modal';
+                                    a.textContent = 'Baixar comprovante';
+                                    a.href = `?id=<?= urlencode($idSelecionado) ?>&download=${encodeURIComponent(String(id))}`;
+                                    footer.appendChild(a);
+                                }
+                            } else {
+                                if (box) box.innerHTML = `<div class="text-danger">Não foi possível carregar os detalhes.</div>`;
+                            }
+                        })
+                        .catch(() => {
+                            if (box) box.innerHTML = `<div class="text-danger">Falha de rede ao buscar detalhes.</div>`;
+                        });
+                    return;
+                }
 
-        // Aprovar / Reprovar
-        const btn = btnAprovar || btnReprovar;
-        if (!btn) return;
+                // Aprovar / Reprovar
+                const btn = btnAprovar || btnReprovar;
+                if (!btn) return;
 
-        const id = btn.getAttribute('data-id');
-        const novoStatus = btnAprovar ? 'aprovado' : 'reprovado';
-        const msgConf = btnAprovar ? 'Confirmar APROVAÇÃO desta solicitação?' : 'Confirmar REPROVAÇÃO desta solicitação?';
+                const id = btn.getAttribute('data-id');
+                const novoStatus = btnAprovar ? 'aprovado' : 'reprovado';
+                const msgConf = btnAprovar ? 'Confirmar APROVAÇÃO desta solicitação?' : 'Confirmar REPROVAÇÃO desta solicitação?';
 
-        if (!confirm(msgConf)) return;
+                if (!confirm(msgConf)) return;
 
-        post('update_status', { id, status: novoStatus })
-          .then(json => {
-              if (!json || !json.ok){
-                  alert(json?.msg || 'Não foi possível atualizar o status.');
-                  return;
-              }
-              // Atualiza badge
-              const badge = document.getElementById('status-'+id);
-              if (badge){
-                  badge.textContent = novoStatus;
-                  badge.classList.remove('bg-label-warning','bg-label-success','bg-label-danger','bg-label-secondary');
-                  if (novoStatus === 'aprovado')  badge.classList.add('bg-label-success');
-                  if (novoStatus === 'reprovado') badge.classList.add('bg-label-danger');
-              }
-              // Remove botões Aprovar/Reprovar da linha
-              const acoes = document.getElementById('acoes-'+id);
-              if (acoes){
-                  acoes.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(el => el.remove());
-              }
-          })
-          .catch(() => alert('Falha de rede ao atualizar o status.'));
-    });
+                post('update_status', {
+                        id,
+                        status: novoStatus
+                    })
+                    .then(json => {
+                        if (!json || !json.ok) {
+                            alert(json?.msg || 'Não foi possível atualizar o status.');
+                            return;
+                        }
+                        // Atualiza badge
+                        const badge = document.getElementById('status-' + id);
+                        if (badge) {
+                            badge.textContent = novoStatus;
+                            badge.classList.remove('bg-label-warning', 'bg-label-success', 'bg-label-danger', 'bg-label-secondary');
+                            if (novoStatus === 'aprovado') badge.classList.add('bg-label-success');
+                            if (novoStatus === 'reprovado') badge.classList.add('bg-label-danger');
+                        }
+                        // Remove botões Aprovar/Reprovar da linha
+                        const acoes = document.getElementById('acoes-' + id);
+                        if (acoes) {
+                            acoes.querySelectorAll('.btn-aprovar, .btn-reprovar').forEach(el => el.remove());
+                        }
+                    })
+                    .catch(() => alert('Falha de rede ao atualizar o status.'));
+            });
 
-    /* ===== Autocomplete ===== */
-    (function() {
-      const qInput = document.getElementById('qInput');
-      const list = document.getElementById('qList');
-      const form = document.getElementById('filtroForm');
-      let items = [], activeIndex = -1, aborter = null;
+            /* ===== Autocomplete ===== */
+            (function() {
+                const qInput = document.getElementById('qInput');
+                const list = document.getElementById('qList');
+                const form = document.getElementById('filtroForm');
+                let items = [],
+                    activeIndex = -1,
+                    aborter = null;
 
-      function closeList(){ list.classList.add('d-none'); list.innerHTML=''; activeIndex=-1; items=[]; }
-      function openList(){ list.classList.remove('d-none'); }
-      function render(data){
-        if (!data || !data.length){ closeList(); return; }
-        items = data.slice(0, 15);
-        list.innerHTML = items.map((it,i)=>`
+                function closeList() {
+                    list.classList.add('d-none');
+                    list.innerHTML = '';
+                    activeIndex = -1;
+                    items = [];
+                }
+
+                function openList() {
+                    list.classList.remove('d-none');
+                }
+
+                function render(data) {
+                    if (!data || !data.length) {
+                        closeList();
+                        return;
+                    }
+                    items = data.slice(0, 15);
+                    list.innerHTML = items.map((it, i) => `
           <div class="autocomplete-item" data-i="${i}">
             <span>${escapeHtml(it.label)}</span>
             <span class="autocomplete-tag">${escapeHtml(it.tipo)}</span>
           </div>`).join('');
-        openList();
-      }
-      function pick(i){
-        if (i<0 || i>=items.length) return;
-        qInput.value = items[i].value;
-        closeList();
-        form.submit();
-      }
-      qInput?.addEventListener('input', function(){
-        const v = qInput.value.trim();
-        if (v.length < 2){ closeList(); return; }
-        if (aborter) aborter.abort();
-        aborter = new AbortController();
-        const url = new URL(window.location.href);
-        url.searchParams.set('ajax','autocomplete');
-        url.searchParams.set('q', v);
-        fetch(url.toString(), { signal: aborter.signal })
-          .then(r=>r.json())
-          .then(render)
-          .catch(()=>{});
-      });
-      qInput?.addEventListener('keydown', function(e){
-        if (list.classList.contains('d-none')) return;
-        if (e.key === 'ArrowDown'){ activeIndex = Math.min(activeIndex+1, items.length-1); highlight(); e.preventDefault(); }
-        else if (e.key === 'ArrowUp'){ activeIndex = Math.max(activeIndex-1, 0); highlight(); e.preventDefault(); }
-        else if (e.key === 'Enter'){ if (activeIndex >= 0){ pick(activeIndex); e.preventDefault(); } }
-        else if (e.key === 'Escape'){ closeList(); }
-      });
-      list?.addEventListener('mousedown', function(e){
-        const el = e.target.closest('.autocomplete-item');
-        if (!el) return;
-        pick(parseInt(el.dataset.i, 10));
-      });
-      document.addEventListener('click', function(e){
-        if (!list.contains(e.target) && e.target !== qInput) closeList();
-      });
-      function highlight(){
-        [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx)=> el.classList.toggle('active', idx===activeIndex));
-      }
-    })();
-})();
-</script>
+                    openList();
+                }
+
+                function pick(i) {
+                    if (i < 0 || i >= items.length) return;
+                    qInput.value = items[i].value;
+                    closeList();
+                    form.submit();
+                }
+                qInput?.addEventListener('input', function() {
+                    const v = qInput.value.trim();
+                    if (v.length < 2) {
+                        closeList();
+                        return;
+                    }
+                    if (aborter) aborter.abort();
+                    aborter = new AbortController();
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('ajax', 'autocomplete');
+                    url.searchParams.set('q', v);
+                    fetch(url.toString(), {
+                            signal: aborter.signal
+                        })
+                        .then(r => r.json())
+                        .then(render)
+                        .catch(() => {});
+                });
+                qInput?.addEventListener('keydown', function(e) {
+                    if (list.classList.contains('d-none')) return;
+                    if (e.key === 'ArrowDown') {
+                        activeIndex = Math.min(activeIndex + 1, items.length - 1);
+                        highlight();
+                        e.preventDefault();
+                    } else if (e.key === 'ArrowUp') {
+                        activeIndex = Math.max(activeIndex - 1, 0);
+                        highlight();
+                        e.preventDefault();
+                    } else if (e.key === 'Enter') {
+                        if (activeIndex >= 0) {
+                            pick(activeIndex);
+                            e.preventDefault();
+                        }
+                    } else if (e.key === 'Escape') {
+                        closeList();
+                    }
+                });
+                list?.addEventListener('mousedown', function(e) {
+                    const el = e.target.closest('.autocomplete-item');
+                    if (!el) return;
+                    pick(parseInt(el.dataset.i, 10));
+                });
+                document.addEventListener('click', function(e) {
+                    if (!list.contains(e.target) && e.target !== qInput) closeList();
+                });
+
+                function highlight() {
+                    [...list.querySelectorAll('.autocomplete-item')].forEach((el, idx) => el.classList.toggle('active', idx === activeIndex));
+                }
+            })();
+        })();
+    </script>
 </body>
+
 </html>

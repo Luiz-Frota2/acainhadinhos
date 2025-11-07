@@ -207,12 +207,17 @@ try {
 }
 
 // Helpers
-function dtBr(?string $dt) {
+function dtBr(?string $dt)
+{
     if (!$dt) return '-';
-    $t = strtotime($dt); if (!$t) return '-';
+    $t = strtotime($dt);
+    if (!$t) return '-';
     return date('d/m/Y H:i', $t);
 }
-function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function h(?string $v): string
+{
+    return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -255,7 +260,11 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
     <!-- Config -->
     <script src="../../assets/js/config.js"></script>
 
-    <style>.status-badge{text-transform:capitalize}</style>
+    <style>
+        .status-badge {
+            text-transform: capitalize
+        }
+    </style>
 </head>
 
 <body>
@@ -344,6 +353,32 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                     <div>Relatórios B2B</div>
                                 </a>
                             </li>
+                        </ul>
+                    </li>
+
+                    <!-- Relatórios -->
+                    <li class="menu-item">
+                        <a href="javascript:void(0);" class="menu-link menu-toggle">
+                            <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+                            <div data-i18n="Relatorios">Relatórios</div>
+                        </a>
+                        <ul class="menu-sub">
+                            <li class="menu-item">
+                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Vendas">Vendas por Filial</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./MaisVendidos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="MaisVendidos">Mais Vendidos</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./vendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Pedidos">Vendas por Período</div>
+                                </a>
+                            </li>
+
                         </ul>
                     </li>
 
@@ -439,10 +474,14 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                             </div>
                                         </a>
                                     </li>
-                                    <li><div class="dropdown-divider"></div></li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
                                     <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
                                     <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2)"></i><span class="align-middle">Configurações</span></a></li>
-                                    <li><div class="dropdown-divider"></div></li>
+                                    <li>
+                                        <div class="dropdown-divider"></div>
+                                    </li>
                                     <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                                 </ul>
                             </li>
@@ -463,40 +502,40 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
 
                     <!-- ===== Filtros ===== -->
                     <form class="card mb-3" method="get" id="filtroForm">
-                      <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
-                      <div class="card-body">
-                        <div class="row g-3 align-items-end">
-                          <div class="col-12 col-md-auto">
-                            <label class="form-label mb-1">Status</label>
-                            <select class="form-select form-select-sm" name="status">
-                              <option value=""           <?= $statusFiltro===''          ? 'selected' : '' ?>>Todos (Enviado + Entregue)</option>
-                              <option value="enviado"   <?= $statusFiltro==='enviado'   ? 'selected' : '' ?>>Enviado</option>
-                              <option value="entregue"  <?= $statusFiltro==='entregue'  ? 'selected' : '' ?>>Entregue</option>
-                            </select>
-                          </div>
+                        <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-12 col-md-auto">
+                                    <label class="form-label mb-1">Status</label>
+                                    <select class="form-select form-select-sm" name="status">
+                                        <option value="" <?= $statusFiltro === ''          ? 'selected' : '' ?>>Todos (Enviado + Entregue)</option>
+                                        <option value="enviado" <?= $statusFiltro === 'enviado'   ? 'selected' : '' ?>>Enviado</option>
+                                        <option value="entregue" <?= $statusFiltro === 'entregue'  ? 'selected' : '' ?>>Entregue</option>
+                                    </select>
+                                </div>
 
-                          <div class="col-12 col-md-auto">
-                            <label class="form-label mb-1">De</label>
-                            <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
-                          </div>
+                                <div class="col-12 col-md-auto">
+                                    <label class="form-label mb-1">De</label>
+                                    <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
+                                </div>
 
-                          <div class="col-12 col-md-auto">
-                            <label class="form-label mb-1">Até</label>
-                            <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
-                          </div>
+                                <div class="col-12 col-md-auto">
+                                    <label class="form-label mb-1">Até</label>
+                                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
+                                </div>
 
-                          <div class="col-12 col-md">
-                            <label class="form-label mb-1">Buscar</label>
-                            <input type="text" class="form-control form-control-sm" name="q" value="<?= h($q) ?>"
-                                   placeholder="Filial, id_solicitante (ex.: unidade_3) ou observação…">
-                          </div>
+                                <div class="col-12 col-md">
+                                    <label class="form-label mb-1">Buscar</label>
+                                    <input type="text" class="form-control form-control-sm" name="q" value="<?= h($q) ?>"
+                                        placeholder="Filial, id_solicitante (ex.: unidade_3) ou observação…">
+                                </div>
 
-                          <div class="col-12 col-md-auto d-flex gap-2">
-                            <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
-                            <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
-                          </div>
+                                <div class="col-12 col-md-auto d-flex gap-2">
+                                    <button class="btn btn-sm btn-primary" type="submit"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+                                    <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                                </div>
+                            </div>
                         </div>
-                      </div>
                     </form>
 
                     <!-- Tabela -->
@@ -517,55 +556,56 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                     </tr>
                                 </thead>
                                 <tbody class="table-border-bottom-0">
-                                <?php if (empty($envios)): ?>
-                                    <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">Nenhum registro encontrado.</td>
-                                    </tr>
-                                <?php else: foreach ($envios as $row): ?>
-                                    <?php
-                                        $sku   = $row['primeiro_sku']  ?: '—';
-                                        $nome  = $row['primeiro_nome'] ?: '—';
-                                        $itens = (int)$row['itens'];
-                                        if ($itens > 1 && $nome !== '—') {
-                                            $nome .= " <span class='text-muted'>(+ " . ($itens-1) . ")</span>";
-                                        }
+                                    <?php if (empty($envios)): ?>
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">Nenhum registro encontrado.</td>
+                                        </tr>
+                                        <?php else: foreach ($envios as $row): ?>
+                                            <?php
+                                            $sku   = $row['primeiro_sku']  ?: '—';
+                                            $nome  = $row['primeiro_nome'] ?: '—';
+                                            $itens = (int)$row['itens'];
+                                            if ($itens > 1 && $nome !== '—') {
+                                                $nome .= " <span class='text-muted'>(+ " . ($itens - 1) . ")</span>";
+                                            }
 
-                                        // mapeia visual: em_transito => Enviado
-                                        $statusDb = strtolower((string)$row['status']);
-                                        if ($statusDb === 'entregue') {
-                                            $badgeHtml = '<span class="badge bg-label-success status-badge">Entregue</span>';
-                                            $statusTexto = 'Entregue';
-                                        } elseif ($statusDb === 'em_transito') {
-                                            $badgeHtml = '<span class="badge bg-label-warning status-badge">Enviado</span>';
-                                            $statusTexto = 'Enviado';
-                                        } else {
-                                            $badgeHtml = '<span class="badge bg-label-secondary status-badge">'.h($row['status']).'</span>';
-                                            $statusTexto = ucfirst(str_replace('_',' ', (string)$row['status']));
-                                        }
-                                    ?>
-                                    <tr data-row-id="<?= (int)$row['id'] ?>">
-                                        <td>PS-<?= (int)$row['id'] ?></td>
-                                        <td><strong><?= h($row['filial_nome'] ?? '-') ?></strong></td>
-                                        <td><?= h($sku) ?></td>
-                                        <td><?= $nome ?></td>
-                                        <td><?= (int)$row['qtd_total'] ?></td>
-                                        <td><?= dtBr($row['mov_em']) ?></td>
-                                        <td><?= $badgeHtml ?></td>
-                                        <td class="text-end">
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-outline-secondary btn-detalhes"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalDetalhes"
-                                                data-id="<?= (int)$row['id'] ?>"
-                                                data-codigo="PS-<?= (int)$row['id'] ?>"
-                                                data-filial="<?= h($row['filial_nome'] ?? '-') ?>"
-                                                data-status="<?= h($statusTexto) ?>">
-                                                Detalhes
-                                            </button>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; endif; ?>
+                                            // mapeia visual: em_transito => Enviado
+                                            $statusDb = strtolower((string)$row['status']);
+                                            if ($statusDb === 'entregue') {
+                                                $badgeHtml = '<span class="badge bg-label-success status-badge">Entregue</span>';
+                                                $statusTexto = 'Entregue';
+                                            } elseif ($statusDb === 'em_transito') {
+                                                $badgeHtml = '<span class="badge bg-label-warning status-badge">Enviado</span>';
+                                                $statusTexto = 'Enviado';
+                                            } else {
+                                                $badgeHtml = '<span class="badge bg-label-secondary status-badge">' . h($row['status']) . '</span>';
+                                                $statusTexto = ucfirst(str_replace('_', ' ', (string)$row['status']));
+                                            }
+                                            ?>
+                                            <tr data-row-id="<?= (int)$row['id'] ?>">
+                                                <td>PS-<?= (int)$row['id'] ?></td>
+                                                <td><strong><?= h($row['filial_nome'] ?? '-') ?></strong></td>
+                                                <td><?= h($sku) ?></td>
+                                                <td><?= $nome ?></td>
+                                                <td><?= (int)$row['qtd_total'] ?></td>
+                                                <td><?= dtBr($row['mov_em']) ?></td>
+                                                <td><?= $badgeHtml ?></td>
+                                                <td class="text-end">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-secondary btn-detalhes"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#modalDetalhes"
+                                                        data-id="<?= (int)$row['id'] ?>"
+                                                        data-codigo="PS-<?= (int)$row['id'] ?>"
+                                                        data-filial="<?= h($row['filial_nome'] ?? '-') ?>"
+                                                        data-status="<?= h($statusTexto) ?>">
+                                                        Detalhes
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                    <?php endforeach;
+                                    endif; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -623,14 +663,14 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
 
                     <!-- JS da LISTAGEM: carrega detalhes na modal -->
                     <script>
-                        (function(){
+                        (function() {
                             const modalEl = document.getElementById('modalDetalhes');
                             if (modalEl) {
-                                modalEl.addEventListener('show.bs.modal', function (event) {
+                                modalEl.addEventListener('show.bs.modal', function(event) {
                                     const btn = event.relatedTarget;
                                     if (!btn) return;
 
-                                    const id  = btn.getAttribute('data-id');
+                                    const id = btn.getAttribute('data-id');
                                     const cod = btn.getAttribute('data-codigo') || '-';
                                     const fil = btn.getAttribute('data-filial') || '-';
                                     const sts = btn.getAttribute('data-status') || '-';
@@ -646,7 +686,9 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                     url.searchParams.set('ajax', 'detalhes');
                                     url.searchParams.set('solicitacao_id', id);
 
-                                    fetch(url.toString(), { credentials: 'same-origin' })
+                                    fetch(url.toString(), {
+                                            credentials: 'same-origin'
+                                        })
                                         .then(r => r.json())
                                         .then(data => {
                                             if (!data.ok) throw new Error(data.erro || 'Falha ao carregar itens');
@@ -658,7 +700,7 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                                             tbody.innerHTML = itens.map(it => {
                                                 const cod = (it.codigo_produto || '—');
                                                 const nome = (it.nome_produto || '—');
-                                                const qtd  = (it.quantidade || 0);
+                                                const qtd = (it.quantidade || 0);
                                                 return `<tr>
                                                     <td>${cod}</td>
                                                     <td>${nome}</td>
@@ -682,7 +724,9 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
                     <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
                         <div class="mb-2 mb-md-0">
                             &copy;
-                            <script>document.write(new Date().getFullYear());</script>
+                            <script>
+                                document.write(new Date().getFullYear());
+                            </script>
                             , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
                             Desenvolvido por <strong>CodeGeek</strong>.
                         </div>
@@ -715,4 +759,5 @@ function h(?string $v): string { return htmlspecialchars((string)$v, ENT_QUOTES,
     <script src="../../assets/js/main.js"></script>
     <script src="../../assets/js/dashboards-analytics.js"></script>
 </body>
+
 </html>
