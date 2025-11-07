@@ -547,8 +547,8 @@ $fimTxt = $fim->format('d/m/Y');
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Pedidos">Vendas por Período</div>
+                                <a href="./financeiroFilial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Pedidos">Financeiro</div>
                                 </a>
                             </li>
 
@@ -1141,13 +1141,13 @@ $fimTxt = $fim->format('d/m/Y');
                                 </tbody>
                             </table>
 
-        <!-- PAGINAÇÃO -->
-        <div class="d-flex justify-content-center mt-2">
-            <nav>
-                <ul class="pagination pagination-sm m-0">
-                    <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
-                        <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual-1])) ?>" tabindex="-1">Anterior</a>
-                    </li>
+                            <!-- PAGINAÇÃO -->
+                            <div class="d-flex justify-content-center mt-2">
+                                <nav>
+                                    <ul class="pagination pagination-sm m-0">
+                                        <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
+                                            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual - 1])) ?>" tabindex="-1">Anterior</a>
+                                        </li>
 
                                         <li class="page-item active">
                                             <span class="page-link"><?= $paginaAtual ?></span>
@@ -1160,26 +1160,26 @@ $fimTxt = $fim->format('d/m/Y');
                                 </nav>
                             </div>
 
-    </div>
-</div>
+                        </div>
+                    </div>
 
-<!-- ========================================================= -->
-<!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS)                -->
-<!-- ========================================================= -->
-<div class="card mb-3">
-    <h5 class="card-header">Produtos Mais Solicitados</h5>
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-            <tr>
-                <th>SKU</th>
-                <th>Produto</th>
-                <th>Quantidade</th>
-                <th>Pedidos</th>
-                <th>Participação</th>
-            </tr>
-            </thead>
-            <tbody>
+                    <!-- ========================================================= -->
+                    <!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS)                -->
+                    <!-- ========================================================= -->
+                    <div class="card mb-3">
+                        <h5 class="card-header">Produtos Mais Solicitados</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>SKU</th>
+                                        <th>Produto</th>
+                                        <th>Quantidade</th>
+                                        <th>Pedidos</th>
+                                        <th>Participação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
 
                                     <?php if (!empty($produtosLista)): ?>
                                         <?php foreach ($produtosLista as $p): ?>

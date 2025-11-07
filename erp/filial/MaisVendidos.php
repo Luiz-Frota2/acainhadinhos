@@ -378,8 +378,8 @@ if (!empty($topGeral)) {
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./vendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="Pedidos">Vendas por Período</div>
+                                <a href="./financeiroFilial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                    <div data-i18n="Pedidos">Financeiro</div>
                                 </a>
                             </li>
 
