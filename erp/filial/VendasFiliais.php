@@ -628,18 +628,17 @@ $topProdutos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <form class="d-flex flex-wrap w-100 gap-2" method="get">
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-          
-                                <!-- De -->
-                                <div class="col-6 col-md-3 col-lg-2">
-                                    <label class="form-label mb-1">De</label>
-                                    <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
-                                </div>
+           
+            <div class="form-select me-2">
+                                <label class="form-label">de</label>
+                                <input type="date" name="codigo" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+                            </div>
 
-                                <!-- Até -->
-                                <div class="col-6 col-md-3 col-lg-2">
-                                    <label class="form-label mb-1">Até</label>
-                                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
-                                </div>
+                            <div class="form-select me-2">
+                                <label class="form-label">até</label>
+                                <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+                            </div>
+
 
             <select class="form-select me-2" name="filial_id">
                 <option value="">Todas as Filiais</option>
