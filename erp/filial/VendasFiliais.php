@@ -581,7 +581,7 @@ SELECT
     u.nome AS filial,
     COUNT(DISTINCT s.ID) AS pedidos,
     SUM(i.quantidade) AS itens,
-   COALESCE(SUM(i.subtotal), 0) AS faturamento
+    SUM(i.subtotal) AS faturamento
 FROM unidades u
 LEFT JOIN solicitacoes_pagamento s 
        ON s.id_solicitante = u.id 
