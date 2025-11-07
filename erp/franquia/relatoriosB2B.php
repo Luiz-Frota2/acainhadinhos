@@ -590,9 +590,9 @@ $fimTxt = $fim->format('d/m/Y');
             </a>
           </li>
           <li class="menu-item">
-            <a href="../franquia/index.php?id=principal_1" class="menu-link">
+            <a href="../filial/index.php?id=principal_1" class="menu-link">
               <i class="menu-icon tf-icons bx bx-store"></i>
-              <div data-i18n="Authentications">Franquias</div>
+              <div data-i18n="Authentications">Filial</div>
             </a>
           </li>
           <li class="menu-item">
