@@ -524,13 +524,9 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                                     <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
                                 </select>
 
-                                <select class="form-select me-2" name="franquia_id">
+                                <select class="form-select me-2" name="">
                                     <option value="">Todas as Filial</option>
-                                    <?php foreach ($franquias as $f): ?>
-                                        <option value="<?= (int)$f['id'] ?>" <?= $franquiaId === (int)$f['id'] ? 'selected' : ''; ?>>
-                                            <?= htmlspecialchars($f['nome']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
+                                    
                                 </select>
 
                                 <button class="btn btn-outline-secondary me-2" type="submit">
