@@ -213,12 +213,12 @@ try {
                     </li>
 
                     <!-- Relatórios -->
-                    <li class="menu-item">
+                    <li class="menu-item active open">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
                             <div data-i18n="Relatorios">Relatórios</div>
                         </a>
-                        <ul class="menu-sub">
+                        <ul class="menu-sub active">
                             <li class="menu-item">
                                 <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Vendas">Vendas por Filial</div>
@@ -229,7 +229,7 @@ try {
                                     <div data-i18n="MaisVendidos">Mais Vendidos</div>
                                 </a>
                             </li>
-                            <li class="menu-item">
+                            <li class="menu-item active">
                                 <a href="./financeiroFilial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Pedidos">Financeiro</div>
                                 </a>
