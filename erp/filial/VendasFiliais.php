@@ -368,13 +368,13 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                     </li>
 
                     <!-- Relatórios -->
-                    <li class="menu-item active open">
+                    <li class="menu-item">
                         <a href="javascript:void(0);" class="menu-link menu-toggle">
                             <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
                             <div data-i18n="Relatorios">Relatórios</div>
                         </a>
-                        <ul class="menu-sub active">
-                            <li class="menu-item active">
+                        <ul class="menu-sub">
+                            <li class="menu-item">
                                 <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Vendas">Vendas por Filial</div>
                                 </a>
@@ -511,318 +511,274 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Indicadores e comparativos por unidade franqueada — <?= htmlspecialchars($tituloPeriodo) ?></span>
                     </h5>
+<?php
+require_once "conexao.php";
 
-               <?php
-// ======================================================
-// 1) CONEXÃO COM BANCO (troque para a sua real)
-// ======================================================
-$pdo = new PDO("mysql:host=localhost;dbname=seubanco;charset=utf8", "usuario", "senha", [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-]);
-
-
-// ======================================================
-// 2) CARREGAR FILIAIS DO BANCO
-// ======================================================
-$sqlFiliais = $pdo->query("SELECT empresa_id, nome FROM unidades WHERE tipo = 'Filial' ORDER BY nome");
-$filiais = $sqlFiliais->fetchAll(PDO::FETCH_ASSOC);
-
-
-// ======================================================
-// 3) LER FILTROS DO FORMULÁRIO
-// ======================================================
+// ====== CAPTURA DOS FILTROS ======
 $periodo = $_GET['periodo'] ?? 'month_current';
-$filialSelecionada = $_GET['franquia_id'] ?? '';
+$filial_id = $_GET['filial_id'] ?? '';
 
+// ====== DEFINIÇÃO DO PERÍODO ======
+$hoje = date("Y-m-d");
 
-// ======================================================
-// 4) DEFINIR INTERVALO DE DATAS PELO PERÍODO
-// ======================================================
 switch ($periodo) {
     case 'last30':
-        $inicio = date('Y-m-d', strtotime('-30 days'));
-        $fim = date('Y-m-d');
+        $dataInicio = date("Y-m-d", strtotime("-30 days"));
         $tituloPeriodo = "Últimos 30 dias";
         break;
 
     case 'last90':
-        $inicio = date('Y-m-d', strtotime('-90 days'));
-        $fim = date('Y-m-d');
+        $dataInicio = date("Y-m-d", strtotime("-90 days"));
         $tituloPeriodo = "Últimos 90 dias";
         break;
 
     case 'year':
-        $inicio = date('Y-01-01');
-        $fim = date('Y-m-d');
+        $dataInicio = date("Y-01-01");
         $tituloPeriodo = "Ano Atual";
         break;
 
-    default:
-        $inicio = date('Y-m-01');
-        $fim = date('Y-m-d');
+    default: // mês atual
+        $dataInicio = date("Y-m-01");
         $tituloPeriodo = "Mês Atual";
+        break;
 }
 
+$dataFim = $hoje;
 
-// ======================================================
-// 5) MONTAR WHERE DINÂMICO PARA FILTRAR POR FILIAL
-// ======================================================
-$where = "v.data_venda BETWEEN :inicio AND :fim";
-$params = [":inicio" => $inicio, ":fim" => $fim];
+// ====== MONTAGEM DO FILTRO SQL ======
+$filtroFilial = "";
+$params = [
+    ':dataInicio' => $dataInicio,
+    ':dataFim'    => $dataFim
+];
 
-if ($filialSelecionada !== "") {
-    $where .= " AND v.empresa_id = :filial";
-    $params[":filial"] = $filialSelecionada;
+if ($filial_id != "") {
+    $filtroFilial = " AND s.id_solicitante = :filial_id ";
+    $params[':filial_id'] = $filial_id;
 }
 
+// ====== CONSULTA PRINCIPAL: PEDIDOS + FATURAMENTO ======
+$sql = "
+SELECT 
+    COUNT(DISTINCT s.ID) AS pedidos,
+    SUM(i.quantidade) AS itens,
+    SUM(i.subtotal) AS faturamento
+FROM solicitacoes_pagamento s
+LEFT JOIN solicitacoes_b2b_itens i ON i.solicitacao_id = s.ID
+WHERE s.created_at BETWEEN :dataInicio AND :dataFim
+$filtroFilial
+";
 
-// ======================================================
-// 6) KPI — FATURAMENTO TOTAL
-// ======================================================
-$stmt = $pdo->prepare("SELECT SUM(valor_total) FROM vendas v WHERE $where");
+$stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-$faturTotal = $stmt->fetchColumn() ?: 0;
+$dados = $stmt->fetch(PDO::FETCH_ASSOC);
 
+$pedidosTotal = intval($dados['pedidos']);
+$itensTotal   = intval($dados['itens']);
+$faturTotal   = floatval($dados['faturamento']);
+$ticketMedio  = $pedidosTotal > 0 ? ($faturTotal / $pedidosTotal) : 0;
 
-// ======================================================
-// 7) KPI — PEDIDOS
-// ======================================================
-$stmt = $pdo->prepare("SELECT COUNT(id) FROM vendas v WHERE $where");
-$stmt->execute($params);
-$pedidosTotal = $stmt->fetchColumn() ?: 0;
+// ====== LISTAGEM POR FILIAL ======
+$sqlFiliais = "
+SELECT 
+    u.nome AS filial,
+    COUNT(DISTINCT s.ID) AS pedidos,
+    SUM(i.quantidade) AS itens,
+    SUM(i.subtotal) AS faturamento
+FROM unidades u
+LEFT JOIN solicitacoes_pagamento s ON s.id_solicitante = u.id
+LEFT JOIN solicitacoes_b2b_itens i ON i.solicitacao_id = s.ID
+WHERE u.tipo = 'Filial'
+AND s.created_at BETWEEN :dataInicio AND :dataFim
+GROUP BY u.id
+ORDER BY faturamento DESC
+";
 
+$stmt = $pdo->prepare($sqlFiliais);
+$stmt->execute([
+    ':dataInicio' => $dataInicio,
+    ':dataFim'    => $dataFim
+]);
 
-// ======================================================
-// 8) KPI — ITENS VENDIDOS
-// ======================================================
-$stmt = $pdo->prepare("
-    SELECT SUM(i.quantidade)
-    FROM itens_venda i
-    INNER JOIN vendas v ON v.id = i.venda_id
-    WHERE $where
-");
-$stmt->execute($params);
-$itensTotal = $stmt->fetchColumn() ?: 0;
-
-
-// ======================================================
-// 9) KPI — TICKET MÉDIO
-// ======================================================
-$ticketMedio = $pedidosTotal > 0 ? ($faturTotal / $pedidosTotal) : 0;
-
-
-// ======================================================
-// 10) TABELA — RESUMO POR FILIAL
-// ======================================================
-$stmt = $pdo->prepare("
-    SELECT 
-        u.nome AS filial,
-        COUNT(v.id) AS pedidos,
-        SUM(i.quantidade) AS itens,
-        SUM(v.valor_total) AS faturamento,
-        (SUM(v.valor_total) / NULLIF(COUNT(v.id),0)) AS ticket
-    FROM vendas v
-    INNER JOIN unidades u ON u.empresa_id = v.empresa_id
-    LEFT JOIN itens_venda i ON i.venda_id = v.id
-    WHERE $where
-    GROUP BY u.id
-    ORDER BY faturamento DESC
-");
-$stmt->execute($params);
 $listaFiliais = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// ====== TOP PRODUTOS ======
+$sqlTop = "
+SELECT 
+    i.codigo_produto AS sku,
+    i.nome_produto AS nome,
+    SUM(i.quantidade) AS qtd,
+    COUNT(DISTINCT i.solicitacao_id) AS pedidos
+FROM solicitacoes_b2b_itens i
+LEFT JOIN solicitacoes_pagamento s ON s.ID = i.solicitacao_id
+WHERE s.created_at BETWEEN :dataInicio AND :dataFim
+$filtroFilial
+GROUP BY i.codigo_produto
+ORDER BY qtd DESC
+LIMIT 10
+";
 
-// calcular total para porcentagem
-$totalGeralFiliais = array_sum(array_column($listaFiliais, "faturamento")) ?: 1;
-
-foreach ($listaFiliais as &$f) {
-    $f["perc"] = ($f["faturamento"] / $totalGeralFiliais) * 100;
-}
-
-
-// ======================================================
-// 11) TABELA — TOP PRODUTOS
-// ======================================================
-$stmt = $pdo->prepare("
-    SELECT 
-        i.codigo_produto AS sku,
-        i.nome_produto AS nome,
-        SUM(i.quantidade) AS qtde,
-        COUNT(DISTINCT i.solicitacao_id) AS pedidos
-    FROM solicitacoes_b2b_itens i
-    INNER JOIN solicitacoes_b2b s ON s.id = i.solicitacao_id
-    WHERE s.created_at BETWEEN :inicio AND :fim
-    GROUP BY i.codigo_produto, i.nome_produto
-    ORDER BY qtde DESC
-    LIMIT 5
-");
-$stmt->execute([":inicio" => $inicio, ":fim" => $fim]);
+$stmt = $pdo->prepare($sqlTop);
+$stmt->execute($params);
 $topProdutos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-// ======================================================
-// 12) Funções de formatação
-// ======================================================
-function moeda($v) { return "R$ " . number_format($v, 2, ",", "."); }
-function inteiro($v) { return number_format($v, 0, "", "."); }
-
 ?>
 
-<!-- ========================================================== -->
-<!-- AQUI COMEÇA O SEU HTML ORIGINAL (100% IGUAL AO QUE MANDOU) -->
-<!-- ========================================================== -->
+                    <!-- Filtros -->
+                    <div class="card mb-3">
+                        <div class="card-body d-flex flex-wrap toolbar">
+                            <form class="d-flex flex-wrap w-100 gap-2" method="get">
+                                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                                <select class="form-select me-2" name="periodo">
+                                    <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
+                                    <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
+                                    <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
+                                    <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
+                                </select>
 
-<div class="card mb-3">
-    <div class="card-body d-flex flex-wrap toolbar">
-        <form class="d-flex flex-wrap w-100 gap-2" method="get">
-            
-            <select class="form-select me-2" name="periodo">
-                <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
-                <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
-                <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
-                <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
-            </select>
+                                <select class="form-select me-2" name="franquia_id">
+                                    <option value="">Todas as Filiais</option>
+                                </select>
 
-            <select class="form-select me-2" name="franquia_id">
-                <option value="">Todas as Filiais</option>
-                <?php foreach ($filiais as $f): ?>
-                    <option value="<?= $f['empresa_id'] ?>" <?= ($filialSelecionada === $f['empresa_id']) ? 'selected' : '' ?>>
-                        <?= $f['nome'] ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+                                <button class="btn btn-outline-secondary me-2" type="submit">
+                                    <i class="bx bx-filter-alt me-1"></i> Aplicar
+                                </button>
 
-            <button class="btn btn-outline-secondary me-2" type="submit">
-                <i class="bx bx-filter-alt me-1"></i> Aplicar
-            </button>
+                                <div class="ms-auto d-flex gap-2">
+                                    <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
 
-            <div class="ms-auto d-flex gap-2">
-                <button class="btn btn-outline-dark" type="button" onclick="window.print()">
-                    <i class="bx bx-printer me-1"></i> Imprimir
-                </button>
-            </div>
-
-        </form>
-    </div>
-</div>
-
-
-<!-- KPIs -->
-<div class="row">
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Faturamento</div>
-                <div class="kpi-value"><?= moeda($faturTotal) ?></div>
-                <div class="kpi-sub"><?= htmlspecialchars($tituloPeriodo) ?></div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Pedidos</div>
-                <div class="kpi-value"><?= inteiro($pedidosTotal) ?></div>
-                <div class="kpi-sub">Pedidos fechados</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Itens Vendidos</div>
-                <div class="kpi-value"><?= inteiro($itensTotal) ?></div>
-                <div class="kpi-sub">Qtde total</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Ticket Médio</div>
-                <div class="kpi-value"><?= moeda($ticketMedio) ?></div>
-                <div class="kpi-sub">Faturamento / Pedidos</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-<!-- RESUMO POR FILIAL -->
-<div class="card mb-3">
-    <h5 class="card-header">Resumo por Filial</h5>
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>Filial</th>
-                    <th class="text-end">Pedidos</th>
-                    <th class="text-end">Itens</th>
-                    <th class="text-end">Faturamento (R$)</th>
-                    <th class="text-end">Ticket Médio</th>
-                    <th style="min-width:180px;">% do Total</th>
-                </tr>
-            </thead>
-            <tbody>
-
-            <?php foreach ($listaFiliais as $f): ?>
-                <tr>
-                    <td><strong><?= $f['filial'] ?></strong></td>
-                    <td class="text-end"><?= inteiro($f['pedidos']) ?></td>
-                    <td class="text-end"><?= inteiro($f['itens']) ?></td>
-                    <td class="text-end"><?= moeda($f['faturamento']) ?></td>
-                    <td class="text-end"><?= moeda($f['ticket']) ?></td>
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="flex-grow-1">
-                                <div class="progress" style="height:8px;">
-                                    <div class="progress-bar" role="progressbar" style="width: <?= $f['perc'] ?>%;" aria-valuenow="<?= $f['perc'] ?>"></div>
+                    <!-- KPIs -->
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card kpi-card">
+                                <div class="card-body">
+                                    <div class="kpi-label">Faturamento</div>
+                                    <div class="kpi-value"><?= moeda($faturTotal) ?></div>
+                                    <div class="kpi-sub"><?= htmlspecialchars($tituloPeriodo) ?></div>
                                 </div>
                             </div>
-                            <div style="width:58px;" class="text-end"><?= number_format($f['perc'], 1, ',', '.') ?>%</div>
                         </div>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card kpi-card">
+                                <div class="card-body">
+                                    <div class="kpi-label">Pedidos</div>
+                                    <div class="kpi-value"><?= inteiro($pedidosTotal) ?></div>
+                                    <div class="kpi-sub">Pedidos fechados</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card kpi-card">
+                                <div class="card-body">
+                                    <div class="kpi-label">Itens Vendidos</div>
+                                    <div class="kpi-value"><?= inteiro($itensTotal) ?></div>
+                                    <div class="kpi-sub">Qtde total</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6 mb-3">
+                            <div class="card kpi-card">
+                                <div class="card-body">
+                                    <div class="kpi-label">Ticket Médio</div>
+                                    <div class="kpi-value"><?= moeda($ticketMedio) ?></div>
+                                    <div class="kpi-sub">Faturamento / Pedidos</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-            </tbody>
-        </table>
-    </div>
-</div>
+                    <!-- Tabela: Vendas por Filial -->
+                    <div class="card mb-3">
+                        <h5 class="card-header">Resumo por Filial</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Filial</th>
+                                        <th class="text-end">Pedidos</th>
+                                        <th class="text-end">Itens</th>
+                                        <th class="text-end">Faturamento (R$)</th>
+                                        <th class="text-end">Ticket Médio</th>
+                                        <th style="min-width:180px;">% do Total</th>
+                                    </tr>
+                                </thead>
+                               <tbody>
+<?php foreach ($listaFiliais as $f): ?>
+<tr>
+    <td><strong><?= htmlspecialchars($f['filial']) ?></strong></td>
+    <td class="text-end"><?= intval($f['pedidos']) ?></td>
+    <td class="text-end"><?= intval($f['itens']) ?></td>
+    <td class="text-end">R$ <?= number_format($f['faturamento'], 2, ',', '.') ?></td>
+    <td class="text-end">
+        <?php
+        $ticket = $f['pedidos'] > 0 ? $f['faturamento'] / $f['pedidos'] : 0;
+        echo "R$ " . number_format($ticket, 2, ',', '.');
+        ?>
+    </td>
+    <td>
+        <?php 
+        $pct = $faturTotal > 0 ? ($f['faturamento'] / $faturTotal) * 100 : 0;
+        ?>
+        <div class="d-flex align-items-center gap-2">
+            <div class="flex-grow-1">
+                <div class="progress" style="height:8px;">
+                    <div class="progress-bar" role="progressbar"
+                        style="width: <?= round($pct) ?>%;"
+                        aria-valuenow="<?= round($pct) ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            </div>
+            <div style="width:58px;" class="text-end"><?= number_format($pct, 1, ',', '.') ?>%</div>
+        </div>
+    </td>
+</tr>
+<?php endforeach; ?>
+</tbody>
+
+                                <tfoot>
+                                    <tr>
+                                        <th>Total</th>
+                                        <th class="text-end">184</th>
+                                        <th class="text-end">5.430</th>
+                                        <th class="text-end">R$ 128.450,00</th>
+                                        <th class="text-end">R$ 698,10</th>
+                                        <th></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </div>
 
 
-<!-- TOP PRODUTOS -->
-<div class="card mb-3">
-    <h5 class="card-header">Top Produtos no Período</h5>
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>SKU</th>
-                    <th>Produto</th>
-                    <th class="text-end">Quantidade</th>
-                    <th class="text-end">Pedidos</th>
-                </tr>
-            </thead>
-            <tbody>
+                    <!-- Tabela: Top Produtos no Período -->
+                    <div class="card mb-3">
+                        <h5 class="card-header">Top Produtos no Período</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>SKU</th>
+                                        <th>Produto</th>
+                                        <th class="text-end">Quantidade</th>
+                                        <th class="text-end">Pedidos</th>
+                                    </tr>
+                                </thead>
+                               <tbody>
+<?php foreach ($topProdutos as $p): ?>
+<tr>
+    <td><?= htmlspecialchars($p['sku']) ?></td>
+    <td><?= htmlspecialchars($p['nome']) ?></td>
+    <td class="text-end"><?= intval($p['qtd']) ?></td>
+    <td class="text-end"><?= intval($p['pedidos']) ?></td>
+</tr>
+<?php endforeach; ?>
+</tbody>
 
-            <?php foreach ($topProdutos as $p): ?>
-                <tr>
-                    <td><?= $p['sku'] ?></td>
-                    <td><?= $p['nome'] ?></td>
-                    <td class="text-end"><?= inteiro($p['qtde']) ?></td>
-                    <td class="text-end"><?= inteiro($p['pedidos']) ?></td>
-                </tr>
-            <?php endforeach; ?>
-
-            </tbody>
-        </table>
-    </div>
-</div>
-
+                            </table>
+                        </div>
+                    </div>
 
 
                 </div><!-- /container -->
