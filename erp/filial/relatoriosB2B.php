@@ -1138,7 +1138,7 @@ if (!empty($filialKeys)) {
             </tbody>
         </table>
 
-        <!-- PAGINAÇÃO -->
+
         <div class="d-flex justify-content-center mt-2">
             <nav>
                 <ul class="pagination pagination-sm m-0">
@@ -1159,10 +1159,6 @@ if (!empty($filialKeys)) {
 
     </div>
 </div>
-
-<!-- ========================================================= -->
-<!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS)                -->
-<!-- ========================================================= -->
 <div class="card mb-3">
     <h5 class="card-header">Produtos Mais Solicitados</h5>
     <div class="table-responsive">
