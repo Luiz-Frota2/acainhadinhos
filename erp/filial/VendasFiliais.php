@@ -512,7 +512,7 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                         <span class="text-muted fw-light">Indicadores e comparativos por unidade franqueada — <?= htmlspecialchars($tituloPeriodo) ?></span>
                     </h5>
 <?php
-require_once "conexao.php";
+
 
 // ====== CAPTURA DOS FILTROS ======
 $periodo = $_GET['periodo'] ?? 'month_current';
