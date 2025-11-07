@@ -628,12 +628,18 @@ $topProdutos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <form class="d-flex flex-wrap w-100 gap-2" method="get">
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-            <select class="form-select me-2" name="periodo">
-                <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
-                <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
-                <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
-                <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
-            </select>
+          
+                                <!-- De -->
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <label class="form-label mb-1">De</label>
+                                    <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
+                                </div>
+
+                                <!-- Até -->
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <label class="form-label mb-1">Até</label>
+                                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
+                                </div>
 
             <select class="form-select me-2" name="filial_id">
                 <option value="">Todas as Filiais</option>
