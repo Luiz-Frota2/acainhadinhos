@@ -537,7 +537,7 @@ $fimTxt = $fim->format('d/m/Y');
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./vendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./VendasFiliais.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Vendas">Vendas por Filial</div>
                                 </a>
                             </li>
