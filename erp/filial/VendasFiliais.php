@@ -514,20 +514,21 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
 <?php
 
 
-$periodo   = $_GET['periodo']   ?? 'month_current';
+// ====== CAPTURA DOS FILTROS ======
+$periodo = $_GET['periodo'] ?? 'month_current';
 $filial_id = $_GET['filial_id'] ?? '';
 
+// ====== DEFINIÇÃO DO PERÍODO ======
 $hoje = date("Y-m-d");
 
-// ==== DEFINIÇÃO DAS DATAS ====
 switch ($periodo) {
     case 'last30':
-        $dataInicio = date("Y-m-d", strtotime('-30 days'));
+        $dataInicio = date("Y-m-d", strtotime("-30 days"));
         $tituloPeriodo = "Últimos 30 dias";
         break;
 
     case 'last90':
-        $dataInicio = date("Y-m-d", strtotime('-90 days'));
+        $dataInicio = date("Y-m-d", strtotime("-90 days"));
         $tituloPeriodo = "Últimos 90 dias";
         break;
 
@@ -536,7 +537,7 @@ switch ($periodo) {
         $tituloPeriodo = "Ano Atual";
         break;
 
-    default:
+    default: // mês atual
         $dataInicio = date("Y-m-01");
         $tituloPeriodo = "Mês Atual";
         break;
@@ -544,19 +545,20 @@ switch ($periodo) {
 
 $dataFim = $hoje;
 
-// ==== PARÂMETROS =====
+// ====== MONTAGEM DO FILTRO SQL ======
+$filtroFilial = "";
 $params = [
     ':dataInicio' => $dataInicio,
     ':dataFim'    => $dataFim
 ];
 
-$filtroFilialSQL = "";
-if ($filial_id !== "") {
-    $filtroFilialSQL = " AND s.id_solicitante = :filial_id ";
+if ($filial_id != "") {
+    $filtroFilial = " AND s.id_solicitante = :filial_id ";
     $params[':filial_id'] = $filial_id;
 }
+
 // ====== CONSULTA PRINCIPAL: PEDIDOS + FATURAMENTO ======
-$sqlTotal = "
+$sql = "
 SELECT 
     COUNT(DISTINCT s.ID) AS pedidos,
     SUM(i.quantidade) AS itens,
@@ -564,32 +566,30 @@ SELECT
 FROM solicitacoes_pagamento s
 LEFT JOIN solicitacoes_b2b_itens i ON i.solicitacao_id = s.ID
 WHERE s.created_at BETWEEN :dataInicio AND :dataFim
-$filtroFilialSQL
+$filtroFilial
 ";
 
-$stmt = $pdo->prepare($sqlTotal);
+$stmt = $pdo->prepare($sql);
 $stmt->execute($params);
+$dados = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$tot = $stmt->fetch(PDO::FETCH_ASSOC);
+$pedidosTotal = intval($dados['pedidos']);
+$itensTotal   = intval($dados['itens']);
+$faturTotal   = floatval($dados['faturamento']);
+$ticketMedio  = $pedidosTotal > 0 ? ($faturTotal / $pedidosTotal) : 0;
 
-$pedidosTotal = intval($tot['pedidos']);
-$itensTotal   = intval($tot['itens']);
-$faturTotal   = floatval($tot['faturamento']);
-$ticketMedio  = $pedidosTotal > 0 ? $faturTotal / $pedidosTotal : 0;
-
+// ====== LISTAGEM POR FILIAL ======
 $sqlFiliais = "
 SELECT 
-    u.id,
-    u.nome,
+    u.nome AS filial,
     COUNT(DISTINCT s.ID) AS pedidos,
     SUM(i.quantidade) AS itens,
     SUM(i.subtotal) AS faturamento
 FROM unidades u
-LEFT JOIN solicitacoes_pagamento s ON s.id_solicitante = u.id 
+LEFT JOIN solicitacoes_pagamento s ON s.id_solicitante = u.id
 LEFT JOIN solicitacoes_b2b_itens i ON i.solicitacao_id = s.ID
 WHERE u.tipo = 'Filial'
-  AND u.status = 'Ativa'
-  AND s.created_at BETWEEN :dataInicio AND :dataFim
+AND s.created_at BETWEEN :dataInicio AND :dataFim
 GROUP BY u.id
 ORDER BY faturamento DESC
 ";
@@ -717,48 +717,35 @@ $topProdutos = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 </thead>
                                <tbody>
 <?php foreach ($listaFiliais as $f): ?>
-    <?php 
-        $pct = ($faturTotal > 0 && $f['faturamento'] > 0)
-            ? ($f['faturamento'] / $faturTotal) * 100
-            : 0;
-    ?>
 <tr>
-    <td><strong><?= htmlspecialchars($f['nome']) ?></strong></td>
-
+    <td><strong><?= htmlspecialchars($f['filial']) ?></strong></td>
     <td class="text-end"><?= intval($f['pedidos']) ?></td>
-
     <td class="text-end"><?= intval($f['itens']) ?></td>
-
     <td class="text-end">R$ <?= number_format($f['faturamento'], 2, ',', '.') ?></td>
-
     <td class="text-end">
-        <?php 
-            $ticket = $f['pedidos'] > 0 ? $f['faturamento'] / $f['pedidos'] : 0;
-            echo "R$ " . number_format($ticket, 2, ',', '.');
+        <?php
+        $ticket = $f['pedidos'] > 0 ? $f['faturamento'] / $f['pedidos'] : 0;
+        echo "R$ " . number_format($ticket, 2, ',', '.');
         ?>
     </td>
-
     <td>
+        <?php 
+        $pct = $faturTotal > 0 ? ($f['faturamento'] / $faturTotal) * 100 : 0;
+        ?>
         <div class="d-flex align-items-center gap-2">
             <div class="flex-grow-1">
                 <div class="progress" style="height:8px;">
-                    <div class="progress-bar" 
-                         role="progressbar"
-                         style="width: <?= round($pct) ?>%;"
-                         aria-valuenow="<?= round($pct) ?>"
-                         aria-valuemin="0"
-                         aria-valuemax="100"></div>
+                    <div class="progress-bar" role="progressbar"
+                        style="width: <?= round($pct) ?>%;"
+                        aria-valuenow="<?= round($pct) ?>" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
             </div>
-            <div style="width:58px;" class="text-end">
-                <?= number_format($pct, 1, ',', '.') ?>%
-            </div>
+            <div style="width:58px;" class="text-end"><?= number_format($pct, 1, ',', '.') ?>%</div>
         </div>
     </td>
 </tr>
 <?php endforeach; ?>
 </tbody>
-
 
                                 <tfoot>
                                     <tr>
