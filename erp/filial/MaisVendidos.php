@@ -482,33 +482,48 @@ if (!empty($topGeral)) {
                     </h5>
 
                     <!-- Filtros -->
-                    <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap toolbar">
-                            <form class="d-flex flex-wrap w-100 gap-2" method="get">
-                                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                <select class="form-select me-2" name="periodo">
-                                    <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
-                                    <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
-                                    <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
-                                    <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
-                                </select>
-                                <select class="form-select me-2" name="franquia_id">
-                                    <option value="">Todas as Franquias</option>
-                                    <?php foreach ($franquias as $f): ?>
-                                        <option value="<?= (int)$f['id'] ?>" <?= $franquiaFiltro === (int)$f['id'] ? 'selected' : ''; ?>>
-                                            <?= htmlspecialchars($f['nome']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <button class="btn btn-outline-secondary me-2" type="submit">
-                                    <i class="bx bx-filter-alt me-1"></i> Aplicar
-                                </button>
-                                <div class="ms-auto d-flex gap-2">
-                                    <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+<div class="card mb-3">
+    <div class="card-body d-flex flex-wrap toolbar">
+        <form class="d-flex flex-wrap w-100 gap-2" method="get">
+
+            <!-- ✅ MANTÉM O ID NA URL -->
+            <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+
+            <div class="col-12 col-md-2">
+                <label class="form-label">de</label>
+                <input type="date" name="inicio" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-12 col-md-2">
+                <label class="form-label">até</label>
+                <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+            </div>
+
+            <select class="form-select me-2" name="filial">
+                <option value="">Todas as Filiais</option>
+                <?php foreach ($listaFiliais as $f): ?>
+                    <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
+                        <?= htmlspecialchars($f['nome']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+
+            <button class="btn btn-outline-secondary me-2" type="submit">
+                <i class="bx bx-filter-alt me-1"></i> Aplicar
+            </button>
+            <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-outline-danger">
+    <i class="bx bx-x-circle me-1"></i> Limpar Filtro
+</a>
+
+
+            <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
 
                     <!-- KPIs -->
                     <div class="row">
@@ -549,6 +564,39 @@ if (!empty($topGeral)) {
                             </div>
                         </div>
                     </div>
+<?php
+try {
+    $stmt = $pdo->prepare("
+        SELECT 
+            iv.produto_id AS id,
+            iv.produto_nome AS produto,
+            iv.preco_unitario,
+            SUM(iv.quantidade) AS total_quantidade,
+            COUNT(DISTINCT v.id) AS total_pedidos,
+            SUM(iv.quantidade * iv.preco_unitario) AS faturamento
+
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        INNER JOIN unidades u 
+            ON v.empresa_id = CONCAT('unidade_', u.id)
+
+        WHERE 
+            u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+
+        GROUP BY 
+            iv.produto_id, iv.produto_nome, iv.preco_unitario
+
+        ORDER BY total_quantidade DESC
+        LIMIT 20
+    ");
+    $stmt->execute();
+    $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    echo "Erro: " . $e->getMessage();
+}
+?>
 
                     <!-- Top 20 produtos (geral ou por Filial selecionada) -->
                     <!-- Top 20 Produtos (Geral) -->
@@ -566,49 +614,28 @@ if (!empty($topGeral)) {
                                         <th class="text-end">Faturamento (R$)</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>1</td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">1.980</td>
-                                        <td class="text-end">96</td>
-                                        <td class="text-end">R$ 39.600,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>2</td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td class="text-end">1.210</td>
-                                        <td class="text-end">64</td>
-                                        <td class="text-end">R$ 30.250,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>3</td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td class="text-end">1.050</td>
-                                        <td class="text-end">51</td>
-                                        <td class="text-end">R$ 7.350,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>4</td>
-                                        <td>COLH-PP</td>
-                                        <td>Colher PP</td>
-                                        <td class="text-end">890</td>
-                                        <td class="text-end">40</td>
-                                        <td class="text-end">R$ 2.670,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>5</td>
-                                        <td>GRAN-200</td>
-                                        <td>Granola 200g</td>
-                                        <td class="text-end">300</td>
-                                        <td class="text-end">18</td>
-                                        <td class="text-end">R$ 6.000,00</td>
-                                    </tr>
+                               <tbody>
+<?php foreach ($produtos as $index => $p): ?>
+    <tr>
+        <td><?= $index + 1 ?></td>
+        <td><?= htmlspecialchars($p['id']) ?></td>
+        <td><?= htmlspecialchars($p['produto']) ?></td>
 
-                                </tbody>
+        <td class="text-end">
+            <?= number_format($p['total_quantidade'], 0, ',', '.') ?>
+        </td>
+
+        <td class="text-end">
+            <?= number_format($p['total_pedidos'], 0, ',', '.') ?>
+        </td>
+
+        <td class="text-end">
+            R$ <?= number_format($p['faturamento'], 2, ',', '.') ?>
+        </td>
+    </tr>
+<?php endforeach; ?>
+</tbody>
+
                             </table>
                         </div>
                     </div>
