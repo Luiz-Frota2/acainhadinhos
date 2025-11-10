@@ -769,7 +769,7 @@ function getTopProdutos($pdo, $limite = 5) {
 }
 
 // Executar
-$topProdutos = getTopProdutos($pdo);
+$topProdutos = getTopProdutos($pdo, 5);
 
 ?>
 
