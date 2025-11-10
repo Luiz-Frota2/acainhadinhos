@@ -747,7 +747,7 @@ foreach ($resumoFiliais as $f) {
 <?php
 
 // == Top Produtos Mais Vendidos ==
-function getTopProdutos($pdo, $limite = 10) {
+function getTopProdutos($pdo, $limite = 5) {
     $sql = "
         SELECT 
             iv.produto_id AS sku,
