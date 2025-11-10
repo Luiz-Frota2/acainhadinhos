@@ -501,11 +501,14 @@ if (empty($inicioFiltro) || empty($fimFiltro)) {
 }
 
 // ---------------------------------------------
-// MONTAGEM DO WHERE + PARAMS
+// MONTAGEM DO WHERE + PARAMS (JOIN CORRIGIDO)
 // ---------------------------------------------
-$where = "v.data_venda BETWEEN :inicio AND :fim
-          AND u.tipo = 'Filial'
-          AND u.status = 'Ativa'";
+// vendas.empresa_id = unidades.empresa_id  ✅ JOIN REAL DO SEU BD
+$where = "
+    v.data_venda BETWEEN :inicio AND :fim
+    AND u.tipo = 'Filial'
+    AND u.status = 'Ativa'
+";
 
 $params = [
     ':inicio' => $inicioFiltro . " 00:00:00",
@@ -520,7 +523,11 @@ if (!empty($filialSelecionada)) {
 // ---------------------------------------------
 // BUSCAR FILIAIS NA COMBOBOX
 // ---------------------------------------------
-$stmt = $pdo->prepare("SELECT id, nome FROM unidades WHERE tipo='Filial' AND status='Ativa'");
+$stmt = $pdo->prepare("
+    SELECT id, nome
+    FROM unidades
+    WHERE tipo='Filial' AND status='Ativa'
+");
 $stmt->execute();
 $listaFiliais = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -536,38 +543,46 @@ $kpis = [
     'produto_qtd' => 0
 ];
 
-// Itens vendidos
+// ---------------------------------------------
+// ITENS VENDIDOS
+// ---------------------------------------------
 $stmt = $pdo->prepare("
-    SELECT SUM(iv.quantidade) 
+    SELECT SUM(iv.quantidade)
     FROM itens_venda iv
     INNER JOIN vendas v ON v.id = iv.venda_id
-    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN unidades u ON v.empresa_id = u.empresa_id   -- ✅ JOIN CORRIGIDO
     WHERE $where
 ");
 $stmt->execute($params);
-$kpis['itens'] = $stmt->fetchColumn() ?? 0;
+$kpis['itens'] = $stmt->fetchColumn() ?: 0;
 
-// Pedidos
+// ---------------------------------------------
+// PEDIDOS (DISTINTOS)
+// ---------------------------------------------
 $stmt = $pdo->prepare("
     SELECT COUNT(DISTINCT v.id)
     FROM vendas v
-    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN unidades u ON v.empresa_id = u.empresa_id
     WHERE $where
 ");
 $stmt->execute($params);
-$kpis['pedidos'] = $stmt->fetchColumn() ?? 0;
+$kpis['pedidos'] = $stmt->fetchColumn() ?: 0;
 
-// Faturamento
+// ---------------------------------------------
+// FATURAMENTO
+// ---------------------------------------------
 $stmt = $pdo->prepare("
     SELECT SUM(v.valor_total)
     FROM vendas v
-    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN unidades u ON v.empresa_id = u.empresa_id
     WHERE $where
 ");
 $stmt->execute($params);
-$kpis['faturamento'] = $stmt->fetchColumn() ?? 0;
+$kpis['faturamento'] = $stmt->fetchColumn() ?: 0;
 
-// Produto mais vendido
+// ---------------------------------------------
+// PRODUTO MAIS VENDIDO
+// ---------------------------------------------
 $stmt = $pdo->prepare("
     SELECT 
         e.nome_produto AS nome,
@@ -575,7 +590,7 @@ $stmt = $pdo->prepare("
         SUM(iv.quantidade) AS qtd
     FROM itens_venda iv
     INNER JOIN vendas v ON v.id = iv.venda_id
-    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN unidades u ON v.empresa_id = u.empresa_id
     INNER JOIN estoque e ON e.id = iv.produto_id
     WHERE $where
     GROUP BY e.id
@@ -587,12 +602,12 @@ $pmv = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if ($pmv) {
     $kpis['produto_nome'] = $pmv['nome'];
-    $kpis['produto_sku'] = $pmv['sku'];
-    $kpis['produto_qtd'] = $pmv['qtd'];
+    $kpis['produto_sku']  = $pmv['sku'];
+    $kpis['produto_qtd']  = $pmv['qtd'];
 }
 
 // ---------------------------------------------
-// TOP 20 PRODUTOS (GERAL OU POR FILIAL)
+// TOP 20 PRODUTOS
 // ---------------------------------------------
 $stmt = $pdo->prepare("
     SELECT 
@@ -603,7 +618,7 @@ $stmt = $pdo->prepare("
         SUM(iv.quantidade * iv.preco_unitario) AS faturamento
     FROM itens_venda iv
     INNER JOIN vendas v ON v.id = iv.venda_id
-    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN unidades u ON v.empresa_id = u.empresa_id
     INNER JOIN estoque e ON e.id = iv.produto_id
     WHERE $where
     GROUP BY e.id
@@ -614,7 +629,7 @@ $stmt->execute($params);
 $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // ---------------------------------------------
-// RANKING POR FILIAL – TOP 10
+// RANKING POR FILIAL – TOP 10 DE CADA
 // ---------------------------------------------
 $stmt = $pdo->prepare("
     SELECT *
@@ -625,15 +640,13 @@ $stmt = $pdo->prepare("
             e.nome_produto AS produto,
             SUM(iv.quantidade) AS total_quantidade,
             COUNT(DISTINCT v.id) AS total_pedidos,
-
             ROW_NUMBER() OVER (
-                PARTITION BY u.id 
+                PARTITION BY u.id
                 ORDER BY SUM(iv.quantidade) DESC
             ) AS posicao
-
         FROM itens_venda iv
         INNER JOIN vendas v ON v.id = iv.venda_id
-        INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+        INNER JOIN unidades u ON v.empresa_id = u.empresa_id
         INNER JOIN estoque e ON e.id = iv.produto_id
         WHERE $where
         GROUP BY u.id, u.nome, e.id
@@ -643,7 +656,6 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute($params);
 $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 ?>
 
 
@@ -698,7 +710,8 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <div class="card-body">
                                     <div class="kpi-label">Itens Vendidos</div>
                                     <div class="kpi-value"><?= inteiro($kpis['itens'] ?? 0) ?></div>
-                                    <div class="kpi-sub">de 12 mar ate 19 jun</div>
+                                    <div class="kpi-sub">de <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
+
                                 </div>
                             </div>
                         </div>
@@ -723,10 +736,10 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <div class="col-md-3 col-sm-6 mb-3">
                             <div class="card kpi-card">
                                 <div class="card-body">
-                                    <div class="kpi-label">Produto Mais Vendido</div>
-                                     <div class="kpi-value">Poupa de Açai</div>
-                                    <div class="kpi-sub">004</div>
-                                   
+                                  <div class="kpi-label">Produto Mais Vendido</div>
+<div class="kpi-value"><?= htmlspecialchars($kpis['produto_nome']) ?></div>
+<div class="kpi-sub"><?= htmlspecialchars($kpis['produto_sku']) ?></div>
+
                                 </div>
                             </div>
                         </div>
