@@ -744,6 +744,34 @@ foreach ($resumoFiliais as $f) {
                         </div>
                     </div>
 
+<?php
+
+// == Top Produtos Mais Vendidos ==
+function getTopProdutos($pdo, $limite = 10) {
+    $sql = "
+        SELECT 
+            iv.produto_id AS sku,
+            iv.produto_nome AS nome,
+            SUM(iv.quantidade) AS total_quantidade,
+            COUNT(DISTINCT iv.venda_id) AS total_pedidos
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        GROUP BY iv.produto_id, iv.produto_nome
+        ORDER BY total_quantidade DESC
+        LIMIT :limite
+    ";
+
+    $stm = $pdo->prepare($sql);
+    $stm->bindValue(':limite', $limite, PDO::PARAM_INT);
+    $stm->execute();
+
+    return $stm->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// Executar
+$topProdutos = getTopProdutos($pdo);
+
+?>
 
                     <!-- Tabela: Top Produtos no Período -->
                     <div class="card mb-3">
@@ -758,38 +786,17 @@ foreach ($resumoFiliais as $f) {
                                         <th class="text-end">Pedidos</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">1.980</td>
-                                        <td class="text-end">96</td>
-                                    </tr>
-                                    <tr>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td class="text-end">1.210</td>
-                                        <td class="text-end">64</td>
-                                    </tr>
-                                    <tr>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td class="text-end">1.050</td>
-                                        <td class="text-end">51</td>
-                                    </tr>
-                                    <tr>
-                                        <td>COLH-PP</td>
-                                        <td>Colher PP</td>
-                                        <td class="text-end">890</td>
-                                        <td class="text-end">40</td>
-                                    </tr>
-                                    <tr>
-                                        <td>GRAN-200</td>
-                                        <td>Granola 200g</td>
-                                        <td class="text-end">300</td>
-                                        <td class="text-end">18</td>
-                                    </tr>
-                                </tbody>
+                              <tbody>
+<?php foreach ($topProdutos as $p): ?>
+    <tr>
+        <td><?= htmlspecialchars($p['sku']) ?></td>
+        <td><?= htmlspecialchars($p['nome']) ?></td>
+        <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
+        <td class="text-end"><?= $p['total_pedidos'] ?></td>
+    </tr>
+<?php endforeach; ?>
+</tbody>
+
                             </table>
                         </div>
                     </div>
