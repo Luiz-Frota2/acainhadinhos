@@ -502,6 +502,192 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                     </div>
                 </nav>
                 <!-- /Navbar -->
+<?php
+// -------------------------------
+// CAPTURAR FILTROS
+// -------------------------------
+$inicioFiltro = isset($_GET['inicio']) ? $_GET['inicio'] : '';
+$fimFiltro    = isset($_GET['fim']) ? $_GET['fim'] : '';
+$filialSelecionada = isset($_GET['filial']) ? $_GET['filial'] : '';
+
+
+// -------------------------------
+// LISTAR FILIAIS ATIVAS
+// -------------------------------
+$listaFiliais = $pdo->query("
+    SELECT id, nome 
+    FROM unidades 
+    WHERE tipo = 'Filial' AND status = 'Ativa'
+")->fetchAll(PDO::FETCH_ASSOC);
+
+
+// -------------------------------
+// MONTAR WHERE DINÂMICO
+// -------------------------------
+$where = [];
+$params = [];
+
+// 1. FILTRO DE FILIAL
+if ($filialSelecionada != '') {
+    // Apenas 1 filial
+    $where[] = "v.empresa_id LIKE :filial";
+    $params[':filial'] = "%_" . $filialSelecionada;
+} else {
+    // Todas as filiais ativas
+    $partes = [];
+    foreach ($listaFiliais as $f) {
+        $id = intval($f['id']);
+        $partes[] = "v.empresa_id LIKE '%_$id'";
+    }
+    $where[] = "(" . implode(" OR ", $partes) . ")";
+}
+
+// 2. FILTRO DE DATA INÍCIO
+if (!empty($inicioFiltro)) {
+    $where[] = "DATE(v.data_venda) >= :inicio";
+    $params[':inicio'] = $inicioFiltro;
+}
+
+// 3. FILTRO DE DATA FIM
+if (!empty($fimFiltro)) {
+    $where[] = "DATE(v.data_venda) <= :fim";
+    $params[':fim'] = $fimFiltro;
+}
+
+$whereSQL = implode(" AND ", $where);
+
+
+// -------------------------------
+// KPIs (Faturamento, Pedidos, Itens, Ticket Médio)
+// -------------------------------
+$sqlKPI = "
+    SELECT 
+        COUNT(v.id) AS pedidos,
+        SUM(v.valor_total) AS faturamento
+    FROM vendas v
+    WHERE $whereSQL
+";
+$stm = $pdo->prepare($sqlKPI);
+$stm->execute($params);
+$kp = $stm->fetch(PDO::FETCH_ASSOC);
+
+$pedidosTotal = intval($kp['pedidos']);
+$faturTotal = floatval($kp['faturamento']);
+
+
+// === Total de itens vendidos
+$sqlItens = "
+    SELECT SUM(iv.quantidade) AS total_itens
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    WHERE $whereSQL
+";
+$stm = $pdo->prepare($sqlItens);
+$stm->execute($params);
+$it = $stm->fetch(PDO::FETCH_ASSOC);
+
+$itensTotal = intval($it['total_itens']);
+
+
+// === Ticket médio
+$ticketMedio = ($pedidosTotal > 0) ? ($faturTotal / $pedidosTotal) : 0;
+
+
+// -------------------------------------------
+// RESUMO POR FILIAL (com filtro aplicado)
+// -------------------------------------------
+$resumoFiliais = [];
+
+foreach ($listaFiliais as $f) {
+
+    // Se está filtrando por 1 filial → só calcula ela
+    if ($filialSelecionada != '' && $filialSelecionada != $f['id']) {
+        continue;
+    }
+
+    $idFilial = intval($f['id']);
+    $nomeFilial = $f['nome'];
+
+    // Filtro específico da filial
+    $whereFilial = $whereSQL; // herda datas
+    if ($filialSelecionada == '') {
+        // Todas → substituir o OR gigante por filtro único por filial
+        $whereFilial = str_replace($partes, "v.empresa_id LIKE '%_$idFilial'", $whereFilial);
+    }
+
+    // Pedidos + Faturamento
+    $sqlF = "
+        SELECT 
+            COUNT(v.id) AS pedidos,
+            SUM(v.valor_total) AS faturamento
+        FROM vendas v
+        WHERE " . ( $filialSelecionada == '' ? "v.empresa_id LIKE '%_$idFilial' AND " : "" ) . "
+              (" . $whereSQL . ")
+    ";
+
+    $stm = $pdo->prepare($sqlF);
+    $stm->execute($params);
+    $r = $stm->fetch(PDO::FETCH_ASSOC);
+
+    $ped = intval($r['pedidos']);
+    $fat = floatval($r['faturamento']);
+
+    // Itens
+    $sqlItensFilial = "
+        SELECT SUM(iv.quantidade) AS total_itens
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        WHERE v.empresa_id LIKE '%_$idFilial' 
+        AND $whereSQL
+    ";
+    $stm = $pdo->prepare($sqlItensFilial);
+    $stm->execute($params);
+    $rowItens = $stm->fetch(PDO::FETCH_ASSOC);
+
+    $totalItens = intval($rowItens['total_itens']);
+
+    // Ticket
+    $ticket = ($ped > 0) ? $fat / $ped : 0;
+
+    $resumoFiliais[] = [
+        "nome" => $nomeFilial,
+        "pedidos" => $ped,
+        "itens" => $totalItens,
+        "faturamento" => $fat,
+        "ticket_medio" => $ticket
+    ];
+}
+
+
+// Percentual total
+$totalFat = array_sum(array_column($resumoFiliais, 'faturamento'));
+foreach ($resumoFiliais as &$linha) {
+    $linha['percentual'] = ($totalFat > 0) ? ($linha['faturamento'] / $totalFat) * 100 : 0;
+}
+
+
+// -------------------------------------------
+// TOP 5 PRODUTOS (dinâmico com filtro)
+// -------------------------------------------
+$sqlTop = "
+    SELECT 
+        iv.produto_id AS sku,
+        iv.produto_nome AS nome,
+        SUM(iv.quantidade) AS total_quantidade,
+        COUNT(DISTINCT iv.venda_id) AS total_pedidos
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    WHERE $whereSQL
+    GROUP BY iv.produto_id, iv.produto_nome
+    ORDER BY total_quantidade DESC
+    LIMIT 5
+";
+
+$stm = $pdo->prepare($sqlTop);
+$stm->execute($params);
+$topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
+
+?>
 
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
@@ -512,36 +698,42 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                         <span class="text-muted fw-light">Indicadores e comparativos por unidade franqueada — <?= htmlspecialchars($tituloPeriodo) ?></span>
                     </h5>
 
-                    <!-- Filtros -->
-                    <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap toolbar">
-                            <form class="d-flex flex-wrap w-100 gap-2" method="get">
-                                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                <div class="col-12 col-md-2">
-                                <label class="form-label">de</label>
-                                <input type="date" name="codigo" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
-                            </div>
+                   <!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body d-flex flex-wrap toolbar">
+        <form class="d-flex flex-wrap w-100 gap-2" method="get">
 
-                            <div class="col-12 col-md-2">
-                                <label class="form-label">até</label>
-                                <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
-                            </div>
+            <div class="col-12 col-md-2">
+                <label class="form-label">de</label>
+                <input type="date" name="inicio" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+            </div>
 
-                                <select class="form-select me-2" name="">
-                                    <option value="">Todas as Filial</option>
-                                    
-                                </select>
+            <div class="col-12 col-md-2">
+                <label class="form-label">até</label>
+                <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+            </div>
 
-                                <button class="btn btn-outline-secondary me-2" type="submit">
-                                    <i class="bx bx-filter-alt me-1"></i> Aplicar
-                                </button>
+            <select class="form-select me-2" name="filial">
+                <option value="">Todas as Filiais</option>
+                <?php foreach ($listaFiliais as $f): ?>
+                    <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
+                        <?= htmlspecialchars($f['nome']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
 
-                                <div class="ms-auto d-flex gap-2">
-                                    <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+            <button class="btn btn-outline-secondary me-2" type="submit">
+                <i class="bx bx-filter-alt me-1"></i> Aplicar
+            </button>
+
+            <div class="ms-auto d-flex gap-2">
+                <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
 <?php
 
 // Buscar filiais ativas
@@ -637,237 +829,90 @@ $ticketMedio = ($pedidosTotal > 0)
                         </div>
                     </div>
 
-                    <?php
-
-// === 1. Buscar todas as filiais ativas ===
-function getFiliaisAtivas($pdo) {
-    $sql = "SELECT id, nome FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa'";
-    $stm = $pdo->query($sql);
-    return $stm->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// === 2. Buscar o ID da unidade dentro de empresa_id da venda ===
-function vendaPertenceFilial($empresaIdVenda, $idFilial) {
-    return preg_match('/_' . $idFilial . '$/', $empresaIdVenda); // unidade_1 → id=1
-}
-
-// === 3. Calcular os dados de uma filial específica ===
-function calcularResumoFilial($pdo, $idFilial) {
-
-    // Buscar vendas da filial (empresa_id terminando com _ID)
-    $sqlVendas = "SELECT id, valor_total FROM vendas WHERE empresa_id LIKE :idPadrao";
-    $stmVendas = $pdo->prepare($sqlVendas);
-    $stmVendas->execute([
-        ':idPadrao' => "%_$idFilial"
-    ]);
-    $vendas = $stmVendas->fetchAll(PDO::FETCH_ASSOC);
-
-    $pedidos = count($vendas);
-    $itens = 0;
-    $faturamento = 0;
-
-    // Para cada venda...
-    foreach ($vendas as $v) {
-
-        // Faturamento
-        $faturamento += floatval($v['valor_total']);
-
-        // Buscar itens dessa venda
-        $sqlItens = "SELECT quantidade FROM itens_venda WHERE venda_id = :venda_id";
-        $stmItens = $pdo->prepare($sqlItens);
-        $stmItens->execute([':venda_id' => $v['id']]);
-
-        while ($row = $stmItens->fetch(PDO::FETCH_ASSOC)) {
-            $itens += intval($row['quantidade']);
-        }
-    }
-
-    // Ticket médio
-    $ticketMedio = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
-
-    return [
-        "pedidos" => $pedidos,
-        "itens" => $itens,
-        "faturamento" => $faturamento,
-        "ticket_medio" => $ticketMedio
-    ];
-}
-
-// === 4. Montar um resumo geral (todas as filiais) ===
-function gerarResumoGeral($pdo) {
-    $filiais = getFiliaisAtivas($pdo);
-
-    $resumo = [];
-    $totalFaturamentoGeral = 0;
-
-    // Primeiro calcula tudo
-    foreach ($filiais as $f) {
-        $dados = calcularResumoFilial($pdo, $f["id"]);
-        $dados["nome"] = $f["nome"];
-
-        $resumo[] = $dados;
-        $totalFaturamentoGeral += $dados["faturamento"];
-    }
-
-    // Agora calcula % do total
-    foreach ($resumo as &$r) {
-        $r["percentual"] = ($totalFaturamentoGeral > 0)
-            ? (($r["faturamento"] / $totalFaturamentoGeral) * 100)
-            : 0;
-    }
-
-    return $resumo;
-}
-
-// === 5. Executar e gerar dados para usar no HTML ===
-$resumoFiliais = gerarResumoGeral($pdo);
-
-?>
+                 
 
 
-                    <!-- Tabela: Vendas por Filial -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Resumo por Filial</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Filial</th>
-                                        <th class="text-end">Pedidos</th>
-                                        <th class="text-end">Itens</th>
-                                        <th class="text-end">Faturamento (R$)</th>
-                                        <th class="text-end">Ticket Médio</th>
-                                        <th style="min-width:180px;">% do Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                   <?php foreach ($resumoFiliais as $f): ?>
-<tr>
-    <td><strong><?= $f["nome"] ?></strong></td>
-    <td class="text-end"><?= $f["pedidos"] ?></td>
-    <td class="text-end"><?= $f["itens"] ?></td>
-    <td class="text-end">R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
-    <td class="text-end">R$ <?= number_format($f["ticket_medio"], 2, ',', '.') ?></td>
-
-    <td>
-        <div class="d-flex align-items-center gap-2">
-            <div class="flex-grow-1">
-                <div class="progress" style="height:8px;">
-                    <div class="progress-bar"
-                         role="progressbar"
-                         style="width: <?= number_format($f["percentual"], 2) ?>%;"
-                         aria-valuenow="<?= number_format($f["percentual"], 2) ?>"
-                         aria-valuemin="0"
-                         aria-valuemax="100"></div>
-                </div>
-            </div>
-            <div style="width:58px;" class="text-end">
-                <?= number_format($f["percentual"], 1, ',', '.') ?>%
-            </div>
-        </div>
-    </td>
-</tr>
-<?php endforeach; ?>
-
-                                 
-                                </tbody>
-                                <?php
-$totalPedidosGeral = 0;
-$totalItensGeral = 0;
-$totalFaturamentoGeral = 0;
-
-foreach ($resumoFiliais as $f) {
-    $totalPedidosGeral += $f["pedidos"];
-    $totalItensGeral += $f["itens"];
-    $totalFaturamentoGeral += $f["faturamento"];
-}
-?>
-
-                               <tfoot>
-    <tr>
-        <th>Total</th>
-        <th class="text-end"><?= $totalPedidosGeral ?></th>
-        <th class="text-end"><?= $totalItensGeral ?></th>
-        <th class="text-end">R$ <?= number_format($totalFaturamentoGeral, 2, ',', '.') ?></th>
-        <th></th>
-        <th></th>
-    </tr>
-</tfoot>
-
-                            </table>
+                   <div class="card mb-3">
+    <h5 class="card-header">Resumo por Filial</h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Filial</th>
+                    <th class="text-end">Pedidos</th>
+                    <th class="text-end">Itens</th>
+                    <th class="text-end">Faturamento (R$)</th>
+                    <th class="text-end">Ticket Médio</th>
+                    <th style="min-width:180px;">% do Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($resumoFiliais as $f): ?>
+                <tr>
+                    <td><strong><?= $f["nome"] ?></strong></td>
+                    <td class="text-end"><?= $f["pedidos"] ?></td>
+                    <td class="text-end"><?= $f["itens"] ?></td>
+                    <td class="text-end">R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
+                    <td class="text-end">R$ <?= number_format($f["ticket_medio"], 2, ',', '.') ?></td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="flex-grow-1">
+                                <div class="progress" style="height:8px;">
+                                    <div class="progress-bar"
+                                         role="progressbar"
+                                         style="width: <?= number_format($f["percentual"], 2) ?>%;"></div>
+                                </div>
+                            </div>
+                            <div style="width:58px;" class="text-end">
+                                <?= number_format($f["percentual"], 1, ',', '.') ?>%
+                            </div>
                         </div>
-                    </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
 
-<?php
-
-function getTopProdutosFiliaisAtivas($pdo, $limite = 5) {
-
-    // Buscar todas as filiais ativas
-    $sqlFiliais = "SELECT id FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa'";
-    $filiais = $pdo->query($sqlFiliais)->fetchAll(PDO::FETCH_COLUMN);
-
-    if (empty($filiais)) {
-        return []; // Nenhuma filial ativa
-    }
-
-    // Montar filtro dinâmico para empresa_id LIKE '%_id'
-    $condicoes = [];
-    foreach ($filiais as $id) {
-        $condicoes[] = "v.empresa_id LIKE '%_" . intval($id) . "'";
-    }
-    $filtroFiliais = implode(" OR ", $condicoes);
-
-    $sql = "
-        SELECT 
-            iv.produto_id AS sku,
-            iv.produto_nome AS nome,
-            SUM(iv.quantidade) AS total_quantidade,
-            COUNT(DISTINCT iv.venda_id) AS total_pedidos
-        FROM itens_venda iv
-        INNER JOIN vendas v ON v.id = iv.venda_id
-        WHERE $filtroFiliais
-        GROUP BY iv.produto_id, iv.produto_nome
-        ORDER BY total_quantidade DESC
-        LIMIT :limite
-    ";
-
-    $stm = $pdo->prepare($sql);
-    $stm->bindValue(':limite', $limite, PDO::PARAM_INT);
-    $stm->execute();
-
-    return $stm->fetchAll(PDO::FETCH_ASSOC);
-}
-$topProdutos = getTopProdutosFiliaisAtivas($pdo, 5);
-
-?>
-
-                    <!-- Tabela: Top Produtos no Período -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Top Produtos no Período</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>SKU</th>
-                                        <th>Produto</th>
-                                        <th class="text-end">Quantidade</th>
-                                        <th class="text-end">Pedidos</th>
-                                    </tr>
-                                </thead>
-                              <tbody>
-<?php foreach ($topProdutos as $p): ?>
-    <tr>
-        <td><?= htmlspecialchars($p['sku']) ?></td>
-        <td><?= htmlspecialchars($p['nome']) ?></td>
-        <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
-        <td class="text-end"><?= $p['total_pedidos'] ?></td>
-    </tr>
-<?php endforeach; ?>
-</tbody>
-
-                            </table>
-                        </div>
-                    </div>
+            <tfoot>
+                <tr>
+                    <th>Total</th>
+                    <th class="text-end"><?= array_sum(array_column($resumoFiliais, 'pedidos')) ?></th>
+                    <th class="text-end"><?= array_sum(array_column($resumoFiliais, 'itens')) ?></th>
+                    <th class="text-end">
+                        R$ <?= number_format(array_sum(array_column($resumoFiliais, 'faturamento')), 2, ',', '.') ?>
+                    </th>
+                    <th></th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+<div class="card mb-3">
+    <h5 class="card-header">Top Produtos no Período</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>SKU</th>
+                    <th>Produto</th>
+                    <th class="text-end">Quantidade</th>
+                    <th class="text-end">Pedidos</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($topProdutos as $p): ?>
+                <tr>
+                    <td><?= htmlspecialchars($p['sku']) ?></td>
+                    <td><?= htmlspecialchars($p['nome']) ?></td>
+                    <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
+                    <td class="text-end"><?= $p['total_pedidos'] ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+  
 
 
                 </div><!-- /container -->
