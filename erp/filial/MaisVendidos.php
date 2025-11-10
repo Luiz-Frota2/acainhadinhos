@@ -532,6 +532,7 @@ $stmt->execute();
 $listaFiliais = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // ---------------------------------------------
+
 // KPIs
 // ---------------------------------------------
 $kpis = [
@@ -701,49 +702,67 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </form>
     </div>
 </div>
+<?php
+$nenhumResultado = (
+    $kpis['itens'] == 0 &&
+    $kpis['pedidos'] == 0 &&
+    $kpis['faturamento'] == 0 &&
+    $kpis['produto_qtd'] == 0
+);
+?>
 
+<?php if ($nenhumResultado): ?>
+    <div class="alert alert-warning text-center w-100">
+        Nenhuma informação encontrada para o filtro aplicado.
+    </div>
+<?php endif; ?>
 
-                    <!-- KPIs -->
-                    <div class="row">
-                        <div class="col-md-2 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Itens Vendidos</div>
-                                    <div class="kpi-value"><?= inteiro($kpis['itens'] ?? 0) ?></div>
-                                    <div class="kpi-sub">de <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
+<div class="row">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Itens Vendidos</div>
+                <div class="kpi-value"><?= inteiro($kpis['itens']) ?></div>
+                <div class="kpi-sub">de <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
+            </div>
+        </div>
+    </div>
 
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-2 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Pedidos</div>
-                                    <div class="kpi-value"><?= inteiro($kpis['pedidos'] ?? 0) ?></div>
-                                    <div class="kpi-sub">Pedidos fechados</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Faturamento</div>
-                                    <div class="kpi-value"><?= moeda($kpis['faturamento'] ?? 0) ?></div>
-                                    <div class="kpi-sub">Total período</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-5 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                  <div class="kpi-label">Produto Mais Vendido</div>
-<div class="kpi-value"><?= htmlspecialchars($kpis['produto_nome']) ?></div>
-<div class="kpi-sub"><?= htmlspecialchars($kpis['produto_sku']) ?></div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Pedidos</div>
+                <div class="kpi-value"><?= inteiro($kpis['pedidos']) ?></div>
+                <div class="kpi-sub">Pedidos fechados</div>
+            </div>
+        </div>
+    </div>
 
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Faturamento</div>
+                <div class="kpi-value"><?= moeda($kpis['faturamento']) ?></div>
+                <div class="kpi-sub">Total período</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Produto Mais Vendido</div>
+                <div class="kpi-value">
+                    <?= $kpis['produto_nome'] ?: 'Nenhum produto' ?>
+                </div>
+                <div class="kpi-sub">
+                    <?= $kpis['produto_sku'] ?: '--' ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 
 
@@ -763,26 +782,29 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <th class="text-end">Faturamento (R$)</th>
                                     </tr>
                                 </thead>
-                               <tbody>
-<?php foreach ($produtos as $index => $p): ?>
+                         <tbody>
+
+<?php if (empty($produtos)): ?>
     <tr>
-        <td><?= $index + 1 ?></td>
-        <td><?= htmlspecialchars($p['sku']) ?></td>
-        <td><?= htmlspecialchars($p['nome']) ?></td>
-
-        <td class="text-end">
-            <?= number_format($p['total_quantidade'], 0, ',', '.') ?>
-        </td>
-
-        <td class="text-end">
-            <?= number_format($p['total_pedidos'], 0, ',', '.') ?>
-        </td>
-
-        <td class="text-end">
-            R$ <?= number_format($p['faturamento'], 2, ',', '.') ?>
+        <td colspan="6" class="text-center text-muted py-3">
+            Nenhum produto encontrado para o filtro aplicado.
         </td>
     </tr>
-<?php endforeach; ?>
+<?php else: ?>
+
+    <?php foreach ($produtos as $index => $p): ?>
+        <tr>
+            <td><?= $index + 1 ?></td>
+            <td><?= htmlspecialchars($p['sku']) ?></td>
+            <td><?= htmlspecialchars($p['nome']) ?></td>
+            <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
+            <td class="text-end"><?= number_format($p['total_pedidos'], 0, ',', '.') ?></td>
+            <td class="text-end">R$ <?= number_format($p['faturamento'], 2, ',', '.') ?></td>
+        </tr>
+    <?php endforeach; ?>
+
+<?php endif; ?>
+
 </tbody>
 
 
@@ -805,23 +827,30 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <th class="text-end">Pedidos</th>
                                     </tr>
                                 </thead>
-                              <tbody>
-<?php foreach ($ranking as $item): ?>
+                            <tbody>
+
+<?php if (empty($ranking)): ?>
     <tr>
-        <td><strong><?= htmlspecialchars($item['filial']) ?></strong></td>
-        <td><?= htmlspecialchars($item['sku']) ?></td>
-        <td><?= htmlspecialchars($item['produto']) ?></td>
-
-        <td class="text-end">
-            <?= number_format($item['total_quantidade'], 0, ',', '.') ?>
-        </td>
-
-        <td class="text-end">
-            <?= number_format($item['total_pedidos'], 0, ',', '.') ?>
+        <td colspan="5" class="text-center text-muted py-3">
+            Nenhum ranking disponível para o filtro aplicado.
         </td>
     </tr>
-<?php endforeach; ?>
+<?php else: ?>
+
+    <?php foreach ($ranking as $item): ?>
+        <tr>
+            <td><strong><?= htmlspecialchars($item['filial']) ?></strong></td>
+            <td><?= htmlspecialchars($item['sku']) ?></td>
+            <td><?= htmlspecialchars($item['produto']) ?></td>
+            <td class="text-end"><?= number_format($item['total_quantidade'], 0, ',', '.') ?></td>
+            <td class="text-end"><?= number_format($item['total_pedidos'], 0, ',', '.') ?></td>
+        </tr>
+    <?php endforeach; ?>
+
+<?php endif; ?>
+
 </tbody>
+
 
                             </table>
                         </div>
