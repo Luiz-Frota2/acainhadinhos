@@ -480,6 +480,172 @@ if (!empty($topGeral)) {
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Produtos campeões — <?= htmlspecialchars($tituloPeriodo) ?><?= $franquiaFiltro ? ' · Franquia selecionada' : '' ?></span>
                     </h5>
+                    <?php
+// ---------------------------------------------
+// CAPTURA DE FILTROS
+// ---------------------------------------------
+$inicioFiltro = $_GET['inicio'] ?? '';
+$fimFiltro = $_GET['fim'] ?? '';
+$filialSelecionada = $_GET['filial'] ?? '';
+$idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado) {
+    header("Location: ../login.php");
+    exit;
+}
+
+// Se datas vazias → últimos 30 dias
+if (empty($inicioFiltro) || empty($fimFiltro)) {
+    $inicioFiltro = date('Y-m-d', strtotime('-30 days'));
+    $fimFiltro = date('Y-m-d');
+}
+
+// ---------------------------------------------
+// MONTAGEM DO WHERE + PARAMS
+// ---------------------------------------------
+$where = "v.data_venda BETWEEN :inicio AND :fim
+          AND u.tipo = 'Filial'
+          AND u.status = 'Ativa'";
+
+$params = [
+    ':inicio' => $inicioFiltro . " 00:00:00",
+    ':fim' => $fimFiltro . " 23:59:59"
+];
+
+if (!empty($filialSelecionada)) {
+    $where .= " AND u.id = :filial_id";
+    $params[':filial_id'] = $filialSelecionada;
+}
+
+// ---------------------------------------------
+// BUSCAR FILIAIS NA COMBOBOX
+// ---------------------------------------------
+$stmt = $pdo->prepare("SELECT id, nome FROM unidades WHERE tipo='Filial' AND status='Ativa'");
+$stmt->execute();
+$listaFiliais = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// ---------------------------------------------
+// KPIs GERAIS
+// ---------------------------------------------
+$kpis = [
+    'itens' => 0,
+    'pedidos' => 0,
+    'faturamento' => 0,
+    'produto_nome' => '',
+    'produto_sku' => '',
+    'produto_qtd' => 0
+];
+
+// Itens vendidos
+$stmt = $pdo->prepare("
+    SELECT SUM(iv.quantidade) 
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    WHERE $where
+");
+$stmt->execute($params);
+$kpis['itens'] = $stmt->fetchColumn() ?? 0;
+
+// Pedidos
+$stmt = $pdo->prepare("
+    SELECT COUNT(DISTINCT v.id)
+    FROM vendas v
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    WHERE $where
+");
+$stmt->execute($params);
+$kpis['pedidos'] = $stmt->fetchColumn() ?? 0;
+
+// Faturamento
+$stmt = $pdo->prepare("
+    SELECT SUM(v.valor_total)
+    FROM vendas v
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    WHERE $where
+");
+$stmt->execute($params);
+$kpis['faturamento'] = $stmt->fetchColumn() ?? 0;
+
+// Produto mais vendido
+$stmt = $pdo->prepare("
+    SELECT 
+        e.nome_produto AS nome,
+        e.codigo_produto AS sku,
+        SUM(iv.quantidade) AS qtd
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN estoque e ON e.id = iv.produto_id
+    WHERE $where
+    GROUP BY e.id
+    ORDER BY qtd DESC
+    LIMIT 1
+");
+$stmt->execute($params);
+$pmv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($pmv) {
+    $kpis['produto_nome'] = $pmv['nome'];
+    $kpis['produto_sku'] = $pmv['sku'];
+    $kpis['produto_qtd'] = $pmv['qtd'];
+}
+
+// ---------------------------------------------
+// TOP 20 PRODUTOS (GERAL OU POR FILIAL)
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT 
+        e.codigo_produto AS sku,
+        e.nome_produto AS nome,
+        SUM(iv.quantidade) AS total_quantidade,
+        COUNT(DISTINCT v.id) AS total_pedidos,
+        SUM(iv.quantidade * iv.preco_unitario) AS faturamento
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN estoque e ON e.id = iv.produto_id
+    WHERE $where
+    GROUP BY e.id
+    ORDER BY total_quantidade DESC
+    LIMIT 20
+");
+$stmt->execute($params);
+$produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// ---------------------------------------------
+// RANKING POR FILIAL – TOP 10
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM (
+        SELECT 
+            u.nome AS filial,
+            e.codigo_produto AS sku,
+            e.nome_produto AS produto,
+            SUM(iv.quantidade) AS total_quantidade,
+            COUNT(DISTINCT v.id) AS total_pedidos,
+
+            ROW_NUMBER() OVER (
+                PARTITION BY u.id 
+                ORDER BY SUM(iv.quantidade) DESC
+            ) AS posicao
+
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+        INNER JOIN estoque e ON e.id = iv.produto_id
+        WHERE $where
+        GROUP BY u.id, u.nome, e.id
+    ) AS ranking
+    WHERE posicao <= 10
+    ORDER BY filial, posicao
+");
+$stmt->execute($params);
+$ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+?>
+
 
                     <!-- Filtros -->
 <div class="card mb-3">
@@ -523,100 +689,6 @@ if (!empty($topGeral)) {
         </form>
     </div>
 </div>
-<?php
-
-$kpis = [
-    'itens' => 0,
-    'pedidos' => 0,
-    'faturamento' => 0,
-    'produto_nome' => '',
-    'produto_sku' => '',
-    'produto_qtd' => 0
-];
-
-try {
-
-    // 1. Itens vendidos
-    $stmt = $pdo->prepare("
-        SELECT 
-            SUM(iv.quantidade) AS total_itens
-        FROM itens_venda iv
-        INNER JOIN vendas v ON v.id = iv.venda_id
-        INNER JOIN unidades u 
-            ON v.empresa_id = CONCAT('unidade_', u.id)
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        WHERE v.data_venda BETWEEN :inicio AND :fim
-    ");
-    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
-    $kpis['itens'] = $stmt->fetchColumn() ?? 0;
-
-
-
-    // 2. Pedidos
-    $stmt = $pdo->prepare("
-        SELECT 
-            COUNT(DISTINCT v.id) AS total_pedidos
-        FROM vendas v
-        INNER JOIN unidades u 
-            ON v.empresa_id = CONCAT('unidade_', u.id)
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        WHERE v.data_venda BETWEEN :inicio AND :fim
-    ");
-    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
-    $kpis['pedidos'] = $stmt->fetchColumn() ?? 0;
-
-
-
-    // 3. Faturamento
-    $stmt = $pdo->prepare("
-        SELECT 
-            SUM(v.valor_total) AS total_faturamento
-        FROM vendas v
-        INNER JOIN unidades u 
-            ON v.empresa_id = CONCAT('unidade_', u.id)
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        WHERE v.data_venda BETWEEN :inicio AND :fim
-    ");
-    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
-    $kpis['faturamento'] = $stmt->fetchColumn() ?? 0;
-
-
-
-    // 4. Produto mais vendido
-    $stmt = $pdo->prepare("
-        SELECT 
-            e.nome_produto AS nome,
-            e.codigo_produto AS sku,
-            SUM(iv.quantidade) AS total_quantidade
-        FROM itens_venda iv
-        INNER JOIN vendas v ON v.id = iv.venda_id
-        INNERJOIN unidades u 
-            ON v.empresa_id = CONCAT('unidade_', u.id)
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        INNER JOIN estoque e
-            ON e.id = iv.produto_id
-        WHERE v.data_venda BETWEEN :inicio AND :fim
-        GROUP BY e.id, e.nome_produto, e.codigo_produto
-        ORDER BY total_quantidade DESC
-        LIMIT 1
-    ");
-    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
-    $pmv = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($pmv) {
-        $kpis['produto_nome'] = $pmv['nome'];
-        $kpis['produto_sku'] = $pmv['sku'];
-        $kpis['produto_qtd'] = $pmv['total_quantidade'];
-    }
-
-} catch (Exception $e) {
-    echo "Erro ao calcular KPIs: " . $e->getMessage();
-}
-?>
 
 
                     <!-- KPIs -->
@@ -659,42 +731,7 @@ try {
                             </div>
                         </div>
                     </div>
-<?php
-try {
-    $stmt = $pdo->prepare("
-        SELECT 
-            e.id AS produto_id,
-            e.codigo_produto AS sku,
-            e.nome_produto AS nome,
 
-            SUM(iv.quantidade) AS total_quantidade,
-            COUNT(DISTINCT v.id) AS total_pedidos,
-            SUM(iv.quantidade * iv.preco_unitario) AS faturamento
-
-        FROM itens_venda iv
-        INNER JOIN vendas v ON v.id = iv.venda_id
-        INNER JOIN unidades u 
-            ON v.empresa_id = CONCAT('unidade_', u.id)
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        INNER JOIN estoque e 
-            ON e.id = iv.produto_id
-
-        GROUP BY 
-            e.id, e.codigo_produto, e.nome_produto
-
-        ORDER BY 
-            total_quantidade DESC
-        LIMIT 20
-    ");
-
-    $stmt->execute();
-    $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (Exception $e) {
-    echo "Erro: " . $e->getMessage();
-}
-?>
 
 
                     <!-- Top 20 produtos (geral ou por Filial selecionada) -->
@@ -739,51 +776,7 @@ try {
                             </table>
                         </div>
                     </div>
-<?php
-try {
-    $stmt = $pdo->prepare("
-        SELECT *
-        FROM (
-            SELECT 
-                u.nome AS filial,
-                e.codigo_produto AS sku,
-                e.nome_produto AS produto,
 
-                SUM(iv.quantidade) AS total_quantidade,
-                COUNT(DISTINCT v.id) AS total_pedidos,
-
-                ROW_NUMBER() OVER (
-                    PARTITION BY u.id 
-                    ORDER BY SUM(iv.quantidade) DESC
-                ) AS posicao
-
-            FROM itens_venda iv
-            INNER JOIN vendas v ON v.id = iv.venda_id
-
-            INNER JOIN unidades u
-                ON v.empresa_id = CONCAT('unidade_', u.id)
-                AND u.tipo = 'Filial'
-                AND u.status = 'Ativa'
-
-            INNER JOIN estoque e
-                ON e.id = iv.produto_id
-
-            GROUP BY 
-                u.id, u.nome,
-                e.codigo_produto, e.nome_produto
-        ) AS ranking
-
-        WHERE posicao <= 10
-        ORDER BY filial, posicao
-    ");
-
-    $stmt->execute();
-    $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (Exception $e) {
-    echo "Erro: " . $e->getMessage();
-}
-?>
 
                     <!-- Ranking por Filial (Top 10 de cada) -->
                     <div class="card mb-3">
