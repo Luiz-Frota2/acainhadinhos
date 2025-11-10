@@ -717,13 +717,29 @@ $resumoFiliais = gerarResumoGeral($pdo);
 
                                  
                                 </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>Total</th>
-                                        <th class="text-end">184</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
+                                <?php
+$totalPedidosGeral = 0;
+$totalItensGeral = 0;
+$totalFaturamentoGeral = 0;
+
+foreach ($resumoFiliais as $f) {
+    $totalPedidosGeral += $f["pedidos"];
+    $totalItensGeral += $f["itens"];
+    $totalFaturamentoGeral += $f["faturamento"];
+}
+?>
+
+                               <tfoot>
+    <tr>
+        <th>Total</th>
+        <th class="text-end"><?= $totalPedidosGeral ?></th>
+        <th class="text-end"><?= $totalItensGeral ?></th>
+        <th class="text-end">R$ <?= number_format($totalFaturamentoGeral, 2, ',', '.') ?></th>
+        <th></th>
+        <th></th>
+    </tr>
+</tfoot>
+
                             </table>
                         </div>
                     </div>
