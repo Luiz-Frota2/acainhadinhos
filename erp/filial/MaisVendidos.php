@@ -557,7 +557,7 @@ if (!empty($topGeral)) {
                         <div class="col-md-3 col-sm-6 mb-3">
                             <div class="card kpi-card">
                                 <div class="card-body">
-                                    <div class="kpi-label">Campeão</div>
+                                    <div class="kpi-label">Produto Mais Vendido</div>
                                     <div class="kpi-value"><?= htmlspecialchars($topSku) ?></div>
                                     <div class="kpi-sub"><?= htmlspecialchars($topNome) ?> · <?= inteiro($topQtd) ?> un.</div>
                                 </div>
