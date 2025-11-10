@@ -705,7 +705,7 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     <!-- KPIs -->
                     <div class="row">
-                        <div class="col-md- col-sm-6 mb-3">
+                        <div class="col-md-2 col-sm-6 mb-3">
                             <div class="card kpi-card">
                                 <div class="card-body">
                                     <div class="kpi-label">Itens Vendidos</div>
