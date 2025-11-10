@@ -4,14 +4,14 @@ error_reporting(E_ALL);
 
 session_start();
 
-// Validar e obter 'id' (vindo da URL) – obrigatório
-$idSelecionado = filter_input(INPUT_GET, 'id', FILTER_SANITIZE_STRING) ?? '';
+// Recupera o identificador vindo da URL
+$idSelecionado = $_GET['id'] ?? '';
 if (!$idSelecionado) {
     header("Location: .././login.php");
     exit;
 }
 
-// Verifica se a pessoa está logada e possui sessão necessária
+// Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
@@ -28,11 +28,12 @@ require '../../assets/php/conexao.php';
 // Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id  = (int)($_SESSION['usuario_id'] ?? 0);
+$usuario_id  = $_SESSION['usuario_id'];
 
 try {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id LIMIT 1");
-    $stmt->execute([':id' => $usuario_id]);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($usuario) {
         $nomeUsuario = $usuario['usuario'];
@@ -69,7 +70,8 @@ if (!$acessoPermitido) {
 // Logo da empresa (fallback)
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
-    $stmt->execute([':id' => $idSelecionado]);
+    $stmt->bindParam(':id', $idSelecionado, PDO::PARAM_STR);
+    $stmt->execute();
     $sobre = $stmt->fetch(PDO::FETCH_ASSOC);
     $logoEmpresa = !empty($sobre['imagem']) ? "../../assets/img/empresa/" . $sobre['imagem'] : "../../assets/img/favicon/logo.png";
 } catch (PDOException $e) {
@@ -80,11 +82,12 @@ try {
    Filtros (período + filial)
    ---------------------------------------------------------- */
 // Recebe filtro de período via GET (ou mantém defaults)
-$inicioFiltro = filter_input(INPUT_GET, 'inicio', FILTER_SANITIZE_STRING) ?? '';
-$fimFiltro    = filter_input(INPUT_GET, 'fim', FILTER_SANITIZE_STRING) ?? '';
-$filialSelecionada = filter_input(INPUT_GET, 'filial', FILTER_SANITIZE_STRING);
-$periodo = filter_input(INPUT_GET, 'periodo', FILTER_SANITIZE_STRING) ?? 'month_current';
+$inicioFiltro = isset($_GET['inicio']) ? $_GET['inicio'] : '';
+$fimFiltro    = isset($_GET['fim']) ? $_GET['fim'] : '';
+$filialSelecionada = isset($_GET['filial']) ? $_GET['filial'] : '';
 
+// Também mantemos um filtro por 'periodo' predefinido se necessário
+$periodo = $_GET['periodo'] ?? 'month_current';
 $hoje = new DateTime('today');
 switch ($periodo) {
     case 'last30':
@@ -118,23 +121,15 @@ if (empty($fimFiltro)) {
     $fimFiltro = $fimPeriodDefault->format('Y-m-d');
 }
 
-// Converter para datetimes completos para as consultas (formato MySQL)
-try {
-    $inicioDatetime = (new DateTime($inicioFiltro))->setTime(0,0,0)->format('Y-m-d H:i:s');
-    $fimDatetime    = (new DateTime($fimFiltro))->setTime(23,59,59)->format('Y-m-d H:i:s');
-} catch (Exception $e) {
-    // Em caso de formato inválido, usar defaults
-    $inicioDatetime = $inicioPeriodDefault->format('Y-m-d H:i:s');
-    $fimDatetime = $fimPeriodDefault->format('Y-m-d H:i:s');
-}
+// Converter para datetimes completos para as consultas
+$inicioDatetime = (new DateTime($inicioFiltro))->setTime(0,0,0)->format('Y-m-d H:i:s');
+$fimDatetime    = (new DateTime($fimFiltro))->setTime(23,59,59)->format('Y-m-d H:i:s');
 
 /* ==========================================================
    Carregar lista de filiais ativas (para select)
    ---------------------------------------------------------- */
 try {
-    $listaFiliais = $pdo->prepare("SELECT id, nome FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa' ORDER BY nome");
-    $listaFiliais->execute();
-    $listaFiliais = $listaFiliais->fetchAll(PDO::FETCH_ASSOC);
+    $listaFiliais = $pdo->query("SELECT id, nome FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa' ORDER BY nome")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $listaFiliais = [];
 }
@@ -153,14 +148,12 @@ $params = [
 $whereParts[] = "v.data_venda BETWEEN :inicio AND :fim";
 
 // filial
-// Se o usuário informou uma filial específica (value será o id numeric)
-if ($filialSelecionada !== null && $filialSelecionada !== '') {
-    // garantir que é inteiro (evita injeção)
-    $filialId = (int)$filialSelecionada;
+if ($filialSelecionada !== '' && $filialSelecionada !== null) {
+    // filtrar apenas por essa filial
     $whereParts[] = "v.empresa_id LIKE :filial";
-    $params[':filial'] = "%_" . $filialId;
+    $params[':filial'] = "%_" . $filialSelecionada;
 } else {
-    // quando não há filial selecionada, restringir aos IDs das filiais ativas obtidas
+    // filtrar por todas as filiais ativas (montar ORs)
     if (!empty($listaFiliais)) {
         $orParts = [];
         foreach ($listaFiliais as $f) {
@@ -168,27 +161,14 @@ if ($filialSelecionada !== null && $filialSelecionada !== '') {
             $orParts[] = "v.empresa_id LIKE $key";
             $params[$key] = "%_" . intval($f['id']);
         }
-        // juntar os ORs em um único grupo
         $whereParts[] = "(" . implode(" OR ", $orParts) . ")";
     } else {
-        // Se não houver filiais ativas, garantir que a consulta não retorne vendas
+        // Se não houver filiais ativas encontradas, garantimos que a consulta não traga vendas por filial
         $whereParts[] = "1 = 0";
     }
 }
 
 $whereSQL = implode(" AND ", $whereParts);
-
-/* ==========================================================
-   Funções utilitárias
-   ---------------------------------------------------------- */
-function moeda($v)
-{
-    return 'R$ ' . number_format((float)$v, 2, ',', '.');
-}
-function inteiro($v)
-{
-    return number_format((int)$v, 0, ',', '.');
-}
 
 /* ==========================================================
    KPIs (Faturamento, Pedidos, Itens, Ticket Médio)
@@ -211,7 +191,7 @@ try {
 $pedidosTotal = (int)($kp['pedidos'] ?? 0);
 $faturTotal = (float)($kp['faturamento'] ?? 0.0);
 
-// Total de itens vendidos
+// Total de itens vendidos (união itens_venda + vendas via join)
 try {
     $sqlItens = "
         SELECT COALESCE(SUM(iv.quantidade),0) AS total_itens
@@ -233,27 +213,28 @@ $ticketMedio = ($pedidosTotal > 0) ? ($faturTotal / $pedidosTotal) : 0.0;
 
 /* ==========================================================
    Resumo por Filial (calcula por cada filial aplicando período)
+   - Se uma filial for selecionada, apenas ela será calculada
    ---------------------------------------------------------- */
 $resumoFiliais = [];
 try {
     foreach ($listaFiliais as $f) {
         $idFilial = intval($f['id']);
-
         // Se filtrando por uma filial e não é esta, pular
-        if (!empty($filialSelecionada) && (string)$idFilial !== (string)$filialSelecionada) {
+        if ($filialSelecionada !== '' && (string)$idFilial !== (string)$filialSelecionada) {
             continue;
         }
 
-        // montar where específico: período + filial específica
+        // montar where específico: reaproveitamos as partes de período e substituímos os ORs por condição única
         $partsLocal = [];
-        $paramsLocal = [
-            ':inicio' => $inicioDatetime,
-            ':fim'    => $fimDatetime,
-            ':fil_local' => "%_" . $idFilial
-        ];
+        $paramsLocal = $params; // copia dos params
 
+        // período
         $partsLocal[] = "v.data_venda BETWEEN :inicio AND :fim";
+
+        // filial específica
         $partsLocal[] = "v.empresa_id LIKE :fil_local";
+        $paramsLocal[':fil_local'] = "%_" . $idFilial;
+
         $whereLocal = implode(" AND ", $partsLocal);
 
         // Pedidos + faturamento por filial
@@ -299,8 +280,8 @@ try {
     foreach ($resumoFiliais as &$linha) {
         $linha['percentual'] = ($totalFat > 0) ? ($linha['faturamento'] / $totalFat) * 100 : 0;
     }
-    unset($linha);
 } catch (PDOException $e) {
+    // em caso de falha, garantir arrays vazios
     $resumoFiliais = [];
 }
 
@@ -328,10 +309,20 @@ try {
     $topProdutos = [];
 }
 
-/* ==========================================================
-   Base para evitar divisão por zero (usado em percentuais visuais)
-   ---------------------------------------------------------- */
+// Helpers de formatação
+function moeda($v)
+{
+    return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
+function inteiro($v)
+{
+    return number_format((int)$v, 0, ',', '.');
+}
+
+// Valores finais para os cards (já calculados acima)
+// $pedidosTotal, $itensTotal, $faturTotal, $ticketMedio
 $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero no cálculo de percentuais
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
@@ -339,7 +330,7 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero no cálcul
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <title>ERP — Vendas por Filiais</title>
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" />
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars($logoEmpresa) ?>" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -456,12 +447,12 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero no cálcul
 
                                 <div class="col-12 col-md-2">
                                     <label class="form-label">de</label>
-                                    <input type="date" name="inicio" value="<?= htmlspecialchars(substr($inicioFiltro,0,10)) ?>" class="form-control form-control-sm">
+                                    <input type="date" name="inicio" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
                                 </div>
 
                                 <div class="col-12 col-md-2">
                                     <label class="form-label">até</label>
-                                    <input type="date" name="fim" value="<?= htmlspecialchars(substr($fimFiltro,0,10)) ?>" class="form-control form-control-sm">
+                                    <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
                                 </div>
 
                                 <select class="form-select me-2" name="filial">
@@ -603,11 +594,6 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero no cálcul
                                         <td class="text-end"><?= intval($p['total_pedidos']) ?></td>
                                     </tr>
                                     <?php endforeach; ?>
-                                    <?php if (empty($topProdutos)): ?>
-                                    <tr>
-                                        <td colspan="4" class="text-center text-muted">Nenhum produto encontrado para o período selecionado.</td>
-                                    </tr>
-                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
