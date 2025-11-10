@@ -523,6 +523,100 @@ if (!empty($topGeral)) {
         </form>
     </div>
 </div>
+<?php
+
+$kpis = [
+    'itens' => 0,
+    'pedidos' => 0,
+    'faturamento' => 0,
+    'produto_nome' => '',
+    'produto_sku' => '',
+    'produto_qtd' => 0
+];
+
+try {
+
+    // 1. Itens vendidos
+    $stmt = $pdo->prepare("
+        SELECT 
+            SUM(iv.quantidade) AS total_itens
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        INNER JOIN unidades u 
+            ON v.empresa_id = CONCAT('unidade_', u.id)
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        WHERE v.data_venda BETWEEN :inicio AND :fim
+    ");
+    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
+    $kpis['itens'] = $stmt->fetchColumn() ?? 0;
+
+
+
+    // 2. Pedidos
+    $stmt = $pdo->prepare("
+        SELECT 
+            COUNT(DISTINCT v.id) AS total_pedidos
+        FROM vendas v
+        INNER JOIN unidades u 
+            ON v.empresa_id = CONCAT('unidade_', u.id)
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        WHERE v.data_venda BETWEEN :inicio AND :fim
+    ");
+    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
+    $kpis['pedidos'] = $stmt->fetchColumn() ?? 0;
+
+
+
+    // 3. Faturamento
+    $stmt = $pdo->prepare("
+        SELECT 
+            SUM(v.valor_total) AS total_faturamento
+        FROM vendas v
+        INNER JOIN unidades u 
+            ON v.empresa_id = CONCAT('unidade_', u.id)
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        WHERE v.data_venda BETWEEN :inicio AND :fim
+    ");
+    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
+    $kpis['faturamento'] = $stmt->fetchColumn() ?? 0;
+
+
+
+    // 4. Produto mais vendido
+    $stmt = $pdo->prepare("
+        SELECT 
+            e.nome_produto AS nome,
+            e.codigo_produto AS sku,
+            SUM(iv.quantidade) AS total_quantidade
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        INNERJOIN unidades u 
+            ON v.empresa_id = CONCAT('unidade_', u.id)
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        INNER JOIN estoque e
+            ON e.id = iv.produto_id
+        WHERE v.data_venda BETWEEN :inicio AND :fim
+        GROUP BY e.id, e.nome_produto, e.codigo_produto
+        ORDER BY total_quantidade DESC
+        LIMIT 1
+    ");
+    $stmt->execute([':inicio' => $inicioFiltro, ':fim' => $fimFiltro]);
+    $pmv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($pmv) {
+        $kpis['produto_nome'] = $pmv['nome'];
+        $kpis['produto_sku'] = $pmv['sku'];
+        $kpis['produto_qtd'] = $pmv['total_quantidade'];
+    }
+
+} catch (Exception $e) {
+    echo "Erro ao calcular KPIs: " . $e->getMessage();
+}
+?>
 
 
                     <!-- KPIs -->
@@ -532,7 +626,7 @@ if (!empty($topGeral)) {
                                 <div class="card-body">
                                     <div class="kpi-label">Itens Vendidos</div>
                                     <div class="kpi-value"><?= inteiro($kpis['itens'] ?? 0) ?></div>
-                                    <div class="kpi-sub"><?= htmlspecialchars($tituloPeriodo) ?></div>
+                                    <div class="kpi-sub">de 12 mar ate 19 jun</div>
                                 </div>
                             </div>
                         </div>
@@ -558,8 +652,9 @@ if (!empty($topGeral)) {
                             <div class="card kpi-card">
                                 <div class="card-body">
                                     <div class="kpi-label">Produto Mais Vendido</div>
-                                    <div class="kpi-value">004</div>
-                                       <div class="kpi-sub">Poupa de Açai</div>
+                                     <div class="kpi-value">Poupa de Açai</div>
+                                    <div class="kpi-sub">004</div>
+                                   
                                 </div>
                             </div>
                         </div>
