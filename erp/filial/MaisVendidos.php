@@ -568,9 +568,10 @@ if (!empty($topGeral)) {
 try {
     $stmt = $pdo->prepare("
         SELECT 
-            iv.produto_id AS id,
-            iv.produto_nome AS produto,
-            iv.preco_unitario,
+            e.id AS produto_id,
+            e.codigo_produto AS sku,
+            e.nome_produto AS nome,
+
             SUM(iv.quantidade) AS total_quantidade,
             COUNT(DISTINCT v.id) AS total_pedidos,
             SUM(iv.quantidade * iv.preco_unitario) AS faturamento
@@ -579,17 +580,19 @@ try {
         INNER JOIN vendas v ON v.id = iv.venda_id
         INNER JOIN unidades u 
             ON v.empresa_id = CONCAT('unidade_', u.id)
-
-        WHERE 
-            u.tipo = 'Filial'
+            AND u.tipo = 'Filial'
             AND u.status = 'Ativa'
+        INNER JOIN estoque e 
+            ON e.id = iv.produto_id
 
         GROUP BY 
-            iv.produto_id, iv.produto_nome, iv.preco_unitario
+            e.id, e.codigo_produto, e.nome_produto
 
-        ORDER BY total_quantidade DESC
+        ORDER BY 
+            total_quantidade DESC
         LIMIT 20
     ");
+
     $stmt->execute();
     $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -597,6 +600,7 @@ try {
     echo "Erro: " . $e->getMessage();
 }
 ?>
+
 
                     <!-- Top 20 produtos (geral ou por Filial selecionada) -->
                     <!-- Top 20 Produtos (Geral) -->
@@ -618,8 +622,8 @@ try {
 <?php foreach ($produtos as $index => $p): ?>
     <tr>
         <td><?= $index + 1 ?></td>
-        <td><?= htmlspecialchars($p['id']) ?></td>
-        <td><?= htmlspecialchars($p['produto']) ?></td>
+        <td><?= htmlspecialchars($p['sku']) ?></td>
+        <td><?= htmlspecialchars($p['nome']) ?></td>
 
         <td class="text-end">
             <?= number_format($p['total_quantidade'], 0, ',', '.') ?>
@@ -635,6 +639,7 @@ try {
     </tr>
 <?php endforeach; ?>
 </tbody>
+
 
                             </table>
                         </div>
