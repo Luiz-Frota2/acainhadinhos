@@ -542,6 +542,60 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                             </form>
                         </div>
                     </div>
+<?php
+
+// Buscar filiais ativas
+$sqlFiliais = "SELECT id FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa'";
+$filiais = $pdo->query($sqlFiliais)->fetchAll(PDO::FETCH_COLUMN);
+
+$faturTotal = 0;
+$pedidosTotal = 0;
+$itensTotal = 0;
+
+// Monta filtros empresa_id LIKE '%_ID'
+$condicoes = [];
+foreach ($filiais as $id) {
+    $condicoes[] = "v.empresa_id LIKE '%_" . intval($id) . "'";
+}
+$filtroFiliais = implode(" OR ", $condicoes);
+
+
+// === TOTAL DE FATURAMENTO E PEDIDOS ===
+$sqlFatur = "
+    SELECT 
+        COUNT(v.id) AS pedidos,
+        SUM(v.valor_total) AS faturamento
+    FROM vendas v
+    WHERE $filtroFiliais
+";
+
+$stm = $pdo->query($sqlFatur);
+$res = $stm->fetch(PDO::FETCH_ASSOC);
+
+$pedidosTotal = intval($res['pedidos']);
+$faturTotal = floatval($res['faturamento']);
+
+
+// === TOTAL DE ITENS ===
+$sqlItens = "
+    SELECT SUM(iv.quantidade) AS total_itens
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    WHERE $filtroFiliais
+";
+
+$stm = $pdo->query($sqlItens);
+$resItens = $stm->fetch(PDO::FETCH_ASSOC);
+
+$itensTotal = intval($resItens['total_itens']);
+
+
+// === TICKET MÉDIO ===
+$ticketMedio = ($pedidosTotal > 0)
+    ? ($faturTotal / $pedidosTotal)
+    : 0;
+
+?>
 
                     <!-- KPIs -->
                     <div class="row">
