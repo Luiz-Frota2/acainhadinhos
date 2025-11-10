@@ -583,6 +583,94 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                         </div>
                     </div>
 
+                    <?php
+
+// === 1. Buscar todas as filiais ativas ===
+function getFiliaisAtivas($pdo) {
+    $sql = "SELECT id, nome FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa'";
+    $stm = $pdo->query($sql);
+    return $stm->fetchAll(PDO::FETCH_ASSOC);
+}
+
+// === 2. Buscar o ID da unidade dentro de empresa_id da venda ===
+function vendaPertenceFilial($empresaIdVenda, $idFilial) {
+    return preg_match('/_' . $idFilial . '$/', $empresaIdVenda); // unidade_1 → id=1
+}
+
+// === 3. Calcular os dados de uma filial específica ===
+function calcularResumoFilial($pdo, $idFilial) {
+
+    // Buscar vendas da filial (empresa_id terminando com _ID)
+    $sqlVendas = "SELECT id, valor_total FROM vendas WHERE empresa_id LIKE :idPadrao";
+    $stmVendas = $pdo->prepare($sqlVendas);
+    $stmVendas->execute([
+        ':idPadrao' => "%_$idFilial"
+    ]);
+    $vendas = $stmVendas->fetchAll(PDO::FETCH_ASSOC);
+
+    $pedidos = count($vendas);
+    $itens = 0;
+    $faturamento = 0;
+
+    // Para cada venda...
+    foreach ($vendas as $v) {
+
+        // Faturamento
+        $faturamento += floatval($v['valor_total']);
+
+        // Buscar itens dessa venda
+        $sqlItens = "SELECT quantidade FROM itens_venda WHERE venda_id = :venda_id";
+        $stmItens = $pdo->prepare($sqlItens);
+        $stmItens->execute([':venda_id' => $v['id']]);
+
+        while ($row = $stmItens->fetch(PDO::FETCH_ASSOC)) {
+            $itens += intval($row['quantidade']);
+        }
+    }
+
+    // Ticket médio
+    $ticketMedio = ($pedidos > 0) ? ($faturamento / $pedidos) : 0;
+
+    return [
+        "pedidos" => $pedidos,
+        "itens" => $itens,
+        "faturamento" => $faturamento,
+        "ticket_medio" => $ticketMedio
+    ];
+}
+
+// === 4. Montar um resumo geral (todas as filiais) ===
+function gerarResumoGeral($pdo) {
+    $filiais = getFiliaisAtivas($pdo);
+
+    $resumo = [];
+    $totalFaturamentoGeral = 0;
+
+    // Primeiro calcula tudo
+    foreach ($filiais as $f) {
+        $dados = calcularResumoFilial($pdo, $f["id"]);
+        $dados["nome"] = $f["nome"];
+
+        $resumo[] = $dados;
+        $totalFaturamentoGeral += $dados["faturamento"];
+    }
+
+    // Agora calcula % do total
+    foreach ($resumo as &$r) {
+        $r["percentual"] = ($totalFaturamentoGeral > 0)
+            ? (($r["faturamento"] / $totalFaturamentoGeral) * 100)
+            : 0;
+    }
+
+    return $resumo;
+}
+
+// === 5. Executar e gerar dados para usar no HTML ===
+$resumoFiliais = gerarResumoGeral($pdo);
+
+?>
+
+
                     <!-- Tabela: Vendas por Filial -->
                     <div class="card mb-3">
                         <h5 class="card-header">Resumo por Filial</h5>
@@ -599,69 +687,40 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <!-- Linha 1 -->
-                                    <tr>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td class="text-end">74</td>
-                                        <td class="text-end">2.140</td>
-                                        <td class="text-end">R$ 58.700,00</td>
-                                        <td class="text-end">R$ 793,24</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress" style="height:8px;">
-                                                        <div class="progress-bar" role="progressbar" style="width: 45%;" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">45,0%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <!-- Linha 2 -->
-                                    <tr>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td class="text-end">58</td>
-                                        <td class="text-end">1.720</td>
-                                        <td class="text-end">R$ 41.320,00</td>
-                                        <td class="text-end">R$ 712,41</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress" style="height:8px;">
-                                                        <div class="progress-bar" role="progressbar" style="width: 32%;" aria-valuenow="32" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">32,0%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <!-- Linha 3 -->
-                                    <tr>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td class="text-end">52</td>
-                                        <td class="text-end">1.570</td>
-                                        <td class="text-end">R$ 28.430,00</td>
-                                        <td class="text-end">R$ 546,73</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress" style="height:8px;">
-                                                        <div class="progress-bar" role="progressbar" style="width: 23%;" aria-valuenow="23" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">23,0%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                   <?php foreach ($resumoFiliais as $f): ?>
+<tr>
+    <td><strong><?= $f["nome"] ?></strong></td>
+    <td class="text-end"><?= $f["pedidos"] ?></td>
+    <td class="text-end"><?= $f["itens"] ?></td>
+    <td class="text-end">R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
+    <td class="text-end">R$ <?= number_format($f["ticket_medio"], 2, ',', '.') ?></td>
 
+    <td>
+        <div class="d-flex align-items-center gap-2">
+            <div class="flex-grow-1">
+                <div class="progress" style="height:8px;">
+                    <div class="progress-bar"
+                         role="progressbar"
+                         style="width: <?= number_format($f["percentual"], 2) ?>%;"
+                         aria-valuenow="<?= number_format($f["percentual"], 2) ?>"
+                         aria-valuemin="0"
+                         aria-valuemax="100"></div>
+                </div>
+            </div>
+            <div style="width:58px;" class="text-end">
+                <?= number_format($f["percentual"], 1, ',', '.') ?>%
+            </div>
+        </div>
+    </td>
+</tr>
+<?php endforeach; ?>
+
+                                 
                                 </tbody>
                                 <tfoot>
                                     <tr>
                                         <th>Total</th>
                                         <th class="text-end">184</th>
-                                        <th class="text-end">5.430</th>
-                                        <th class="text-end">R$ 128.450,00</th>
-                                        <th class="text-end">R$ 698,10</th>
                                         <th></th>
                                     </tr>
                                 </tfoot>
