@@ -644,8 +644,53 @@ try {
                             </table>
                         </div>
                     </div>
+<?php
+try {
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM (
+            SELECT 
+                u.nome AS filial,
+                e.codigo_produto AS sku,
+                e.nome_produto AS produto,
 
-                    <!-- Ranking por Franquia (Top 10 de cada) -->
+                SUM(iv.quantidade) AS total_quantidade,
+                COUNT(DISTINCT v.id) AS total_pedidos,
+
+                ROW_NUMBER() OVER (
+                    PARTITION BY u.id 
+                    ORDER BY SUM(iv.quantidade) DESC
+                ) AS posicao
+
+            FROM itens_venda iv
+            INNER JOIN vendas v ON v.id = iv.venda_id
+
+            INNER JOIN unidades u
+                ON v.empresa_id = CONCAT('unidade_', u.id)
+                AND u.tipo = 'Filial'
+                AND u.status = 'Ativa'
+
+            INNER JOIN estoque e
+                ON e.id = iv.produto_id
+
+            GROUP BY 
+                u.id, u.nome,
+                e.codigo_produto, e.nome_produto
+        ) AS ranking
+
+        WHERE posicao <= 10
+        ORDER BY filial, posicao
+    ");
+
+    $stmt->execute();
+    $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    echo "Erro: " . $e->getMessage();
+}
+?>
+
+                    <!-- Ranking por Filial (Top 10 de cada) -->
                     <div class="card mb-3">
                         <h5 class="card-header">Ranking por Filial (Top 10 de cada)</h5>
                         <div class="table-responsive">
@@ -659,78 +704,24 @@ try {
                                         <th class="text-end">Pedidos</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <!-- Filial Centro -->
-                                    <tr>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">720</td>
-                                        <td class="text-end">32</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td class="text-end">420</td>
-                                        <td class="text-end">20</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td class="text-end">380</td>
-                                        <td class="text-end">18</td>
-                                    </tr>
+                              <tbody>
+<?php foreach ($ranking as $item): ?>
+    <tr>
+        <td><strong><?= htmlspecialchars($item['filial']) ?></strong></td>
+        <td><?= htmlspecialchars($item['sku']) ?></td>
+        <td><?= htmlspecialchars($item['produto']) ?></td>
 
-                                    <!-- Filial Norte -->
-                                    <tr>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">610</td>
-                                        <td class="text-end">30</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td class="text-end">420</td>
-                                        <td class="text-end">22</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td>COLH-PP</td>
-                                        <td>Colher PP</td>
-                                        <td class="text-end">260</td>
-                                        <td class="text-end">12</td>
-                                    </tr>
+        <td class="text-end">
+            <?= number_format($item['total_quantidade'], 0, ',', '.') ?>
+        </td>
 
-                                    <!-- Filial Sul -->
-                                    <tr>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">650</td>
-                                        <td class="text-end">34</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td class="text-end">320</td>
-                                        <td class="text-end">16</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td>GRAN-200</td>
-                                        <td>Granola 200g</td>
-                                        <td class="text-end">140</td>
-                                        <td class="text-end">8</td>
-                                    </tr>
+        <td class="text-end">
+            <?= number_format($item['total_pedidos'], 0, ',', '.') ?>
+        </td>
+    </tr>
+<?php endforeach; ?>
+</tbody>
 
-
-                                </tbody>
                             </table>
                         </div>
                     </div>
