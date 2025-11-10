@@ -746,8 +746,23 @@ foreach ($resumoFiliais as $f) {
 
 <?php
 
-// == Top Produtos Mais Vendidos ==
-function getTopProdutos($pdo, $limite = 5) {
+function getTopProdutosFiliaisAtivas($pdo, $limite = 5) {
+
+    // Buscar todas as filiais ativas
+    $sqlFiliais = "SELECT id FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa'";
+    $filiais = $pdo->query($sqlFiliais)->fetchAll(PDO::FETCH_COLUMN);
+
+    if (empty($filiais)) {
+        return []; // Nenhuma filial ativa
+    }
+
+    // Montar filtro dinâmico para empresa_id LIKE '%_id'
+    $condicoes = [];
+    foreach ($filiais as $id) {
+        $condicoes[] = "v.empresa_id LIKE '%_" . intval($id) . "'";
+    }
+    $filtroFiliais = implode(" OR ", $condicoes);
+
     $sql = "
         SELECT 
             iv.produto_id AS sku,
@@ -756,6 +771,7 @@ function getTopProdutos($pdo, $limite = 5) {
             COUNT(DISTINCT iv.venda_id) AS total_pedidos
         FROM itens_venda iv
         INNER JOIN vendas v ON v.id = iv.venda_id
+        WHERE $filtroFiliais
         GROUP BY iv.produto_id, iv.produto_nome
         ORDER BY total_quantidade DESC
         LIMIT :limite
@@ -767,9 +783,7 @@ function getTopProdutos($pdo, $limite = 5) {
 
     return $stm->fetchAll(PDO::FETCH_ASSOC);
 }
-
-// Executar
-$topProdutos = getTopProdutos($pdo, 5);
+$topProdutos = getTopProdutosFiliaisAtivas($pdo, 5);
 
 ?>
 
