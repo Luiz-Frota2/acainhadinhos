@@ -590,7 +590,7 @@ $stmt = $pdo->prepare("
         SUM(iv.quantidade) AS qtd
     FROM itens_venda iv
     INNER JOIN vendas v ON v.id = iv.venda_id
-    INNERJOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
     INNER JOIN estoque e ON e.id = iv.produto_id
     WHERE $where
     GROUP BY e.id
