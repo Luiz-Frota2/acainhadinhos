@@ -558,7 +558,7 @@ if (!empty($topGeral)) {
                             <div class="card kpi-card">
                                 <div class="card-body">
                                     <div class="kpi-label">Produto Mais Vendido</div>
-                                    <h1>Poupa de Açai</h1>
+                                    <div class="kpi-sub">Poupa de Açai</div>
                                 </div>
                             </div>
                         </div>
