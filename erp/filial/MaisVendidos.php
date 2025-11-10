@@ -718,7 +718,7 @@ $nenhumResultado = (
 <?php endif; ?>
 
 <div class="row">
-    <div class="col-md-3 col-sm-6 mb-3">
+    <div class="col-md-2 col-sm-6 mb-3">
         <div class="card kpi-card">
             <div class="card-body">
                 <div class="kpi-label">Itens Vendidos</div>
@@ -728,7 +728,7 @@ $nenhumResultado = (
         </div>
     </div>
 
-    <div class="col-md-3 col-sm-6 mb-3">
+    <div class="col-md-2 col-sm-6 mb-3">
         <div class="card kpi-card">
             <div class="card-body">
                 <div class="kpi-label">Pedidos</div>
@@ -748,7 +748,7 @@ $nenhumResultado = (
         </div>
     </div>
 
-    <div class="col-md-3 col-sm-6 mb-3">
+    <div class="col-md-5 col-sm-6 mb-3">
         <div class="card kpi-card">
             <div class="card-body">
                 <div class="kpi-label">Produto Mais Vendido</div>
