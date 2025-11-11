@@ -335,7 +335,7 @@ try {
                     </h5>
 <?php
 // ================================================================
-// SISTEMA FINANCEIRO — SOMENTE FILIAL ATIVA
+// SISTEMA FINANCEIRO — SOMENTE FILIAL ATIVA (refatorado)
 // ================================================================
 
 // Escape
@@ -352,6 +352,11 @@ if (!function_exists('percentVal')) {
 }
 
 // -----------------------------
+// CONFIG
+// -----------------------------
+$perPage = 10; // itens por página (fixado conforme solicitado)
+
+// -----------------------------
 // ID
 // -----------------------------
 $idSelecionado = $_GET['id'] ?? ($idSelecionado ?? '');
@@ -361,41 +366,42 @@ if (!$idSelecionado) {
 }
 
 // -----------------------------
-// FILTROS
+// FILTROS (mudança: se todos vazios => NÃO aplica filtro nenhum)
 // -----------------------------
-$de_raw     = $_GET['de']     ?? '';
-$ate_raw    = $_GET['ate']    ?? '';
-$status_raw = $_GET['status'] ?? '';
-$filial_raw = $_GET['filial'] ?? '';
+$de_raw     = isset($_GET['de']) ? trim($_GET['de']) : '';
+$ate_raw    = isset($_GET['ate']) ? trim($_GET['ate']) : '';
+$status_raw = isset($_GET['status']) ? trim($_GET['status']) : '';
+$filial_raw = isset($_GET['filial']) ? trim($_GET['filial']) : '';
 
 try { $tz = new DateTimeZone('America/Sao_Paulo'); } catch (Exception $e) { $tz = null; }
 
-if (empty($de_raw)) {
-    $de = (new DateTime('first day of this month', $tz))->format('Y-m-d');
-} else {
+// IMPORTANT: by default do NOT apply date filters if user didn't provide them
+$applyDateFilter = ($de_raw !== '' || $ate_raw !== '');
+
+// prepare date boundaries only if provided
+$de = $ate = null;
+$de_datetime = $ate_datetime = null;
+if ($de_raw !== '') {
     $de = $de_raw;
+    $de_datetime = $de . ' 00:00:00';
 }
-
-if (empty($ate_raw)) {
-    $ate = (new DateTime('now', $tz))->format('Y-m-d');
-} else {
+if ($ate_raw !== '') {
     $ate = $ate_raw;
+    $ate_datetime = $ate . ' 23:59:59';
 }
 
-$de_datetime  = $de . ' 00:00:00';
-$ate_datetime = $ate . ' 23:59:59';
-
-// normaliza status
+// normalize status (allow only known values)
 $status = '';
-if (!empty($status_raw)) {
+if ($status_raw !== '') {
     $s = strtolower(trim($status_raw));
     if (in_array($s, ['aprovado','pendente','reprovado'])) $status = $s;
 }
 
+// filial string
 $filial = trim((string)$filial_raw);
 
 // -----------------------------
-// LISTA SOMENTE FILIAIS ATIVAS
+// FILIAIS ATIVAS (select options)
 // -----------------------------
 $filiaisOptions = [];
 try {
@@ -412,9 +418,7 @@ try {
     $filiaisOptions = [];
 }
 
-//
-// FUNÇÃO PADRÃO DE JOIN — força sempre somente filiais ativas
-//
+// JOIN template: replace FIELD_ID at runtime with correct column
 $JOIN_FILIAL = "
     JOIN unidades u 
       ON u.id = REPLACE(FIELD_ID, 'unidade_', '') 
@@ -422,8 +426,43 @@ $JOIN_FILIAL = "
      AND u.status = 'Ativa'
 ";
 
+// -----------------------------
+// UTIL: build WHERE and params based on filters (date optional)
+// -----------------------------
+function buildWhereAndParams(array $baseWhere, array $baseParams, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, $dateColumn = 'created_at') {
+    $where = $baseWhere;
+    $params = $baseParams;
+
+    if ($applyDateFilter) {
+        // if only one boundary provided, still use appropriate condition
+        if (!empty($de_datetime) && !empty($ate_datetime)) {
+            $where[] = " {$dateColumn} BETWEEN :d1 AND :d2 ";
+            $params[':d1'] = $de_datetime;
+            $params[':d2'] = $ate_datetime;
+        } elseif (!empty($de_datetime)) {
+            $where[] = " {$dateColumn} >= :d1 ";
+            $params[':d1'] = $de_datetime;
+        } elseif (!empty($ate_datetime)) {
+            $where[] = " {$dateColumn} <= :d2 ";
+            $params[':d2'] = $ate_datetime;
+        }
+    }
+
+    if ($filial !== '') {
+        $where[] = " u.nome = :filialFiltro ";
+        $params[':filialFiltro'] = $filial;
+    }
+
+    if ($status !== '') {
+        $where[] = " sp.status = :statusFiltro ";
+        $params[':statusFiltro'] = $status;
+    }
+
+    return [$where, $params];
+}
+
 // ================================================================
-// 1) CARDS — solicitacoes_pagamento
+// 1) CARDS — solicitacoes_pagamento (mantém leitura total se sem filtro)
 // ================================================================
 $cards = ['aprovado'=>0.0,'pendente'=>0.0,'reprovado'=>0.0];
 
@@ -431,22 +470,8 @@ try {
     $where = ["1=1"];
     $params = [];
 
-    // período
-    $where[] = "sp.created_at BETWEEN :d1 AND :d2";
-    $params[':d1'] = $de_datetime;
-    $params[':d2'] = $ate_datetime;
-
-    // filial
-    if ($filial !== '') {
-        $where[] = "u.nome = :filialFiltro";
-        $params[':filialFiltro'] = $filial;
-    }
-
-    // status
-    if ($status !== '') {
-        $where[] = "sp.status = :statusFiltro";
-        $params[':statusFiltro'] = $status;
-    }
+    // build dynamic where for cards based on if user applied anything
+    list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, 'sp.created_at');
 
     $sql = "
         SELECT sp.status, SUM(sp.valor) AS total
@@ -465,13 +490,14 @@ try {
         if(isset($cards[$k])) $cards[$k] = (float)$r['total'];
     }
 
-} catch (PDOException $e){}
+} catch (PDOException $e){
+    // opcional: log($e->getMessage());
+}
 
 $totalGeralCards = $cards['aprovado'] + $cards['pendente'] + $cards['reprovado'];
 
-
 // ================================================================
-// 2) RECEBÍVEIS POR STATUS
+// 2) RECEBÍVEIS POR STATUS (sem paginação — fixo: 3 linhas)
 // ================================================================
 $dados = [
     'aprovado' => ['quantidade'=>0, 'valor'=>0.0],
@@ -483,192 +509,328 @@ try {
     $where = ["1=1"];
     $params = [];
 
-    $where[] = "sp.created_at BETWEEN :d1 AND :d2";
-    $params[':d1'] = $de_datetime;
-    $params[':d2'] = $ate_datetime;
+    list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, 'sp.created_at');
 
-    if ($filial !== '') {
-        $where[] = "u.nome = :filialFiltro";
-        $params[':filialFiltro'] = $filial;
-    }
-
-    if ($status !== '') {
-        $where[] = "sp.status = :statusFiltro";
-        $params[':statusFiltro'] = $status;
-    }
-
-    $sql="
+    $sql = "
         SELECT sp.status, COUNT(*) AS qtd, SUM(sp.valor) AS soma
         FROM solicitacoes_pagamento sp
         ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
         WHERE ".implode(" AND ",$where)."
         GROUP BY sp.status
     ";
-    
-    $stmt=$pdo->prepare($sql);
+    $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $res=$stmt->fetchAll(PDO::FETCH_ASSOC);
+    $res = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach($res as $r){
-        $k=strtolower($r['status']);
-        if(isset($dados[$k])){
-            $dados[$k]['quantidade']=(int)$r['qtd'];
-            $dados[$k]['valor']=(float)$r['soma'];
+    foreach ($res as $r){
+        $k = strtolower($r['status']);
+        if (isset($dados[$k])){
+            $dados[$k]['quantidade'] = (int)$r['qtd'];
+            $dados[$k]['valor'] = (float)$r['soma'];
         }
     }
 
-} catch(PDOException $e){}
+} catch (PDOException $e) { }
 
-$totalGeralRecebiveis = $dados['aprovado']['valor']
-                       +$dados['pendente']['valor']
-                       +$dados['reprovado']['valor'];
+$totalGeralRecebiveis = $dados['aprovado']['valor'] + $dados['pendente']['valor'] + $dados['reprovado']['valor'];
 
-
-// -----------------------------
-// 3) FLUXO DE CAIXA (aberturas) - filtro por fechamento_datetime
-// -----------------------------
+// ================================================================
+// 3) FLUXO DE CAIXA (aberturas) — COM PAGINAÇÃO
+// ================================================================
 $fluxo = [];
-$totalEntradas = $totalSaidas = $totalSaldo = 0.0;
+$totalEntradas = $totalSaidas = $totalSaldo = 0;
 $totalVendas = 0;
 
 try {
     $where = ["1=1"];
     $params = [];
-    $where[] = "a.fechamento_datetime BETWEEN :d_start AND :d_end";
-    $params[':d_start'] = $de_datetime;
-    $params[':d_end']   = $ate_datetime;
-    if ($filial !== '') { $where[] = "u.nome = :filialName"; $params[':filialName'] = $filial; }
+
+    // date column used: a.fechamento_datetime
+    if ($applyDateFilter) {
+        // reuse buildWhereAndParams but with different date column and no status param
+        list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, '', 'a.fechamento_datetime');
+    } else {
+        // only filial filter applies if set
+        if ($filial !== '') {
+            $where[] = " u.nome = :filialFiltro ";
+            $params[':filialFiltro'] = $filial;
+        }
+    }
+
+    // always only closed
+    $where[] = " a.status = 'fechado' ";
+
+    // COUNT total
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM aberturas a
+        ".str_replace("FIELD_ID","a.empresa_id",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
+    $stmt->execute($params);
+    $totalRowsFluxo = (int)$stmt->fetchColumn();
+
+    // pagination variables
+    $page_fluxo = max(1, (int)($_GET['page_fluxo'] ?? 1));
+    $offset_fluxo = ($page_fluxo - 1) * $perPage;
 
     $sql = "
-        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido, a.quantidade_vendas, u.nome AS nome_filial
+        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido,
+               a.quantidade_vendas, u.nome AS nome_filial, a.fechamento_datetime
         FROM aberturas a
-        JOIN unidades u ON u.id = REPLACE(a.empresa_id, 'unidade_', '')
-        WHERE " . implode(' AND ', $where) . "
-          AND a.status = 'fechado'
-          AND u.tipo = 'Filial'
+        ".str_replace("FIELD_ID","a.empresa_id",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
         ORDER BY a.fechamento_datetime DESC
+        LIMIT :lim OFFSET :off
     ";
+
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_fluxo, PDO::PARAM_INT);
+    $stmt->execute();
     $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($fluxo as $f) {
+    foreach ($fluxo as $f){
         $totalEntradas += (float)$f['valor_total'];
         $totalSaidas   += (float)$f['valor_sangrias'];
         $totalSaldo    += (float)$f['valor_liquido'];
         $totalVendas   += (int)$f['quantidade_vendas'];
     }
-} catch (PDOException $e) {
+
+} catch(PDOException $e){
     $fluxo = [];
+    $totalRowsFluxo = 0;
 }
 
-
 // ================================================================
-// 4) CONTAS FUTURAS
+// 4) CONTAS FUTURAS — COM PAGINAÇÃO
 // ================================================================
 $contasFuturas = [];
+$totalRowsContasFuturas = 0;
+
 try {
-    $where=["1=1"];
-    $params=[];
+    $where = ["1=1"];
+    $params = [];
 
-    $where[]="c.datatransacao BETWEEN :d1 AND :d2";
-    $params[':d1']=$de;
-    $params[':d2']=$ate;
-
-    if($filial!==''){
-        $where[]="u.nome = :filialFiltro";
-        $params[':filialFiltro']=$filial;
+    // date column: c.datatransacao (note: earlier used dates without times)
+    if ($applyDateFilter) {
+        // when using datatransacao, strip times
+        if (!empty($de)) {
+            $where[] = " c.datatransacao >= :d1date ";
+            $params[':d1date'] = $de;
+        }
+        if (!empty($ate)) {
+            $where[] = " c.datatransacao <= :d2date ";
+            $params[':d2date'] = $ate;
+        }
     }
 
-    $sql="
+    if ($filial !== '') {
+        $where[] = " u.nome = :filialFiltro ";
+        $params[':filialFiltro'] = $filial;
+    }
+
+    $where[] = " c.statuss = 'futura' ";
+
+    // count
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM contas c
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
+    $stmt->execute($params);
+    $totalRowsContasFuturas = (int)$stmt->fetchColumn();
+
+    // pagination
+    $page_contas_futuras = max(1, (int)($_GET['page_contas_futuras'] ?? 1));
+    $offset_contas_futuras = ($page_contas_futuras - 1) * $perPage;
+
+    $sql = "
         SELECT c.*, u.nome AS nome_filial
         FROM contas c
         ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
-        WHERE ".implode(" AND ",$where)."
-          AND c.statuss='futura'
+        WHERE ".implode(" AND ", $where)."
         ORDER BY c.datatransacao ASC
+        LIMIT :lim OFFSET :off
     ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_contas_futuras, PDO::PARAM_INT);
+    $stmt->execute();
+    $contasFuturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmt=$pdo->prepare($sql);
-    $stmt->execute($params);
-    $contasFuturas=$stmt->fetchAll(PDO::FETCH_ASSOC);
-
-}catch(PDOException $e){}
-
+} catch(PDOException $e){
+    $contasFuturas = [];
+    $totalRowsContasFuturas = 0;
+}
 
 // ================================================================
-// 5) CONTAS PAGAS
+// 5) CONTAS PAGAS — COM PAGINAÇÃO
 // ================================================================
 $contasPagas = [];
+$totalRowsContasPagas = 0;
+
 try {
-    $where=["1=1"];
-    $params=[];
+    $where = ["1=1"];
+    $params = [];
 
-    $where[]="c.datatransacao BETWEEN :d1 AND :d2";
-    $params[':d1']=$de;
-    $params[':d2']=$ate;
-
-    if($filial!==''){
-        $where[]="u.nome = :filialFiltro";
-        $params[':filialFiltro']=$filial;
+    if ($applyDateFilter) {
+        if (!empty($de)) {
+            $where[] = " c.datatransacao >= :d1date ";
+            $params[':d1date'] = $de;
+        }
+        if (!empty($ate)) {
+            $where[] = " c.datatransacao <= :d2date ";
+            $params[':d2date'] = $ate;
+        }
     }
 
-    $sql="
+    if ($filial !== '') {
+        $where[] = " u.nome = :filialFiltro ";
+        $params[':filialFiltro'] = $filial;
+    }
+
+    $where[] = " c.statuss = 'pago' ";
+
+    // count
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM contas c
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
+    $stmt->execute($params);
+    $totalRowsContasPagas = (int)$stmt->fetchColumn();
+
+    // pagination
+    $page_contas_pagas = max(1, (int)($_GET['page_contas_pagas'] ?? 1));
+    $offset_contas_pagas = ($page_contas_pagas - 1) * $perPage;
+
+    $sql = "
         SELECT c.*, u.nome AS nome_filial
         FROM contas c
         ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
-        WHERE ".implode(" AND ",$where)."
-          AND c.statuss='pago'
+        WHERE ".implode(" AND ", $where)."
         ORDER BY c.datatransacao DESC
+        LIMIT :lim OFFSET :off
     ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_contas_pagas, PDO::PARAM_INT);
+    $stmt->execute();
+    $contasPagas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmt=$pdo->prepare($sql);
+} catch(PDOException $e){
+    $contasPagas = [];
+    $totalRowsContasPagas = 0;
+}
+
+// ================================================================
+// 6) PAGAMENTOS APROVADOS — COM PAGINAÇÃO
+// ================================================================
+$pagamentos = [];
+$totalGeralPagamentos = 0;
+$totalRowsPagamentos = 0;
+
+try {
+    $where = ["1=1"];
+    $params = [];
+
+    list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, 'sp.created_at');
+
+    $where[] = " sp.status = 'aprovado' ";
+
+    // count
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM solicitacoes_pagamento sp
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
     $stmt->execute($params);
-    $contasPagas=$stmt->fetchAll(PDO::FETCH_ASSOC);
+    $totalRowsPagamentos = (int)$stmt->fetchColumn();
 
-}catch(PDOException $e){}
+    // pagination
+    $page_pagamentos = max(1, (int)($_GET['page_pagamentos'] ?? 1));
+    $offset_pagamentos = ($page_pagamentos - 1) * $perPage;
 
-
-// ================================================================
-// 6) PAGAMENTOS APROVADOS
-// ================================================================
-$pagamentos=[];
-$totalGeralPagamentos=0;
-
-try{
-    $where=["1=1"];
-    $params=[];
-
-    $where[]="sp.created_at BETWEEN :d1 AND :d2";
-    $params[':d1']=$de_datetime;
-    $params[':d2']=$ate_datetime;
-
-    if($filial!==''){
-        $where[]="u.nome = :filialFiltro";
-        $params[':filialFiltro']=$filial;
-    }
-
-    $sql="
+    $sql = "
         SELECT sp.*, u.nome AS nome_filial
         FROM solicitacoes_pagamento sp
         ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
-        WHERE ".implode(" AND ",$where)."
-          AND sp.status='aprovado'
+        WHERE ".implode(" AND ", $where)."
         ORDER BY sp.created_at DESC
+        LIMIT :lim OFFSET :off
     ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_pagamentos, PDO::PARAM_INT);
+    $stmt->execute();
+    $pagamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $stmt=$pdo->prepare($sql);
-    $stmt->execute($params);
-    $pagamentos=$stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    foreach($pagamentos as $p){
+    foreach ($pagamentos as $p){
         $totalGeralPagamentos += (float)$p['valor'];
     }
 
-}catch(PDOException $e){}
+} catch(PDOException $e){
+    $pagamentos = [];
+    $totalRowsPagamentos = 0;
+}
 
+// ================================================================
+// FUNÇÃO AUX: render pager links
+// ================================================================
+function renderPager($baseQueryParams, $currentPage, $totalRows, $perPage, $pageParamName) {
+    $totalPages = (int)ceil($totalRows / $perPage);
+    if ($totalPages <= 1) return '';
+
+    $out = '<nav aria-label="Page navigation" class="mt-2"><ul class="pagination pagination-sm mb-0">';
+
+    // previous
+    $prev = max(1, $currentPage - 1);
+    $qsPrev = http_build_query(array_merge($baseQueryParams, [$pageParamName => $prev]));
+    $out .= '<li class="page-item '.($currentPage==1?'disabled':'').'"><a class="page-link" href="?'.$qsPrev.'">&laquo;</a></li>';
+
+    // window pages (simple)
+    $start = max(1, $currentPage - 3);
+    $end = min($totalPages, $currentPage + 3);
+    for ($p = $start; $p <= $end; $p++) {
+        $qs = http_build_query(array_merge($baseQueryParams, [$pageParamName => $p]));
+        $out .= '<li class="page-item '.($p==$currentPage?'active':'').'"><a class="page-link" href="?'.$qs.'">'. $p .'</a></li>';
+    }
+
+    // next
+    $next = min($totalPages, $currentPage + 1);
+    $qsNext = http_build_query(array_merge($baseQueryParams, [$pageParamName => $next]));
+    $out .= '<li class="page-item '.($currentPage==$totalPages?'disabled':'').'"><a class="page-link" href="?'.$qsNext.'">&raquo;</a></li>';
+
+    $out .= '</ul></nav>';
+    return $out;
+}
+
+// Build base query params to preserve filters across pagination links
+$baseQueryParams = [];
+$baseQueryParams['id'] = $idSelecionado;
+if ($de_raw !== '') $baseQueryParams['de'] = $de_raw;
+if ($ate_raw !== '') $baseQueryParams['ate'] = $ate_raw;
+if ($status_raw !== '') $baseQueryParams['status'] = $status_raw;
+if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
+
+// ensure other page params preserved? we'll let pager generate individually
+
+// --------------------------
+// HTML: filtros reorganizados
+// --------------------------
 ?>
-
 <!-- ============================= -->
 <!-- Filtros (De / Até, Status, Filial) -->
 <!-- ============================= -->
@@ -680,19 +842,19 @@ try{
             <div class="row g-2 align-items-end">
 
                 <!-- De -->
-                <div class="col-6 col-md-3 col-lg-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1">De</label>
-                    <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
+                    <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de_raw) ?>">
                 </div>
 
                 <!-- Até -->
-                <div class="col-6 col-md-3 col-lg-2">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1">Até</label>
-                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
+                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate_raw) ?>">
                 </div>
 
-                <!-- Status (aplica somente aos cards e recebíveis por status) -->
-                <div class="col-12 col-sm-6 col-lg-3">
+                <!-- Status -->
+                <div class="col-6 col-md-3">
                     <label for="status" class="form-label mb-1">Status</label>
                     <select id="status" class="form-select form-select-sm" name="status">
                         <option value="">Status: Todos</option>
@@ -702,8 +864,8 @@ try{
                     </select>
                 </div>
 
-                <!-- Filial (populado dinamicamente) -->
-                <div class="col-12 col-sm-6 col-lg-3">
+                <!-- Filial -->
+                <div class="col-6 col-md-3">
                     <label for="filial" class="form-label mb-1">Filial</label>
                     <select id="filial" class="form-select form-select-sm" name="filial">
                         <option value="">Todas as Filiais</option>
@@ -715,40 +877,31 @@ try{
                     </select>
                 </div>
 
-                <!-- Ações -->
-                <div class="col-12 col-sm-6 col-lg-3 mr-3">
-                    <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
-                        <div class="btn-group btn-group-sm me-2" role="group" aria-label="Exportar">
-                            <button type="button" class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="bx bx-download me-1"></i>
-                                <span class="align-middle">Exportar</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
-                                <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
-                                <li>
-                                    <hr class="dropdown-divider">
-                                </li>
-                                <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
-                            </ul>
-                        </div>
+                <!-- Ações (reorganizado) -->
+                <div class="col-12 col-md-2 d-flex gap-2 justify-content-end">
+                    <button class="btn btn-sm btn-primary" type="submit" title="Aplicar filtros">
+                        <i class="bx bx-filter-alt me-1"></i> Aplicar
+                    </button>
 
-                        <div class="btn-group btn-group-sm me-2" role="group">
-                            <button class="btn btn-outline-secondary" type="submit">
-                                <i class="bx bx-filter-alt me-1"></i> Aplicar
-                            </button>
-                            <a class="btn btn-outline-dark" href="?id=<?= urlencode($idSelecionado) ?>" title="Limpar filtros">
-                                <i class="bx bx-x me-1"></i> Limpar filtros
-                            </a>
-                        </div>
+                    <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>" title="Limpar filtros">
+                        <i class="bx bx-x me-1"></i> Limpar
+                    </a>
 
-                        <div class="btn-group btn-group-sm" role="group" aria-label="Imprimir">
-                            <button class="btn btn-outline-dark" type="button" onclick="window.print()" data-bs-toggle="tooltip" data-bs-title="Imprimir a página">
-                                <i class="bx bx-printer me-1"></i>
-                                <span class="align-middle">Imprimir</span>
-                            </button>
-                        </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bx bx-download me-1"></i> Exportar
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
+                            <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
+                        </ul>
                     </div>
+
+                    <button class="btn btn-sm btn-outline-dark" type="button" onclick="window.print()" title="Imprimir">
+                        <i class="bx bx-printer"></i>
+                    </button>
                 </div>
 
             </div>
@@ -806,7 +959,7 @@ try{
 </div>
 
 <!-- ============================= -->
-<!-- Recebíveis por Status -->
+<!-- Recebíveis por Status (sem paginação) -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Recebíveis por Status</h5>
@@ -859,7 +1012,7 @@ try{
 </div>
 
 <!-- ============================= -->
-<!-- Fluxo de Caixa (Resumo) -->
+<!-- Fluxo de Caixa (Resumo) + pager -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Fluxo de Caixa — Resumo do Período</h5>
@@ -867,7 +1020,7 @@ try{
         <table class="table table-striped table-hover">
             <thead>
                 <tr>
-                    <th>Responsavel</th>
+                    <th>Responsável</th>
                     <th class="text-end">Entradas (R$)</th>
                     <th class="text-end">Saídas (R$)</th>
                     <th class="text-end">Saldo (R$)</th>
@@ -900,10 +1053,14 @@ try{
             </tfoot>
         </table>
     </div>
+
+    <div class="card-body pt-2">
+        <?= renderPager($baseQueryParams, $page_fluxo ?? 1, $totalRowsFluxo ?? 0, $perPage, 'page_fluxo') ?>
+    </div>
 </div>
 
 <!-- ============================= -->
-<!-- Contas a Pagar (Futura) -->
+<!-- Contas a Pagar (Futura) + pager -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Contas a pagar (Futura)</h5>
@@ -939,10 +1096,14 @@ try{
             </tbody>
         </table>
     </div>
+
+    <div class="card-body pt-2">
+        <?= renderPager($baseQueryParams, $page_contas_futuras ?? 1, $totalRowsContasFuturas ?? 0, $perPage, 'page_contas_futuras') ?>
+    </div>
 </div>
 
 <!-- ============================= -->
-<!-- Contas Pagas -->
+<!-- Contas Pagas + pager -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Contas Pagas</h5>
@@ -978,10 +1139,14 @@ try{
             </tbody>
         </table>
     </div>
+
+    <div class="card-body pt-2">
+        <?= renderPager($baseQueryParams, $page_contas_pagas ?? 1, $totalRowsContasPagas ?? 0, $perPage, 'page_contas_pagas') ?>
+    </div>
 </div>
 
 <!-- ============================= -->
-<!-- Pagamentos por Filial — Aprovados -->
+<!-- Pagamentos por Filial — Aprovados + pager -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Pagamentos por Filial — Resumo</h5>
@@ -1007,7 +1172,13 @@ try{
                             <td class="text-end">R$ <?= number_format($pg['valor'],2,',','.') ?></td>
                             <td class="text-end"><?= date('d/m/Y H:i', strtotime($pg['created_at'])) ?></td>
                             <td class="text-end"><?= date('d/m/Y', strtotime($pg['vencimento'])) ?></td>
-                           <td class="text-end"> <?php if (!empty($pg['comprovante_url'])): ?> <a href="/assets/php/matriz/<?= $pg['comprovante_url'] ?>" target="_blank"> Abrir </a> <?php else: ?> <span class="text-muted">Sem arquivo</span> <?php endif; ?> </td>
+                            <td class="text-end">
+                                <?php if (!empty($pg['comprovante_url'])): ?>
+                                    <a href="/assets/php/matriz/<?= h($pg['comprovante_url']) ?>" target="_blank">Abrir</a>
+                                <?php else: ?>
+                                    <span class="text-muted">Sem arquivo</span>
+                                <?php endif; ?>
+                            </td>
                             <td class="text-end"><?= h($pg['descricao']) ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -1021,11 +1192,11 @@ try{
             </tfoot>
         </table>
     </div>
-</div>
 
-<?php
-// fim do bloco
-?>
+    <div class="card-body pt-2">
+        <?= renderPager($baseQueryParams, $page_pagamentos ?? 1, $totalRowsPagamentos ?? 0, $perPage, 'page_pagamentos') ?>
+    </div>
+</div>
 
 
 
