@@ -653,6 +653,7 @@ try {
                                         <td><strong>Filial Centro</strong></td>
                                         <td class="text-end">29/03/2025</td>
                                         <td class="text-end">5/05/2025</td>
+                                        <td class="text-end">R$ 45.000</td>
                                         <td class="text-end"><a href="http://">Abrir</a></td>
                                         <td class="text-end">assuntos pendente</td>
                                     </tr>
