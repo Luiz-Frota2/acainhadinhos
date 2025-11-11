@@ -632,43 +632,120 @@ try {
                     </div>
 
                     <!-- ============================= -->
-                    <!-- Pagamentos por Filial       -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Pagamentos por Filial — Resumo</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Filial</th>
-                                        <th class="text-end">Valor</th>
-                                        <th class="text-end">Data de Emissão</th>
-                                        <th class="text-end">Vencimento</th>
-                                        <th class="text-end">Comprovante</th>
-                                        <th class="text-end">Descrição</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><strong>Filial Centro</strong></td>
-                                        <td class="text-end">R$ 45.000</td>
-                                        <td class="text-end">29/03/2025</td>
-                                        <td class="text-end">5/05/2025</td>
-                                        <td class="text-end"><a href="http://">Abrir</a></td>
-                                        <td class="text-end">assuntos pendente</td>
-                                    </tr>
-                                 
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>Total</th>
-                                        <th class="text-end">R$ 103.800,00</th>
-                                   
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
+                   <?php
+// ---------------------------------------------
+// LISTAR PAGAMENTOS APROVADOS POR FILIAL ATIVA
+// ---------------------------------------------
+
+try {
+    $sql = "
+        SELECT 
+            sp.ID,
+            sp.valor,
+            sp.descricao,
+            sp.vencimento,
+            sp.created_at,
+            sp.comprovante_url,
+            u.nome AS nome_filial
+        FROM solicitacoes_pagamento sp
+        INNER JOIN unidades u 
+            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
+        WHERE 
+            sp.status = 'aprovado'
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        ORDER BY sp.created_at DESC
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $pagamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<p>Erro ao carregar pagamentos: " . $e->getMessage() . "</p>";
+    $pagamentos = [];
+}
+
+$totalGeral = 0;
+?>
+
+<!-- Pagamentos por Filial -->
+<div class="card mb-3">
+    <h5 class="card-header">Pagamentos por Filial — Resumo</h5>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Filial</th>
+                    <th class="text-end">Valor</th>
+                    <th class="text-end">Data de Emissão</th>
+                    <th class="text-end">Vencimento</th>
+                    <th class="text-end">Comprovante</th>
+                    <th class="text-end">Descrição</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <?php if (empty($pagamentos)) : ?>
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">
+                            Nenhum pagamento aprovado de filial ativa encontrado.
+                        </td>
+                    </tr>
+                <?php else: ?>
+
+                    <?php foreach ($pagamentos as $pg): ?>
+                        <?php $totalGeral += $pg['valor']; ?>
+
+                        <tr>
+                            <td><strong><?= htmlspecialchars($pg['nome_filial']) ?></strong></td>
+
+                            <td class="text-end">
+                                R$ <?= number_format($pg['valor'], 2, ',', '.') ?>
+                            </td>
+
+                            <td class="text-end">
+                                <?= date('d/m/Y H:i', strtotime($pg['created_at'])) ?>
+                            </td>
+
+                            <td class="text-end">
+                                <?= date('d/m/Y', strtotime($pg['vencimento'])) ?>
+                            </td>
+
+                            <td class="text-end">
+                                <?php if (!empty($pg['comprovante_url'])): ?>
+                                    <a href="/files/public_html/public<?= $pg['comprovante_url'] ?>" target="_blank">
+                                        Abrir
+                                    </a>
+                                <?php else: ?>
+                                    <span class="text-muted">Sem arquivo</span>
+                                <?php endif; ?>
+                            </td>
+
+                            <td class="text-end">
+                                <?= htmlspecialchars($pg['descricao']) ?>
+                            </td>
+                        </tr>
+
+                    <?php endforeach; ?>
+
+                <?php endif; ?>
+            </tbody>
+
+            <tfoot>
+                <tr>
+                    <th>Total</th>
+                    <th class="text-end">
+                        R$ <?= number_format($totalGeral, 2, ',', '.') ?>
+                    </th>
+                </tr>
+            </tfoot>
+
+        </table>
+    </div>
+</div>
+
 
                 </div><!-- /container -->
             </div><!-- /Layout page -->
