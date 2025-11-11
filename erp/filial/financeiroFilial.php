@@ -524,48 +524,43 @@ $totalGeralRecebiveis = $dados['aprovado']['valor']
                        +$dados['reprovado']['valor'];
 
 
-// ================================================================
-// 3) FLUXO DE CAIXA (aberturas)
-// ================================================================
+// -----------------------------
+// 3) FLUXO DE CAIXA (aberturas) - filtro por fechamento_datetime
+// -----------------------------
 $fluxo = [];
-$totalEntradas = $totalSaidas = $totalSaldo = 0;
+$totalEntradas = $totalSaidas = $totalSaldo = 0.0;
 $totalVendas = 0;
 
 try {
     $where = ["1=1"];
     $params = [];
-
-    $where[] = "a.fechamento_datetime BETWEEN :d1 AND :d2";
-    $params[':d1']=$de_datetime;
-    $params[':d2']=$ate_datetime;
-
-    if ($filial !== '') {
-        $where[] = "u.nome = :filialFiltro";
-        $params[':filialFiltro'] = $filial;
-    }
+    $where[] = "a.fechamento_datetime BETWEEN :d_start AND :d_end";
+    $params[':d_start'] = $de_datetime;
+    $params[':d_end']   = $ate_datetime;
+    if ($filial !== '') { $where[] = "u.nome = :filialName"; $params[':filialName'] = $filial; }
 
     $sql = "
-        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido,
-               a.quantidade_vendas, u.nome AS nome_filial
+        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido, a.quantidade_vendas, u.nome AS nome_filial
         FROM aberturas a
-        ".str_replace("FIELD_ID","a.empresa_id",$JOIN_FILIAL)."
-        WHERE ".implode(" AND ",$where)."
-          AND a.status='fechado'
+        JOIN unidades u ON u.id = REPLACE(a.empresa_id, 'unidade_', '')
+        WHERE " . implode(' AND ', $where) . "
+          AND a.status = 'fechado'
+          AND u.tipo = 'Filial'
         ORDER BY a.fechamento_datetime DESC
     ";
-
-    $stmt=$pdo->prepare($sql);
+    $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $fluxo=$stmt->fetchAll(PDO::FETCH_ASSOC);
+    $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach($fluxo as $f){
+    foreach ($fluxo as $f) {
         $totalEntradas += (float)$f['valor_total'];
         $totalSaidas   += (float)$f['valor_sangrias'];
         $totalSaldo    += (float)$f['valor_liquido'];
         $totalVendas   += (int)$f['quantidade_vendas'];
     }
-
-} catch(PDOException $e){}
+} catch (PDOException $e) {
+    $fluxo = [];
+}
 
 
 // ================================================================
