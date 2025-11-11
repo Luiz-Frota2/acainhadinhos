@@ -451,79 +451,186 @@ try {
                         </div>
                     </div>
 
-                    <!-- ============================= -->  
-                    <!-- Recebíveis por Status         -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Recebíveis por Status</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Status</th>
-                                        <th class="text-end">Quantidade</th>
-                                        <th class="text-end">Valor (R$)</th>
-                                        <th style="min-width:180px;">% do Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><span class="badge badge-soft">Pago(Aprovado)</span></td>
-                                        <td class="text-end">142</td>
-                                        <td class="text-end">R$ 103.900,00</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress progress-skinny">
-                                                        <div class="progress-bar" style="width: 80.9%;" aria-valuenow="80.9" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">80,9%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td><span class="badge badge-soft">Em Aberto(pendente)</span></td>
-                                        <td class="text-end">38</td>
-                                        <td class="text-end">R$ 18.750,00</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress progress-skinny">
-                                                        <div class="progress-bar" style="width: 14.6%;" aria-valuenow="14.6" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">14,6%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td><span class="badge badge-soft">Reprovado</span></td>
-                                        <td class="text-end">12</td>
-                                        <td class="text-end">R$ 5.800,00</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress progress-skinny">
-                                                        <div class="progress-bar" style="width: 4.5%;" aria-valuenow="4.5" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">4,5%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>Total</th>
-                                        <th class="text-end">192</th>
-                                        <th class="text-end">R$ 128.450,00</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
+                  <?php
+// ---------------------------------------------------------
+// RECEBÍVEIS POR STATUS (FILIAIS ATIVAS) — RESUMO GERAL
+// ---------------------------------------------------------
+
+try {
+    $sql = "
+        SELECT 
+            sp.status,
+            COUNT(*) AS quantidade,
+            SUM(sp.valor) AS total_valor
+        FROM solicitacoes_pagamento sp
+        INNER JOIN unidades u 
+            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
+        WHERE 
+            u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        GROUP BY sp.status
+        ORDER BY sp.status
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $statusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<p>Erro ao carregar status: " . $e->getMessage() . "</p>";
+    $statusData = [];
+}
+
+// Converter para estrutura indexada por status
+$dados = [
+    "aprovado"  => ["quantidade" => 0, "valor" => 0],
+    "pendente"  => ["quantidade" => 0, "valor" => 0],
+    "reprovado" => ["quantidade" => 0, "valor" => 0],
+];
+
+foreach ($statusData as $row) {
+    $status = strtolower($row["status"]);
+    $dados[$status]["quantidade"] = (int)$row["quantidade"];
+    $dados[$status]["valor"]      = (float)$row["total_valor"];
+}
+
+// Total geral de valores
+$totalGeral = 
+    $dados["aprovado"]["valor"] + 
+    $dados["pendente"]["valor"] + 
+    $dados["reprovado"]["valor"];
+
+// Função % (evita divisão por zero)
+function percent($valor, $total) {
+    if ($total <= 0) return 0;
+    return ($valor / $total) * 100;
+}
+?>
+
+<!-- ============================= -->
+<!-- Recebíveis por Status -->
+<!-- ============================= -->
+<div class="card mb-3">
+    <h5 class="card-header">Recebíveis por Status</h5>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Status</th>
+                    <th class="text-end">Quantidade</th>
+                    <th class="text-end">Valor (R$)</th>
+                    <th style="min-width:180px;">% do Total</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                <!-- Status: Aprovado -->
+                <tr>
+                    <td><span class="badge badge-soft bg-success text-white">Pago (Aprovado)</span></td>
+                    <td class="text-end"><?= $dados['aprovado']['quantidade'] ?></td>
+                    <td class="text-end">
+                        R$ <?= number_format($dados['aprovado']['valor'], 2, ',', '.') ?>
+                    </td>
+
+                    <?php $p_aprov = percent($dados['aprovado']['valor'], $totalGeral); ?>
+
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="flex-grow-1">
+                                <div class="progress progress-skinny">
+                                    <div class="progress-bar bg-success" 
+                                         style="width: <?= $p_aprov ?>%;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="width:58px;" class="text-end">
+                                <?= number_format($p_aprov, 1, ',', '.') ?>%
+                            </div>
                         </div>
-                    </div>
+                    </td>
+                </tr>
+
+                <!-- Status: Pendente -->
+                <tr>
+                    <td><span class="badge badge-soft bg-warning text-dark">Em Aberto (Pendente)</span></td>
+
+                    <td class="text-end"><?= $dados['pendente']['quantidade'] ?></td>
+
+                    <td class="text-end">
+                        R$ <?= number_format($dados['pendente']['valor'], 2, ',', '.') ?>
+                    </td>
+
+                    <?php $p_pend = percent($dados['pendente']['valor'], $totalGeral); ?>
+
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="flex-grow-1">
+                                <div class="progress progress-skinny">
+                                    <div class="progress-bar bg-warning"
+                                         style="width: <?= $p_pend ?>%;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="width:58px;" class="text-end">
+                                <?= number_format($p_pend, 1, ',', '.') ?>%
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- Status: Reprovado -->
+                <tr>
+                    <td><span class="badge badge-soft bg-danger text-white">Reprovado</span></td>
+
+                    <td class="text-end"><?= $dados['reprovado']['quantidade'] ?></td>
+
+                    <td class="text-end">
+                        R$ <?= number_format($dados['reprovado']['valor'], 2, ',', '.') ?>
+                    </td>
+
+                    <?php $p_rep = percent($dados['reprovado']['valor'], $totalGeral); ?>
+
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="flex-grow-1">
+                                <div class="progress progress-skinny">
+                                    <div class="progress-bar bg-danger"
+                                         style="width: <?= $p_rep ?>%;">
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="width:58px;" class="text-end">
+                                <?= number_format($p_rep, 1, ',', '.') ?>%
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+
+            </tbody>
+
+            <tfoot>
+                <tr>
+                    <th>Total</th>
+                    <th class="text-end">
+                        <?= 
+                            $dados['aprovado']['quantidade'] + 
+                            $dados['pendente']['quantidade'] + 
+                            $dados['reprovado']['quantidade']
+                        ?>
+                    </th>
+
+                    <th class="text-end">
+                        R$ <?= number_format($totalGeral, 2, ',', '.') ?>
+                    </th>
+                    <th></th>
+                </tr>
+            </tfoot>
+
+        </table>
+    </div>
+</div>
 
                     <?php
 // --------------------------------------------------------
