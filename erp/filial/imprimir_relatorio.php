@@ -1,3 +1,7 @@
+
+<a class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
+                                <a class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
+                                <a class="btn btn-sm btn-outline-secondary">Imprimir</a>
 <?php
 session_start();
 ini_set('display_errors', 1);
