@@ -590,7 +590,7 @@ try {
                                         <td>20/09/2025</td>
                                         <td class="text-end">R$ 2.450,00</td>
                                         <td>Luiz Breno</td>
-                                        <td><span class="badge bg-success">Futura</span></td>
+                                        <td><span class="badge bg-red">Futura</span></td>
                                     </tr>
                                     
                                 </tbody>
