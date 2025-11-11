@@ -715,7 +715,7 @@ $totalGeral = 0;
 
                             <td class="text-end">
                                 <?php if (!empty($pg['comprovante_url'])): ?>
-                                    <a href="/files/public_html/public<?= $pg['comprovante_url'] ?>" target="_blank">
+                                    <a href="/assets/php/matriz/<?= $pg['comprovante_url'] ?>" target="_blank">
                                         Abrir
                                     </a>
                                 <?php else: ?>
