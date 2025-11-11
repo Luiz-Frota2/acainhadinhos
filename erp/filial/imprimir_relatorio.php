@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once "../../assets/php/conexao.php"; // ajuste o caminho
+require_once "../../assets/php/conexao.php"; 
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -134,9 +134,6 @@ foreach($lista as $i=>$l){
     $lista[$i]['perc'] = $totalFatur>0?($l['faturamento']/$totalFatur)*100:0;
 }
 
-// =======================================================
-// ESTILO ESPECÍFICO PARA IMPRESSÃO
-// =======================================================
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -149,9 +146,9 @@ body{
     font-family: Arial, sans-serif;
     margin: 25px;
 }
-h1,h2,h3{
-    margin: 0 0 10px 0;
-    padding: 0;
+h1{
+    text-align:center;
+    margin-bottom: 10px;
 }
 .table{
     width: 100%;
@@ -166,13 +163,11 @@ h1,h2,h3{
 .table th{
     background: #efefef;
 }
-.header{
-    text-align:center;
-    margin-bottom:20px;
-}
 .small{
+    text-align:center;
     font-size:13px;
     color:#555;
+    margin-bottom:25px;
 }
 .section-title{
     background:#ddd;
@@ -180,18 +175,37 @@ h1,h2,h3{
     font-weight:bold;
     margin-top:25px;
 }
+
+@page { margin: 20mm; }
+
+@media print {
+    footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 12px;
+        color: #777;
+    }
+    footer:after {
+        content: "Página " counter(page);
+    }
+}
+
+.page-break {
+    page-break-before: always;
+}
 </style>
 
 </head>
 <body>
 
-<div class="header">
-    <h1>Relatório B2B - Filiais</h1>
-    <div class="small">
-        Período: <?= date("d/m/Y", strtotime($inicioFiltro)) ?> 
-        a <?= date("d/m/Y", strtotime($fimFiltro)) ?><br>
-        Filial: <?= $filialFiltroId ? $filiais[0]['nome'] : "Todas" ?>
-    </div>
+<h1>Relatório B2B - Filiais</h1>
+
+<div class="small">
+    Período: <?= date("d/m/Y", strtotime($inicioFiltro)) ?> 
+    a <?= date("d/m/Y", strtotime($fimFiltro)) ?><br>
+    Filial: <?= $filialFiltroId ? $filiais[0]['nome'] : "Todas" ?>
 </div>
 
 <!-- =========================== -->
@@ -226,6 +240,8 @@ h1,h2,h3{
 </tr>
 </table>
 
+<div class="page-break"></div>
+
 <!-- =========================== -->
 <!-- TABELA FILIAIS -->
 <!-- =========================== -->
@@ -246,8 +262,25 @@ h1,h2,h3{
 <?php endforeach; ?>
 </table>
 
+<footer></footer>
+
 <script>
-window.print();
+window.onload = function () {
+
+    // espera o conteúdo carregar para evitar páginas em branco
+    setTimeout(() => {
+        window.print();
+    }, 250);
+
+    // voltar sempre: cancelar OU imprimir
+    window.onafterprint = function() {
+        if (window.opener && !window.opener.closed) {
+            window.opener.focus();
+            window.opener.location.href = window.opener.location.href;
+        }
+        window.close();
+    };
+};
 </script>
 
 </body>
