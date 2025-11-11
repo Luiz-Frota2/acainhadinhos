@@ -564,39 +564,96 @@ try {
                         </div>
                     </div>
 
-                    <!-- ============================= -->
-                    <!-- Contas a Receber              -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Contas a pagar (Futura)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Filial</th>
-                                        <th>Descrição</th>
-                                        <th>Data Transação</th>
-                                        <th class="text-end">Valor (R$)</th>
-                                        <th>responsavel</th>
-                                        <th>Status</th>   
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>001245</td>
-                                        <td>Filial Centro</td>
-                                        <td>Internet</td>
-                                        <td>20/09/2025</td>
-                                        <td class="text-end">R$ 2.450,00</td>
-                                        <td>Luiz Breno</td>
-                                        <td><span class="badge bg-success">Futura</span></td>
-                                    </tr>
-                                    
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+             <?php
+// ------------------------------------------------
+// LISTAR CONTAS FUTURAS (FILIAIS ATIVAS)
+// ------------------------------------------------
+
+try {
+    $sql = "
+        SELECT 
+            c.id,
+            c.descricao,
+            c.valorpago,
+            c.datatransacao,
+            c.responsavel,
+            c.statuss,
+            u.nome AS nome_filial
+        FROM contas c
+        INNER JOIN unidades u
+            ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
+        WHERE 
+            c.statuss = 'futura'
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        ORDER BY c.datatransacao ASC
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $contasFuturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<p>Erro ao carregar contas futuras: " . $e->getMessage() . "</p>";
+    $contasFuturas = [];
+}
+?>
+
+<!-- ============================= -->
+<!-- Contas a Pagar (Futuras) -->
+<!-- ============================= -->
+<div class="card mb-3">
+    <h5 class="card-header">Contas a pagar (Futura)</h5>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Filial</th>
+                    <th>Descrição</th>
+                    <th>Data Transação</th>
+                    <th class="text-end">Valor (R$)</th>
+                    <th>responsavel</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <?php if (empty($contasFuturas)) : ?>
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            Nenhuma conta futura de filial ativa encontrada.
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($contasFuturas as $c): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($c['id']) ?></td>
+
+                            <td><?= htmlspecialchars($c['nome_filial']) ?></td>
+
+                            <td><?= htmlspecialchars($c['descricao']) ?></td>
+
+                            <td><?= date('d/m/Y', strtotime($c['datatransacao'])) ?></td>
+
+                            <td class="text-end">
+                                R$ <?= number_format($c['valorpago'], 2, ',', '.') ?>
+                            </td>
+
+                            <td><?= htmlspecialchars($c['responsavel']) ?></td>
+
+                            <td>
+                                <span class="badge bg-warning text-dark">Futura</span>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+
+        </table>
+    </div>
+</div>
 
                  <?php
 // ------------------------------------------------
