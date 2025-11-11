@@ -1033,11 +1033,9 @@ $fimTxt = $fim->format('d/m/Y');
                                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                                 <a class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
                                 <a class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
-                               <a href="imprimir_relatorio.php?<?= http_build_query($_GET) ?>" 
-   target="_blank" 
-   class="btn btn-sm btn-outline-secondary">
-   Imprimir
-</a>
+                               <button type="button" class="btn btn-sm btn-outline-secondary" onclick="gerarRelatorioImpressao()">
+    Imprimir
+</button>
 
                             </div>
                         </form>
