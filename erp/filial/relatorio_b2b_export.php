@@ -236,286 +236,278 @@ if (!empty($filialKeys)) {
 // -------------------------
 // ROTAS: CSV / XLSX / PRINT
 // -------------------------
-// =========================================================
-// CSV (MODELO A — PROFISSIONAL CLEAN)
-// =========================================================
+
+// ------------------------- CSV (A) — UM ÚNICO ARQUIVO COM SEÇÕES CORRIGIDO
+// -------------------------
 if ($tipo === 'csv') {
 
     header("Content-Type: text/csv; charset=utf-8");
     header("Content-Disposition: attachment; filename=relatorio_b2b.csv");
-
-    // Inserir BOM para Excel abrir corretamente
+    
+    // BOM para Excel
     echo "\xEF\xBB\xBF";
 
-    $out = fopen('php://output', 'w');
+    $out = fopen("php://output", "w");
 
-    // Título
+    // ================= CABEÇALHO =================
     fputcsv($out, ["Relatório B2B - Filiais"]);
-    fputcsv($out, ["Período:", $inicioFiltro . " até " . $fimFiltro]);
+    fputcsv($out, ["Período", "$inicioFiltro até $fimFiltro"]);
     fputcsv($out, []);
 
-    // -------------------------
-    // SEÇÃO 1 — RESUMO
-    // -------------------------
+
+    // =======================================================
+    // ✅ 1 — RESUMO DO PERÍODO
+    // =======================================================
     fputcsv($out, ["Resumo do Período"]);
-    fputcsv($out, ["Métrica","Valor","Variação (%)","Observação"]);
+    fputcsv($out, ["Métrica", "Valor", "Variacao(%)", "Observação"]);
 
     foreach ($resumo as $metric => $vals) {
+
+        $valor = is_numeric($vals[0]) ? number_format($vals[0], 2, ".", "") : $vals[0];
+        $var    = number_format($vals[1], 1, ".", ""); // padrão internacional CSV
+
         $obs = match ($metric) {
-            "Pedidos B2B"         => "Somente solicitações feitas por filiais",
-            "Itens Solicitados"   => "Total somado dos itens solicitados",
-            "Faturamento Estimado"=> "Subtotal total",
+            "Pedidos B2B"         => "Solicitações feitas por filiais",
+            "Itens Solicitados"   => "Soma total de itens",
+            "Faturamento Estimado"=> "Subtotal geral",
             "Ticket Médio"        => "Faturamento / pedidos",
-            default => ""
+            default               => ""
         };
 
-        fputcsv($out, [
-            $metric,
-            $vals[0],
-            number_format($vals[1],1,'.',''),
-            $obs
-        ]);
+        fputcsv($out, [$metric, $valor, $var, $obs]);
     }
 
     fputcsv($out, []);
 
-    // -------------------------
-    // SEÇÃO 2 — FILIAIS
-    // -------------------------
+
+    // =======================================================
+    // ✅ 2 — FILIAIS
+    // =======================================================
     fputcsv($out, ["Vendas / Pedidos por Filial"]);
-    fputcsv($out, ["Filial","Pedidos","Itens","Faturamento","Ticket Médio","% do Total"]);
+    fputcsv($out, ["Filial", "Pedidos", "Itens", "Faturamento(R$)", "Ticket Médio(R$)", "% Total"]);
 
     foreach ($listaFiliaisExport as $row) {
         fputcsv($out, [
             $row['nome'],
-            $row['pedidos'],
-            $row['itens'],
-            number_format($row['faturamento'],2,'.',''),
-            number_format($row['ticket'],2,'.',''),
-            number_format($row['perc'],1,'.','')
+            (int)$row['pedidos'],
+            (int)$row['itens'],
+            number_format($row['faturamento'], 2, ".", ""),
+            number_format($row['ticket'], 2, ".", ""),
+            number_format($row['perc'], 1, ".", "")
         ]);
     }
 
     fputcsv($out, []);
 
-    // -------------------------
-    // SEÇÃO 3 — PRODUTOS
-    // -------------------------
+
+    // =======================================================
+    // ✅ 3 — PRODUTOS MAIS SOLICITADOS
+    // =======================================================
     fputcsv($out, ["Produtos Mais Solicitados"]);
-    fputcsv($out, ["SKU","Produto","Quantidade","Pedidos","Participação (%)"]);
+    fputcsv($out, ["SKU", "Produto", "Quantidade", "Pedidos", "Participação(%)"]);
 
     if (!empty($produtosLista)) {
         foreach ($produtosLista as $p) {
             fputcsv($out, [
-                $p['codigo_produto'],
+                "'" . $p['codigo_produto'], // força texto (Excel não converte em número)
                 $p['nome_produto'],
-                $p['total_quantidade'],
-                $p['total_pedidos'],
-                number_format($p['perc'],1,'.','')
+                (int)$p['total_quantidade'],
+                (int)$p['total_pedidos'],
+                number_format($p['perc'], 1, ".", "")
             ]);
         }
     } else {
-        fputcsv($out, ["Nenhum produto solicitado por filiais no período."]);
+        fputcsv($out, ["Nenhum produto encontrado no período."]);
     }
 
     fputcsv($out, []);
 
-    // -------------------------
-    // SEÇÃO 4 — PAGAMENTOS
-    // -------------------------
-    fputcsv($out, ["Pagamentos x Entregas"]);
-    fputcsv($out, ["Métrica","Quantidade","Valor","Status"]);
 
-    fputcsv($out, ["Pagamentos Solicitados",$pendQtd, number_format($pendValor,2,'.',''), "Pendente"]);
-    fputcsv($out, ["Remessa Concluída",$aprovQtd, number_format($aprovValor,2,'.',''), "Aprovado"]);
-    fputcsv($out, ["Remessa Reprovada",$reprovQtd, number_format($reprovValor,2,'.',''), "Reprovado"]);
+    // =======================================================
+    // ✅ 4 — PAGAMENTOS X ENTREGAS
+    // =======================================================
+    fputcsv($out, ["Pagamentos x Entregas"]);
+    fputcsv($out, ["Métrica", "Quantidade", "Valor(R$)", "Status"]);
+
+    fputcsv($out, ["Pagamentos Solicitados", (int)$pendQtd, number_format($pendValor,2,".",""), "Pendente"]);
+    fputcsv($out, ["Remessa Concluída",    (int)$aprovQtd, number_format($aprovValor,2,".",""), "Aprovado"]);
+    fputcsv($out, ["Remessa Reprovada",    (int)$reprovQtd,number_format($reprovValor,2,".",""), "Reprovado"]);
 
     fclose($out);
     exit;
 }
 
 
-// =========================================================
-// XLSX (MODELO A — PROFISSIONAL CLEAN)
-// =========================================================
+// ------------------------- XLSX (B) — SEM PhpSpreadsheet, GERADO MANUALMENTE
+// -------------------------
 if ($tipo === 'xlsx') {
 
-    if (!$hasPhpSpreadsheet) {
-        header("Content-Type: text/plain; charset=utf-8");
-        echo "Erro: Biblioteca PhpSpreadsheet não instalada.";
-        exit;
-    }
+    // Nome do arquivo
+    $filename = "relatorio_b2b.xlsx";
 
-    $spread = new Spreadsheet();
-    $sheet = $spread->getActiveSheet();
-    $sheet->setTitle("Relatório B2B");
+    // Estrutura básica do XLSX
+    // O Excel nada mais é que um ZIP contendo vários XMLs
+    $tmp = tempnam(sys_get_temp_dir(), 'xlsx_');
+    $zip = new ZipArchive();
+    $zip->open($tmp, ZipArchive::OVERWRITE);
 
-    // Estilos corporativos
-    $headerStyle = [
-        'font' => ['bold' => true, 'color' => ['rgb' => '000000']],
-        'fill' => ['fillType' => 'solid', 'startColor' => ['rgb' => 'EFEFEF']],
-        'borders' => ['allBorders' => ['borderStyle' => 'thin']]
-    ];
-    $cellStyle = [
-        'borders' => ['allBorders' => ['borderStyle' => 'thin']]
-    ];
+    // --- [1] RELAÇÃO DE ARQUIVOS DENTRO DO XLSX ---
+    $zip->addFromString('[Content_Types].xml', '
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+        <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+        <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+        <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+        <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+    </Types>');
 
-    $moneyFormat = '_-"R$"* #,##0.00_-';
-    $percentFormat = '0.0%';
+    // --- [2] RELACIONAMENTOS PRINCIPAIS ---
+    $zip->addFromString('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+    </Relationships>');
 
-    $row = 1;
+    // --- [3] workbook.xml ---
+    $zip->addFromString('xl/workbook.xml','<?xml version="1.0"?>
+    <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+              xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <sheets>
+            <sheet name="Relatório B2B" sheetId="1" r:id="rId1"/>
+        </sheets>
+    </workbook>');
 
-    // -------------------------
+    // --- [4] workbook relationships ---
+    $zip->addFromString('xl/_rels/workbook.xml.rels','<?xml version="1.0"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" 
+            Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" 
+            Target="worksheets/sheet1.xml"/>
+        <Relationship Id="rId2" 
+            Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" 
+            Target="styles.xml"/>
+    </Relationships>');
+
+    // --- [5] styles.xml (BÁSICO) ---
+    $zip->addFromString('xl/styles.xml','<?xml version="1.0"?>
+    <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+        <fonts count="1"><font><sz val="11"/></font></fonts>
+        <fills count="1"><fill/></fills>
+        <borders count="1"><border/></borders>
+        <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+        <cellXfs count="1"><xf xfId="0" numFmtId="0"/></cellXfs>
+    </styleSheet>');
+
+    // ------------------------------------------
+    // ✅ CONVERTER TODAS AS 4 TABELAS EM XML
+    // ------------------------------------------
+
+    $rows = [];
+
+    // =======================
     // TÍTULO
-    // -------------------------
-    $sheet->setCellValue("A{$row}", "Relatório B2B - Filiais");
-    $sheet->mergeCells("A{$row}:F{$row}");
-    $sheet->getStyle("A{$row}")->getFont()->setBold(true)->setSize(14);
-    $row += 2;
+    // =======================
+    $rows[] = ["Relatório B2B - Filiais"];
+    $rows[] = [];
+    $rows[] = ["Período:", "$inicioFiltro até $fimFiltro"];
+    $rows[] = [];
+    $rows[] = ["==== Resumo do Período ===="];
+    $rows[] = ["Métrica","Valor","Variação (%)","Obs"];
 
-    // -------------------------
-    // PERÍODO
-    // -------------------------
-    $sheet->setCellValue("A{$row}", "Período:");
-    $sheet->setCellValue("B{$row}", $inicioFiltro . " até " . $fimFiltro);
-    $row += 2;
-
-    // =========================================================
-    // SEÇÃO 1 — RESUMO
-    // =========================================================
-    $sheet->setCellValue("A{$row}", "Resumo do Período");
-    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
-    $row++;
-
-    $sheet->fromArray(["Métrica","Valor","Variação (%)","Obs"], null, "A{$row}");
-    $sheet->getStyle("A{$row}:D{$row}")->applyFromArray($headerStyle);
-    $row++;
-
-    foreach ($resumo as $metric => $vals) {
-        $obs = match ($metric) {
-            "Pedidos B2B"         => "Somente solicitações feitas por filiais",
-            "Itens Solicitados"   => "Total somado dos itens solicitados",
-            "Faturamento Estimado"=> "Subtotal total",
-            "Ticket Médio"        => "Faturamento / pedidos",
+    foreach ($resumo as $m => $v) {
+        $obs = match ($m) {
+            "Pedidos B2B" => "Solicitações feitas por filiais",
+            "Itens Solicitados" => "Total somado dos itens",
+            "Faturamento Estimado" => "Subtotal geral",
+            "Ticket Médio" => "Faturamento / pedidos",
             default => ""
         };
-
-        $sheet->fromArray([$metric, $vals[0], $vals[1]/100, $obs], null, "A{$row}");
-        $sheet->getStyle("A{$row}:D{$row}")->applyFromArray($cellStyle);
-
-        // moeda
-        if ($metric === "Faturamento Estimado" || $metric === "Ticket Médio") {
-            $sheet->getStyle("B{$row}")->getNumberFormat()->setFormatCode($moneyFormat);
-        }
-
-        // porcentagem
-        $sheet->getStyle("C{$row}")->getNumberFormat()->setFormatCode($percentFormat);
-
-        $row++;
+        $rows[] = [$m, $v[0], number_format($v[1],1,",","."), $obs];
     }
 
-    $row++;
-
-    // =========================================================
-    // SEÇÃO 2 — FILIAIS
-    // =========================================================
-    $sheet->setCellValue("A{$row}", "Vendas / Pedidos por Filial");
-    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
-    $row++;
-
-    $sheet->fromArray(["Filial","Pedidos","Itens","Faturamento","Ticket Médio","% Total"], null, "A{$row}");
-    $sheet->getStyle("A{$row}:F{$row}")->applyFromArray($headerStyle);
-    $row++;
+    $rows[] = [];
+    $rows[] = ["==== Vendas / Pedidos por Filial ===="];
+    $rows[] = ["Filial","Pedidos","Itens","Faturamento","Ticket Médio","% do Total"];
 
     foreach ($listaFiliaisExport as $l) {
-
-        $sheet->fromArray([
+        $rows[] = [
             $l['nome'],
             $l['pedidos'],
             $l['itens'],
             $l['faturamento'],
             $l['ticket'],
-            $l['perc'] / 100
-        ], null, "A{$row}");
-
-        $sheet->getStyle("A{$row}:F{$row}")->applyFromArray($cellStyle);
-
-        $sheet->getStyle("D{$row}")->getNumberFormat()->setFormatCode($moneyFormat);
-        $sheet->getStyle("E{$row}")->getNumberFormat()->setFormatCode($moneyFormat);
-        $sheet->getStyle("F{$row}")->getNumberFormat()->setFormatCode($percentFormat);
-
-        $row++;
+            $l['perc']
+        ];
     }
 
-    $row++;
+    $rows[] = [];
+    $rows[] = ["==== Produtos Mais Solicitados ===="];
+    $rows[] = ["SKU","Produto","Quantidade","Pedidos","Participação (%)"];
 
-    // =========================================================
-    // SEÇÃO 3 — PRODUTOS
-    // =========================================================
-    $sheet->setCellValue("A{$row}", "Produtos Mais Solicitados");
-    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
-    $row++;
-
-    $sheet->fromArray(["SKU","Produto","Quantidade","Pedidos","Participação"], null, "A{$row}");
-    $sheet->getStyle("A{$row}:E{$row}")->applyFromArray($headerStyle);
-    $row++;
-
-    if (!empty($produtosLista)) {
+    if (count($produtosLista) > 0) {
         foreach ($produtosLista as $p) {
-            $sheet->fromArray([
+            $rows[] = [
                 $p['codigo_produto'],
                 $p['nome_produto'],
                 $p['total_quantidade'],
                 $p['total_pedidos'],
-                $p['perc'] / 100
-            ], null, "A{$row}");
-
-            $sheet->getStyle("A{$row}:E{$row}")->applyFromArray($cellStyle);
-            $sheet->getStyle("E{$row}")->getNumberFormat()->setFormatCode($percentFormat);
-            $row++;
+                $p['perc']
+            ];
         }
     } else {
-        $sheet->setCellValue("A{$row}", "Nenhum produto solicitado no período.");
-        $row++;
+        $rows[] = ["Nenhum produto no período."];
     }
 
-    $row++;
+    $rows[] = [];
+    $rows[] = ["==== Pagamentos x Entregas ===="];
+    $rows[] = ["Métrica","Quantidade","Valor","Status"];
 
-    // =========================================================
-    // SEÇÃO 4 — PAGAMENTOS
-    // =========================================================
-    $sheet->setCellValue("A{$row}", "Pagamentos x Entregas");
-    $sheet->getStyle("A{$row}")->getFont()->setBold(true);
-    $row++;
+    $rows[] = ["Pagamentos Solicitados", $pendQtd, $pendValor, "Pendente"];
+    $rows[] = ["Remessa Concluída", $aprovQtd, $aprovValor, "Aprovado"];
+    $rows[] = ["Remessa Reprovada", $reprovQtd, $reprovValor, "Reprovado"];
 
-    $sheet->fromArray(["Métrica","Quantidade","Valor","Status"], null, "A{$row}");
-    $sheet->getStyle("A{$row}:D{$row}")->applyFromArray($headerStyle);
-    $row++;
+    // ---------------------------------------
+    // ✅ MONTAR O sheet1.xml
+    // ---------------------------------------
+    $sheetXml = '<?xml version="1.0"?>
+    <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+        <sheetData>';
 
-    $pag = [
-        ["Pagamentos Solicitados",$pendQtd,$pendValor,"Pendente"],
-        ["Remessa Concluída",$aprovQtd,$aprovValor,"Aprovado"],
-        ["Remessa Reprovada",$reprovQtd,$reprovValor,"Reprovado"],
-    ];
+    $r = 1;
+    foreach ($rows as $row) {
 
-    foreach ($pag as $p) {
-        $sheet->fromArray($p, null, "A{$row}");
-        $sheet->getStyle("A{$row}:D{$row}")->applyFromArray($cellStyle);
-        $sheet->getStyle("C{$row}")->getNumberFormat()->setFormatCode($moneyFormat);
-        $row++;
+        $sheetXml .= "<row r=\"$r\">";
+        $c = 1;
+
+        foreach ($row as $value) {
+            $col = chr(64 + $c);
+
+            // Se numérico → tipo n
+            if (is_numeric($value)) {
+                $sheetXml .= "<c r=\"{$col}{$r}\" t=\"n\"><v>{$value}</v></c>";
+            } else {
+                // Texto → tipo inlineStr
+                $v = htmlspecialchars($value);
+                $sheetXml .= "<c r=\"{$col}{$r}\" t=\"inlineStr\"><is><t>{$v}</t></is></c>";
+            }
+
+            $c++;
+        }
+
+        $sheetXml .= "</row>";
+        $r++;
     }
 
-    // AutoFit
-    foreach (range('A','F') as $col) {
-        $sheet->getColumnDimension($col)->setAutoSize(true);
-    }
+    $sheetXml .= "</sheetData></worksheet>";
 
-    // Enviar arquivo
+    $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+    $zip->close();
+
     header("Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    header("Content-Disposition: attachment; filename=relatorio_b2b.xlsx");
-
-    $writer = new Xlsx($spread);
-    $writer->save("php://output");
+    header("Content-Disposition: attachment; filename={$filename}");
+    readfile($tmp);
+    unlink($tmp);
     exit;
 }
 
