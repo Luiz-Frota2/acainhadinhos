@@ -839,7 +839,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
         <form class="w-100" method="get">
             <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
 
-            <div class="row g-3 align-items-center">
+            <div class="row g-4 align-items-end">
 
                 <!-- De -->
                 <div class="col-6 col-md-2">
