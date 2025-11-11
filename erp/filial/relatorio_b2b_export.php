@@ -237,80 +237,106 @@ if (!empty($filialKeys)) {
 // ROTAS: CSV / XLSX / PRINT
 // -------------------------
 
-// ------------------------- CSV (A) — UM ÚNICO ARQUIVO COM SEÇÕES
+// ------------------------- CSV (A) — UM ÚNICO ARQUIVO COM SEÇÕES CORRIGIDO
 // -------------------------
 if ($tipo === 'csv') {
+
     header("Content-Type: text/csv; charset=utf-8");
     header("Content-Disposition: attachment; filename=relatorio_b2b.csv");
-    // força BOM para Excel
+    
+    // BOM para Excel
     echo "\xEF\xBB\xBF";
-    $out = fopen('php://output', 'w');
 
-    // Cabeçalho
+    $out = fopen("php://output", "w");
+
+    // ================= CABEÇALHO =================
     fputcsv($out, ["Relatório B2B - Filiais"]);
-    fputcsv($out, ["Período:", $inicioFiltro . " até " . $fimFiltro]);
+    fputcsv($out, ["Período", "$inicioFiltro até $fimFiltro"]);
     fputcsv($out, []);
 
-    // Seção 1 - Resumo
-    fputcsv($out, ["--- Resumo do Período ---"]);
-    fputcsv($out, ["Métrica","Valor","Variação (%)","Obs"]);
+
+    // =======================================================
+    // ✅ 1 — RESUMO DO PERÍODO
+    // =======================================================
+    fputcsv($out, ["Resumo do Período"]);
+    fputcsv($out, ["Métrica", "Valor", "Variacao(%)", "Observação"]);
+
     foreach ($resumo as $metric => $vals) {
-        $valor = $vals[0];
-        $var = $vals[1];
+
+        $valor = is_numeric($vals[0]) ? number_format($vals[0], 2, ".", "") : $vals[0];
+        $var    = number_format($vals[1], 1, ".", ""); // padrão internacional CSV
+
         $obs = match ($metric) {
-            "Pedidos B2B" => "Somente solicitações feitas por filiais",
-            "Itens Solicitados" => "Total somado dos itens solicitados",
-            "Faturamento Estimado" => "Subtotal total",
-            "Ticket Médio" => "Faturamento / número de pedidos",
-            default => ""
+            "Pedidos B2B"         => "Solicitações feitas por filiais",
+            "Itens Solicitados"   => "Soma total de itens",
+            "Faturamento Estimado"=> "Subtotal geral",
+            "Ticket Médio"        => "Faturamento / pedidos",
+            default               => ""
         };
-        fputcsv($out, [$metric, is_numeric($valor) ? (string)$valor : $valor, number_format($var,1,',','.'), $obs]);
+
+        fputcsv($out, [$metric, $valor, $var, $obs]);
     }
+
     fputcsv($out, []);
 
-    // Seção 2 - Filiais
-    fputcsv($out, ["--- Vendas / Pedidos por Filial ---"]);
-    fputcsv($out, ["Filial","Pedidos","Itens","Faturamento","Ticket Médio","% do Total"]);
+
+    // =======================================================
+    // ✅ 2 — FILIAIS
+    // =======================================================
+    fputcsv($out, ["Vendas / Pedidos por Filial"]);
+    fputcsv($out, ["Filial", "Pedidos", "Itens", "Faturamento(R$)", "Ticket Médio(R$)", "% Total"]);
+
     foreach ($listaFiliaisExport as $row) {
         fputcsv($out, [
             $row['nome'],
-            $row['pedidos'],
-            $row['itens'],
-            number_format($row['faturamento'],2,'.',''),
-            number_format($row['ticket'],2,'.',''),
-            number_format($row['perc'],1,',','.')
+            (int)$row['pedidos'],
+            (int)$row['itens'],
+            number_format($row['faturamento'], 2, ".", ""),
+            number_format($row['ticket'], 2, ".", ""),
+            number_format($row['perc'], 1, ".", "")
         ]);
     }
+
     fputcsv($out, []);
 
-    // Seção 3 - Produtos
-    fputcsv($out, ["--- Produtos Mais Solicitados ---"]);
-    fputcsv($out, ["SKU","Produto","Quantidade","Pedidos","Participação (%)"]);
+
+    // =======================================================
+    // ✅ 3 — PRODUTOS MAIS SOLICITADOS
+    // =======================================================
+    fputcsv($out, ["Produtos Mais Solicitados"]);
+    fputcsv($out, ["SKU", "Produto", "Quantidade", "Pedidos", "Participação(%)"]);
+
     if (!empty($produtosLista)) {
         foreach ($produtosLista as $p) {
             fputcsv($out, [
-                $p['codigo_produto'],
+                "'" . $p['codigo_produto'], // força texto (Excel não converte em número)
                 $p['nome_produto'],
                 (int)$p['total_quantidade'],
                 (int)$p['total_pedidos'],
-                number_format($p['perc'],1,',','.')
+                number_format($p['perc'], 1, ".", "")
             ]);
         }
     } else {
-        fputcsv($out, ["Nenhum produto solicitado por filiais no período."]);
+        fputcsv($out, ["Nenhum produto encontrado no período."]);
     }
+
     fputcsv($out, []);
 
-    // Seção 4 - Pagamentos x Entregas
-    fputcsv($out, ["--- Pagamentos x Entregas (Resumo) ---"]);
-    fputcsv($out, ["Métrica","Quantidade","Valor (R$)","Status"]);
-    fputcsv($out, ["Pagamentos Solicitados",$pendQtd, number_format($pendValor,2,'.',''), "Pendente"]);
-    fputcsv($out, ["Remessa Concluida",$aprovQtd, number_format($aprovValor,2,'.',''), "Aprovado"]);
-    fputcsv($out, ["Remessa Reprovada",$reprovQtd, number_format($reprovValor,2,'.',''), "Reprovado"]);
+
+    // =======================================================
+    // ✅ 4 — PAGAMENTOS X ENTREGAS
+    // =======================================================
+    fputcsv($out, ["Pagamentos x Entregas"]);
+    fputcsv($out, ["Métrica", "Quantidade", "Valor(R$)", "Status"]);
+
+    fputcsv($out, ["Pagamentos Solicitados", (int)$pendQtd, number_format($pendValor,2,".",""), "Pendente"]);
+    fputcsv($out, ["Remessa Concluída",    (int)$aprovQtd, number_format($aprovValor,2,".",""), "Aprovado"]);
+    fputcsv($out, ["Remessa Reprovada",    (int)$reprovQtd,number_format($reprovValor,2,".",""), "Reprovado"]);
 
     fclose($out);
     exit;
 }
+
 
 // ------------------------- XLSX (B) — SEM PhpSpreadsheet, GERADO MANUALMENTE
 // -------------------------
