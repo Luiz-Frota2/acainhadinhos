@@ -549,27 +549,7 @@ try {
                                         <td class="text-end">R$ 103.900,00</td>
                                         <td>Baixas confirmadas</td>
                                     </tr>
-                                    <tr>
-                                        <td>Vendas PDV</td>
-                                        <td class="text-end">R$ 42.500,00</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 42.500,00</td>
-                                        <td>PIX + Cartão</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Despesas Fixas</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 24.300,00</td>
-                                        <td class="text-end">- R$ 24.300,00</td>
-                                        <td>Aluguel, folha, energia</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Compras/Estoque</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 11.800,00</td>
-                                        <td class="text-end">- R$ 11.800,00</td>
-                                        <td>Reposição insumos</td>
-                                    </tr>
+                                
                                 </tbody>
                                 <tfoot>
                                     <tr>
@@ -588,52 +568,31 @@ try {
                     <!-- Contas a Receber              -->
                     <!-- ============================= -->
                     <div class="card mb-3">
-                        <h5 class="card-header">Contas a Receber (Títulos)</h5>
+                        <h5 class="card-header">Contas a pagar (Futura)</h5>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle">
                                 <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Filial</th>
-                                        <th>Documento</th>
-                                        <th>Emissão</th>
-                                        <th>Vencimento</th>
+                                        <th>Descrição</th>
+                                        <th>Data Transação</th>
                                         <th class="text-end">Valor (R$)</th>
-                                        <th>Status</th>
-                                        <th>Obs.</th>
+                                        <th>responsavel</th>
+                                        <th>Status</th>   
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td>001245</td>
                                         <td>Filial Centro</td>
-                                        <td>NF 345/2025</td>
-                                        <td>05/09/2025</td>
+                                        <td>Internet</td>
                                         <td>20/09/2025</td>
                                         <td class="text-end">R$ 2.450,00</td>
-                                        <td><span class="badge bg-success">Pago</span></td>
-                                        <td>PIX confirmado</td>
+                                        <td>Luiz Breno</td>
+                                        <td><span class="badge bg-success">Futura</span></td>
                                     </tr>
-                                    <tr>
-                                        <td>001371</td>
-                                        <td>Filial Norte</td>
-                                        <td>NF 412/2025</td>
-                                        <td>12/09/2025</td>
-                                        <td>27/09/2025</td>
-                                        <td class="text-end">R$ 1.980,00</td>
-                                        <td><span class="badge bg-warning text-dark">Em Aberto</span></td>
-                                        <td>Ag. comprovante</td>
-                                    </tr>
-                                    <tr>
-                                        <td>001402</td>
-                                        <td>Filial Sul</td>
-                                        <td>NF 433/2025</td>
-                                        <td>15/09/2025</td>
-                                        <td>25/09/2025</td>
-                                        <td class="text-end">R$ 3.120,00</td>
-                                        <td><span class="badge bg-danger">Vencido</span></td>
-                                        <td>Recontatar cliente</td>
-                                    </tr>
+                                    
                                 </tbody>
                             </table>
                         </div>
@@ -643,51 +602,29 @@ try {
                     <!-- Contas a Pagar                -->
                     <!-- ============================= -->
                     <div class="card mb-3">
-                        <h5 class="card-header">Contas a Pagar</h5>
+                        <h5 class="card-header">Contas Pagas</h5>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle">
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>Fornecedor</th>
-                                        <th>Documento</th>
-                                        <th>Competência</th>
-                                        <th>Vencimento</th>
+                                        <th>Filial</th>
+                                        <th>Descrição</th>
+                                        <th>Data Transação</th>
                                         <th class="text-end">Valor (R$)</th>
-                                        <th>Status</th>
-                                        <th>Obs.</th>
+                                        <th>responsavel</th>
+                                        <th>Status</th>   
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr>
-                                        <td>P-2099</td>
-                                        <td>Energia Amazonas</td>
-                                        <td>FAT 99821</td>
-                                        <td>09/2025</td>
-                                        <td>30/09/2025</td>
-                                        <td class="text-end">R$ 3.480,00</td>
-                                        <td><span class="badge bg-warning text-dark">Em Aberto</span></td>
-                                        <td>-</td>
-                                    </tr>
-                                    <tr>
-                                        <td>P-2107</td>
-                                        <td>Fornecedor Embalagens</td>
-                                        <td>NF 88219</td>
-                                        <td>09/2025</td>
-                                        <td>28/09/2025</td>
-                                        <td class="text-end">R$ 5.900,00</td>
-                                        <td><span class="badge bg-danger">Vencido</span></td>
-                                        <td>Negociar multa</td>
-                                    </tr>
-                                    <tr>
-                                        <td>P-2111</td>
-                                        <td>Granola Norte Ltda</td>
-                                        <td>NF 12911</td>
-                                        <td>09/2025</td>
-                                        <td>29/09/2025</td>
-                                        <td class="text-end">R$ 2.420,00</td>
+                                     <tr>
+                                        <td>001245</td>
+                                        <td>Filial Centro</td>
+                                        <td>botequin</td>
+                                        <td>20/09/2025</td>
+                                        <td class="text-end">R$ 2.450,00</td>
+                                        <td>Luiz Breno da Frota</td>
                                         <td><span class="badge bg-success">Pago</span></td>
-                                        <td>PIX 26/09</td>
                                     </tr>
                                 </tbody>
                             </table>
