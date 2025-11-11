@@ -641,34 +641,22 @@ try {
                                 <thead>
                                     <tr>
                                         <th>Filial</th>
-                                        <th class="text-end">Recebido (R$)</th>
-                                        <th class="text-end">Em Aberto (R$)</th>
-                                        <th class="text-end">Vencido (R$)</th>
-                                        <th class="text-end">Total (R$)</th>
+                                        <th class="text-end">Data de Emissão</th>
+                                        <th class="text-end">Vencimento</th>
+                                          <th class="text-end">Valor</th>
+                                        <th class="text-end">Comprovante</th>
+                                        <th class="text-end">Descrição</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td><strong>Filial Centro</strong></td>
-                                        <td class="text-end">R$ 45.200,00</td>
-                                        <td class="text-end">R$ 6.100,00</td>
-                                        <td class="text-end">R$ 1.100,00</td>
-                                        <td class="text-end">R$ 52.400,00</td>
+                                        <td class="text-end">29/03/2025</td>
+                                        <td class="text-end">5/05/2025</td>
+                                        <td class="text-end"><a href="http://">Abrir</a></td>
+                                        <td class="text-end">assuntos pendente</td>
                                     </tr>
-                                    <tr>
-                                        <td><strong>Filial Norte</strong></td>
-                                        <td class="text-end">R$ 36.700,00</td>
-                                        <td class="text-end">R$ 7.900,00</td>
-                                        <td class="text-end">R$ 2.300,00</td>
-                                        <td class="text-end">R$ 46.900,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Filial Sul</strong></td>
-                                        <td class="text-end">R$ 21.900,00</td>
-                                        <td class="text-end">R$ 4.750,00</td>
-                                        <td class="text-end">R$ 2.400,00</td>
-                                        <td class="text-end">R$ 29.050,00</td>
-                                    </tr>
+                                 
                                 </tbody>
                                 <tfoot>
                                     <tr>
