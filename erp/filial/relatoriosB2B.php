@@ -1033,9 +1033,11 @@ $fimTxt = $fim->format('d/m/Y');
                                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                                 <a class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
                                 <a class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
-                               <button type="button" class="btn btn-sm btn-outline-secondary" onclick="gerarRelatorioImpressao()">
-    Imprimir
-</button>
+                             <a href="imprimir_relatorio.php?<?= http_build_query($_GET) ?>" 
+   target="_blank" 
+   class="btn btn-sm btn-outline-secondary">
+   Imprimir
+</a>
 
                             </div>
                         </form>
@@ -1303,111 +1305,5 @@ $fimTxt = $fim->format('d/m/Y');
     <!-- Place this tag in your head or just before your close body tag. -->
     <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
-<script>
-function gerarRelatorioImpressao() {
-
-    // CAPTURA SOMENTE AS TABELAS QUE VOCÊ QUER IMPRIMIR
-    const resumoPeriodo   = document.querySelector('.card:has(.card-header:contains("Resumo do Período"))');
-    const vendasFiliais   = document.querySelector('.card:has(.card-header:contains("Vendas / Pedidos por Filial"))');
-    const produtosFiliais = document.querySelector('.card:has(.card-header:contains("Produtos Mais Solicitados"))');
-    const pagamentosResumo= document.querySelector('.card:has(.card-header:contains("Pagamentos x Entregas"))');
-
-    // GARANTE COMPATIBILIDADE COM NAVEGADORES SEM :has()
-    const getCard = (titulo) => {
-        return [...document.querySelectorAll('.card')].find(c =>
-            c.querySelector('.card-header')?.innerText.includes(titulo)
-        );
-    };
-
-    let bloco1 = getCard("Resumo do Período")?.innerHTML ?? "";
-    let bloco2 = getCard("Vendas / Pedidos por Filial")?.innerHTML ?? "";
-    let bloco3 = getCard("Produtos Mais Solicitados")?.innerHTML ?? "";
-    let bloco4 = getCard("Pagamentos x Entregas")?.innerHTML ?? "";
-
-    // MONTA O HTML DO RELATÓRIO
-    let html = `
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Relatório B2B</title>
-
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                margin: 25px;
-            }
-            .section {
-                margin-top: 25px;
-            }
-            h1 {
-                text-align: center;
-                margin-bottom: 10px;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 13px;
-                margin-top: 10px;
-            }
-            table, th, td {
-                border: 1px solid #777;
-            }
-            th {
-                background: #eee;
-                padding: 8px;
-            }
-            td {
-                padding: 6px;
-            }
-            .titulo {
-                background: #ccc;
-                padding: 8px;
-                font-weight: bold;
-                margin-top: 25px;
-            }
-        </style>
-    </head>
-
-    <body>
-
-        <h1>Relatório B2B - Filiais</h1>
-
-        <div class="section">
-            <div class="titulo">Resumo do Período</div>
-            ${bloco1}
-        </div>
-
-        <div class="section">
-            <div class="titulo">Vendas / Pedidos por Filial</div>
-            ${bloco2}
-        </div>
-
-        <div class="section">
-            <div class="titulo">Produtos Mais Solicitados</div>
-            ${bloco3}
-        </div>
-
-        <div class="section">
-            <div class="titulo">Pagamentos x Entregas (Resumo)</div>
-            ${bloco4}
-        </div>
-
-    </body>
-    </html>
-    `;
-
-    // CRIA O RELATÓRIO OCULTO
-    let janela = window.open("", "_blank", "width=900,height=700");
-    janela.document.write(html);
-    janela.document.close();
-
-    // IMPRIME DIRETO
-    janela.onload = function () {
-        janela.print();
-        setTimeout(() => janela.close(), 500);
-    };
-}
-</script>
-
 
 </html>
