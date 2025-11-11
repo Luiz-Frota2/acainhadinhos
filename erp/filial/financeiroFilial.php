@@ -451,7 +451,7 @@ try {
                         </div>
                     </div>
 
-                    <!-- ============================= -->
+                    <!-- ============================= -->  
                     <!-- Recebíveis por Status         -->
                     <!-- ============================= -->
                     <div class="card mb-3">
@@ -579,7 +579,7 @@ $totalVendas = 0;
                     <th class="text-end">Entradas (R$)</th>
                     <th class="text-end">Saídas (R$)</th>
                     <th class="text-end">Saldo (R$)</th>
-                    <th>Quantidade de Vnd</th>
+                    <th class="text-end">Quantidade de Vnd</th>
                 </tr>
             </thead>
 
