@@ -416,7 +416,7 @@ try {
                         <div class="col-md-3 col-sm-6 mb-3">
                             <div class="card kpi-card">
                                 <div class="card-body">
-                                    <div class="kpi-label">Faturamento (Período)</div>
+                                    <div class="kpi-label">Faturamento (por periodo Período)</div>
                                     <div class="kpi-value">R$ 128.450,00</div>
                                     <div class="kpi-sub">Pedidos fechados</div>
                                 </div>
@@ -425,7 +425,7 @@ try {
                         <div class="col-md-3 col-sm-6 mb-3">
                             <div class="card kpi-card">
                                 <div class="card-body">
-                                    <div class="kpi-label">Recebido</div>
+                                    <div class="kpi-label">Recebido(aprovado)</div>
                                     <div class="kpi-value">R$ 103.900,00</div>
                                     <div class="kpi-sub">80,9% do total</div>
                                 </div>
@@ -434,7 +434,7 @@ try {
                         <div class="col-md-3 col-sm-6 mb-3">
                             <div class="card kpi-card">
                                 <div class="card-body">
-                                    <div class="kpi-label">Em Aberto</div>
+                                    <div class="kpi-label">Em Aberto(pendente)</div>
                                     <div class="kpi-value">R$ 18.750,00</div>
                                     <div class="kpi-sub">14,6% do total</div>
                                 </div>
@@ -443,7 +443,7 @@ try {
                         <div class="col-md-3 col-sm-6 mb-3">
                             <div class="card kpi-card">
                                 <div class="card-body">
-                                    <div class="kpi-label">Vencidos</div>
+                                    <div class="kpi-label">Reprovados</div>
                                     <div class="kpi-value">R$ 5.800,00</div>
                                     <div class="kpi-sub">4,5% do total</div>
                                 </div>
@@ -461,14 +461,14 @@ try {
                                 <thead>
                                     <tr>
                                         <th>Status</th>
-                                        <th class="text-end">Qtde Títulos</th>
+                                        <th class="text-end">Quantidade</th>
                                         <th class="text-end">Valor (R$)</th>
                                         <th style="min-width:180px;">% do Total</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td><span class="badge badge-soft">Pago</span></td>
+                                        <td><span class="badge badge-soft">Pago(Aprovado)</span></td>
                                         <td class="text-end">142</td>
                                         <td class="text-end">R$ 103.900,00</td>
                                         <td>
@@ -483,7 +483,7 @@ try {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><span class="badge badge-soft">Em Aberto</span></td>
+                                        <td><span class="badge badge-soft">Em Aberto(pendente)</span></td>
                                         <td class="text-end">38</td>
                                         <td class="text-end">R$ 18.750,00</td>
                                         <td>
@@ -498,7 +498,7 @@ try {
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td><span class="badge badge-soft">Vencido</span></td>
+                                        <td><span class="badge badge-soft">Reprovado</span></td>
                                         <td class="text-end">12</td>
                                         <td class="text-end">R$ 5.800,00</td>
                                         <td>
