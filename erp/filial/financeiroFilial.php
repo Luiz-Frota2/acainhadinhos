@@ -409,47 +409,120 @@ try {
                     </div>
 
 
-                    <!-- ============================= -->
-                    <!-- KPIs principais               -->
-                    <!-- ============================= -->
-                    <div class="row">
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Faturamento (por periodo Período)</div>
-                                    <div class="kpi-value">R$ 128.450,00</div>
-                                    <div class="kpi-sub">Pedidos fechados</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Recebido(aprovado)</div>
-                                    <div class="kpi-value">R$ 103.900,00</div>
-                                    <div class="kpi-sub">80,9% do total</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Em Aberto(pendente)</div>
-                                    <div class="kpi-value">R$ 18.750,00</div>
-                                    <div class="kpi-sub">14,6% do total</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Reprovados</div>
-                                    <div class="kpi-value">R$ 5.800,00</div>
-                                    <div class="kpi-sub">4,5% do total</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+         <?php
+// ---------------------------------------------------------
+// CÁLCULO PARA OS CARDS DO RESUMO FINANCEIRO
+// ---------------------------------------------------------
+
+try {
+    $sql = "
+        SELECT 
+            sp.status,
+            SUM(sp.valor) AS total
+        FROM solicitacoes_pagamento sp
+        INNER JOIN unidades u 
+            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
+        WHERE 
+            u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        GROUP BY sp.status
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $cardData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo '<p>Erro ao carregar dados dos cards: ' . $e->getMessage() . '</p>';
+    $cardData = [];
+}
+
+// Estrutura para armazenar
+$cards = [
+    "aprovado"  => 0,
+    "pendente"  => 0,
+    "reprovado" => 0
+];
+
+// Preencher
+foreach ($cardData as $row) {
+    $cards[strtolower($row["status"])] = (float)$row["total"];
+}
+
+// Total geral
+$totalGeralCards = $cards["aprovado"] + $cards["pendente"] + $cards["reprovado"];
+
+// Função porcentagem
+function p($valor, $total) {
+    if ($total <= 0) return 0;
+    return ($valor / $total) * 100;
+}
+?>
+
+<!-- ============================= -->
+<!-- KPIs principais -->
+<!-- ============================= -->
+<div class="row">
+    
+    <!-- FATURAMENTO TOTAL (TODOS OS STATUS) -->
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Faturamento (por Período)</div>
+                <div class="kpi-value">
+                    R$ <?= number_format($totalGeralCards, 2, ',', '.') ?>
+                </div>
+                <div class="kpi-sub">Pedidos fechados</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APROVADO -->
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Recebido (Aprovado)</div>
+                <div class="kpi-value">
+                    R$ <?= number_format($cards["aprovado"], 2, ',', '.') ?>
+                </div>
+                <div class="kpi-sub">
+                    <?= number_format(p($cards["aprovado"], $totalGeralCards), 1, ',', '.') ?>% do total
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PENDENTE -->
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Em Aberto (Pendente)</div>
+                <div class="kpi-value">
+                    R$ <?= number_format($cards["pendente"], 2, ',', '.') ?>
+                </div>
+                <div class="kpi-sub">
+                    <?= number_format(p($cards["pendente"], $totalGeralCards), 1, ',', '.') ?>% do total
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REPROVADO -->
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Reprovados</div>
+                <div class="kpi-value">
+                    R$ <?= number_format($cards["reprovado"], 2, ',', '.') ?>
+                </div>
+                <div class="kpi-sub">
+                    <?= number_format(p($cards["reprovado"], $totalGeralCards), 1, ',', '.') ?>% do total
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
 
                   <?php
 // ---------------------------------------------------------
