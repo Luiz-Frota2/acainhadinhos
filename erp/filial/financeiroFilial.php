@@ -1188,6 +1188,10 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
                 <tr>
                     <th>Total</th>
                     <th class="text-end">R$ <?= number_format($totalGeralPagamentos ?? 0,2,',','.') ?></th>
+                     <th class="text-end"></th>
+                      <th class="text-end"></th>
+                       <th class="text-end"></th>
+                        <th class="text-end"></th>
                 </tr>
             </tfoot>
         </table>
