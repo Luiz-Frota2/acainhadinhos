@@ -663,9 +663,7 @@ try {
                                     <tr>
                                         <th>Total</th>
                                         <th class="text-end">R$ 103.800,00</th>
-                                        <th class="text-end">R$ 18.750,00</th>
-                                        <th class="text-end">R$ 5.800,00</th>
-                                        <th class="text-end">R$ 128.350,00</th>
+                                   
                                     </tr>
                                 </tfoot>
                             </table>
