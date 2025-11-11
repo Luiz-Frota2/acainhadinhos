@@ -638,7 +638,7 @@ $totalVendas = 0;
                         R$ <?= number_format($totalSaldo, 2, ',', '.') ?>
                     </th>
 
-                    <th class="text-end"><?= $totalVendas ?></th>
+                    <th class="text-end center"><?= $totalVendas ?></th>
                 </tr>
             </tfoot>
 
