@@ -901,7 +901,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
                             <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
                         </ul>
                     </div>
-                        </div>
+                </div>
                      <div class="col-6 col-md-1">
 
                     <button class="btn btn-sm btn-outline-dark" type="button" onclick="window.print()" title="Imprimir">
