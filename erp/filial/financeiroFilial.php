@@ -905,7 +905,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
                      <div class="col-6 col-md-1">
 
                     <button class="btn btn-sm btn-outline-dark" type="button" onclick="window.print()" title="Imprimir">
-                        <i class="bx bx-printer"></i>
+                        <i class="bx bx-printer">Imprimir</i>
                     </button>
                 </div>
 
