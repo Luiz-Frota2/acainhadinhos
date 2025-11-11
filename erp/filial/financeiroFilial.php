@@ -354,7 +354,7 @@ if (!function_exists('percentVal')) {
 // -----------------------------
 // CONFIG
 // -----------------------------
-$perPage = 10; // itens por página (fixado conforme solicitado)
+$perPage = 6; // itens por página (fixado conforme solicitado)
 
 // -----------------------------
 // ID
