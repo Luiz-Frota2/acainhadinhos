@@ -641,9 +641,9 @@ try {
                                 <thead>
                                     <tr>
                                         <th>Filial</th>
+                                        <th class="text-end">Valor</th>
                                         <th class="text-end">Data de Emissão</th>
                                         <th class="text-end">Vencimento</th>
-                                          <th class="text-end">Valor</th>
                                         <th class="text-end">Comprovante</th>
                                         <th class="text-end">Descrição</th>
                                     </tr>
@@ -651,9 +651,9 @@ try {
                                 <tbody>
                                     <tr>
                                         <td><strong>Filial Centro</strong></td>
+                                        <td class="text-end">R$ 45.000</td>
                                         <td class="text-end">29/03/2025</td>
                                         <td class="text-end">5/05/2025</td>
-                                        <td class="text-end">R$ 45.000</td>
                                         <td class="text-end"><a href="http://">Abrir</a></td>
                                         <td class="text-end">assuntos pendente</td>
                                     </tr>
