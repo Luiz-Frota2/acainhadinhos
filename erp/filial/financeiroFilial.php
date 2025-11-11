@@ -335,20 +335,15 @@ try {
                     </h5>
 <?php
 // ================================================================
-// SISTEMA FINANCEIRO — VERSÃO FINAL CORRIGIDA
-// Cole este bloco no lugar do trecho antigo
+// SISTEMA FINANCEIRO — SOMENTE FILIAL ATIVA
 // ================================================================
-
-// ----- Requisitos prévios -----
-// $pdo precisa estar inicializado antes deste arquivo
-// $idSelecionado pode vir do login / contexto; aceitaremos via GET também
 
 // Escape
 if (!function_exists('h')) {
     function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 }
 
-// percentVal (compatibilidade com seu HTML)
+// percent
 if (!function_exists('percentVal')) {
     function percentVal($valor, $total) {
         if ($total <= 0) return 0;
@@ -357,33 +352,35 @@ if (!function_exists('percentVal')) {
 }
 
 // -----------------------------
-// ID (preserve)
+// ID
+// -----------------------------
 $idSelecionado = $_GET['id'] ?? ($idSelecionado ?? '');
 if (!$idSelecionado) {
-    // Ajuste conforme sua lógica de autenticação - aqui apenas mostramos aviso
     echo '<div class="alert alert-danger">ID inválido</div>';
     return;
 }
 
 // -----------------------------
-// CAPTURA DE FILTROS via GET
+// FILTROS
 // -----------------------------
 $de_raw     = $_GET['de']     ?? '';
 $ate_raw    = $_GET['ate']    ?? '';
 $status_raw = $_GET['status'] ?? '';
 $filial_raw = $_GET['filial'] ?? '';
 
-// timezone
 try { $tz = new DateTimeZone('America/Sao_Paulo'); } catch (Exception $e) { $tz = null; }
 
-// defaults
 if (empty($de_raw)) {
     $de = (new DateTime('first day of this month', $tz))->format('Y-m-d');
-} else { $de = $de_raw; }
+} else {
+    $de = $de_raw;
+}
 
 if (empty($ate_raw)) {
     $ate = (new DateTime('now', $tz))->format('Y-m-d');
-} else { $ate = $ate_raw; }
+} else {
+    $ate = $ate_raw;
+}
 
 $de_datetime  = $de . ' 00:00:00';
 $ate_datetime = $ate . ' 23:59:59';
@@ -395,236 +392,288 @@ if (!empty($status_raw)) {
     if (in_array($s, ['aprovado','pendente','reprovado'])) $status = $s;
 }
 
-// filial nome
 $filial = trim((string)$filial_raw);
 
 // -----------------------------
-// Buscar filiais ativas para popular select
+// LISTA SOMENTE FILIAIS ATIVAS
 // -----------------------------
 $filiaisOptions = [];
 try {
-    $stmt = $pdo->prepare("SELECT id, nome, empresa_id FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa' ORDER BY nome");
+    $stmt = $pdo->prepare("
+        SELECT id, nome, empresa_id 
+        FROM unidades 
+        WHERE tipo = 'Filial' 
+          AND status = 'Ativa'
+        ORDER BY nome
+    ");
     $stmt->execute();
     $filiaisOptions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     $filiaisOptions = [];
 }
 
-// -----------------------------
-// 1) CARDS — solicitacoes_pagamento (created_at)
-// -----------------------------
+//
+// FUNÇÃO PADRÃO DE JOIN — força sempre somente filiais ativas
+//
+$JOIN_FILIAL = "
+    JOIN unidades u 
+      ON u.id = REPLACE(FIELD_ID, 'unidade_', '') 
+     AND u.tipo = 'Filial'
+     AND u.status = 'Ativa'
+";
+
+// ================================================================
+// 1) CARDS — solicitacoes_pagamento
+// ================================================================
 $cards = ['aprovado'=>0.0,'pendente'=>0.0,'reprovado'=>0.0];
 
 try {
     $where = ["1=1"];
     $params = [];
 
-    // data (created_at)
-    $where[] = "sp.created_at BETWEEN :d_start AND :d_end";
-    $params[':d_start'] = $de_datetime;
-    $params[':d_end'] = $ate_datetime;
+    // período
+    $where[] = "sp.created_at BETWEEN :d1 AND :d2";
+    $params[':d1'] = $de_datetime;
+    $params[':d2'] = $ate_datetime;
 
-    // filial (join u.nome)
+    // filial
     if ($filial !== '') {
-        $where[] = "u.nome = :filialName";
-        $params[':filialName'] = $filial;
+        $where[] = "u.nome = :filialFiltro";
+        $params[':filialFiltro'] = $filial;
     }
 
-    // status (aplica nos cards)
+    // status
     if ($status !== '') {
-        $where[] = "sp.status = :statusFilter";
-        $params[':statusFilter'] = $status;
+        $where[] = "sp.status = :statusFiltro";
+        $params[':statusFiltro'] = $status;
     }
 
     $sql = "
         SELECT sp.status, SUM(sp.valor) AS total
         FROM solicitacoes_pagamento sp
-        JOIN unidades u ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE " . implode(' AND ', $where) . "
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
         GROUP BY sp.status
     ";
+    
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $res = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($rows as $r) {
+    foreach ($res as $r){
         $k = strtolower($r['status']);
-        if (isset($cards[$k])) $cards[$k] = (float)$r['total'];
+        if(isset($cards[$k])) $cards[$k] = (float)$r['total'];
     }
-} catch (PDOException $e) {
-    // silencioso — cards ficam zerados
-}
 
-// total para exibir — mantendo nome esperado no HTML
+} catch (PDOException $e){}
+
 $totalGeralCards = $cards['aprovado'] + $cards['pendente'] + $cards['reprovado'];
 
-// -----------------------------
-// 2) RECEBÍVEIS POR STATUS (solicitacoes_pagamento)
-// -----------------------------
+
+// ================================================================
+// 2) RECEBÍVEIS POR STATUS
+// ================================================================
 $dados = [
     'aprovado' => ['quantidade'=>0, 'valor'=>0.0],
     'pendente' => ['quantidade'=>0, 'valor'=>0.0],
     'reprovado'=> ['quantidade'=>0, 'valor'=>0.0]
 ];
-$totalGeralRecebiveis = 0.0;
 
 try {
     $where = ["1=1"];
     $params = [];
-    $where[] = "sp.created_at BETWEEN :d_start AND :d_end";
-    $params[':d_start'] = $de_datetime;
-    $params[':d_end']   = $ate_datetime;
-    if ($filial !== '') { $where[] = "u.nome = :filialName"; $params[':filialName']=$filial; }
-    if ($status !== '') { $where[] = "sp.status = :statusFilter"; $params[':statusFilter']=$status; }
 
-    $sql = "
-        SELECT sp.status, COUNT(*) AS quantidade, SUM(sp.valor) AS total_valor
+    $where[] = "sp.created_at BETWEEN :d1 AND :d2";
+    $params[':d1'] = $de_datetime;
+    $params[':d2'] = $ate_datetime;
+
+    if ($filial !== '') {
+        $where[] = "u.nome = :filialFiltro";
+        $params[':filialFiltro'] = $filial;
+    }
+
+    if ($status !== '') {
+        $where[] = "sp.status = :statusFiltro";
+        $params[':statusFiltro'] = $status;
+    }
+
+    $sql="
+        SELECT sp.status, COUNT(*) AS qtd, SUM(sp.valor) AS soma
         FROM solicitacoes_pagamento sp
-        JOIN unidades u ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE " . implode(' AND ', $where) . "
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
         GROUP BY sp.status
     ";
-    $stmt = $pdo->prepare($sql);
+    
+    $stmt=$pdo->prepare($sql);
     $stmt->execute($params);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($rows as $r) {
-        $k = strtolower($r['status']);
-        if (isset($dados[$k])) {
-            $dados[$k]['quantidade'] = (int)$r['quantidade'];
-            $dados[$k]['valor'] = (float)$r['total_valor'];
+    $res=$stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach($res as $r){
+        $k=strtolower($r['status']);
+        if(isset($dados[$k])){
+            $dados[$k]['quantidade']=(int)$r['qtd'];
+            $dados[$k]['valor']=(float)$r['soma'];
         }
     }
-    $totalGeralRecebiveis = $dados['aprovado']['valor'] + $dados['pendente']['valor'] + $dados['reprovado']['valor'];
-} catch (PDOException $e) {
-    // silencioso
-}
 
-// -----------------------------
-// 3) FLUXO DE CAIXA (aberturas) - filtro por fechamento_datetime
-// -----------------------------
+} catch(PDOException $e){}
+
+$totalGeralRecebiveis = $dados['aprovado']['valor']
+                       +$dados['pendente']['valor']
+                       +$dados['reprovado']['valor'];
+
+
+// ================================================================
+// 3) FLUXO DE CAIXA (aberturas)
+// ================================================================
 $fluxo = [];
-$totalEntradas = $totalSaidas = $totalSaldo = 0.0;
+$totalEntradas = $totalSaidas = $totalSaldo = 0;
 $totalVendas = 0;
 
 try {
     $where = ["1=1"];
     $params = [];
-    $where[] = "a.fechamento_datetime BETWEEN :d_start AND :d_end";
-    $params[':d_start'] = $de_datetime;
-    $params[':d_end']   = $ate_datetime;
-    if ($filial !== '') { $where[] = "u.nome = :filialName"; $params[':filialName'] = $filial; }
+
+    $where[] = "a.fechamento_datetime BETWEEN :d1 AND :d2";
+    $params[':d1']=$de_datetime;
+    $params[':d2']=$ate_datetime;
+
+    if ($filial !== '') {
+        $where[] = "u.nome = :filialFiltro";
+        $params[':filialFiltro'] = $filial;
+    }
 
     $sql = "
-        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido, a.quantidade_vendas, u.nome AS nome_filial
+        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido,
+               a.quantidade_vendas, u.nome AS nome_filial
         FROM aberturas a
-        JOIN unidades u ON u.id = REPLACE(a.empresa_id, 'unidade_', '')
-        WHERE " . implode(' AND ', $where) . "
-          AND a.status = 'fechado'
-          AND u.tipo = 'Filial'
+        ".str_replace("FIELD_ID","a.empresa_id",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
+          AND a.status='fechado'
         ORDER BY a.fechamento_datetime DESC
     ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($fluxo as $f) {
+    $stmt=$pdo->prepare($sql);
+    $stmt->execute($params);
+    $fluxo=$stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach($fluxo as $f){
         $totalEntradas += (float)$f['valor_total'];
         $totalSaidas   += (float)$f['valor_sangrias'];
         $totalSaldo    += (float)$f['valor_liquido'];
         $totalVendas   += (int)$f['quantidade_vendas'];
     }
-} catch (PDOException $e) {
-    $fluxo = [];
-}
 
-// -----------------------------
-// 4) CONTAS FUTURAS (contas.datatransacao)
-// -----------------------------
+} catch(PDOException $e){}
+
+
+// ================================================================
+// 4) CONTAS FUTURAS
+// ================================================================
 $contasFuturas = [];
 try {
-    $where = ["1=1"];
-    $params = [];
-    $where[] = "c.datatransacao BETWEEN :d_start_date AND :d_end_date";
-    $params[':d_start_date'] = $de;
-    $params[':d_end_date'] = $ate;
-    if ($filial !== '') { $where[] = "u.nome = :filialName"; $params[':filialName'] = $filial; }
+    $where=["1=1"];
+    $params=[];
 
-    $sql = "
+    $where[]="c.datatransacao BETWEEN :d1 AND :d2";
+    $params[':d1']=$de;
+    $params[':d2']=$ate;
+
+    if($filial!==''){
+        $where[]="u.nome = :filialFiltro";
+        $params[':filialFiltro']=$filial;
+    }
+
+    $sql="
         SELECT c.*, u.nome AS nome_filial
         FROM contas c
-        JOIN unidades u ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
-        WHERE " . implode(' AND ', $where) . "
-          AND c.statuss = 'futura'
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
+          AND c.statuss='futura'
         ORDER BY c.datatransacao ASC
     ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $contasFuturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $contasFuturas = [];
-}
 
-// -----------------------------
+    $stmt=$pdo->prepare($sql);
+    $stmt->execute($params);
+    $contasFuturas=$stmt->fetchAll(PDO::FETCH_ASSOC);
+
+}catch(PDOException $e){}
+
+
+// ================================================================
 // 5) CONTAS PAGAS
-// -----------------------------
+// ================================================================
 $contasPagas = [];
 try {
-    $where = ["1=1"];
-    $params = [];
-    $where[] = "c.datatransacao BETWEEN :d_start_date_p AND :d_end_date_p";
-    $params[':d_start_date_p'] = $de;
-    $params[':d_end_date_p']   = $ate;
-    if ($filial !== '') { $where[] = "u.nome = :filialName"; $params[':filialName'] = $filial; }
+    $where=["1=1"];
+    $params=[];
 
-    $sql = "
+    $where[]="c.datatransacao BETWEEN :d1 AND :d2";
+    $params[':d1']=$de;
+    $params[':d2']=$ate;
+
+    if($filial!==''){
+        $where[]="u.nome = :filialFiltro";
+        $params[':filialFiltro']=$filial;
+    }
+
+    $sql="
         SELECT c.*, u.nome AS nome_filial
         FROM contas c
-        JOIN unidades u ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
-        WHERE " . implode(' AND ', $where) . "
-          AND c.statuss = 'pago'
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
+          AND c.statuss='pago'
         ORDER BY c.datatransacao DESC
     ";
-    $stmt = $pdo->prepare($sql);
+
+    $stmt=$pdo->prepare($sql);
     $stmt->execute($params);
-    $contasPagas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-} catch (PDOException $e) {
-    $contasPagas = [];
-}
+    $contasPagas=$stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// -----------------------------
+}catch(PDOException $e){}
+
+
+// ================================================================
 // 6) PAGAMENTOS APROVADOS
-// -----------------------------
-$pagamentos = [];
-$totalGeralPagamentos = 0.0;
-try {
-    $where = ["1=1"];
-    $params = [];
-    $where[] = "sp.created_at BETWEEN :d_start AND :d_end";
-    $params[':d_start'] = $de_datetime;
-    $params[':d_end']   = $ate_datetime;
-    if ($filial !== '') { $where[] = "u.nome = :filialName"; $params[':filialName'] = $filial; }
+// ================================================================
+$pagamentos=[];
+$totalGeralPagamentos=0;
 
-    $sql = "
+try{
+    $where=["1=1"];
+    $params=[];
+
+    $where[]="sp.created_at BETWEEN :d1 AND :d2";
+    $params[':d1']=$de_datetime;
+    $params[':d2']=$ate_datetime;
+
+    if($filial!==''){
+        $where[]="u.nome = :filialFiltro";
+        $params[':filialFiltro']=$filial;
+    }
+
+    $sql="
         SELECT sp.*, u.nome AS nome_filial
         FROM solicitacoes_pagamento sp
-        JOIN unidades u ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE " . implode(' AND ', $where) . "
-          AND sp.status = 'aprovado'
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
+          AND sp.status='aprovado'
         ORDER BY sp.created_at DESC
     ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $pagamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($pagamentos as $pg) { $totalGeralPagamentos += (float)$pg['valor']; }
-} catch (PDOException $e) {
-    $pagamentos = [];
-}
 
-// -----------------------------
-// Ready: todas variáveis que seu HTML espera estão definidas
-// -----------------------------
+    $stmt=$pdo->prepare($sql);
+    $stmt->execute($params);
+    $pagamentos=$stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach($pagamentos as $p){
+        $totalGeralPagamentos += (float)$p['valor'];
+    }
+
+}catch(PDOException $e){}
 
 ?>
+
 <!-- ============================= -->
 <!-- Filtros (De / Até, Status, Filial) -->
 <!-- ============================= -->
