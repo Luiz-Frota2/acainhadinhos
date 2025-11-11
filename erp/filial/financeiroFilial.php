@@ -343,24 +343,27 @@ try {
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                 <div class="row g-2 align-items-end">
-                                    <!-- Filtros -->
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <label for="periodo" class="form-label mb-1">Período</label>
-                                        <select id="periodo" class="form-select form-select-sm" name="periodo">
-                                            <option selected>Período: Mês Atual</option>
-                                            <option>Últimos 30 dias</option>
-                                            <option>Últimos 90 dias</option>
-                                            <option>Este ano</option>
-                                        </select>
-                                    </div>
+                                    
+                                <!-- De -->
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <label class="form-label mb-1">De</label>
+                                    <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
+                                </div>
+
+                                <!-- Até -->
+                                <div class="col-6 col-md-3 col-lg-2">
+                                    <label class="form-label mb-1">Até</label>
+                                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
+                                </div>
+
 
                                     <div class="col-12 col-sm-6 col-lg-3">
                                         <label for="status" class="form-label mb-1">Status</label>
                                         <select id="status" class="form-select form-select-sm" name="status">
                                             <option selected>Status: Todos</option>
-                                            <option>Pagos</option>
-                                            <option>Em Aberto</option>
-                                            <option>Vencidos</option>
+                                            <option>Aprovado</option>
+                                            <option>Pendente</option>
+                                            <option>Reprovado</option>
                                         </select>
                                     </div>
 
