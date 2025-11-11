@@ -1017,7 +1017,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <div class="card mb-3">
     <h5 class="card-header">Fluxo de Caixa — Resumo do Período</h5>
     <div class="table-responsive">
-        <table class="table table-striped table-hover">
+        <table class="table table-striped table-hover text-nowrap">
             <thead>
                 <tr>
                     <th>Responsável</th>
@@ -1065,7 +1065,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <div class="card mb-3">
     <h5 class="card-header">Contas a pagar (Futura)</h5>
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle text-nowrap">
             <thead>
                 <tr>
                     <th>#</th>
@@ -1108,7 +1108,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <div class="card mb-3">
     <h5 class="card-header">Contas Pagas</h5>
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle text-nowrap">
             <thead>
                 <tr>
                     <th>#</th>
@@ -1151,7 +1151,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <div class="card mb-3">
     <h5 class="card-header">Pagamentos por Filial — Resumo</h5>
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle text-nowrap">
             <thead>
                 <tr>
                     <th>Filial</th>
