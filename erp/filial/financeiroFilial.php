@@ -842,19 +842,19 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
             <div class="row g-2 align-items-end">
 
                 <!-- De -->
-                <div class="col-3 col-md-2">
+                <div class="col-6 col-md-1">
                     <label class="form-label mb-1">De</label>
                     <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de_raw) ?>">
                 </div>
 
                 <!-- Até -->
-                <div class="col-3 col-md-2">
+                <div class="col-6 col-md-1">
                     <label class="form-label mb-1">Até</label>
                     <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate_raw) ?>">
                 </div>
 
                 <!-- Status -->
-                <div class="col-4 col-md-3">
+                <div class="col-6 col-md-2">
                     <label for="status" class="form-label mb-1">Status</label>
                     <select id="status" class="form-select form-select-sm" name="status">
                         <option value="">Status: Todos</option>
@@ -865,7 +865,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
                 </div>
 
                 <!-- Filial -->
-                <div class="col-4 col-md-3">
+                <div class="col-6 col-md-2">
                     <label for="filial" class="form-label mb-1">Filial</label>
                     <select id="filial" class="form-select form-select-sm" name="filial">
                         <option value="">Todas as Filiais</option>
