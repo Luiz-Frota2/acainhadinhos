@@ -842,13 +842,13 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
             <div class="row g-2 align-items-end">
 
                 <!-- De -->
-                <div class="col-6 col-md-1">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1">De</label>
                     <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de_raw) ?>">
                 </div>
 
                 <!-- Até -->
-                <div class="col-6 col-md-1">
+                <div class="col-6 col-md-2">
                     <label class="form-label mb-1">Até</label>
                     <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate_raw) ?>">
                 </div>
