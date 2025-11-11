@@ -917,61 +917,7 @@ function p($valor, $total) {
 
 </div>
 
-                  <?php
-// ---------------------------------------------------------
-// RECEBÍVEIS POR STATUS (FILIAIS ATIVAS) — RESUMO GERAL
-// ---------------------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            sp.status,
-            COUNT(*) AS quantidade,
-            SUM(sp.valor) AS total_valor
-        FROM solicitacoes_pagamento sp
-        INNER JOIN unidades u 
-            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE 
-            u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        GROUP BY sp.status
-        ORDER BY sp.status
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $statusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar status: " . $e->getMessage() . "</p>";
-    $statusData = [];
-}
-
-// Converter para estrutura indexada por status
-$dados = [
-    "aprovado"  => ["quantidade" => 0, "valor" => 0],
-    "pendente"  => ["quantidade" => 0, "valor" => 0],
-    "reprovado" => ["quantidade" => 0, "valor" => 0],
-];
-
-foreach ($statusData as $row) {
-    $status = strtolower($row["status"]);
-    $dados[$status]["quantidade"] = (int)$row["quantidade"];
-    $dados[$status]["valor"]      = (float)$row["total_valor"];
-}
-
-// Total geral de valores
-$totalGeral = 
-    $dados["aprovado"]["valor"] + 
-    $dados["pendente"]["valor"] + 
-    $dados["reprovado"]["valor"];
-
-// Função % (evita divisão por zero)
-function percent($valor, $total) {
-    if ($total <= 0) return 0;
-    return ($valor / $total) * 100;
-}
-?>
+           
 
 <!-- ============================= -->
 <!-- Recebíveis por Status -->
@@ -1098,46 +1044,6 @@ function percent($valor, $total) {
     </div>
 </div>
 
-                    <?php
-// --------------------------------------------------------
-// LISTAGEM DO FLUXO DE CAIXA DAS FILIAIS ATIVAS (FECHADOS)
-// --------------------------------------------------------
-
-try {
-    $sql = "
-        SELECT
-            a.responsavel,
-            a.valor_total,
-            a.valor_sangrias,
-            a.valor_liquido,
-            a.quantidade_vendas,
-            u.nome AS nome_filial
-        FROM aberturas a
-        INNER JOIN unidades u
-            ON u.id = REPLACE(a.empresa_id, 'unidade_', '')
-        WHERE 
-            a.status = 'fechado'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY a.fechamento_datetime DESC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar fluxo de caixa: " . $e->getMessage() . "</p>";
-    $fluxo = [];
-}
-
-// Totais gerais
-$totalEntradas = 0;
-$totalSaidas = 0;
-$totalSaldo = 0;
-$totalVendas = 0;
-?>
-
 <!-- ============================= -->
 <!-- Fluxo de Caixa (Resumo) -->
 <!-- ============================= -->
@@ -1220,41 +1126,7 @@ $totalVendas = 0;
 </div>
 
 
-             <?php
-// ------------------------------------------------
-// LISTAR CONTAS FUTURAS (FILIAIS ATIVAS)
-// ------------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            c.id,
-            c.descricao,
-            c.valorpago,
-            c.datatransacao,
-            c.responsavel,
-            c.statuss,
-            u.nome AS nome_filial
-        FROM contas c
-        INNER JOIN unidades u
-            ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
-        WHERE 
-            c.statuss = 'futura'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY c.datatransacao ASC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $contasFuturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar contas futuras: " . $e->getMessage() . "</p>";
-    $contasFuturas = [];
-}
-?>
-
+           
 <!-- ============================= -->
 <!-- Contas a Pagar (Futuras) -->
 <!-- ============================= -->
@@ -1311,41 +1183,7 @@ try {
     </div>
 </div>
 
-                 <?php
-// ------------------------------------------------
-// LISTAR CONTAS PAGAS DE FILIAIS ATIVAS
-// ------------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            c.id,
-            c.descricao,
-            c.valorpago,
-            c.datatransacao,
-            c.responsavel,
-            c.statuss,
-            u.nome AS nome_filial
-        FROM contas c
-        INNER JOIN unidades u
-            ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
-        WHERE 
-            c.statuss = 'pago'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY c.datatransacao DESC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $contasPagas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar contas pagas: " . $e->getMessage() . "</p>";
-    $contasPagas = [];
-}
-?>
-
+               
 <!-- ============================= -->
 <!-- Contas a Pagar / Contas Pagas -->
 <!-- ============================= -->
@@ -1404,43 +1242,7 @@ try {
 
 
                     <!-- ============================= -->
-                   <?php
-// ---------------------------------------------
-// LISTAR PAGAMENTOS APROVADOS POR FILIAL ATIVA
-// ---------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            sp.ID,
-            sp.valor,
-            sp.descricao,
-            sp.vencimento,
-            sp.created_at,
-            sp.comprovante_url,
-            u.nome AS nome_filial
-        FROM solicitacoes_pagamento sp
-        INNER JOIN unidades u 
-            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE 
-            sp.status = 'aprovado'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY sp.created_at DESC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $pagamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar pagamentos: " . $e->getMessage() . "</p>";
-    $pagamentos = [];
-}
-
-$totalGeral = 0;
-?>
-
+                  
 <!-- Pagamentos por Filial -->
 <div class="card mb-3">
     <h5 class="card-header">Pagamentos por Filial — Resumo</h5>
