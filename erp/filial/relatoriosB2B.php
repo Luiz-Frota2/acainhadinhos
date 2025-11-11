@@ -1031,9 +1031,22 @@ $fimTxt = $fim->format('d/m/Y');
                             <div class="col-12 col-md-5 d-flex gap-2">
                                 <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-                                <a class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
-                                <a class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
-                                <a class="btn btn-sm btn-outline-secondary">Imprimir</a>
+                              <a href="relatorio_b2b_export.php?tipo=xlsx&<?= http_build_query($_GET) ?>" 
+   class="btn btn-success">
+   XLSX
+</a>
+
+                               <a href="relatorio_b2b_export.php?tipo=csv&<?= http_build_query($_GET) ?>" 
+   class="btn btn-info">
+   CSV
+</a>
+
+                            <a href="relatorio_b2b_export.php?tipo=print&<?= http_build_query($_GET) ?>" 
+   class="btn btn-primary" target="_blank">
+   Imprimir
+</a>
+
+
                             </div>
                         </form>
                     </div>
