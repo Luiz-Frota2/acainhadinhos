@@ -878,7 +878,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
                 </div>
 
                 <!-- Ações (reorganizado) -->
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                     <button class="btn btn-sm btn-primary" type="submit" title="Aplicar filtros">
                         <i class="bx bx-filter-alt me-1"></i> Aplicar
                     </button>
