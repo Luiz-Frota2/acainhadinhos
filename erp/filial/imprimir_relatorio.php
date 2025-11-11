@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once "../conexao.php"; // ajuste o caminho
+require_once "../../assets/php/conexao.php"; // ajuste o caminho
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
