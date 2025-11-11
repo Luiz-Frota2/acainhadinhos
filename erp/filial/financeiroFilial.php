@@ -528,7 +528,7 @@ function percent($valor, $total) {
 
                 <!-- Status: Aprovado -->
                 <tr>
-                    <td><span class="badge badge-soft bg-success text-white">Pago (Aprovado)</span></td>
+                    <td><span class="badge badge-soft bg-success text-white">Pago</span></td>
                     <td class="text-end"><?= $dados['aprovado']['quantidade'] ?></td>
                     <td class="text-end">
                         R$ <?= number_format($dados['aprovado']['valor'], 2, ',', '.') ?>
@@ -554,7 +554,7 @@ function percent($valor, $total) {
 
                 <!-- Status: Pendente -->
                 <tr>
-                    <td><span class="badge badge-soft bg-warning text-dark">Em Aberto (Pendente)</span></td>
+                    <td><span class="badge badge-soft bg-warning text-dark">Em Aberto</span></td>
 
                     <td class="text-end"><?= $dados['pendente']['quantidade'] ?></td>
 
