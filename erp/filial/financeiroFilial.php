@@ -617,7 +617,7 @@ try {
         INNER JOIN unidades u
             ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
         WHERE 
-            c.statuss = 'futura'
+            c.statuss = 'pago'
             AND u.tipo = 'Filial'
             AND u.status = 'Ativa'
         ORDER BY c.datatransacao DESC
