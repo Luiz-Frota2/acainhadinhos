@@ -615,7 +615,7 @@ $totalVendas = 0;
                                 R$ <?= number_format($f['valor_liquido'], 2, ',', '.') ?>
                             </td>
 
-                            <td><?= $f['quantidade_vendas'] ?></td>
+                            <td class="text-end"><?= $f['quantidade_vendas'] ?></td>
                         </tr>
 
                     <?php endforeach; ?>
