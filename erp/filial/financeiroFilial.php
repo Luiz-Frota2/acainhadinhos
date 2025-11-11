@@ -525,44 +525,127 @@ try {
                         </div>
                     </div>
 
-                    <!-- ============================= -->
-                    <!-- Fluxo de Caixa (Resumo)       -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Fluxo de Caixa — Resumo do Período</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Responsavel</th>
-                                        <th class="text-end">Entradas (R$)</th>
-                                        <th class="text-end">Saídas (R$)</th>
-                                        <th class="text-end">Saldo (R$)</th>
-                                        <th>Obs.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Luiz frota</td>
-                                        <td class="text-end">R$ 103.900,00</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 103.900,00</td>
-                                        <td>Baixas confirmadas</td>
-                                    </tr>
-                                
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>Total</th>
-                                        <th class="text-end">R$ 146.400,00</th>
-                                        <th class="text-end">R$ 36.100,00</th>
-                                        <th class="text-end">R$ 110.300,00</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
+                    <?php
+// --------------------------------------------------------
+// LISTAGEM DO FLUXO DE CAIXA DAS FILIAIS ATIVAS (FECHADOS)
+// --------------------------------------------------------
+
+try {
+    $sql = "
+        SELECT
+            a.responsavel,
+            a.valor_total,
+            a.valor_sangrias,
+            a.valor_liquido,
+            a.quantidade_vendas,
+            u.nome AS nome_filial
+        FROM aberturas a
+        INNER JOIN unidades u
+            ON u.id = REPLACE(a.empresa_id, 'unidade_', '')
+        WHERE 
+            a.status = 'fechado'
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        ORDER BY a.fechamento_datetime DESC
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute();
+    $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    echo "<p>Erro ao carregar fluxo de caixa: " . $e->getMessage() . "</p>";
+    $fluxo = [];
+}
+
+// Totais gerais
+$totalEntradas = 0;
+$totalSaidas = 0;
+$totalSaldo = 0;
+$totalVendas = 0;
+?>
+
+<!-- ============================= -->
+<!-- Fluxo de Caixa (Resumo) -->
+<!-- ============================= -->
+<div class="card mb-3">
+    <h5 class="card-header">Fluxo de Caixa — Resumo do Período</h5>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Responsavel</th>
+                    <th class="text-end">Entradas (R$)</th>
+                    <th class="text-end">Saídas (R$)</th>
+                    <th class="text-end">Saldo (R$)</th>
+                    <th>Quantidade de Vnd</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <?php if (empty($fluxo)) : ?>
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">
+                            Nenhum caixa fechado de filial ativa encontrado.
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($fluxo as $f): ?>
+
+                        <?php
+                            $totalEntradas += $f['valor_total'];
+                            $totalSaidas   += $f['valor_sangrias'];
+                            $totalSaldo    += $f['valor_liquido'];
+                            $totalVendas   += $f['quantidade_vendas'];
+                        ?>
+
+                        <tr>
+                            <td><?= htmlspecialchars($f['responsavel']) ?></td>
+
+                            <td class="text-end">
+                                R$ <?= number_format($f['valor_total'], 2, ',', '.') ?>
+                            </td>
+
+                            <td class="text-end">
+                                R$ <?= number_format($f['valor_sangrias'], 2, ',', '.') ?>
+                            </td>
+
+                            <td class="text-end">
+                                R$ <?= number_format($f['valor_liquido'], 2, ',', '.') ?>
+                            </td>
+
+                            <td><?= $f['quantidade_vendas'] ?></td>
+                        </tr>
+
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+
+            <tfoot>
+                <tr>
+                    <th>Total</th>
+
+                    <th class="text-end">
+                        R$ <?= number_format($totalEntradas, 2, ',', '.') ?>
+                    </th>
+
+                    <th class="text-end">
+                        R$ <?= number_format($totalSaidas, 2, ',', '.') ?>
+                    </th>
+
+                    <th class="text-end">
+                        R$ <?= number_format($totalSaldo, 2, ',', '.') ?>
+                    </th>
+
+                    <th class="text-end"><?= $totalVendas ?></th>
+                </tr>
+            </tfoot>
+
+        </table>
+    </div>
+</div>
+
 
              <?php
 // ------------------------------------------------
