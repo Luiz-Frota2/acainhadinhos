@@ -232,127 +232,22 @@ if (!empty($filialKeys)) {
     $sqlReprovadoCount->execute(array_merge($filialKeys, [$inicioDatetime, $fimDatetime]));
     $remessasConcluidas = (int)$sqlReprovadoCount->fetchColumn();
 }
-
-// -------------------------
-// ROTAS: CSV / XLSX / PRINT
-// -------------------------
-
-// ------------------------- CSV (A) — UM ÚNICO ARQUIVO COM SEÇÕES CORRIGIDO
-// -------------------------
-if ($tipo === 'csv') {
-
-    header("Content-Type: text/csv; charset=utf-8");
-    header("Content-Disposition: attachment; filename=relatorio_b2b.csv");
-    
-    // BOM para Excel
-    echo "\xEF\xBB\xBF";
-
-    $out = fopen("php://output", "w");
-
-    // ================= CABEÇALHO =================
-    fputcsv($out, ["Relatório B2B - Filiais"]);
-    fputcsv($out, ["Período", "$inicioFiltro até $fimFiltro"]);
-    fputcsv($out, []);
-
-
-    // =======================================================
-    // ✅ 1 — RESUMO DO PERÍODO
-    // =======================================================
-    fputcsv($out, ["Resumo do Período"]);
-    fputcsv($out, ["Métrica", "Valor", "Variacao(%)", "Observação"]);
-
-    foreach ($resumo as $metric => $vals) {
-
-        $valor = is_numeric($vals[0]) ? number_format($vals[0], 2, ".", "") : $vals[0];
-        $var    = number_format($vals[1], 1, ".", ""); // padrão internacional CSV
-
-        $obs = match ($metric) {
-            "Pedidos B2B"         => "Solicitações feitas por filiais",
-            "Itens Solicitados"   => "Soma total de itens",
-            "Faturamento Estimado"=> "Subtotal geral",
-            "Ticket Médio"        => "Faturamento / pedidos",
-            default               => ""
-        };
-
-        fputcsv($out, [$metric, $valor, $var, $obs]);
-    }
-
-    fputcsv($out, []);
-
-
-    // =======================================================
-    // ✅ 2 — FILIAIS
-    // =======================================================
-    fputcsv($out, ["Vendas / Pedidos por Filial"]);
-    fputcsv($out, ["Filial", "Pedidos", "Itens", "Faturamento(R$)", "Ticket Médio(R$)", "% Total"]);
-
-    foreach ($listaFiliaisExport as $row) {
-        fputcsv($out, [
-            $row['nome'],
-            (int)$row['pedidos'],
-            (int)$row['itens'],
-            number_format($row['faturamento'], 2, ".", ""),
-            number_format($row['ticket'], 2, ".", ""),
-            number_format($row['perc'], 1, ".", "")
-        ]);
-    }
-
-    fputcsv($out, []);
-
-
-    // =======================================================
-    // ✅ 3 — PRODUTOS MAIS SOLICITADOS
-    // =======================================================
-    fputcsv($out, ["Produtos Mais Solicitados"]);
-    fputcsv($out, ["SKU", "Produto", "Quantidade", "Pedidos", "Participação(%)"]);
-
-    if (!empty($produtosLista)) {
-        foreach ($produtosLista as $p) {
-            fputcsv($out, [
-                "'" . $p['codigo_produto'], // força texto (Excel não converte em número)
-                $p['nome_produto'],
-                (int)$p['total_quantidade'],
-                (int)$p['total_pedidos'],
-                number_format($p['perc'], 1, ".", "")
-            ]);
-        }
-    } else {
-        fputcsv($out, ["Nenhum produto encontrado no período."]);
-    }
-
-    fputcsv($out, []);
-
-
-    // =======================================================
-    // ✅ 4 — PAGAMENTOS X ENTREGAS
-    // =======================================================
-    fputcsv($out, ["Pagamentos x Entregas"]);
-    fputcsv($out, ["Métrica", "Quantidade", "Valor(R$)", "Status"]);
-
-    fputcsv($out, ["Pagamentos Solicitados", (int)$pendQtd, number_format($pendValor,2,".",""), "Pendente"]);
-    fputcsv($out, ["Remessa Concluída",    (int)$aprovQtd, number_format($aprovValor,2,".",""), "Aprovado"]);
-    fputcsv($out, ["Remessa Reprovada",    (int)$reprovQtd,number_format($reprovValor,2,".",""), "Reprovado"]);
-
-    fclose($out);
-    exit;
-}
-
-
-// ------------------------- XLSX (B) — SEM PhpSpreadsheet, GERADO MANUALMENTE
+// ------------------------- XLSX (B) — SEM PhpSpreadsheet, GERADO MANUALMENTE (BLOCO SUBSTITUTO)
 // -------------------------
 if ($tipo === 'xlsx') {
 
-    // Nome do arquivo
     $filename = "relatorio_b2b.xlsx";
 
-    // Estrutura básica do XLSX
-    // O Excel nada mais é que um ZIP contendo vários XMLs
     $tmp = tempnam(sys_get_temp_dir(), 'xlsx_');
     $zip = new ZipArchive();
-    $zip->open($tmp, ZipArchive::OVERWRITE);
+    if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) {
+        http_response_code(500);
+        echo "Erro ao criar arquivo temporário XLSX.";
+        exit;
+    }
 
-    // --- [1] RELAÇÃO DE ARQUIVOS DENTRO DO XLSX ---
-    $zip->addFromString('[Content_Types].xml', '
+    // [Content_Types].xml
+    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?>
     <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
         <Default Extension="xml" ContentType="application/xml"/>
         <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
@@ -363,14 +258,14 @@ if ($tipo === 'xlsx') {
         <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
     </Types>');
 
-    // --- [2] RELACIONAMENTOS PRINCIPAIS ---
+    // _rels/.rels
     $zip->addFromString('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?>
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
     </Relationships>');
 
-    // --- [3] workbook.xml ---
-    $zip->addFromString('xl/workbook.xml','<?xml version="1.0"?>
+    // xl/workbook.xml
+    $zip->addFromString('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8"?>
     <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
               xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         <sheets>
@@ -378,8 +273,8 @@ if ($tipo === 'xlsx') {
         </sheets>
     </workbook>');
 
-    // --- [4] workbook relationships ---
-    $zip->addFromString('xl/_rels/workbook.xml.rels','<?xml version="1.0"?>
+    // xl/_rels/workbook.xml.rels
+    $zip->addFromString('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8"?>
     <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
         <Relationship Id="rId1" 
             Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" 
@@ -389,8 +284,8 @@ if ($tipo === 'xlsx') {
             Target="styles.xml"/>
     </Relationships>');
 
-    // --- [5] styles.xml (BÁSICO) ---
-    $zip->addFromString('xl/styles.xml','<?xml version="1.0"?>
+    // xl/styles.xml (básico)
+    $zip->addFromString('xl/styles.xml','<?xml version="1.0" encoding="UTF-8"?>
     <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
         <fonts count="1"><font><sz val="11"/></font></fonts>
         <fills count="1"><fill/></fills>
@@ -399,15 +294,43 @@ if ($tipo === 'xlsx') {
         <cellXfs count="1"><xf xfId="0" numFmtId="0"/></cellXfs>
     </styleSheet>');
 
-    // ------------------------------------------
-    // ✅ CONVERTER TODAS AS 4 TABELAS EM XML
-    // ------------------------------------------
+    // docProps/app.xml (mínimo)
+    $zip->addFromString('docProps/app.xml','<?xml version="1.0" encoding="UTF-8"?>
+    <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+                xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+        <Application>PHP XLSX Generator</Application>
+        <DocSecurity>0</DocSecurity>
+        <ScaleCrop>false</ScaleCrop>
+        <HeadingPairs>
+            <vt:vector size="2" baseType="variant">
+                <vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant>
+                <vt:variant><vt:i4>1</vt:i4></vt:variant>
+            </vt:vector>
+        </HeadingPairs>
+        <TitlesOfParts>
+            <vt:vector size="1" baseType="lpstr">
+                <vt:lpstr>Relatório B2B</vt:lpstr>
+            </vt:vector>
+        </TitlesOfParts>
+        <Company></Company>
+        <LinksUpToDate>false</LinksUpToDate>
+    </Properties>');
 
+    // docProps/core.xml (mínimo)
+    $zip->addFromString('docProps/core.xml','<?xml version="1.0" encoding="UTF-8"?>
+    <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"
+                       xmlns:dc="http://purl.org/dc/elements/1.1/"
+                       xmlns:dcterms="http://purl.org/dc/terms/"
+                       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        <dc:creator>Sistema</dc:creator>
+        <cp:lastModifiedBy>Sistema</cp:lastModifiedBy>
+        <dcterms:created xsi:type="dcterms:W3CDTF">'.date("c").'</dcterms:created>
+        <dcterms:modified xsi:type="dcterms:W3CDTF">'.date("c").'</dcterms:modified>
+    </cp:coreProperties>');
+
+    // ---------- Montar os rows como antes, mas cuidando números ----------
     $rows = [];
 
-    // =======================
-    // TÍTULO
-    // =======================
     $rows[] = ["Relatório B2B - Filiais"];
     $rows[] = [];
     $rows[] = ["Período:", "$inicioFiltro até $fimFiltro"];
@@ -423,7 +346,8 @@ if ($tipo === 'xlsx') {
             "Ticket Médio" => "Faturamento / pedidos",
             default => ""
         };
-        $rows[] = [$m, $v[0], number_format($v[1],1,",","."), $obs];
+        // mantemos o valor bruto (sem formatar com vírgula) — formatamos apenas para texto se não for número
+        $rows[] = [$m, $v[0], $v[1], $obs];
     }
 
     $rows[] = [];
@@ -462,39 +386,62 @@ if ($tipo === 'xlsx') {
     $rows[] = [];
     $rows[] = ["==== Pagamentos x Entregas ===="];
     $rows[] = ["Métrica","Quantidade","Valor","Status"];
-
     $rows[] = ["Pagamentos Solicitados", $pendQtd, $pendValor, "Pendente"];
     $rows[] = ["Remessa Concluída", $aprovQtd, $aprovValor, "Aprovado"];
     $rows[] = ["Remessa Reprovada", $reprovQtd, $reprovValor, "Reprovado"];
 
-    // ---------------------------------------
-    // ✅ MONTAR O sheet1.xml
-    // ---------------------------------------
-    $sheetXml = '<?xml version="1.0"?>
-    <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+    // helpers
+    function excel_col_letter($index) {
+        // 1 -> A, 27 -> AA
+        $letters = '';
+        while ($index > 0) {
+            $mod = ($index - 1) % 26;
+            $letters = chr(65 + $mod) . $letters;
+            $index = (int)(($index - 1) / 26);
+        }
+        return $letters;
+    }
+    function normalize_number_for_xlsx($v) {
+        if ($v === null) return null;
+        if (is_int($v) || is_float($v)) return (string)$v;
+        $v = trim((string)$v);
+        // Caso venha no formato "1.234,56" -> remover pontos e trocar vírgula por ponto
+        if (preg_match('/^\-?[\d\.]+,\d+$/', $v)) {
+            $v = str_replace('.', '', $v);
+            $v = str_replace(',', '.', $v);
+        } else {
+            // remover espaços não-breaking etc
+            $v = str_replace(["\xc2\xa0", " "], '', $v);
+        }
+        return is_numeric($v) ? (string)$v : null;
+    }
+
+    // montar sheet XML
+    $sheetXml = '<?xml version="1.0" encoding="UTF-8"?>
+    <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+               xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
         <sheetData>';
 
     $r = 1;
     foreach ($rows as $row) {
-
-        $sheetXml .= "<row r=\"$r\">";
+        $sheetXml .= "<row r=\"{$r}\">";
         $c = 1;
-
         foreach ($row as $value) {
-            $col = chr(64 + $c);
-
-            // Se numérico → tipo n
-            if (is_numeric($value)) {
-                $sheetXml .= "<c r=\"{$col}{$r}\" t=\"n\"><v>{$value}</v></c>";
+            $col = excel_col_letter($c);
+            // tenta normalizar número
+            $num = normalize_number_for_xlsx($value);
+            if ($num !== null) {
+                // valor numérico
+                // garantir ponto decimal
+                $num = (string)$num;
+                $sheetXml .= "<c r=\"{$col}{$r}\" t=\"n\"><v>{$num}</v></c>";
             } else {
-                // Texto → tipo inlineStr
-                $v = htmlspecialchars($value);
+                // texto — escapar
+                $v = htmlspecialchars((string)$value, ENT_XML1 | ENT_COMPAT, 'UTF-8');
                 $sheetXml .= "<c r=\"{$col}{$r}\" t=\"inlineStr\"><is><t>{$v}</t></is></c>";
             }
-
             $c++;
         }
-
         $sheetXml .= "</row>";
         $r++;
     }
@@ -502,14 +449,19 @@ if ($tipo === 'xlsx') {
     $sheetXml .= "</sheetData></worksheet>";
 
     $zip->addFromString('xl/worksheets/sheet1.xml', $sheetXml);
+
+    // fechar zip
     $zip->close();
 
+    // enviar
     header("Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     header("Content-Disposition: attachment; filename={$filename}");
+    header('Content-Length: ' . filesize($tmp));
     readfile($tmp);
     unlink($tmp);
     exit;
 }
+
 
 // ------------------------- PRINT / PDF (Impressão) — Estilo Empresarial (B)
 // -------------------------
