@@ -334,144 +334,410 @@ try {
                         <span class="text-muted fw-light">Recebíveis, fluxo de caixa e status por Filial — Mês Atual</span>
                     </h5>
 
-                    <!-- ============================= -->
-                    <!-- Filtros                       -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <div class="card-body py-2">
-                            <form class="w-100" method="get">
-                                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                 <?php
+// -------------------------------------------------
+// Painel completo: Filtros + KPIs + 5 listagens
+// Substitua o trecho anterior pelo conteúdo abaixo
+// -------------------------------------------------
 
-                                <div class="row g-2 align-items-end">
-                                    <!-- Filtros -->
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <label for="periodo" class="form-label mb-1">Período</label>
-                                        <select id="periodo" class="form-select form-select-sm" name="periodo">
-                                            <option selected>Período: Mês Atual</option>
-                                            <option>Últimos 30 dias</option>
-                                            <option>Últimos 90 dias</option>
-                                            <option>Este ano</option>
-                                        </select>
-                                    </div>
+// ------------------------------------------------------------------
+// PRECONDIÇÕES: assumo que $pdo está inicializado anteriormente no script
+// e que $idSelecionado está disponível (você já tinha esse comportamento).
+// ------------------------------------------------------------------
 
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <label for="status" class="form-label mb-1">Status</label>
-                                        <select id="status" class="form-select form-select-sm" name="status">
-                                            <option selected>Status: Todos</option>
-                                            <option>Aprovado</option>
-                                            <option>Pendente</option>
-                                            <option>Reprovado</option>
-                                        </select>
-                                    </div>
+// helper de escape curto
+if (!function_exists('h')) {
+    function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+}
 
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <label for="Filial" class="form-label mb-1">Filial</label>
-                                        <select id="Filial" class="form-select form-select-sm" name="Filial">
-                                            <option selected>Todas as Filiais</option>
-                                            <option>Filial Centro</option>
-                                            <option>Filial Norte</option>
-                                            <option>Filial Sul</option>
-                                        </select>
-                                    </div>
+// Captura id (preservar)
+$idSelecionado = $_GET['id'] ?? $idSelecionado ?? '';
 
-                                    <!-- Ações principais -->
-                                    <!-- Ações primárias -->
-                                    <div class="col-12 col-sm-6 col-lg-3 mr-3">
+// Captura filtros GET
+$de_raw    = $_GET['de']    ?? '';
+$ate_raw   = $_GET['ate']   ?? '';
+$status_raw = $_GET['status'] ?? ''; // '', 'aprovado','pendente','reprovado'
+$filial_raw = $_GET['filial']  ?? ''; // nome da filial
 
+// Timezone e normalização de datas
+try {
+    $tz = new DateTimeZone('America/Sao_Paulo');
+} catch (Exception $e) {
+    $tz = null;
+}
 
-                                        <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
-                                            <div class="btn-group btn-group-sm me-2" role="group" aria-label="Exportar">
-                                                <button type="button" class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="bx bx-download me-1"></i>
-                                                    <span class="align-middle">Exportar</span>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
-                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
-                                                    <li>
-                                                        <hr class="dropdown-divider">
-                                                    </li>
-                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
-                                                </ul>
-                                            </div>
+// defaults: se vazio, primeiro dia do mês até hoje
+if (empty($de_raw)) {
+    $de = (new DateTime('first day of this month', $tz))->format('Y-m-d');
+} else {
+    $de = $de_raw;
+}
 
-                                            <div class="btn-group btn-group-sm" role="group" aria-label="Imprimir">
-                                                <button class="btn btn-outline-dark" type="button" onclick="window.print()" data-bs-toggle="tooltip" data-bs-title="Imprimir página">
-                                                    <i class="bx bx-printer me-1"></i>
-                                                    <span class="align-middle">Imprimir</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
+if (empty($ate_raw)) {
+    $ate = (new DateTime('now', $tz))->format('Y-m-d');
+} else {
+    $ate = $ate_raw;
+}
 
+// preparar bounds de tempo
+$de_datetime = $de . ' 00:00:00';
+$ate_datetime = $ate . ' 23:59:59';
 
-         <?php
-// ---------------------------------------------------------
-// CÁLCULO PARA OS CARDS DO RESUMO FINANCEIRO
-// ---------------------------------------------------------
+// normalizar status
+$status = '';
+if (!empty($status_raw)) {
+    $s = strtolower(trim($status_raw));
+    if (in_array($s, ['aprovado','pendente','reprovado'])) $status = $s;
+}
+
+// normalizar filial (nome)
+$filial = '';
+if (!empty($filial_raw)) {
+    $filial = trim($filial_raw);
+}
+
+// -----------------------------
+// Buscar lista de filiais Ativas (para popular select)
+// -----------------------------
+$filiaisOptions = [];
+try {
+    $sqlFiliais = "SELECT id, nome, empresa_id FROM unidades WHERE tipo = 'Filial' AND status = 'Ativa' ORDER BY nome";
+    $stmtF = $pdo->prepare($sqlFiliais);
+    $stmtF->execute();
+    $filiaisOptions = $stmtF->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $filiaisOptions = [];
+}
+
+// -----------------------------
+// 1) CARDS: soma por status (usa solicitacoes_pagamento.created_at)
+// status filter se aplica aqui
+// -----------------------------
+$wherePartsCards = ["1=1"];
+$paramsCards = [];
+
+// filtro data (created_at)
+if (!empty($de) && !empty($ate)) {
+    $wherePartsCards[] = "sp.created_at BETWEEN :de_created AND :ate_created";
+    $paramsCards[':de_created'] = $de_datetime;
+    $paramsCards[':ate_created'] = $ate_datetime;
+}
+
+// filtro filial (por nome) -> join com unidades
+if (!empty($filial)) {
+    $wherePartsCards[] = "u.nome = :filialName";
+    $paramsCards[':filialName'] = $filial;
+}
+
+// filtro status (aplica aqui)
+if (!empty($status)) {
+    $wherePartsCards[] = "sp.status = :statusFilter";
+    $paramsCards[':statusFilter'] = $status;
+}
 
 try {
     $sql = "
-        SELECT 
-            sp.status,
-            SUM(sp.valor) AS total
+        SELECT sp.status, SUM(sp.valor) AS total
         FROM solicitacoes_pagamento sp
-        INNER JOIN unidades u 
-            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE 
-            u.tipo = 'Filial'
-            AND u.status = 'Ativa'
+        INNER JOIN unidades u ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
+        WHERE " . implode(" AND ", $wherePartsCards) . "
         GROUP BY sp.status
     ";
-
     $stmt = $pdo->prepare($sql);
-    $stmt->execute();
+    $stmt->execute($paramsCards);
     $cardData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 } catch (PDOException $e) {
-    echo '<p>Erro ao carregar dados dos cards: ' . $e->getMessage() . '</p>';
     $cardData = [];
 }
 
-// Estrutura para armazenar
-$cards = [
-    "aprovado"  => 0,
-    "pendente"  => 0,
-    "reprovado" => 0
+// preencher estrutura cards
+$cards = ['aprovado'=>0.0,'pendente'=>0.0,'reprovado'=>0.0];
+foreach ($cardData as $r) {
+    $cards[strtolower($r['status'])] = (float)$r['total'];
+}
+$totalGeralCards = $cards['aprovado'] + $cards['pendente'] + $cards['reprovado'];
+function percentVal($v,$t){ if($t<=0) return 0; return ($v/$t)*100; }
+
+// -----------------------------
+// 2) RECEBÍVEIS POR STATUS (usa solicitacoes_pagamento.created_at)
+// aplica mesma wherePartsCards (status filter já incluído se enviado)
+// -----------------------------
+try {
+    $sql = "
+        SELECT sp.status, COUNT(*) AS quantidade, SUM(sp.valor) AS total_valor
+        FROM solicitacoes_pagamento sp
+        INNER JOIN unidades u ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
+        WHERE " . implode(" AND ", $wherePartsCards) . "
+        GROUP BY sp.status
+        ORDER BY sp.status
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($paramsCards);
+    $statusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $statusData = [];
+}
+
+// normalizar dados para exibição
+$dados = [
+    'aprovado'=>['quantidade'=>0,'valor'=>0.0],
+    'pendente'=>['quantidade'=>0,'valor'=>0.0],
+    'reprovado'=>['quantidade'=>0,'valor'=>0.0],
 ];
+foreach ($statusData as $r) {
+    $k = strtolower($r['status']);
+    $dados[$k]['quantidade'] = (int)$r['quantidade'];
+    $dados[$k]['valor'] = (float)$r['total_valor'];
+}
+$totalGeralRecebiveis = $dados['aprovado']['valor'] + $dados['pendente']['valor'] + $dados['reprovado']['valor'];
 
-// Preencher
-foreach ($cardData as $row) {
-    $cards[strtolower($row["status"])] = (float)$row["total"];
+// -----------------------------
+// 3) FLUXO DE CAIXA (aberturas) - filtrar por fechamento_datetime
+// -----------------------------
+$whereFluxo = ["1=1"];
+$paramsFluxo = [];
+
+// data para aberturas
+if (!empty($de) && !empty($ate)) {
+    $whereFluxo[] = "a.fechamento_datetime BETWEEN :de_fechamento AND :ate_fechamento";
+    $paramsFluxo[':de_fechamento'] = $de_datetime;
+    $paramsFluxo[':ate_fechamento'] = $ate_datetime;
 }
 
-// Total geral
-$totalGeralCards = $cards["aprovado"] + $cards["pendente"] + $cards["reprovado"];
-
-// Função porcentagem
-function p($valor, $total) {
-    if ($total <= 0) return 0;
-    return ($valor / $total) * 100;
+// filial filter for fluxo (via unidades join)
+if (!empty($filial)) {
+    $whereFluxo[] = "u.nome = :filialFluxo";
+    $paramsFluxo[':filialFluxo'] = $filial;
 }
+
+try {
+    $sql = "
+        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido, a.quantidade_vendas, u.nome AS nome_filial
+        FROM aberturas a
+        INNER JOIN unidades u ON u.id = REPLACE(a.empresa_id, 'unidade_', '')
+        WHERE " . implode(" AND ", $whereFluxo) . "
+            AND a.status = 'fechado'
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        ORDER BY a.fechamento_datetime DESC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($paramsFluxo);
+    $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $fluxo = [];
+}
+
+// calcular totais do fluxo
+$totalEntradas = $totalSaidas = $totalSaldo = $totalVendas = 0;
+foreach ($fluxo as $f) {
+    $totalEntradas += (float)$f['valor_total'];
+    $totalSaidas += (float)$f['valor_sangrias'];
+    $totalSaldo += (float)$f['valor_liquido'];
+    $totalVendas += (int)$f['quantidade_vendas'];
+}
+
+// -----------------------------
+// 4) CONTAS FUTURAS (contas.datatransacao)
+// -----------------------------
+$whereContasF = ["1=1"];
+$paramsContasF = [];
+if (!empty($de) && !empty($ate)) {
+    $whereContasF[] = "c.datatransacao BETWEEN :de_transacao AND :ate_transacao";
+    $paramsContasF[':de_transacao'] = $de;
+    $paramsContasF[':ate_transacao'] = $ate;
+}
+if (!empty($filial)) {
+    $whereContasF[] = "u.nome = :filialContasF";
+    $paramsContasF[':filialContasF'] = $filial;
+}
+
+try {
+    $sql = "
+        SELECT c.id, c.descricao, c.valorpago, c.datatransacao, c.responsavel, c.statuss, u.nome AS nome_filial
+        FROM contas c
+        INNER JOIN unidades u ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
+        WHERE " . implode(" AND ", $whereContasF) . "
+            AND c.statuss = 'futura'
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        ORDER BY c.datatransacao ASC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($paramsContasF);
+    $contasFuturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $contasFuturas = [];
+}
+
+// -----------------------------
+// 5) CONTAS PAGAS (contas.datatransacao)
+// -----------------------------
+$whereContasP = ["1=1"];
+$paramsContasP = [];
+if (!empty($de) && !empty($ate)) {
+    $whereContasP[] = "c.datatransacao BETWEEN :de_transacao_p AND :ate_transacao_p";
+    $paramsContasP[':de_transacao_p'] = $de;
+    $paramsContasP[':ate_transacao_p'] = $ate;
+}
+if (!empty($filial)) {
+    $whereContasP[] = "u.nome = :filialContasP";
+    $paramsContasP[':filialContasP'] = $filial;
+}
+
+try {
+    $sql = "
+        SELECT c.id, c.descricao, c.valorpago, c.datatransacao, c.responsavel, c.statuss, u.nome AS nome_filial
+        FROM contas c
+        INNER JOIN unidades u ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
+        WHERE " . implode(" AND ", $whereContasP) . "
+            AND c.statuss = 'pago'
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        ORDER BY c.datatransacao DESC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($paramsContasP);
+    $contasPagas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $contasPagas = [];
+}
+
+// -----------------------------
+// 6) PAGAMENTOS APROVADOS (solicitacoes_pagamento.created_at)
+// -----------------------------
+$wherePag = ["1=1"];
+$paramsPag = [];
+if (!empty($de) && !empty($ate)) {
+    $wherePag[] = "sp.created_at BETWEEN :de_created_pag AND :ate_created_pag";
+    $paramsPag[':de_created_pag'] = $de_datetime;
+    $paramsPag[':ate_created_pag'] = $ate_datetime;
+}
+if (!empty($filial)) {
+    $wherePag[] = "u.nome = :filialPag";
+    $paramsPag[':filialPag'] = $filial;
+}
+
+try {
+    $sql = "
+        SELECT sp.ID, sp.valor, sp.descricao, sp.vencimento, sp.created_at, sp.comprovante_url, u.nome AS nome_filial
+        FROM solicitacoes_pagamento sp
+        INNER JOIN unidades u ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
+        WHERE " . implode(" AND ", $wherePag) . "
+            AND sp.status = 'aprovado'
+            AND u.tipo = 'Filial'
+            AND u.status = 'Ativa'
+        ORDER BY sp.created_at DESC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($paramsPag);
+    $pagamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $pagamentos = [];
+}
+
+// calcular totalGeral para pagamentos
+$totalGeralPagamentos = 0.0;
+foreach ($pagamentos as $pg) { $totalGeralPagamentos += (float)$pg['valor']; }
+
 ?>
+<!-- ============================= -->
+<!-- Filtros (De / Até, Status, Filial) -->
+<!-- ============================= -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form class="w-100" method="get">
+            <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
+
+            <div class="row g-2 align-items-end">
+
+                <!-- De -->
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label mb-1">De</label>
+                    <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de) ?>">
+                </div>
+
+                <!-- Até -->
+                <div class="col-6 col-md-3 col-lg-2">
+                    <label class="form-label mb-1">Até</label>
+                    <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
+                </div>
+
+                <!-- Status (aplica somente aos cards e recebíveis por status) -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <label for="status" class="form-label mb-1">Status</label>
+                    <select id="status" class="form-select form-select-sm" name="status">
+                        <option value="">Status: Todos</option>
+                        <option value="aprovado" <?= ($status === 'aprovado') ? 'selected' : '' ?>>Aprovado</option>
+                        <option value="pendente" <?= ($status === 'pendente') ? 'selected' : '' ?>>Pendente</option>
+                        <option value="reprovado" <?= ($status === 'reprovado') ? 'selected' : '' ?>>Reprovado</option>
+                    </select>
+                </div>
+
+                <!-- Filial (populado dinamicamente) -->
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <label for="filial" class="form-label mb-1">Filial</label>
+                    <select id="filial" class="form-select form-select-sm" name="filial">
+                        <option value="">Todas as Filiais</option>
+                        <?php foreach ($filiaisOptions as $f): ?>
+                            <option value="<?= h($f['nome']) ?>" <?= ($filial === $f['nome']) ? 'selected' : '' ?>>
+                                <?= h($f['nome']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- Ações -->
+                <div class="col-12 col-sm-6 col-lg-3 mr-3">
+                    <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
+                        <div class="btn-group btn-group-sm me-2" role="group" aria-label="Exportar">
+                            <button type="button" class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bx bx-download me-1"></i>
+                                <span class="align-middle">Exportar</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
+                                <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
+                            </ul>
+                        </div>
+
+                        <div class="btn-group btn-group-sm me-2" role="group">
+                            <button class="btn btn-outline-secondary" type="submit">
+                                <i class="bx bx-filter-alt me-1"></i> Aplicar
+                            </button>
+                            <a class="btn btn-outline-dark" href="?id=<?= urlencode($idSelecionado) ?>" title="Limpar filtros">
+                                <i class="bx bx-x me-1"></i> Limpar filtros
+                            </a>
+                        </div>
+
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Imprimir">
+                            <button class="btn btn-outline-dark" type="button" onclick="window.print()" data-bs-toggle="tooltip" data-bs-title="Imprimir página">
+                                <i class="bx bx-printer me-1"></i>
+                                <span class="align-middle">Imprimir</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- ============================= -->
 <!-- KPIs principais -->
 <!-- ============================= -->
 <div class="row">
-    
-    <!-- FATURAMENTO TOTAL (TODOS OS STATUS) -->
+    <!-- FATURAMENTO TOTAL -->
     <div class="col-md-3 col-sm-6 mb-3">
         <div class="card kpi-card">
             <div class="card-body">
                 <div class="kpi-label">Faturamento (por Período)</div>
-                <div class="kpi-value">
-                    R$ <?= number_format($totalGeralCards, 2, ',', '.') ?>
-                </div>
+                <div class="kpi-value">R$ <?= number_format($totalGeralCards, 2, ',', '.') ?></div>
                 <div class="kpi-sub">Pedidos fechados</div>
             </div>
         </div>
@@ -482,12 +748,8 @@ function p($valor, $total) {
         <div class="card kpi-card">
             <div class="card-body">
                 <div class="kpi-label">Recebido (Aprovado)</div>
-                <div class="kpi-value">
-                    R$ <?= number_format($cards["aprovado"], 2, ',', '.') ?>
-                </div>
-                <div class="kpi-sub">
-                    <?= number_format(p($cards["aprovado"], $totalGeralCards), 1, ',', '.') ?>% do total
-                </div>
+                <div class="kpi-value">R$ <?= number_format($cards['aprovado'], 2, ',', '.') ?></div>
+                <div class="kpi-sub"><?= number_format(percentVal($cards['aprovado'],$totalGeralCards),1,',','.') ?>% do total</div>
             </div>
         </div>
     </div>
@@ -497,12 +759,8 @@ function p($valor, $total) {
         <div class="card kpi-card">
             <div class="card-body">
                 <div class="kpi-label">Em Aberto (Pendente)</div>
-                <div class="kpi-value">
-                    R$ <?= number_format($cards["pendente"], 2, ',', '.') ?>
-                </div>
-                <div class="kpi-sub">
-                    <?= number_format(p($cards["pendente"], $totalGeralCards), 1, ',', '.') ?>% do total
-                </div>
+                <div class="kpi-value">R$ <?= number_format($cards['pendente'], 2, ',', '.') ?></div>
+                <div class="kpi-sub"><?= number_format(percentVal($cards['pendente'],$totalGeralCards),1,',','.') ?>% do total</div>
             </div>
         </div>
     </div>
@@ -512,80 +770,18 @@ function p($valor, $total) {
         <div class="card kpi-card">
             <div class="card-body">
                 <div class="kpi-label">Reprovados</div>
-                <div class="kpi-value">
-                    R$ <?= number_format($cards["reprovado"], 2, ',', '.') ?>
-                </div>
-                <div class="kpi-sub">
-                    <?= number_format(p($cards["reprovado"], $totalGeralCards), 1, ',', '.') ?>% do total
-                </div>
+                <div class="kpi-value">R$ <?= number_format($cards['reprovado'], 2, ',', '.') ?></div>
+                <div class="kpi-sub"><?= number_format(percentVal($cards['reprovado'],$totalGeralCards),1,',','.') ?>% do total</div>
             </div>
         </div>
     </div>
-
 </div>
-
-                  <?php
-// ---------------------------------------------------------
-// RECEBÍVEIS POR STATUS (FILIAIS ATIVAS) — RESUMO GERAL
-// ---------------------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            sp.status,
-            COUNT(*) AS quantidade,
-            SUM(sp.valor) AS total_valor
-        FROM solicitacoes_pagamento sp
-        INNER JOIN unidades u 
-            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE 
-            u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        GROUP BY sp.status
-        ORDER BY sp.status
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $statusData = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar status: " . $e->getMessage() . "</p>";
-    $statusData = [];
-}
-
-// Converter para estrutura indexada por status
-$dados = [
-    "aprovado"  => ["quantidade" => 0, "valor" => 0],
-    "pendente"  => ["quantidade" => 0, "valor" => 0],
-    "reprovado" => ["quantidade" => 0, "valor" => 0],
-];
-
-foreach ($statusData as $row) {
-    $status = strtolower($row["status"]);
-    $dados[$status]["quantidade"] = (int)$row["quantidade"];
-    $dados[$status]["valor"]      = (float)$row["total_valor"];
-}
-
-// Total geral de valores
-$totalGeral = 
-    $dados["aprovado"]["valor"] + 
-    $dados["pendente"]["valor"] + 
-    $dados["reprovado"]["valor"];
-
-// Função % (evita divisão por zero)
-function percent($valor, $total) {
-    if ($total <= 0) return 0;
-    return ($valor / $total) * 100;
-}
-?>
 
 <!-- ============================= -->
 <!-- Recebíveis por Status -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Recebíveis por Status</h5>
-
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead>
@@ -596,161 +792,50 @@ function percent($valor, $total) {
                     <th style="min-width:180px;">% do Total</th>
                 </tr>
             </thead>
-
             <tbody>
-
-                <!-- Status: Aprovado -->
+                <?php
+                    // garantir estrutura consistente (caso status ausente no group)
+                    foreach (['aprovado','pendente','reprovado'] as $st) {
+                        $q = $dados[$st]['quantidade'];
+                        $v = $dados[$st]['valor'];
+                        $p = ($totalGeralRecebiveis>0) ? ($v / $totalGeralRecebiveis) * 100 : 0;
+                        $label = $st === 'aprovado' ? 'Pago' : ($st === 'pendente' ? 'Em Aberto' : 'Reprovado');
+                        $badgeClass = $st === 'aprovado' ? 'bg-success text-white' : ($st === 'pendente' ? 'bg-warning text-dark' : 'bg-danger text-white');
+                ?>
                 <tr>
-                    <td><span class="badge badge-soft bg-success text-white">Pago</span></td>
-                    <td class="text-end"><?= $dados['aprovado']['quantidade'] ?></td>
-                    <td class="text-end">
-                        R$ <?= number_format($dados['aprovado']['valor'], 2, ',', '.') ?>
-                    </td>
-
-                    <?php $p_aprov = percent($dados['aprovado']['valor'], $totalGeral); ?>
-
+                    <td><span class="badge badge-soft <?= $badgeClass ?>"><?= $label ?></span></td>
+                    <td class="text-end"><?= $q ?></td>
+                    <td class="text-end">R$ <?= number_format($v,2,',','.') ?></td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
                             <div class="flex-grow-1">
                                 <div class="progress progress-skinny">
-                                    <div class="progress-bar bg-success" 
-                                         style="width: <?= $p_aprov ?>%;">
-                                    </div>
+                                    <div class="progress-bar" style="width: <?= $p ?>%;" aria-valuenow="<?= $p ?>" aria-valuemin="0" aria-valuemax="100"></div>
                                 </div>
                             </div>
-                            <div style="width:58px;" class="text-end">
-                                <?= number_format($p_aprov, 1, ',', '.') ?>%
-                            </div>
+                            <div style="width:58px;" class="text-end"><?= number_format($p,1,',','.') ?>%</div>
                         </div>
                     </td>
                 </tr>
-
-                <!-- Status: Pendente -->
-                <tr>
-                    <td><span class="badge badge-soft bg-warning text-dark">Em Aberto</span></td>
-
-                    <td class="text-end"><?= $dados['pendente']['quantidade'] ?></td>
-
-                    <td class="text-end">
-                        R$ <?= number_format($dados['pendente']['valor'], 2, ',', '.') ?>
-                    </td>
-
-                    <?php $p_pend = percent($dados['pendente']['valor'], $totalGeral); ?>
-
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="flex-grow-1">
-                                <div class="progress progress-skinny">
-                                    <div class="progress-bar bg-warning"
-                                         style="width: <?= $p_pend ?>%;">
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="width:58px;" class="text-end">
-                                <?= number_format($p_pend, 1, ',', '.') ?>%
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-
-                <!-- Status: Reprovado -->
-                <tr>
-                    <td><span class="badge badge-soft bg-danger text-white">Reprovado</span></td>
-
-                    <td class="text-end"><?= $dados['reprovado']['quantidade'] ?></td>
-
-                    <td class="text-end">
-                        R$ <?= number_format($dados['reprovado']['valor'], 2, ',', '.') ?>
-                    </td>
-
-                    <?php $p_rep = percent($dados['reprovado']['valor'], $totalGeral); ?>
-
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="flex-grow-1">
-                                <div class="progress progress-skinny">
-                                    <div class="progress-bar bg-danger"
-                                         style="width: <?= $p_rep ?>%;">
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="width:58px;" class="text-end">
-                                <?= number_format($p_rep, 1, ',', '.') ?>%
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-
+                <?php } ?>
             </tbody>
-
             <tfoot>
                 <tr>
                     <th>Total</th>
-                    <th class="text-end">
-                        <?= 
-                            $dados['aprovado']['quantidade'] + 
-                            $dados['pendente']['quantidade'] + 
-                            $dados['reprovado']['quantidade']
-                        ?>
-                    </th>
-
-                    <th class="text-end">
-                        R$ <?= number_format($totalGeral, 2, ',', '.') ?>
-                    </th>
+                    <th class="text-end"><?= $dados['aprovado']['quantidade'] + $dados['pendente']['quantidade'] + $dados['reprovado']['quantidade'] ?></th>
+                    <th class="text-end">R$ <?= number_format($totalGeralRecebiveis,2,',','.') ?></th>
                     <th></th>
                 </tr>
             </tfoot>
-
         </table>
     </div>
 </div>
-
-                    <?php
-// --------------------------------------------------------
-// LISTAGEM DO FLUXO DE CAIXA DAS FILIAIS ATIVAS (FECHADOS)
-// --------------------------------------------------------
-
-try {
-    $sql = "
-        SELECT
-            a.responsavel,
-            a.valor_total,
-            a.valor_sangrias,
-            a.valor_liquido,
-            a.quantidade_vendas,
-            u.nome AS nome_filial
-        FROM aberturas a
-        INNER JOIN unidades u
-            ON u.id = REPLACE(a.empresa_id, 'unidade_', '')
-        WHERE 
-            a.status = 'fechado'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY a.fechamento_datetime DESC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar fluxo de caixa: " . $e->getMessage() . "</p>";
-    $fluxo = [];
-}
-
-// Totais gerais
-$totalEntradas = 0;
-$totalSaidas = 0;
-$totalSaldo = 0;
-$totalVendas = 0;
-?>
 
 <!-- ============================= -->
 <!-- Fluxo de Caixa (Resumo) -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Fluxo de Caixa — Resumo do Período</h5>
-
     <div class="table-responsive">
         <table class="table table-striped table-hover">
             <thead>
@@ -762,203 +847,39 @@ $totalVendas = 0;
                     <th class="text-end">Quantidade de Vnd</th>
                 </tr>
             </thead>
-
             <tbody>
                 <?php if (empty($fluxo)) : ?>
-                    <tr>
-                        <td colspan="5" class="text-center text-muted">
-                            Nenhum caixa fechado de filial ativa encontrado.
-                        </td>
-                    </tr>
+                    <tr><td colspan="5" class="text-center text-muted">Nenhum caixa fechado de filial ativa encontrado.</td></tr>
                 <?php else: ?>
                     <?php foreach ($fluxo as $f): ?>
-
-                        <?php
-                            $totalEntradas += $f['valor_total'];
-                            $totalSaidas   += $f['valor_sangrias'];
-                            $totalSaldo    += $f['valor_liquido'];
-                            $totalVendas   += $f['quantidade_vendas'];
-                        ?>
-
                         <tr>
-                            <td><?= htmlspecialchars($f['responsavel']) ?></td>
-
-                            <td class="text-end">
-                                R$ <?= number_format($f['valor_total'], 2, ',', '.') ?>
-                            </td>
-
-                            <td class="text-end">
-                                R$ <?= number_format($f['valor_sangrias'], 2, ',', '.') ?>
-                            </td>
-
-                            <td class="text-end">
-                                R$ <?= number_format($f['valor_liquido'], 2, ',', '.') ?>
-                            </td>
-
-                            <td class="text-end"><?= $f['quantidade_vendas'] ?></td>
+                            <td><?= h($f['responsavel']) ?> <small class="text-muted">/ <?= h($f['nome_filial']) ?></small></td>
+                            <td class="text-end">R$ <?= number_format($f['valor_total'],2,',','.') ?></td>
+                            <td class="text-end">R$ <?= number_format($f['valor_sangrias'],2,',','.') ?></td>
+                            <td class="text-end">R$ <?= number_format($f['valor_liquido'],2,',','.') ?></td>
+                            <td class="text-end"><?= (int)$f['quantidade_vendas'] ?></td>
                         </tr>
-
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
-
             <tfoot>
                 <tr>
                     <th>Total</th>
-
-                    <th class="text-end">
-                        R$ <?= number_format($totalEntradas, 2, ',', '.') ?>
-                    </th>
-
-                    <th class="text-end">
-                        R$ <?= number_format($totalSaidas, 2, ',', '.') ?>
-                    </th>
-
-                    <th class="text-end">
-                        R$ <?= number_format($totalSaldo, 2, ',', '.') ?>
-                    </th>
-
+                    <th class="text-end">R$ <?= number_format($totalEntradas,2,',','.') ?></th>
+                    <th class="text-end">R$ <?= number_format($totalSaidas,2,',','.') ?></th>
+                    <th class="text-end">R$ <?= number_format($totalSaldo,2,',','.') ?></th>
                     <th class="text-end"><?= $totalVendas ?></th>
                 </tr>
             </tfoot>
-
         </table>
     </div>
 </div>
 
-
-             <?php
-// ------------------------------------------------
-// LISTAR CONTAS FUTURAS (FILIAIS ATIVAS)
-// ------------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            c.id,
-            c.descricao,
-            c.valorpago,
-            c.datatransacao,
-            c.responsavel,
-            c.statuss,
-            u.nome AS nome_filial
-        FROM contas c
-        INNER JOIN unidades u
-            ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
-        WHERE 
-            c.statuss = 'futura'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY c.datatransacao ASC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $contasFuturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar contas futuras: " . $e->getMessage() . "</p>";
-    $contasFuturas = [];
-}
-?>
-
 <!-- ============================= -->
-<!-- Contas a Pagar (Futuras) -->
+<!-- Contas a Pagar (Futura) -->
 <!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Contas a pagar (Futura)</h5>
-
-    <div class="table-responsive">
-        <table class="table table-hover align-middle">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Filial</th>
-                    <th>Descrição</th>
-                    <th>Data Transação</th>
-                    <th class="text-end">Valor (R$)</th>
-                    <th>responsavel</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <?php if (empty($contasFuturas)) : ?>
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">
-                            Nenhuma conta futura de filial ativa encontrada.
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($contasFuturas as $c): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($c['id']) ?></td>
-
-                            <td><?= htmlspecialchars($c['nome_filial']) ?></td>
-
-                            <td><?= htmlspecialchars($c['descricao']) ?></td>
-
-                            <td><?= date('d/m/Y', strtotime($c['datatransacao'])) ?></td>
-
-                            <td class="text-end">
-                                R$ <?= number_format($c['valorpago'], 2, ',', '.') ?>
-                            </td>
-
-                            <td><?= htmlspecialchars($c['responsavel']) ?></td>
-
-                            <td>
-                                <span class="badge bg-warning text-dark">Futura</span>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-
-        </table>
-    </div>
-</div>
-
-                 <?php
-// ------------------------------------------------
-// LISTAR CONTAS PAGAS DE FILIAIS ATIVAS
-// ------------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            c.id,
-            c.descricao,
-            c.valorpago,
-            c.datatransacao,
-            c.responsavel,
-            c.statuss,
-            u.nome AS nome_filial
-        FROM contas c
-        INNER JOIN unidades u
-            ON u.id = REPLACE(c.id_selecionado, 'unidade_', '')
-        WHERE 
-            c.statuss = 'pago'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY c.datatransacao DESC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $contasPagas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar contas pagas: " . $e->getMessage() . "</p>";
-    $contasPagas = [];
-}
-?>
-
-<!-- ============================= -->
-<!-- Contas a Pagar / Contas Pagas -->
-<!-- ============================= -->
-<div class="card mb-3">
-    <h5 class="card-header">Contas Pagas</h5>
-
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead>
@@ -972,86 +893,71 @@ try {
                     <th>Status</th>
                 </tr>
             </thead>
-
             <tbody>
-                <?php if (empty($contasPagas)) : ?>
-                    <tr>
-                        <td colspan="7" class="text-center text-muted">
-                            Nenhuma conta paga por filial ativa encontrada.
-                        </td>
-                    </tr>
+                <?php if (empty($contasFuturas)) : ?>
+                    <tr><td colspan="7" class="text-center text-muted">Nenhuma conta futura de filial ativa encontrada.</td></tr>
                 <?php else: ?>
-                    <?php foreach ($contasPagas as $c): ?>
+                    <?php foreach ($contasFuturas as $c): ?>
                         <tr>
-                            <td><?= htmlspecialchars($c['id']) ?></td>
-
-                            <td><?= htmlspecialchars($c['nome_filial']) ?></td>
-
-                            <td><?= htmlspecialchars($c['descricao']) ?></td>
-
+                            <td><?= h($c['id']) ?></td>
+                            <td><?= h($c['nome_filial']) ?></td>
+                            <td><?= h($c['descricao']) ?></td>
                             <td><?= date('d/m/Y', strtotime($c['datatransacao'])) ?></td>
-
-                            <td class="text-end">
-                                R$ <?= number_format($c['valorpago'], 2, ',', '.') ?>
-                            </td>
-
-                            <td><?= htmlspecialchars($c['responsavel']) ?></td>
-
-                            <td>
-                                <span class="badge bg-success">Pago</span>
-                            </td>
+                            <td class="text-end">R$ <?= number_format($c['valorpago'],2,',','.') ?></td>
+                            <td><?= h($c['responsavel']) ?></td>
+                            <td><span class="badge bg-warning text-dark">Futura</span></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
-
         </table>
     </div>
 </div>
 
+<!-- ============================= -->
+<!-- Contas Pagas -->
+<!-- ============================= -->
+<div class="card mb-3">
+    <h5 class="card-header">Contas Pagas</h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Filial</th>
+                    <th>Descrição</th>
+                    <th>Data Transação</th>
+                    <th class="text-end">Valor (R$)</th>
+                    <th>Responsável</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($contasPagas)) : ?>
+                    <tr><td colspan="7" class="text-center text-muted">Nenhuma conta paga por filial ativa encontrada.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($contasPagas as $c): ?>
+                        <tr>
+                            <td><?= h($c['id']) ?></td>
+                            <td><?= h($c['nome_filial']) ?></td>
+                            <td><?= h($c['descricao']) ?></td>
+                            <td><?= date('d/m/Y', strtotime($c['datatransacao'])) ?></td>
+                            <td class="text-end">R$ <?= number_format($c['valorpago'],2,',','.') ?></td>
+                            <td><?= h($c['responsavel']) ?></td>
+                            <td><span class="badge bg-success">Pago</span></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-                    <!-- ============================= -->
-                   <?php
-// ---------------------------------------------
-// LISTAR PAGAMENTOS APROVADOS POR FILIAL ATIVA
-// ---------------------------------------------
-
-try {
-    $sql = "
-        SELECT 
-            sp.ID,
-            sp.valor,
-            sp.descricao,
-            sp.vencimento,
-            sp.created_at,
-            sp.comprovante_url,
-            u.nome AS nome_filial
-        FROM solicitacoes_pagamento sp
-        INNER JOIN unidades u 
-            ON u.id = REPLACE(sp.id_solicitante, 'unidade_', '')
-        WHERE 
-            sp.status = 'aprovado'
-            AND u.tipo = 'Filial'
-            AND u.status = 'Ativa'
-        ORDER BY sp.created_at DESC
-    ";
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute();
-    $pagamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-} catch (PDOException $e) {
-    echo "<p>Erro ao carregar pagamentos: " . $e->getMessage() . "</p>";
-    $pagamentos = [];
-}
-
-$totalGeral = 0;
-?>
-
-<!-- Pagamentos por Filial -->
+<!-- ============================= -->
+<!-- Pagamentos por Filial — Aprovados -->
+<!-- ============================= -->
 <div class="card mb-3">
     <h5 class="card-header">Pagamentos por Filial — Resumo</h5>
-
     <div class="table-responsive">
         <table class="table table-hover align-middle">
             <thead>
@@ -1064,66 +970,42 @@ $totalGeral = 0;
                     <th class="text-end">Descrição</th>
                 </tr>
             </thead>
-
             <tbody>
                 <?php if (empty($pagamentos)) : ?>
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">
-                            Nenhum pagamento aprovado de filial ativa encontrado.
-                        </td>
-                    </tr>
+                    <tr><td colspan="6" class="text-center text-muted">Nenhum pagamento aprovado de filial ativa encontrado.</td></tr>
                 <?php else: ?>
-
                     <?php foreach ($pagamentos as $pg): ?>
-                        <?php $totalGeral += $pg['valor']; ?>
-
                         <tr>
-                            <td><strong><?= htmlspecialchars($pg['nome_filial']) ?></strong></td>
-
-                            <td class="text-end">
-                                R$ <?= number_format($pg['valor'], 2, ',', '.') ?>
-                            </td>
-
-                            <td class="text-end">
-                                <?= date('d/m/Y H:i', strtotime($pg['created_at'])) ?>
-                            </td>
-
-                            <td class="text-end">
-                                <?= date('d/m/Y', strtotime($pg['vencimento'])) ?>
-                            </td>
-
+                            <td><strong><?= h($pg['nome_filial']) ?></strong></td>
+                            <td class="text-end">R$ <?= number_format($pg['valor'],2,',','.') ?></td>
+                            <td class="text-end"><?= date('d/m/Y H:i', strtotime($pg['created_at'])) ?></td>
+                            <td class="text-end"><?= date('d/m/Y', strtotime($pg['vencimento'])) ?></td>
                             <td class="text-end">
                                 <?php if (!empty($pg['comprovante_url'])): ?>
-                                    <a href="/assets/php/matriz/<?= $pg['comprovante_url'] ?>" target="_blank">
-                                        Abrir
-                                    </a>
+                                    <a href="<?= h($pg['comprovante_url']) ?>" target="_blank" rel="noopener">Abrir</a>
                                 <?php else: ?>
                                     <span class="text-muted">Sem arquivo</span>
                                 <?php endif; ?>
                             </td>
-
-                            <td class="text-end">
-                                <?= htmlspecialchars($pg['descricao']) ?>
-                            </td>
+                            <td class="text-end"><?= h($pg['descricao']) ?></td>
                         </tr>
-
                     <?php endforeach; ?>
-
                 <?php endif; ?>
             </tbody>
-
             <tfoot>
                 <tr>
                     <th>Total</th>
-                    <th class="text-end">
-                        R$ <?= number_format($totalGeral, 2, ',', '.') ?>
-                    </th>
+                    <th class="text-end">R$ <?= number_format($totalGeralPagamentos,2,',','.') ?></th>
                 </tr>
             </tfoot>
-
         </table>
     </div>
 </div>
+
+<?php
+// fim do bloco principal
+?>
+
 
 
                 </div><!-- /container -->
