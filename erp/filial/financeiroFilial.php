@@ -534,7 +534,7 @@ try {
                             <table class="table table-striped table-hover">
                                 <thead>
                                     <tr>
-                                        <th>Categoria</th>
+                                        <th>Responsavel</th>
                                         <th class="text-end">Entradas (R$)</th>
                                         <th class="text-end">Saídas (R$)</th>
                                         <th class="text-end">Saldo (R$)</th>
@@ -543,7 +543,7 @@ try {
                                 </thead>
                                 <tbody>
                                     <tr>
-                                        <td>Vendas B2B</td>
+                                        <td>Luiz frota</td>
                                         <td class="text-end">R$ 103.900,00</td>
                                         <td class="text-end">—</td>
                                         <td class="text-end">R$ 103.900,00</td>
