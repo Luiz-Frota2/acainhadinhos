@@ -964,7 +964,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <div class="card mb-3">
     <h5 class="card-header">Recebíveis por Status</h5>
     <div class="table-responsive">
-        <table class="table table-hover align-middle">
+        <table class="table table-hover align-middle text-nowrap">
             <thead>
                 <tr>
                     <th>Status</th>
