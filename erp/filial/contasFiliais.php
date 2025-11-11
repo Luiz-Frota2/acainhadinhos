@@ -99,9 +99,8 @@ try {
 } catch (PDOException $e) {
     $logoEmpresa = "../../assets/img/favicon/logo.png";
 }
-
 /* ==========================================================
-   DOWNLOAD do comprovante (stream local) ?id=...&download=ID
+   ACESSO DIRETO AO COMPROVANTE — SEM DOWNLOAD FORÇADO
    ========================================================== */
 if (isset($_GET['download'])) {
     $idPay = (int)$_GET['download'];
@@ -113,86 +112,29 @@ if (isset($_GET['download'])) {
 
         if (!$row || empty($row['comprovante_url'])) {
             http_response_code(404);
-            header('Content-Type: text/plain; charset=UTF-8');
             echo "Comprovante não encontrado para esta solicitação.";
             exit;
         }
 
-        $raw = trim((string)$row['comprovante_url']);
-        $raw = str_replace("\\", "/", $raw);
-        $raw = ltrim($raw, "./");
+        // Caminho salvo no banco
+        $urlBanco = trim($row['comprovante_url']);
+        $urlBanco = str_replace("\\", "/", $urlBanco);
+        $urlBanco = ltrim($urlBanco, "./");
 
-        if (strpos($raw, 'public/pagamentos/') === 0) {
-            $raw = substr($raw, strlen('public/pagamentos/'));
-        } elseif (strpos($raw, 'pagamentos/') === 0) {
-            $raw = substr($raw, strlen('pagamentos/'));
-        }
+        // Novo caminho desejado
+        $novoCaminho = "/assets/php/matriz/" . $urlBanco;
 
-        $possiveisBases = [
-            '/home/u922223647/domains/acainhadinhos.com.br/files/public_html/public/pagamentos',
-            '/home/u922223647/domains/acainhadinhos.com.br/public_html/public/pagamentos',
-            realpath(__DIR__ . '/../../pagamentos'),
-            realpath(__DIR__ . '/../../../public/pagamentos')
-        ];
-
-        $baseLocal = null;
-        foreach ($possiveisBases as $b) {
-            if ($b && is_dir($b)) {
-                $baseLocal = $b;
-                break;
-            }
-        }
-        if (!$baseLocal) {
-            http_response_code(500);
-            header('Content-Type: text/plain; charset=UTF-8');
-            echo "Pasta local de comprovantes não encontrada.";
-            exit;
-        }
-
-        $segments = array_filter(explode('/', $raw), 'strlen');
-        foreach ($segments as &$seg) {
-            $seg = str_replace(['..', "\0"], '', $seg);
-        }
-        unset($seg);
-
-        $nomeArquivo  = end($segments) ?: 'comprovante.pdf';
-        $caminhoLocal = $baseLocal . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $segments);
-
-        if (!is_file($caminhoLocal) || !is_readable($caminhoLocal)) {
-            http_response_code(404);
-            header('Content-Type: text/plain; charset=UTF-8');
-            echo "Arquivo não encontrado no servidor: " . e($caminhoLocal);
-            exit;
-        }
-
-        if (ob_get_level()) @ob_end_clean();
-        $filesize = filesize($caminhoLocal);
-
-        header('Content-Type: application/pdf');
-        if ($filesize !== false) header('Content-Length: ' . $filesize);
-        header('Content-Disposition: attachment; filename="' . basename($nomeArquivo) . '"');
-        header('X-Content-Type-Options: nosniff');
-        header('Cache-Control: private, no-transform, no-store, must-revalidate, max-age=0');
-        header('Pragma: public');
-
-        $fp = fopen($caminhoLocal, 'rb');
-        if ($fp) {
-            while (!feof($fp)) {
-                echo fread($fp, 8192);
-                flush();
-            }
-            fclose($fp);
-        } else {
-            readfile($caminhoLocal);
-        }
+        // Apenas redireciona — sem forçar download
+        header("Location: " . $novoCaminho);
         exit;
+
     } catch (Throwable $e) {
         http_response_code(500);
-        header('Content-Type: text/plain; charset=UTF-8');
-        echo "Erro ao processar o download do comprovante.";
+        echo "Erro ao processar o acesso ao comprovante.";
         exit;
     }
 }
+
 
 /* ==========================================================
    ROTAS AJAX (aprovar/recusar e detalhes)
