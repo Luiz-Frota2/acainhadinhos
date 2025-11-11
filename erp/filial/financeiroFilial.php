@@ -343,7 +343,9 @@ try {
                                 <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
                                 <div class="row g-2 align-items-end">
-                                    
+                                    <!-- Filtros -->
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                     
                                 <!-- De -->
                                 <div class="col-6 col-md-3 col-lg-2">
                                     <label class="form-label mb-1">De</label>
@@ -356,6 +358,7 @@ try {
                                     <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate) ?>">
                                 </div>
 
+                                    </div>
 
                                     <div class="col-12 col-sm-6 col-lg-3">
                                         <label for="status" class="form-label mb-1">Status</label>
