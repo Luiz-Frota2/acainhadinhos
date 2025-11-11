@@ -1012,13 +1012,7 @@ try{
                             <td class="text-end">R$ <?= number_format($pg['valor'],2,',','.') ?></td>
                             <td class="text-end"><?= date('d/m/Y H:i', strtotime($pg['created_at'])) ?></td>
                             <td class="text-end"><?= date('d/m/Y', strtotime($pg['vencimento'])) ?></td>
-                            <td class="text-end">
-                                <?php if (!empty($pg['comprovante_url'])): ?>
-                                    <a href="<?= h($pg['comprovante_url']) ?>" target="_blank" rel="noopener">Abrir</a>
-                                <?php else: ?>
-                                    <span class="text-muted">Sem arquivo</span>
-                                <?php endif; ?>
-                            </td>
+                           <td class="text-end"> <?php if (!empty($pg['comprovante_url'])): ?> <a href="/assets/php/matriz/<?= $pg['comprovante_url'] ?>" target="_blank"> Abrir </a> <?php else: ?> <span class="text-muted">Sem arquivo</span> <?php endif; ?> </td>
                             <td class="text-end"><?= h($pg['descricao']) ?></td>
                         </tr>
                     <?php endforeach; ?>
