@@ -1,5 +1,3 @@
-
-
 <?php
 session_start();
 ini_set('display_errors', 1);
@@ -264,7 +262,10 @@ if ($tipo === 'csv') {
             "Ticket Médio" => "Faturamento / número de pedidos",
             default => ""
         };
-        fputcsv($out, [$metric, is_numeric($valor) ? (string)$valor : $valor, number_format($var,1,',','.'), $obs]);
+        // resumo: manter números brutos em campos numéricos; variação com ponto decimal (CSV)
+        $valorOut = is_numeric($valor) ? (string)$valor : $valor;
+        $varOut = is_numeric($var) ? number_format($var,1,'.','') : $var;
+        fputcsv($out, [$metric, $valorOut, $varOut, $obs]);
     }
     fputcsv($out, []);
 
@@ -276,9 +277,10 @@ if ($tipo === 'csv') {
             $row['nome'],
             $row['pedidos'],
             $row['itens'],
+            // CSV: manter ponto como separador decimal para compatibilidade com Excel (PT-BR pode usar ; separator; but we keep standard)
             number_format($row['faturamento'],2,'.',''),
             number_format($row['ticket'],2,'.',''),
-            number_format($row['perc'],1,',','.')
+            number_format($row['perc'],1,'.','')
         ]);
     }
     fputcsv($out, []);
@@ -293,7 +295,7 @@ if ($tipo === 'csv') {
                 $p['nome_produto'],
                 (int)$p['total_quantidade'],
                 (int)$p['total_pedidos'],
-                number_format($p['perc'],1,',','.')
+                number_format($p['perc'],1,'.','')
             ]);
         }
     } else {
@@ -328,11 +330,11 @@ if ($tipo === 'xlsx') {
         fputcsv($out, ["Período:", $inicioFiltro . " até " . $fimFiltro]);
         fputcsv($out, []);
         fputcsv($out, ["-- Resumo --"]);
-        foreach ($resumo as $k => $v) fputcsv($out, [$k, $v[0], number_format($v[1],1,',','.')]);
+        foreach ($resumo as $k => $v) fputcsv($out, [$k, $v[0], number_format($v[1],1,'.','')]);
         fputcsv($out, []);
         fputcsv($out, ["-- Filiais --"]);
         fputcsv($out, ["Filial","Pedidos","Itens","Faturamento","Ticket Médio","%"]);
-        foreach ($listaFiliaisExport as $l) fputcsv($out, [$l['nome'],$l['pedidos'],$l['itens'], number_format($l['faturamento'],2,'.',''), number_format($l['ticket'],2,'.',''), number_format($l['perc'],1,',','.')]);
+        foreach ($listaFiliaisExport as $l) fputcsv($out, [$l['nome'],$l['pedidos'],$l['itens'], number_format($l['faturamento'],2,'.',''), number_format($l['ticket'],2,'.',''), number_format($l['perc'],1,'.','')]);
         fclose($out);
         exit;
     }
@@ -367,7 +369,11 @@ if ($tipo === 'xlsx') {
             "Ticket Médio" => "Faturamento / número de pedidos",
             default => ""
         };
-        $sheet->fromArray([$metric, $vals[0], number_format($vals[1],1,',','.'), $obs], NULL, "A{$row}");
+        // garantir que valores numéricos sejam escritos como números
+        $sheet->setCellValue("A{$row}", $metric);
+        $sheet->setCellValue("B{$row}", is_numeric($vals[0]) ? (float)$vals[0] : $vals[0]);
+        $sheet->setCellValue("C{$row}", is_numeric($vals[1]) ? (float)$vals[1] : $vals[1]);
+        $sheet->setCellValue("D{$row}", $obs);
         $row++;
     }
     $row++;
@@ -379,7 +385,12 @@ if ($tipo === 'xlsx') {
     $sheet->getStyle("A{$row}:F{$row}")->getFont()->setBold(true);
     $row++;
     foreach ($listaFiliaisExport as $l) {
-        $sheet->fromArray([$l['nome'],$l['pedidos'],$l['itens'], $l['faturamento'], $l['ticket'], $l['perc']], NULL, "A{$row}");
+        $sheet->setCellValue("A{$row}", $l['nome']);
+        $sheet->setCellValue("B{$row}", (int)$l['pedidos']);
+        $sheet->setCellValue("C{$row}", (int)$l['itens']);
+        $sheet->setCellValue("D{$row}", (float)$l['faturamento']);
+        $sheet->setCellValue("E{$row}", (float)$l['ticket']);
+        $sheet->setCellValue("F{$row}", (float)$l['perc']);
         $row++;
     }
     $row++;
@@ -392,7 +403,11 @@ if ($tipo === 'xlsx') {
     $row++;
     if (!empty($produtosLista)) {
         foreach ($produtosLista as $p) {
-            $sheet->fromArray([$p['codigo_produto'],$p['nome_produto'],$p['total_quantidade'],$p['total_pedidos'], $p['perc']], NULL, "A{$row}");
+            $sheet->setCellValue("A{$row}", $p['codigo_produto']);
+            $sheet->setCellValue("B{$row}", $p['nome_produto']);
+            $sheet->setCellValue("C{$row}", (int)$p['total_quantidade']);
+            $sheet->setCellValue("D{$row}", (int)$p['total_pedidos']);
+            $sheet->setCellValue("E{$row}", (float)$p['perc']);
             $row++;
         }
     } else {
@@ -407,12 +422,10 @@ if ($tipo === 'xlsx') {
     $sheet->fromArray(["Métrica","Quantidade","Valor (R$)","Status"], NULL, "A{$row}");
     $sheet->getStyle("A{$row}:D{$row}")->getFont()->setBold(true);
     $row++;
-    $sheet->fromArray(["Pagamentos Solicitados",$pendQtd, $pendValor, "Pendente"], NULL, "A{$row}"); $row++;
-    $sheet->fromArray(["Remessa Concluida",$aprovQtd, $aprovValor, "Aprovado"], NULL, "A{$row}"); $row++;
-    $sheet->fromArray(["Remessa Reprovada",$reprovQtd, $reprovValor, "Reprovado"], NULL, "A{$row}"); $row++;
+    $sheet->setCellValue("A{$row}", "Pagamentos Solicitados"); $sheet->setCellValue("B{$row}", (int)$pendQtd); $sheet->setCellValue("C{$row}", (float)$pendValor); $sheet->setCellValue("D{$row}", "Pendente"); $row++;
+    $sheet->setCellValue("A{$row}", "Remessa Concluida"); $sheet->setCellValue("B{$row}", (int)$aprovQtd); $sheet->setCellValue("C{$row}", (float)$aprovValor); $sheet->setCellValue("D{$row}", "Aprovado"); $row++;
+    $sheet->setCellValue("A{$row}", "Remessa Reprovada"); $sheet->setCellValue("B{$row}", (int)$reprovQtd); $sheet->setCellValue("C{$row}", (float)$reprovValor); $sheet->setCellValue("D{$row}", "Reprovado"); $row++;
 
-    // Format numeric columns
-    $highestRow = $sheet->getHighestRow();
     // auto width
     foreach (range('A','F') as $col) {
         $sheet->getColumnDimension($col)->setAutoSize(true);
@@ -487,15 +500,15 @@ if ($tipo === 'print') {
                 <?php foreach ($resumo as $metric => $vals): ?>
                     <tr>
                         <td><?= htmlspecialchars($metric) ?></td>
-                        <td>
+                        <td style="text-align:right;">
                             <?php
                                 $v = $vals[0];
-                                if (is_numeric($v) && (float)$v == (int)$v) echo (int)$v;
+                                if (is_numeric($v) && (float)$v == (int)$v) echo number_format((int)$v,0,',','.');
                                 else if (is_numeric($v)) echo number_format($v,2,',','.');
                                 else echo htmlspecialchars($v);
                             ?>
                         </td>
-                        <td><?= number_format($vals[1],1,',','.') ?>%</td>
+                        <td style="text-align:right;"><?= number_format($vals[1],1,',','.') ?>%</td>
                         <td>
                             <?php
                             echo match ($metric) {
@@ -524,11 +537,11 @@ if ($tipo === 'print') {
                 <?php foreach ($listaFiliaisExport as $l): ?>
                     <tr>
                         <td><?= htmlspecialchars($l['nome']) ?></td>
-                        <td><?= (int)$l['pedidos'] ?></td>
-                        <td><?= (int)$l['itens'] ?></td>
-                        <td>R$ <?= number_format($l['faturamento'],2,',','.') ?></td>
-                        <td>R$ <?= number_format($l['ticket'],2,',','.') ?></td>
-                        <td><?= number_format($l['perc'],1,',','.') ?>%</td>
+                        <td style="text-align:right;"><?= (int)$l['pedidos'] ?></td>
+                        <td style="text-align:right;"><?= (int)$l['itens'] ?></td>
+                        <td style="text-align:right;">R$ <?= number_format($l['faturamento'],2,',','.') ?></td>
+                        <td style="text-align:right;">R$ <?= number_format($l['ticket'],2,',','.') ?></td>
+                        <td style="text-align:center;"><?= number_format($l['perc'],1,',','.') ?>%</td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -546,9 +559,9 @@ if ($tipo === 'print') {
                         <tr>
                             <td><?= htmlspecialchars($p['codigo_produto']) ?></td>
                             <td><?= htmlspecialchars($p['nome_produto']) ?></td>
-                            <td><?= (int)$p['total_quantidade'] ?></td>
-                            <td><?= (int)$p['total_pedidos'] ?></td>
-                            <td><?= number_format($p['perc'],1,',','.') ?>%</td>
+                            <td style="text-align:right;"><?= (int)$p['total_quantidade'] ?></td>
+                            <td style="text-align:right;"><?= (int)$p['total_pedidos'] ?></td>
+                            <td style="text-align:center;"><?= number_format($p['perc'],1,',','.') ?>%</td>
                         </tr>
                     <?php endforeach; ?>
                 <?php else: ?>
@@ -562,9 +575,9 @@ if ($tipo === 'print') {
         <table>
             <thead><tr><th>Métrica</th><th>Quantidade</th><th>Valor (R$)</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td>Pagamentos Solicitados</td><td><?= $pendQtd ?></td><td>R$ <?= number_format($pendValor,2,',','.') ?></td><td>Pendente</td></tr>
-                <tr><td>Remessa Concluida</td><td><?= $aprovQtd ?></td><td>R$ <?= number_format($aprovValor,2,',','.') ?></td><td>Aprovado</td></tr>
-                <tr><td>Remessa Reprovada</td><td><?= $reprovQtd ?></td><td>R$ <?= number_format($reprovValor,2,',','.') ?></td><td>Reprovado</td></tr>
+                <tr><td>Pagamentos Solicitados</td><td style="text-align:right;"><?= $pendQtd ?></td><td style="text-align:right;">R$ <?= number_format($pendValor,2,',','.') ?></td><td>Pendente</td></tr>
+                <tr><td>Remessa Concluida</td><td style="text-align:right;"><?= $aprovQtd ?></td><td style="text-align:right;">R$ <?= number_format($aprovValor,2,',','.') ?></td><td>Aprovado</td></tr>
+                <tr><td>Remessa Reprovada</td><td style="text-align:right;"><?= $reprovQtd ?></td><td style="text-align:right;">R$ <?= number_format($reprovValor,2,',','.') ?></td><td>Reprovado</td></tr>
             </tbody>
         </table>
 
