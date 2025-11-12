@@ -1045,7 +1045,7 @@ function openPrintReport() {
                         window.print();
                     }, 300);
 
-                    window.onafterprint = function() {
+                 window.onafterprint = function() {
                 try {
                     if (window.opener && !window.opener.closed) {
                         // recarrega a página principal para garantir estado + filtros

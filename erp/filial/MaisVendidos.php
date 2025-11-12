@@ -1034,12 +1034,18 @@ function openPrintReport() {
                     window.focus();
                     setTimeout(() => window.print(), 300);
                     window.onafterprint = function() {
-                        try {
-                            window.location.href = "MaisVendidos.php?id=principal_1";
-                        } catch(e) {
-                            window.close();
-                        }
-                    };
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        // recarrega a página principal para garantir estado + filtros
+                        window.opener.location.reload();
+                        window.opener.focus();
+                    }
+                } catch (e) {
+                    // ignore cross-origin issues
+                }
+                // fecha a aba de impressão
+                window.close();
+            };
                 <\/script>
             </body>
             </html>
