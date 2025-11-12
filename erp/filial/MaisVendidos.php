@@ -851,11 +851,16 @@ function openPrintReport() {
             return;
         }
 
+        // Clona o conteúdo visível da página
         const clonedHtml = contentEl.cloneNode(true);
 
-        // Remove botões, filtros, inputs, paginação e outros elementos desnecessários
+        // 🔹 Remove botões, filtros, inputs, paginação e elementos não desejados
         clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination')
             .forEach(el => el.remove());
+
+        // 🔹 Remove KPIs originais para evitar duplicação
+        clonedHtml.querySelectorAll('.kpi-card, .kpi-label, .kpi-value, .kpi-sub')
+            .forEach(el => el.closest('.col-md-2, .col-md-3, .col-md-5, .row')?.remove());
 
         const win = window.open('', '_blank');
         if (!win) {
@@ -973,7 +978,7 @@ function openPrintReport() {
             </style>
         `;
 
-        // Monta HTML com KPIs reais do sistema (usando PHP diretamente)
+        // 🔹 Monta HTML com KPIs corporativos (somente uma vez)
         const printBody = `
             <div style="padding: 20px;">
                 <div class="report-header">
@@ -986,7 +991,7 @@ function openPrintReport() {
                     <div><strong>Usuário:</strong> <?= htmlspecialchars($_SESSION['usuario'] ?? 'Administrador') ?></div>
                 </div>
 
-                <!-- Bloco de Indicadores (corporativo, mas com dados reais) -->
+                <!-- Bloco de Indicadores (corporativo, sem duplicação) -->
                 <div class="kpi-container">
                     <div class="kpi-box">
                         <div class="kpi-label">Itens Vendidos</div>
@@ -1010,7 +1015,7 @@ function openPrintReport() {
                     </div>
                 </div>
 
-                <!-- Tabelas clonadas -->
+                <!-- Tabelas (sem KPIs duplicados) -->
                 ${clonedHtml.outerHTML}
 
                 <div class="report-footer">
@@ -1034,18 +1039,14 @@ function openPrintReport() {
                     window.focus();
                     setTimeout(() => window.print(), 300);
                     window.onafterprint = function() {
-                try {
-                    if (window.opener && !window.opener.closed) {
-                        // recarrega a página principal para garantir estado + filtros
-                        window.opener.location.reload();
-                        window.opener.focus();
-                    }
-                } catch (e) {
-                    // ignore cross-origin issues
-                }
-                // fecha a aba de impressão
-                window.close();
-            };
+                        try {
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.location.reload();
+                                window.opener.focus();
+                            }
+                        } catch (e) {}
+                        window.close();
+                    };
                 <\/script>
             </body>
             </html>
