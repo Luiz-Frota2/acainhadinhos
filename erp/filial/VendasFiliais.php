@@ -390,7 +390,7 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./financeiroFillial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./financeiroFilial.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Pedidos">Financeiro</div>
                                 </a>
                             </li>
