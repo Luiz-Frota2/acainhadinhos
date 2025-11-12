@@ -1002,7 +1002,7 @@ $fimTxt = $fim->format('d/m/Y');
                     <!-- FORMULÁRIO DE FILTRO B2B -->
                     <!-- ====================== -->
                     <div class="card mb-3">
-                        <form method="get" class="card-body row g-5 align-items-end" autocomplete="off">
+                        <form method="get" class="card-body row g-5 align-items" autocomplete="off">
                             <!-- preserva o contexto id -->
                             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
