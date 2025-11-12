@@ -998,31 +998,11 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <!-- ============================
          SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
          ============================ -->
-   <?php
-session_start();
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
-
-require_once "../../assets/php/conexao.php";
-
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-
-// -------------------------
-// CAPTURA PARÂMETROS
-// -------------------------
-$tipo = $_GET['tipo'] ?? 'print';
-$idSelecionado = $_GET['id'] ?? ''; // filial/empresa
-
-// (restante do código igual ao seu cálculo anterior...)
-
-// -------------------------
-// PRINT — RELATÓRIO
-// -------------------------
-if ($tipo === 'print') {
+   if ($tipo === 'print') {
     $titulo = "Relatório B2B - Filiais";
-    $periodoTexto = date("d/m/Y") . " (" . date("H:i") . ")";
-
+    $periodoTexto = date("d/m/Y", strtotime($inicioFiltro)) . " a " . date("d/m/Y", strtotime($fimFiltro));
+    // garante que $idSelecionado esteja definido
+    $idSelecionado = isset($idSelecionado) ? $idSelecionado : '';
     ?>
     <!DOCTYPE html>
     <html lang="pt-br">
@@ -1032,7 +1012,8 @@ if ($tipo === 'print') {
         <style>
             body{ font-family: "Arial",sans-serif; margin:20mm; color:#222; }
             header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-            header .logo { display:none !important; } /* 🔹 LOGO DESATIVADA */
+            /* oculta logo, independentemente de classe/id */
+            img.logo, .logo, #logo, header .logo { display:none !important; }
             h1 { font-size:18px; margin:0; }
             .meta { font-size:12px; color:#555; }
             .section-title { background:#f3f3f3; padding:8px; font-weight:700; margin-top:18px; margin-bottom:6px; border:1px solid #e0e0e0; }
@@ -1059,47 +1040,103 @@ if ($tipo === 'print') {
             </div>
         </header>
 
-        <!-- Aqui ficam suas seções: resumo, filiais, produtos, etc. -->
+        <!-- SUAS SEÇÕES AQUI (resumo, filiais, produtos, etc.) -->
         <div class="section-title">Resumo do Período</div>
         <table>
             <thead>
                 <tr><th>Métrica</th><th>Valor</th></tr>
             </thead>
             <tbody>
-                <tr><td>Exemplo</td><td>123</td></tr>
+                <!-- EXEMPLO: substitua pelo seu loop real -->
+                <?php foreach ($resumo as $metric => $vals): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($metric) ?></td>
+                        <td><?= is_numeric($vals[0]) ? number_format($vals[0], 2, ',', '.') : htmlspecialchars($vals[0]) ?></td>
+                    </tr>
+                <?php endforeach; ?>
             </tbody>
         </table>
 
         <footer><?= htmlspecialchars(date('d/m/Y H:i')) ?> — Relatório automático</footer>
 
         <script>
-            // 🔹 Ao carregar, abre a impressão
-            window.onload = function() {
-                setTimeout(() => {
-                    window.print();
-                }, 300);
-            };
+            // ID seguro vindo do PHP (usar json_encode para não quebrar JS)
+            const filialId = <?= json_encode($idSelecionado) ?>;
+            let redirected = false;
 
-            // 🔹 Ao confirmar ou cancelar impressão, redireciona para vendas_por_filial.php?id=...
-            window.onafterprint = function() {
+            function doRedirect() {
+                if (redirected) return;
+                redirected = true;
+                // redireciona para a página desejada mantendo o id
+                const target = 'vendas_por_filial.php?id=' + encodeURIComponent(filialId);
+                // usa replace para não empilhar histórico
                 try {
-                    window.location.href = "vendas_por_filial.php?id=<?= urlencode($idSelecionado) ?>";
-                } catch(e) {
-                    console.error(e);
+                    window.location.replace(target);
+                } catch (e) {
+                    // fallback
+                    window.location.href = target;
                 }
-            };
+            }
+
+            // tenta imprimir automaticamente
+            window.addEventListener('load', function() {
+                // dá um pequeno delay para garantir que tudo carregou
+                setTimeout(() => {
+                    try { window.print(); } catch(e) { /* ignore */ }
+                }, 300);
+            });
+
+            // Usar onafterprint quando disponível
+            if ('onafterprint' in window) {
+                window.onafterprint = function() {
+                    // dá um pequeno delay pra evitar conflitos
+                    setTimeout(doRedirect, 200);
+                };
+            }
+
+            // matchMedia fallback (alguns navegadores disparam esse evento)
+            try {
+                const mediaQueryList = window.matchMedia('print');
+                if (typeof mediaQueryList.addEventListener === 'function') {
+                    mediaQueryList.addEventListener('change', function(mql) {
+                        if (!mql.matches) { // print dialog foi fechado
+                            setTimeout(doRedirect, 200);
+                        }
+                    });
+                } else if (typeof mediaQueryList.addListener === 'function') {
+                    mediaQueryList.addListener(function(mql) {
+                        if (!mql.matches) setTimeout(doRedirect, 200);
+                    });
+                }
+            } catch (e) {
+                // ignore
+            }
+
+            // Fallback extra: detecta quando a aba volta ao foco (quando print dialog fecha em alguns browsers)
+            window.addEventListener('focus', function() {
+                // se já redirecionou, ignora
+                if (redirected) return;
+                // espera um tiquinho para evitar disparo imediato por outros motivos
+                setTimeout(function() {
+                    if (!redirected) doRedirect();
+                }, 400);
+            });
+
+            // Também usa visibilitychange para quando o usuário fecha a caixa de diálogo de impressão
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible' && !redirected) {
+                    // espera para garantir que não seja foco temporário
+                    setTimeout(function() {
+                        if (!redirected) doRedirect();
+                    }, 400);
+                }
+            });
         </script>
     </body>
     </html>
     <?php
     exit;
 }
-
-// fallback
-http_response_code(400);
-echo "Parâmetro 'tipo' inválido.";
-exit;
-?>
 
 </body>
 
