@@ -1028,7 +1028,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
                             </div>
 
-                            <div class="col-12 col-md-5 d-flex gap-2">
+                            <div class="col-12 col-md-5">
                                 <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                             <a href="relatorio_b2b_export.php?tipo=print&<?= http_build_query($_GET) ?>" 
