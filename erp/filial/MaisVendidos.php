@@ -854,8 +854,13 @@ function openPrintReport() {
 
         const clonedHtml = contentEl.cloneNode(true);
 
-        // Remove elementos desnecessários da cópia
-        clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination').forEach(el => el.remove());
+        // Remove elementos desnecessários e duplicações
+        clonedHtml.querySelectorAll(
+            'button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination'
+        ).forEach(el => el.remove());
+
+        // Remove blocos duplicados de KPIs que existam na página
+        clonedHtml.querySelectorAll('.kpi-container, .indicadores, .metricas, .resumo-geral').forEach(el => el.remove());
 
         const win = window.open('', '_blank');
         if (!win) {
@@ -902,7 +907,7 @@ function openPrintReport() {
                     margin-bottom: 20px;
                 }
 
-                /* Indicadores */
+                /* Bloco de Indicadores (KPIs) */
                 .kpi-container {
                     display: grid;
                     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -984,6 +989,31 @@ function openPrintReport() {
                     <div><strong>Usuário:</strong> ${sessionStorage.getItem('usuarioLogado') || 'Administrador'}</div>
                 </div>
 
+                <!-- Indicadores principais (mantidos) -->
+                <div class="kpi-container">
+                    <div class="kpi-box">
+                        <div class="kpi-label">Itens Vendidos</div>
+                        <div class="kpi-value">1</div>
+                        <div class="kpi-sub">Período: 13/10 até 12/11</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Pedidos</div>
+                        <div class="kpi-value">1</div>
+                        <div class="kpi-sub">Pedidos Fechados</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Faturamento Total</div>
+                        <div class="kpi-value">R$ 24,90</div>
+                        <div class="kpi-sub">Total no Período</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Produto Mais Vendido</div>
+                        <div class="kpi-value">Polpa de Açaí 1kg</div>
+                        <div class="kpi-sub">Cód: 7890000000001</div>
+                    </div>
+                </div>
+
+                <!-- Conteúdo da página -->
                 ${clonedHtml.outerHTML}
 
                 <div class="report-footer">
