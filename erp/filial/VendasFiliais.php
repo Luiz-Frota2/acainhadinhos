@@ -1046,13 +1046,18 @@ function openPrintReport() {
                     }, 300);
 
                     window.onafterprint = function() {
-        // Retorna para a página anterior
-        try {
-            history.back();
-        } catch (e) {
-            window.close();
-        }
-    };
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        // recarrega a página principal para garantir estado + filtros
+                        window.opener.location.reload();
+                        window.opener.focus();
+                    }
+                } catch (e) {
+                    // ignore cross-origin issues
+                }
+                // fecha a aba de impressão
+                window.close();
+            };
                 <\/script>
             </body>
             </html>
