@@ -842,7 +842,6 @@ $nenhumResultado = (
         </div>
     </div>
 </div> <!-- fim report-visible -->
-
 <script>
 function openPrintReport() {
     try {
@@ -854,13 +853,9 @@ function openPrintReport() {
 
         const clonedHtml = contentEl.cloneNode(true);
 
-        // Remove elementos desnecessários e duplicações
-        clonedHtml.querySelectorAll(
-            'button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination'
-        ).forEach(el => el.remove());
-
-        // Remove blocos duplicados de KPIs que existam na página
-        clonedHtml.querySelectorAll('.kpi-container, .indicadores, .metricas, .resumo-geral').forEach(el => el.remove());
+        // Remove botões, filtros, inputs, paginação e outros elementos desnecessários
+        clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination')
+            .forEach(el => el.remove());
 
         const win = window.open('', '_blank');
         if (!win) {
@@ -879,7 +874,7 @@ function openPrintReport() {
                     -webkit-print-color-adjust: exact;
                 }
 
-                /* Cabeçalho */
+                /* ===== Cabeçalho ===== */
                 .report-header {
                     text-align: center;
                     border-bottom: 2px solid #1e293b;
@@ -898,7 +893,7 @@ function openPrintReport() {
                     color: #475569;
                 }
 
-                /* Informações gerais */
+                /* ===== Info superior ===== */
                 .report-info {
                     display: flex;
                     justify-content: space-between;
@@ -907,7 +902,7 @@ function openPrintReport() {
                     margin-bottom: 20px;
                 }
 
-                /* Bloco de Indicadores (KPIs) */
+                /* ===== KPIs ===== */
                 .kpi-container {
                     display: grid;
                     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -917,26 +912,27 @@ function openPrintReport() {
                 .kpi-box {
                     border: 1px solid #e2e8f0;
                     border-radius: 6px;
-                    padding: 10px 12px;
-                    background: #f9fafb;
+                    padding: 12px 14px;
+                    background: #f8fafc;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
                 }
                 .kpi-label {
                     font-size: 12px;
                     color: #6b7280;
-                    margin-bottom: 3px;
+                    margin-bottom: 4px;
                 }
                 .kpi-value {
-                    font-size: 16px;
-                    font-weight: 600;
-                    color: #0f172a;
+                    font-size: 17px;
+                    font-weight: 700;
+                    color: #111827;
                 }
                 .kpi-sub {
                     font-size: 11px;
                     color: #6b7280;
-                    margin-top: 3px;
+                    margin-top: 2px;
                 }
 
-                /* Tabelas */
+                /* ===== Tabelas ===== */
                 table {
                     width: 100%;
                     border-collapse: collapse;
@@ -963,7 +959,7 @@ function openPrintReport() {
                     color: #334155;
                 }
 
-                /* Rodapé */
+                /* ===== Rodapé ===== */
                 .report-footer {
                     text-align: right;
                     font-size: 11px;
@@ -977,6 +973,7 @@ function openPrintReport() {
             </style>
         `;
 
+        // Monta HTML com KPIs reais do sistema (usando PHP diretamente)
         const printBody = `
             <div style="padding: 20px;">
                 <div class="report-header">
@@ -985,12 +982,35 @@ function openPrintReport() {
                 </div>
 
                 <div class="report-info">
-                    <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
-                    <div><strong>Usuário:</strong> ${sessionStorage.getItem('usuarioLogado') || 'Administrador'}</div>
+                    <div><strong>Data:</strong> <?= date('d/m/Y') ?></div>
+                    <div><strong>Usuário:</strong> <?= htmlspecialchars($_SESSION['usuario'] ?? 'Administrador') ?></div>
                 </div>
 
+                <!-- Bloco de Indicadores (corporativo, mas com dados reais) -->
+                <div class="kpi-container">
+                    <div class="kpi-box">
+                        <div class="kpi-label">Itens Vendidos</div>
+                        <div class="kpi-value"><?= inteiro($kpis['itens']) ?></div>
+                        <div class="kpi-sub">Período: <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Pedidos</div>
+                        <div class="kpi-value"><?= inteiro($kpis['pedidos']) ?></div>
+                        <div class="kpi-sub">Pedidos Fechados</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Faturamento Total</div>
+                        <div class="kpi-value"><?= moeda($kpis['faturamento']) ?></div>
+                        <div class="kpi-sub">Total no Período</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Produto Mais Vendido</div>
+                        <div class="kpi-value"><?= $kpis['produto_nome'] ?: 'Nenhum produto' ?></div>
+                        <div class="kpi-sub"><?= $kpis['produto_sku'] ?: '--' ?></div>
+                    </div>
+                </div>
 
-                <!-- Conteúdo da página -->
+                <!-- Tabelas clonadas -->
                 ${clonedHtml.outerHTML}
 
                 <div class="report-footer">
