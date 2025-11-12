@@ -998,85 +998,108 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <!-- ============================
          SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
          ============================ -->
-   <script>
-function openPrintReport() {
-    try {
-        // Obtém o HTML do relatório
-        var reportHtml = document.getElementById('report-html').innerHTML;
+   <?php
+session_start();
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-        // Passa o ID da empresa (injetado pelo PHP)
-        var empresaId = "<?php echo isset($id_selecionado) ? $id_selecionado : ''; ?>";
+require_once "../../assets/php/conexao.php";
 
-        // Abre nova janela de impressão
-        var win = window.open('', '_blank');
-        if (!win) {
-            alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
-            return;
-        }
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-        // Estilo da página de impressão
-        var style = `
-            <style>
-                @page { size: A4; margin: 18mm; }
-                body {
-                    font-family: 'Public Sans', Arial, sans-serif;
-                    color: #111827;
-                    font-size: 12px;
-                    -webkit-print-color-adjust: exact;
+// -------------------------
+// CAPTURA PARÂMETROS
+// -------------------------
+$tipo = $_GET['tipo'] ?? 'print';
+$idSelecionado = $_GET['id'] ?? ''; // filial/empresa
+
+// (restante do código igual ao seu cálculo anterior...)
+
+// -------------------------
+// PRINT — RELATÓRIO
+// -------------------------
+if ($tipo === 'print') {
+    $titulo = "Relatório B2B - Filiais";
+    $periodoTexto = date("d/m/Y") . " (" . date("H:i") . ")";
+
+    ?>
+    <!DOCTYPE html>
+    <html lang="pt-br">
+    <head>
+        <meta charset="utf-8">
+        <title><?= htmlspecialchars($titulo) ?></title>
+        <style>
+            body{ font-family: "Arial",sans-serif; margin:20mm; color:#222; }
+            header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+            header .logo { display:none !important; } /* 🔹 LOGO DESATIVADA */
+            h1 { font-size:18px; margin:0; }
+            .meta { font-size:12px; color:#555; }
+            .section-title { background:#f3f3f3; padding:8px; font-weight:700; margin-top:18px; margin-bottom:6px; border:1px solid #e0e0e0; }
+            table { width:100%; border-collapse:collapse; margin-bottom:12px; font-size:12px; }
+            th, td { border:1px solid #cfcfcf; padding:6px 8px; text-align:left; }
+            th { background:#efefef; font-weight:700; }
+            footer { position:fixed; bottom:10mm; left:0; right:0; text-align:center; font-size:11px; color:#666; }
+            @page { margin: 20mm; }
+            @media print {
+                footer { position: fixed; bottom: 10mm; }
+                .no-print { display:none; }
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div class="brand">
+                <div style="font-weight:700; font-size:16px;">Relatório Empresarial</div>
+                <div class="meta">Gerado automaticamente pelo sistema</div>
+            </div>
+            <div class="empresa">
+                <h1><?= htmlspecialchars($titulo) ?></h1>
+                <div class="meta"><?= htmlspecialchars($periodoTexto) ?></div>
+            </div>
+        </header>
+
+        <!-- Aqui ficam suas seções: resumo, filiais, produtos, etc. -->
+        <div class="section-title">Resumo do Período</div>
+        <table>
+            <thead>
+                <tr><th>Métrica</th><th>Valor</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Exemplo</td><td>123</td></tr>
+            </tbody>
+        </table>
+
+        <footer><?= htmlspecialchars(date('d/m/Y H:i')) ?> — Relatório automático</footer>
+
+        <script>
+            // 🔹 Ao carregar, abre a impressão
+            window.onload = function() {
+                setTimeout(() => {
+                    window.print();
+                }, 300);
+            };
+
+            // 🔹 Ao confirmar ou cancelar impressão, redireciona para vendas_por_filial.php?id=...
+            window.onafterprint = function() {
+                try {
+                    window.location.href = "vendas_por_filial.php?id=<?= urlencode($idSelecionado) ?>";
+                } catch(e) {
+                    console.error(e);
                 }
-                h2, h4 { margin:0; }
-                table { width:100%; border-collapse:collapse; }
-                th, td { padding:8px 10px; border:1px solid #e5e7eb; }
-                thead th { background:#f3f4f6; }
-                .no-print, .logo, img.logo, #logo, header img { display:none !important; } /* 🔹 Oculta logo */
-                tr { page-break-inside: avoid; }
-                thead { display: table-header-group; }
-                tfoot { display: table-footer-group; }
-            </style>
-        `;
-
-        // HTML final para impressão
-        var finalHtml = `
-            <!doctype html>
-            <html>
-            <head>
-                <meta charset="utf-8" />
-                <title>Relatório — Vendas por Filial</title>
-                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-                ${style}
-            </head>
-            <body>
-                ${reportHtml}
-                <script>
-                    (function() {
-                        window.focus();
-                        setTimeout(function() {
-                            // Executa a impressão
-                            window.print();
-
-                            // Aguarda o usuário cancelar ou concluir e redireciona
-                            setTimeout(function() {
-                                // 🔹 Retorna à página original com o ID da empresa
-                                window.location.href = 'vendas_por_filial.php?id=' + encodeURIComponent('${empresaId}');
-                            }, 800);
-                        }, 300);
-                    })();
-                <\/script>
-            </body>
-            </html>
-        `;
-
-        // Escreve o conteúdo na nova janela
-        win.document.open();
-        win.document.write(finalHtml);
-        win.document.close();
-
-    } catch (err) {
-        console.error(err);
-        alert('Erro ao gerar o relatório para impressão: ' + err.message);
-    }
+            };
+        </script>
+    </body>
+    </html>
+    <?php
+    exit;
 }
-</script>
+
+// fallback
+http_response_code(400);
+echo "Parâmetro 'tipo' inválido.";
+exit;
+?>
 
 </body>
 
