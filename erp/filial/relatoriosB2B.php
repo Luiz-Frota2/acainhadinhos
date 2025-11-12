@@ -1006,17 +1006,7 @@ $fimTxt = $fim->format('d/m/Y');
                             <!-- preserva o contexto id -->
                             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-                            <div class="col-12 col-md-5">
-                                <label>Filial</label>
-                                <select class="form-select form-select-sm" name="status">
-                                    <option value="">Todas as Filiais</option>
-                                    <?php foreach ($filiaisSelect as $fs): ?>
-                                        <option value="<?= (int)$fs['id'] ?>" <?= ($filialFiltroId === (int)$fs['id']) ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($fs['nome']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
+                           
 
                             <div class="col-12 col-md-2">
                                 <label class="form-label">de</label>
@@ -1026,6 +1016,17 @@ $fimTxt = $fim->format('d/m/Y');
                             <div class="col-12 col-md-2">
                                 <label class="form-label">até</label>
                                 <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+                            </div>
+                             <div class="col-12 col-md-5">
+                                <label>Filial</label>
+                                <select class="form-select form-select-sm" name="status">
+                                    <option value="">Todas as Filiais</option>
+                                    <?php foreach ($filiaisSelect as $fs): ?>
+                                        <option value="<?= (int)$fs['id'] ?>" <?= ($filialFiltroId === (int)$fs['id']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($fs['nome']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
 
                             <div class="col-12 col-md-3 d-flex gap-2">
