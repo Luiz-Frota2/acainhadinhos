@@ -884,7 +884,6 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
             <div style="width:100%; padding:20px 24px; box-sizing:border-box; font-family: 'Public Sans', Arial, sans-serif;">
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                     <div style="display:flex; align-items:center; gap:12px;">
-                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Logo" style="height:64px; object-fit:contain;">
                         <div>
                             <h2 style="margin:0; font-size:20px; color:#1f2937;">Relatório — Vendas por Filial</h2>
                             <div style="font-size:12px; color:#6b7280;">Período: <?= htmlspecialchars($tituloPeriodo) ?></div>
