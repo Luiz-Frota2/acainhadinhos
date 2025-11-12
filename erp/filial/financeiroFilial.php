@@ -887,20 +887,8 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
                         <i class="bx bx-x me-1"></i> Limpar
                     </a>
 
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-sm btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bx bx-download me-1"></i> Exportar
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
-                            <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
-                        </ul>
-                    </div>
-
                     <button class="btn btn-sm btn-outline-dark" type="button" onclick="window.print()" title="Imprimir">
-                        <i class="bx bx-printer"></i>
+                        <i class="bx bx-printer">Imprimir</i>
                     </button>
                 </div>
 
