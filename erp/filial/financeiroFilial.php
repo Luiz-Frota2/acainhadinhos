@@ -1191,104 +1191,124 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 
 </div> <!-- fim report-visible -->
 
-<!-- ============================
-     SCRIPT DE IMPRESSÃO (reaproveitável)
-     ============================ -->
 <script>
 function openPrintReport() {
     try {
-        var contentEl = document.getElementById('report-visible');
-        if (!contentEl) {
-            alert('Conteúdo para impressão não encontrado.');
-            return;
-        }
+        // Captura apenas o conteúdo principal do relatório
+        var reportHtml = `
+            <div style="text-align:center; margin-bottom:20px;">
+                <h2 style="margin:0;">Relatório de Vendas por Filial</h2>
+                <p style="margin:5px 0; font-size:13px; color:#555;">Período: ${document.querySelector('[name="inicio"]').value || '--'} até ${document.querySelector('[name="fim"]').value || '--'}</p>
+            </div>
 
-        // Clona para não mexer no DOM original
-        var clone = contentEl.cloneNode(true);
+            <div>
+                ${document.querySelector('.row').outerHTML} <!-- KPIs -->
+            </div>
 
-        // Remove elementos que não devem aparecer no print
-        var selectorsToRemove = [
-            'button',
-            'a.btn',
-            'form',
-            'input',
-            'select',
-            '.pagination',
-            '.page-link',
-            '.card-body.pt-2', // remoção dos pagers dentro das cards
-            '.btn', // segurança adicional
-            'a' // remove links simples (se preferir manter alguns, ajuste)
-        ];
-        selectorsToRemove.forEach(function(sel){
-            clone.querySelectorAll(sel).forEach(function(n){ n.remove(); });
-        });
+            <hr style="margin:20px 0; border:none; border-top:1px solid #ddd;">
 
-        // Ajustes finais: remove atributos que podem atrapalhar
-        clone.querySelectorAll('[style]').forEach(function(n){
-            // opcional: limpar estilos inline problemáticos (comente se não quiser)
-            // n.removeAttribute('style');
-        });
+            <div>
+                <h4 style="margin:0 0 10px;">Top 20 Produtos (Geral)</h4>
+                ${document.querySelectorAll('.card.mb-3')[1].querySelector('.table-responsive').outerHTML}
+            </div>
 
-        // Monta o HTML final para a nova aba
+            <hr style="margin:20px 0; border:none; border-top:1px solid #ddd;">
+
+            <div>
+                <h4 style="margin:0 0 10px;">Ranking por Filial (Top 10 de cada)</h4>
+                ${document.querySelectorAll('.card.mb-3')[2].querySelector('.table-responsive').outerHTML}
+            </div>
+        `;
+
+        // Abre nova aba para impressão
         var win = window.open('', '_blank');
         if (!win) {
             alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
             return;
         }
 
+        // Estilo corporativo para impressão
         var style = `
             <style>
-                @page { size: A4; margin: 12mm; }
-                body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; padding: 10px; }
-                h5.card-header { margin: 0 0 8px 0; font-size:15px; font-weight:600; border-bottom: 1px solid #e6e6e6; padding-bottom:6px; }
-                .kpi-label { font-size:12px; color:#6b7280; }
-                .kpi-value { font-size:16px; font-weight:700; color:#0f172a; }
-                .kpi-sub { font-size:11px; color:#6b7280; }
-                table { width:100%; border-collapse:collapse; font-size:12px; margin-bottom:8px; }
-                th, td { padding:8px 10px; border:1px solid #e5e7eb; vertical-align: middle; }
-                thead th { background:#f3f4f6; text-align:left; }
-                .text-end { text-align:right; }
-                .badge { display:inline-block; padding:.25rem .5rem; border-radius:.375rem; font-size:11px; }
-                .progress { height:8px; background:#f1f1f1; border-radius:4px; overflow:hidden; }
-                .progress-bar { height:8px; background:#3b82f6; display:block; }
-                tr { page-break-inside: avoid; }
-                thead { display: table-header-group; }
-                tfoot { display: table-footer-group; }
+                @page { size: A4; margin: 18mm; }
+                body {
+                    font-family: 'Public Sans', Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                    -webkit-print-color-adjust: exact;
+                    background: white;
+                }
+                h2, h4 {
+                    font-weight: 600;
+                    color: #222;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                }
+                th, td {
+                    padding: 8px 10px;
+                    border: 1px solid #ddd;
+                    text-align: left;
+                }
+                thead th {
+                    background: #f2f3f5;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    font-size: 11px;
+                }
+                tbody tr:nth-child(even) { background: #fafafa; }
+                tbody tr:hover { background: #f0f4ff; }
+                .card.kpi-card {
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    padding: 8px 10px;
+                    text-align: center;
+                }
+                .kpi-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+                .kpi-value { font-size: 16px; font-weight: 600; color: #111; }
+                .kpi-sub { font-size: 10px; color: #777; }
+                .row {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                    justify-content: flex-start;
+                }
+                .col-md-2, .col-md-3, .col-md-5 {
+                    flex: 1 1 20%;
+                    min-width: 180px;
+                }
+                hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
             </style>
         `;
 
+        // HTML da aba de impressão
         var finalHtml = `
             <!doctype html>
             <html>
             <head>
                 <meta charset="utf-8" />
-                <title>Relatório — Vendas</title>
+                <title>Relatório — Vendas por Filial</title>
                 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
                 ${style}
             </head>
             <body>
-                <div>
-                    ${clone.outerHTML}
-                </div>
-
+                ${reportHtml}
                 <script>
-                    // foca e imprime automaticamente
                     window.focus();
-                    setTimeout(function(){ window.print(); }, 300);
-
-                    // após imprimir ou cancelar, redireciona a aba de impressão
+                    setTimeout(function(){
+                        window.print();
+                    }, 300);
                     window.onafterprint = function() {
-                        try {
-                            window.location.href = "VendasFiliais.php?id=principal_1";
-                        } catch (e) {
-                            window.close();
-                        }
+                        window.location.href = "VendasFiliais.php?id=principal_1";
                     };
                 <\/script>
             </body>
             </html>
         `;
 
+        // Escreve e finaliza
         win.document.open();
         win.document.write(finalHtml);
         win.document.close();
@@ -1299,7 +1319,6 @@ function openPrintReport() {
     }
 }
 </script>
-
 
 
 
