@@ -1044,7 +1044,14 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                                 window.focus();
                                 setTimeout(function(){
                                     window.print();
-                                    // opcional: fecha a aba após imprimir (comentado pois pode ser incômodo)
+
+// Detecta se o usuário cancelou a impressão
+window.onafterprint = function() {
+    // Ao cancelar ou concluir, volta para a página principal
+    window.location.href = "VendasFiliais.php?id=principal_1";
+};
+
+                               // opcional: fecha a aba após imprimir (comentado pois pode ser incômodo)
                                     // setTimeout(function(){ window.close(); }, 500);
                                 }, 300);
                             })();
