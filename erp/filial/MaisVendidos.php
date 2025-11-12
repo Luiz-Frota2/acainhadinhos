@@ -698,7 +698,7 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <i class="bx bx-eraser me-1"></i> Limpar Filtro
                 </a>
                 <!-- 🔹 BOTÃO DE IMPRESSÃO COM FUNÇÃO CORRETA -->
-                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openPrintReport()">
+                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openFilteredReportPrint()">
                     <i class="bx bx-printer me-1"></i> Imprimir
                 </button>
             </div>
