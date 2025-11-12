@@ -845,81 +845,152 @@ $nenhumResultado = (
 
 <!-- ====== ÁREA OCULTA PARA MONTAR O RELATÓRIO (é gerada dinamicamente pelo JS) ====== -->
 <!-- NÃO coloca conteúdo estático aqui; o JS irá clonar o HTML visível -->
-
-<!-- SCRIPT DE IMPRESSÃO -->
+<!-- SCRIPT DE IMPRESSÃO (Versão Corporativa) -->
 <script>
 function openPrintReport() {
     try {
-        // Pega o HTML visível que queremos imprimir
-        var contentEl = document.getElementById('report-visible');
+        const contentEl = document.getElementById('report-visible');
         if (!contentEl) {
             alert('Conteúdo para impressão não encontrado.');
             return;
         }
 
-        // Clona o HTML para evitar alterações no DOM original
-        var clonedHtml = contentEl.cloneNode(true);
+        // Clona conteúdo principal
+        const clonedHtml = contentEl.cloneNode(true);
 
-        // Remove elementos indesejados da cópia (botões, inputs, actions) — ajusta conforme necessário
-        var elementsToRemove = clonedHtml.querySelectorAll('button, a.btn, form, input[type="checkbox"], input[type="radio"]');
-        elementsToRemove.forEach(function(el){ 
-            // se for botão de ação dentro da tabela, remove somente se for do tipo button (não remove células)
-            el.remove(); 
-        });
+        // Remove elementos desnecessários
+        clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination').forEach(el => el.remove());
 
-        // Monta HTML final para a nova aba
-        var win = window.open('', '_blank');
+        // Cria nova janela
+        const win = window.open('', '_blank');
         if (!win) {
             alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
             return;
         }
 
-        var style = `
+        // Estilo corporativo
+        const style = `
             <style>
-                @page { size: A4; margin: 18mm; }
-                body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; }
-                .card { border: none; box-shadow: none; margin-bottom: 8px; }
-                h5.card-header { background: transparent; border-bottom: 1px solid #e6e6e6; padding: 8px 0; font-weight:600; }
-                table { width:100%; border-collapse:collapse; font-size:12px; }
-                th, td { padding:8px 10px; border:1px solid #e5e7eb; }
-                thead th { background:#f3f4f6; text-align: left; }
-                .kpi-label { font-size:12px; color:#6b7280; }
-                .kpi-value { font-size:18px; font-weight:700; color:#0f172a; }
-                .kpi-sub { font-size:11px; color:#6b7280; }
-                tr { page-break-inside: avoid; }
-                thead { display: table-header-group; }
-                tfoot { display: table-footer-group; }
+                @page { size: A4; margin: 15mm; }
+                body {
+                    font-family: 'Public Sans', Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                    background: #fff;
+                    -webkit-print-color-adjust: exact;
+                }
+
+                /* Cabeçalho elegante */
+                .report-header {
+                    text-align: center;
+                    border-bottom: 2px solid #1e293b;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }
+                .report-header h2 {
+                    margin: 0;
+                    font-size: 20px;
+                    color: #0f172a;
+                }
+                .report-header p {
+                    margin: 2px 0 0;
+                    font-size: 13px;
+                    color: #475569;
+                }
+
+                /* Informações do relatório */
+                .report-info {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 12px;
+                    color: #475569;
+                    margin-bottom: 10px;
+                }
+
+                /* Tabelas */
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                    page-break-inside: avoid;
+                }
+                thead {
+                    background: #f1f5f9;
+                    border-bottom: 2px solid #cbd5e1;
+                }
+                th, td {
+                    border: 1px solid #e2e8f0;
+                    padding: 8px 10px;
+                    text-align: left;
+                    vertical-align: middle;
+                }
+                th {
+                    font-weight: 600;
+                    color: #1e293b;
+                    font-size: 12.5px;
+                }
+                td {
+                    font-size: 12px;
+                    color: #334155;
+                }
+
+                /* Rodapé */
+                .report-footer {
+                    text-align: right;
+                    font-size: 11px;
+                    color: #64748b;
+                    border-top: 1px solid #e2e8f0;
+                    margin-top: 30px;
+                    padding-top: 8px;
+                }
+
+                /* Evitar quebra de linhas críticas */
+                tr, thead, tfoot {
+                    page-break-inside: avoid;
+                }
             </style>
         `;
 
-        // Use outerHTML do clone (string)
-        var printBody = clonedHtml.outerHTML;
+        // Corpo da impressão
+        const printBody = `
+            <div style="padding: 20px;">
+                <div class="report-header">
+                    <h2>Relatório de Vendas por Filial</h2>
+                    <p>Gerado automaticamente pelo sistema</p>
+                </div>
 
-        var finalHtml = `
-            <!doctype html>
-            <html>
+                <div class="report-info">
+                    <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
+                    <div><strong>Usuário:</strong> ${sessionStorage.getItem('usuarioLogado') || 'Administrador'}</div>
+                </div>
+
+                ${clonedHtml.outerHTML}
+
+                <div class="report-footer">
+                    Relatório confidencial - Uso interno apenas
+                </div>
+            </div>
+        `;
+
+        // Página completa
+        const finalHtml = `
+            <!DOCTYPE html>
+            <html lang="pt-BR">
             <head>
                 <meta charset="utf-8" />
                 <title>Relatório — Vendas por Filial</title>
-                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
                 ${style}
             </head>
             <body>
-                <div style="padding:18px;">
-                    ${printBody}
-                </div>
+                ${printBody}
                 <script>
-                    // foca e imprime
                     window.focus();
-                    setTimeout(function(){
-                        window.print();
-                    }, 300);
-
-                    // após imprimir ou cancelar, redireciona a aba de impressão
+                    setTimeout(() => window.print(), 300);
                     window.onafterprint = function() {
                         try {
                             window.location.href = "VendasFiliais.php?id=principal_1";
-                        } catch (e) {
+                        } catch(e) {
                             window.close();
                         }
                     };
@@ -928,7 +999,6 @@ function openPrintReport() {
             </html>
         `;
 
-        // escreve na nova janela
         win.document.open();
         win.document.write(finalHtml);
         win.document.close();
@@ -939,6 +1009,7 @@ function openPrintReport() {
     }
 }
 </script>
+
 
                 </div><!-- /container -->
             </div><!-- /Layout page -->
