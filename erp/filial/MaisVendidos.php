@@ -852,191 +852,170 @@ function openPrintReport() {
             return;
         }
 
-        // Clona o conteúdo visível
         const clonedHtml = contentEl.cloneNode(true);
 
-        // Remove elementos desnecessários para impressão
-        clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination')
-            .forEach(el => el.remove());
+        // Remove elementos desnecessários da cópia
+        clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination').forEach(el => el.remove());
 
-        // Abre nova janela
         const win = window.open('', '_blank');
         if (!win) {
             alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
             return;
         }
 
-        // Estilos de impressão corporativos
         const style = `
-        <style>
-            @page { size: A4; margin: 15mm; }
-            body {
-                font-family: 'Public Sans', Arial, sans-serif;
-                color: #111827;
-                font-size: 12px;
-                background: #fff;
-                -webkit-print-color-adjust: exact;
-            }
-            .report-header {
-                text-align: center;
-                border-bottom: 2px solid #1e293b;
-                padding-bottom: 10px;
-                margin-bottom: 25px;
-            }
-            .report-header h2 {
-                margin: 0;
-                font-size: 20px;
-                color: #0f172a;
-                font-weight: 700;
-            }
-            .report-header p {
-                margin: 3px 0 0;
-                font-size: 13px;
-                color: #475569;
-            }
-            .report-info {
-                display: flex;
-                justify-content: space-between;
-                font-size: 12px;
-                color: #475569;
-                margin-bottom: 20px;
-            }
-            .kpi-container {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-                gap: 12px;
-                margin-bottom: 25px;
-            }
-            .kpi-box {
-                border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                padding: 10px 12px;
-                background: #f9fafb;
-            }
-            .kpi-label {
-                font-size: 12px;
-                color: #6b7280;
-                margin-bottom: 3px;
-            }
-            .kpi-value {
-                font-size: 16px;
-                font-weight: 600;
-                color: #0f172a;
-            }
-            .kpi-sub {
-                font-size: 11px;
-                color: #6b7280;
-                margin-top: 3px;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-bottom: 25px;
-                page-break-inside: avoid;
-            }
-            thead {
-                background: #f1f5f9;
-                border-bottom: 2px solid #cbd5e1;
-            }
-            th, td {
-                border: 1px solid #e2e8f0;
-                padding: 8px 10px;
-                text-align: left;
-                vertical-align: middle;
-            }
-            th {
-                font-weight: 600;
-                color: #1e293b;
-                font-size: 12.5px;
-            }
-            td {
-                font-size: 12px;
-                color: #334155;
-            }
-            .report-footer {
-                text-align: right;
-                font-size: 11px;
-                color: #64748b;
-                border-top: 1px solid #e2e8f0;
-                margin-top: 40px;
-                padding-top: 8px;
-            }
-            tr, thead, tfoot { page-break-inside: avoid; }
-        </style>
+            <style>
+                @page { size: A4; margin: 15mm; }
+                body {
+                    font-family: 'Public Sans', Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                    background: #fff;
+                    -webkit-print-color-adjust: exact;
+                }
+
+                /* Cabeçalho */
+                .report-header {
+                    text-align: center;
+                    border-bottom: 2px solid #1e293b;
+                    padding-bottom: 10px;
+                    margin-bottom: 25px;
+                }
+                .report-header h2 {
+                    margin: 0;
+                    font-size: 20px;
+                    color: #0f172a;
+                    font-weight: 700;
+                }
+                .report-header p {
+                    margin: 3px 0 0;
+                    font-size: 13px;
+                    color: #475569;
+                }
+
+                /* Informações gerais */
+                .report-info {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 12px;
+                    color: #475569;
+                    margin-bottom: 20px;
+                }
+
+                /* Indicadores */
+                .kpi-container {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 25px;
+                }
+                .kpi-box {
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    padding: 10px 12px;
+                    background: #f9fafb;
+                }
+                .kpi-label {
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-bottom: 3px;
+                }
+                .kpi-value {
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: #0f172a;
+                }
+                .kpi-sub {
+                    font-size: 11px;
+                    color: #6b7280;
+                    margin-top: 3px;
+                }
+
+                /* Tabelas */
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 25px;
+                    page-break-inside: avoid;
+                }
+                thead {
+                    background: #f1f5f9;
+                    border-bottom: 2px solid #cbd5e1;
+                }
+                th, td {
+                    border: 1px solid #e2e8f0;
+                    padding: 8px 10px;
+                    text-align: left;
+                    vertical-align: middle;
+                }
+                th {
+                    font-weight: 600;
+                    color: #1e293b;
+                    font-size: 12.5px;
+                }
+                td {
+                    font-size: 12px;
+                    color: #334155;
+                }
+
+                /* Rodapé */
+                .report-footer {
+                    text-align: right;
+                    font-size: 11px;
+                    color: #64748b;
+                    border-top: 1px solid #e2e8f0;
+                    margin-top: 40px;
+                    padding-top: 8px;
+                }
+
+                tr, thead, tfoot { page-break-inside: avoid; }
+            </style>
         `;
 
-        // Pega usuário logado, mas trata caso não exista
-        const usuario = sessionStorage.getItem('usuarioLogado') || 'Administrador';
-
-        // Corpo do relatório
         const printBody = `
-        <div style="padding: 20px;">
-            <div class="report-header">
-                <h2>Relatório de Vendas por Filial</h2>
-                <p>Emitido automaticamente pelo sistema</p>
-            </div>
+            <div style="padding: 20px;">
+                <div class="report-header">
+                    <h2>Relatório de Vendas por Filial</h2>
+                    <p>Emitido automaticamente pelo sistema</p>
+                </div>
 
-            <div class="report-info">
-                <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
-                <div><strong>Usuário:</strong> ${usuario}</div>
-            </div>
+                <div class="report-info">
+                    <div><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</div>
+                    <div><strong>Usuário:</strong> ${sessionStorage.getItem('usuarioLogado') || 'Administrador'}</div>
+                </div>
 
-            <div class="kpi-container">
-                <div class="kpi-box">
-                    <div class="kpi-label">Itens Vendidos</div>
-                    <div class="kpi-value">1</div>
-                    <div class="kpi-sub">Período: 13/10 até 12/11</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Pedidos</div>
-                    <div class="kpi-value">1</div>
-                    <div class="kpi-sub">Pedidos Fechados</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Faturamento Total</div>
-                    <div class="kpi-value">R$ 24,90</div>
-                    <div class="kpi-sub">Total no Período</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-label">Produto Mais Vendido</div>
-                    <div class="kpi-value">Polpa de Açaí 1kg</div>
-                    <div class="kpi-sub">Cód: 7890000000001</div>
+                ${clonedHtml.outerHTML}
+
+                <div class="report-footer">
+                    Relatório confidencial — uso interno exclusivo
                 </div>
             </div>
-
-            ${clonedHtml.outerHTML}
-
-            <div class="report-footer">
-                Relatório confidencial — uso interno exclusivo
-            </div>
-        </div>
         `;
 
-        // Documento completo
         const finalHtml = `
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-            <meta charset="utf-8" />
-            <title>Relatório — Vendas por Filial</title>
-            <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-            ${style}
-        </head>
-        <body>
-            ${printBody}
-            <script>
-                window.focus();
-                setTimeout(() => window.print(), 300);
-                window.onafterprint = function() {
-                    try {
-                        window.location.href = "VendasFiliais.php?id=principal_1";
-                    } catch(e) {
-                        window.close();
-                    }
-                };
-            <\/script>
-        </body>
-        </html>
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="utf-8" />
+                <title>Relatório — Vendas por Filial</title>
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+                ${style}
+            </head>
+            <body>
+                ${printBody}
+                <script>
+                    window.focus();
+                    setTimeout(() => window.print(), 300);
+                    window.onafterprint = function() {
+                        try {
+                            window.location.href = "VendasFiliais.php?id=principal_1";
+                        } catch(e) {
+                            window.close();
+                        }
+                    };
+                <\/script>
+            </body>
+            </html>
         `;
 
         win.document.open();
