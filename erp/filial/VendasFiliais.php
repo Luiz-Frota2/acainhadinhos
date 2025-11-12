@@ -998,71 +998,108 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <!-- ============================
          SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
          ============================ -->
-    <script>
-        function openPrintReport() {
-            try {
-                // pega o HTML do relatório gerado server-side
-                var reportHtml = document.getElementById('report-html').innerHTML;
+   
+<script>
+function abrirRelatorio() {
+    // captura o conteúdo dos cards e tabelas da página
+    const cards = document.querySelector('.cards-container')?.outerHTML || '';
+    const tabelas = document.querySelector('.tabelas-container')?.outerHTML || '';
 
-                // Monta o documento completo (incluir CSS de impressão)
-                var win = window.open('', '_blank');
-                if (!win) {
-                    alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
-                    return;
-                }
-
-                var style = `
-                    <style>
-                        @page { size: A4; margin: 18mm; }
-                        body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; }
-                        h2, h4 { margin:0; }
-                        table { width:100%; border-collapse:collapse; }
-                        th, td { padding:8px 10px; border:1px solid #e5e7eb; }
-                        thead th { background:#f3f4f6; }
-                        .no-print { display:none; }
-                        /* Ajustes para evitar que a tabela quebre de forma estranha */
-                        tr { page-break-inside: avoid; }
-                        thead { display: table-header-group; }
-                        tfoot { display: table-footer-group; }
-                    </style>
-                `;
-
-                // Monta HTML final
-                var finalHtml = `
-                    <!doctype html>
-                    <html>
-                    <head>
-                        <meta charset="utf-8" />
-                        <title>Relatório — Vendas por Filial</title>
-                        <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-                        ${style}
-                    </head>
-                    <body>
-                        ${reportHtml}
-                        <script>
-                            // Auto imprimir ao carregar
-                            (function() {
-                                window.focus();
-                                setTimeout(function(){
-                                    window.print();
-                                    // opcional: fecha a aba após imprimir (comentado pois pode ser incômodo)
-                                    // setTimeout(function(){ window.close(); }, 500);
-                                }, 300);
-                            })();
-                        <\/script>
-                    </body>
-                    </html>
-                `;
-
-                win.document.open();
-                win.document.write(finalHtml);
-                win.document.close();
-            } catch (err) {
-                console.error(err);
-                alert('Erro ao gerar o relatório para impressão: ' + err.message);
+    // cria o conteúdo HTML do relatório
+    const relatorioHTML = `
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <title>Relatório Financeiro</title>
+        <style>
+            @media print {
+                body { margin: 20mm; font-family: Arial, sans-serif; }
             }
-        }
-    </script>
+            body {
+                font-family: Arial, sans-serif;
+                background: #fff;
+                color: #000;
+            }
+            h1 {
+                text-align: center;
+                margin-bottom: 5px;
+                font-size: 22px;
+                text-transform: uppercase;
+            }
+            .data {
+                text-align: center;
+                font-size: 13px;
+                color: #555;
+                margin-bottom: 20px;
+            }
+            table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-bottom: 25px;
+            }
+            th, td {
+                border: 1px solid #ccc;
+                padding: 8px;
+                text-align: left;
+                font-size: 13px;
+            }
+            th {
+                background: #f1f1f1;
+                font-weight: bold;
+            }
+            .cards-container {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 15px;
+                margin-bottom: 30px;
+            }
+            .card {
+                border: 1px solid #ddd;
+                border-radius: 10px;
+                box-shadow: 0 0 5px rgba(0,0,0,0.1);
+                padding: 15px;
+                min-width: 180px;
+                text-align: center;
+                background: #fafafa;
+            }
+            .card h3 {
+                font-size: 16px;
+                margin-bottom: 8px;
+            }
+            .card p {
+                font-size: 18px;
+                font-weight: bold;
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Relatório Financeiro Consolidado</h1>
+        <div class="data">Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
+        ${cards}
+        ${tabelas}
+        <script>
+            // Abre o diálogo de impressão
+            window.onload = function() {
+                const printResult = window.print();
+                // Espera um pouco e redireciona caso o usuário cancele
+                setTimeout(() => {
+                    window.location.href = 'vendas_por_filiais.php';
+                }, 1000);
+            };
+        <\/script>
+    </body>
+    </html>
+    `;
+
+    // abre em nova aba
+    const novaAba = window.open('', '_blank');
+    novaAba.document.open();
+    novaAba.document.write(relatorioHTML);
+    novaAba.document.close();
+}
+</script>
 </body>
 
 </html>
