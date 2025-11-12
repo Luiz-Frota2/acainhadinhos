@@ -713,7 +713,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <label class="form-label">até</label>
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
-            <div class="col-12 col-md-2">
+            <div class="col-12 col-md-4">
             <select class="form-select me-2" name="filial">
                 <option value="">Todas as Filiais</option>
                 <?php foreach ($listaFiliais as $f): ?>
@@ -723,7 +723,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <?php endforeach; ?>
             </select>
             </div>
-             <div class="col-12 col-md-2">
+             <div class="col-12 col-md-4">
 
             <button class="btn btn-outline-secondary me-2" type="submit">
                 <i class="bx bx-filter-alt me-1"></i> Aplicar
