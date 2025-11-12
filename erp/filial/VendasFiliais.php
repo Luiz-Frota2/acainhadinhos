@@ -736,12 +736,11 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
             <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
     <i class="bx bx-eraser me-1"></i> Limpar Filtro
 </a>
-                <!-- ALTEREI AQUI: chamar a função que abre nova aba com relatório pronto -->
-
-                <a href="/assets/php/relatorios/print_relatorio_vendas_filial.php?id=<?= urlencode($idSelecionado) ?>&inicio=<?= urlencode($inicioFiltro) ?>&fim=<?= urlencode($fimFiltro) ?>"class="btn btn-sm btn-outline-secondary"  type="button" >
-    <i class="bx bx-printer me-1"></i>Imprimir 
+               <a href="/assets/php/relatorios/print_relatorio_vendas_filial.php?<?= http_build_query($_GET) ?>" 
+   class="btn btn-sm btn-outline-secondary" target="_blank">
+   <i class="bx bx-printer me-1"></i> Imprimir
 </a>
-                
+
             </div>
 
         </form>
