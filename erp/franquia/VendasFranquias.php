@@ -714,7 +714,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
             </div>
             <div class="col-12 col-md-4">
                 <label>Franquia</label>
-            <select  class="form-select form-select-sm" name="filial">
+            <select  class="form-select form-select-sm" name="franquia">
                 <option value="">Todas as Franquias</option>
                 <?php foreach ($listaFiliais as $f): ?>
                     <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
