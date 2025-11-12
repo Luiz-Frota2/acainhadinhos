@@ -737,7 +737,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <i class="bx bx-eraser me-1"></i> Limpar Filtro
 </a>
                 <!-- ALTEREI AQUI: chamar a função que abre nova aba com relatório pronto -->
-                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="abrirRelatorio() "><i class="bx bx-printer me-1"></i> Imprimir</button>
+                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="openPrintReport()"><i class="bx bx-printer me-1"></i> Imprimir</button>
                 </div>
 
         </form>
@@ -998,108 +998,86 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <!-- ============================
          SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
          ============================ -->
-   
-<script>
-function abrirRelatorio() {
-    // captura o conteúdo dos cards e tabelas da página
-    const cards = document.querySelector('.cards-container')?.outerHTML || '';
-    const tabelas = document.querySelector('.tabelas-container')?.outerHTML || '';
+   <script>
+function openPrintReport() {
+    try {
+        // Obtém o HTML do relatório
+        var reportHtml = document.getElementById('report-html').innerHTML;
 
-    // cria o conteúdo HTML do relatório
-    const relatorioHTML = `
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Relatório Financeiro</title>
-        <style>
-            @media print {
-                body { margin: 20mm; font-family: Arial, sans-serif; }
-            }
-            body {
-                font-family: Arial, sans-serif;
-                background: #fff;
-                color: #000;
-            }
-            h1 {
-                text-align: center;
-                margin-bottom: 5px;
-                font-size: 22px;
-                text-transform: uppercase;
-            }
-            .data {
-                text-align: center;
-                font-size: 13px;
-                color: #555;
-                margin-bottom: 20px;
-            }
-            table {
-                border-collapse: collapse;
-                width: 100%;
-                margin-bottom: 25px;
-            }
-            th, td {
-                border: 1px solid #ccc;
-                padding: 8px;
-                text-align: left;
-                font-size: 13px;
-            }
-            th {
-                background: #f1f1f1;
-                font-weight: bold;
-            }
-            .cards-container {
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 15px;
-                margin-bottom: 30px;
-            }
-            .card {
-                border: 1px solid #ddd;
-                border-radius: 10px;
-                box-shadow: 0 0 5px rgba(0,0,0,0.1);
-                padding: 15px;
-                min-width: 180px;
-                text-align: center;
-                background: #fafafa;
-            }
-            .card h3 {
-                font-size: 16px;
-                margin-bottom: 8px;
-            }
-            .card p {
-                font-size: 18px;
-                font-weight: bold;
-                margin: 0;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>Relatório Financeiro Consolidado</h1>
-        <div class="data">Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
-        ${cards}
-        ${tabelas}
-        <script>
-            // Abre o diálogo de impressão
-            window.onload = function() {
-                const printResult = window.print();
-                // Espera um pouco e redireciona caso o usuário cancele
-                setTimeout(() => {
-                    window.location.href = 'vendas_por_filiais.php';
-                }, 1000);
-            };
-        <\/script>
-    </body>
-    </html>
-    `;
+        // Passa o ID da empresa (injetado pelo PHP)
+        var empresaId = "<?php echo isset($id_selecionado) ? $id_selecionado : ''; ?>";
 
-    // abre em nova aba
-    const novaAba = window.open('', '_blank');
-    novaAba.document.open();
-    novaAba.document.write(relatorioHTML);
-    novaAba.document.close();
+        // Abre nova janela de impressão
+        var win = window.open('', '_blank');
+        if (!win) {
+            alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
+            return;
+        }
+
+        // Estilo da página de impressão
+        var style = `
+            <style>
+                @page { size: A4; margin: 18mm; }
+                body {
+                    font-family: 'Public Sans', Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                    -webkit-print-color-adjust: exact;
+                }
+                h2, h4 { margin:0; }
+                table { width:100%; border-collapse:collapse; }
+                th, td { padding:8px 10px; border:1px solid #e5e7eb; }
+                thead th { background:#f3f4f6; }
+                .no-print, .logo, img.logo, #logo, header img { display:none !important; } /* 🔹 Oculta logo */
+                tr { page-break-inside: avoid; }
+                thead { display: table-header-group; }
+                tfoot { display: table-footer-group; }
+            </style>
+        `;
+
+        // HTML final para impressão
+        var finalHtml = `
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8" />
+                <title>Relatório — Vendas por Filial</title>
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                ${style}
+            </head>
+            <body>
+                ${reportHtml}
+                <script>
+                    (function() {
+                        window.focus();
+                        setTimeout(function() {
+                            // Executa a impressão
+                            window.print();
+
+                            // Aguarda o usuário cancelar ou concluir e redireciona
+                            setTimeout(function() {
+                                // 🔹 Retorna à página original com o ID da empresa
+                                window.location.href = 'vendas_por_filial.php?id=' + encodeURIComponent('${empresaId}');
+                            }, 800);
+                        }, 300);
+                    })();
+                <\/script>
+            </body>
+            </html>
+        `;
+
+        // Escreve o conteúdo na nova janela
+        win.document.open();
+        win.document.write(finalHtml);
+        win.document.close();
+
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao gerar o relatório para impressão: ' + err.message);
+    }
 }
 </script>
+
 </body>
 
 </html>
