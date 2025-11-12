@@ -528,7 +528,7 @@ $params = [];
 // 1. FILTRO DE FILIAL
 if ($filialSelecionada != '') {
     // Apenas 1 filial
-    $where[] = "v.empresa_id LIKE :filial";
+    $where[] = "v.empresa_id LIKE :franquia";
     $params[':filial'] = "%_" . $filialSelecionada;
 } else {
     // Todas as filiais ativas
