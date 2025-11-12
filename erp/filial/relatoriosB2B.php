@@ -1002,11 +1002,11 @@ $fimTxt = $fim->format('d/m/Y');
                     <!-- FORMULÁRIO DE FILTRO B2B -->
                     <!-- ====================== -->
                     <div class="card mb-3">
-                        <form method="get" class="card-body row g-5 align-items" autocomplete="off">
+                        <form method="get" class="card-body row g-4 align-items-end" autocomplete="off">
                             <!-- preserva o contexto id -->
                             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-                            <div class="col-12 col-md-3">
+                            <div class="col-12 col-md-4">
                                 <label>Filial</label>
                                 <select class="form-select form-select-sm" name="status">
                                     <option value="">Todas as Filiais</option>
@@ -1028,7 +1028,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
                             </div>
 
-                            <div class="col-12 col-md-5">
+                            <div class="col-12 col-md-4">
                                 <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                             <a href="relatorio_b2b_export.php?tipo=print&<?= http_build_query($_GET) ?>" 
