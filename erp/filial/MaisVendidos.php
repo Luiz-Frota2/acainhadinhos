@@ -659,12 +659,10 @@ $stmt->execute($params);
 $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
-
-                    <!-- Filtros -->
+<!-- Filtros -->
 <div class="card mb-3">
     <div class="card-body">
         <form class="d-flex flex-wrap w-100 gap-4 align-items-end" method="get">
-
             <!-- ✅ MANTÉM O ID NA URL -->
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
@@ -677,29 +675,35 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <label class="form-label">até</label>
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
+
             <div class="col-12 col-md-4">
                 <label>Filial</label>
-            <select class="form-select form-select-sm" name="filial">
-                <option value="">Todas as Filiais</option>
-                <?php foreach ($listaFiliais as $f): ?>
-                    <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
-                        <?= htmlspecialchars($f['nome']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-                </div>
-               <div class="col-12 col-md-3 d-flex gap-2">
-            <button class="btn btn-sm btn-primary" type="submit">
-                <i class="bx bx-filter-alt me-1"></i> Aplicar
-            </button>
-                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
-                <i class="bx bx-eraser me-1"></i> Limpar Filtro
-                        </a>
-                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
-                </div>
+                <select class="form-select form-select-sm" name="filial">
+                    <option value="">Todas as Filiais</option>
+                    <?php foreach ($listaFiliais as $f): ?>
+                        <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
+                            <?= htmlspecialchars($f['nome']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button class="btn btn-sm btn-primary" type="submit">
+                    <i class="bx bx-filter-alt me-1"></i> Aplicar
+                </button>
+                <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
+                    <i class="bx bx-eraser me-1"></i> Limpar Filtro
+                </a>
+                <!-- Botão de impressão com nova função -->
+                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openFilteredReportPrint()">
+                    <i class="bx bx-printer me-1"></i> Imprimir
+                </button>
+            </div>
         </form>
     </div>
 </div>
+
 <?php
 $nenhumResultado = (
     $kpis['itens'] == 0 &&
@@ -715,144 +719,146 @@ $nenhumResultado = (
     </div>
 <?php endif; ?>
 
-<div class="row">
-    <div class="col-md-2 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Itens Vendidos</div>
-                <div class="kpi-value"><?= inteiro($kpis['itens']) ?></div>
-                <div class="kpi-sub">de <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
-            </div>
-        </div>
-    </div>
 
-    <div class="col-md-2 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Pedidos</div>
-                <div class="kpi-value"><?= inteiro($kpis['pedidos']) ?></div>
-                <div class="kpi-sub">Pedidos fechados</div>
-            </div>
+<!-- ============================
+     CONTEÚDO OCULTO PARA IMPRESSÃO
+     ============================ -->
+<div id="filtered-report-html" style="display:none;">
+    <div style="padding:20px 24px; font-family:'Public Sans', Arial, sans-serif;">
+        <h2 style="margin:0; font-size:20px; color:#1f2937;">Relatório de Produtos</h2>
+        <div style="font-size:12px; color:#6b7280;">
+            Período: <?= htmlspecialchars($inicioFiltro) ?> até <?= htmlspecialchars($fimFiltro) ?><br>
+            Gerado por: <?= htmlspecialchars($nomeUsuario ?? 'Usuário') ?> — <?= (new DateTime())->format('d/m/Y H:i') ?><br>
+            Empresa: <?= htmlspecialchars($idSelecionado) ?>
         </div>
-    </div>
 
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Faturamento</div>
-                <div class="kpi-value"><?= moeda($kpis['faturamento']) ?></div>
-                <div class="kpi-sub">Total período</div>
-            </div>
-        </div>
-    </div>
+        <hr style="border:none; border-top:1px solid #e6e6e6; margin:16px 0;">
 
-    <div class="col-md-5 col-sm-6 mb-3">
-        <div class="card kpi-card">
-            <div class="card-body">
-                <div class="kpi-label">Produto Mais Vendido</div>
-                <div class="kpi-value">
-                    <?= $kpis['produto_nome'] ?: 'Nenhum produto' ?>
-                </div>
-                <div class="kpi-sub">
-                    <?= $kpis['produto_sku'] ?: '--' ?>
-                </div>
-            </div>
-        </div>
+        <!-- Top 20 Produtos -->
+        <h4 style="margin-bottom:8px;">Top 20 Produtos (Geral)</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead style="background:#f3f4f6;">
+                <tr>
+                    <th style="text-align:left; padding:8px; border:1px solid #ddd;">#</th>
+                    <th style="text-align:left; padding:8px; border:1px solid #ddd;">SKU</th>
+                    <th style="text-align:left; padding:8px; border:1px solid #ddd;">Produto</th>
+                    <th style="text-align:right; padding:8px; border:1px solid #ddd;">Qtd.</th>
+                    <th style="text-align:right; padding:8px; border:1px solid #ddd;">Pedidos</th>
+                    <th style="text-align:right; padding:8px; border:1px solid #ddd;">Faturamento (R$)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($produtos)): ?>
+                    <tr><td colspan="6" style="text-align:center; padding:8px;">Nenhum produto encontrado.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($produtos as $index => $p): ?>
+                        <tr>
+                            <td style="padding:8px; border:1px solid #ddd;"><?= $index + 1 ?></td>
+                            <td style="padding:8px; border:1px solid #ddd;"><?= htmlspecialchars($p['sku']) ?></td>
+                            <td style="padding:8px; border:1px solid #ddd;"><?= htmlspecialchars($p['nome']) ?></td>
+                            <td style="text-align:right; padding:8px; border:1px solid #ddd;"><?= number_format($p['total_quantidade'],0,',','.') ?></td>
+                            <td style="text-align:right; padding:8px; border:1px solid #ddd;"><?= intval($p['total_pedidos']) ?></td>
+                            <td style="text-align:right; padding:8px; border:1px solid #ddd;">R$ <?= number_format($p['faturamento'],2,',','.') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+
+        <br>
+        <!-- Ranking por Filial -->
+        <h4 style="margin-bottom:8px;">Ranking por Filial (Top 10 de cada)</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+            <thead style="background:#f3f4f6;">
+                <tr>
+                    <th style="text-align:left; padding:8px; border:1px solid #ddd;">Filial</th>
+                    <th style="text-align:left; padding:8px; border:1px solid #ddd;">SKU</th>
+                    <th style="text-align:left; padding:8px; border:1px solid #ddd;">Produto</th>
+                    <th style="text-align:right; padding:8px; border:1px solid #ddd;">Qtd.</th>
+                    <th style="text-align:right; padding:8px; border:1px solid #ddd;">Pedidos</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($ranking)): ?>
+                    <tr><td colspan="5" style="text-align:center; padding:8px;">Nenhum ranking encontrado.</td></tr>
+                <?php else: ?>
+                    <?php foreach ($ranking as $item): ?>
+                        <tr>
+                            <td style="padding:8px; border:1px solid #ddd;"><?= htmlspecialchars($item['filial']) ?></td>
+                            <td style="padding:8px; border:1px solid #ddd;"><?= htmlspecialchars($item['sku']) ?></td>
+                            <td style="padding:8px; border:1px solid #ddd;"><?= htmlspecialchars($item['produto']) ?></td>
+                            <td style="text-align:right; padding:8px; border:1px solid #ddd;"><?= number_format($item['total_quantidade'],0,',','.') ?></td>
+                            <td style="text-align:right; padding:8px; border:1px solid #ddd;"><?= intval($item['total_pedidos']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
     </div>
 </div>
 
+<!-- ============================
+     SCRIPT DE IMPRESSÃO
+     ============================ -->
+<script>
+function openFilteredReportPrint() {
+    try {
+        var reportHtml = document.getElementById('filtered-report-html').innerHTML;
+        var win = window.open('', '_blank');
+        if (!win) {
+            alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
+            return;
+        }
 
+        var style = `
+            <style>
+                @page { size: A4; margin: 18mm; }
+                body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; }
+                h2, h4 { margin:0; }
+                table { width:100%; border-collapse:collapse; }
+                th, td { padding:8px 10px; border:1px solid #e5e7eb; }
+                thead th { background:#f3f4f6; }
+                tr { page-break-inside: avoid; }
+                thead { display: table-header-group; }
+                tfoot { display: table-footer-group; }
+            </style>
+        `;
 
+        var finalHtml = `
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8" />
+                <title>Relatório de Produtos</title>
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                ${style}
+            </head>
+            <body>
+                ${reportHtml}
+                <script>
+                    window.focus();
+                    setTimeout(function(){
+                        window.print();
+                    }, 300);
 
-                    <!-- Top 20 produtos (geral ou por Filial selecionada) -->
-                    <!-- Top 20 Produtos (Geral) -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Top 20 Produtos (Geral)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>SKU</th>
-                                        <th>Produto</th>
-                                        <th class="text-end">Qtd.</th>
-                                        <th class="text-end">Pedidos</th>
-                                        <th class="text-end">Faturamento (R$)</th>
-                                    </tr>
-                                </thead>
-                         <tbody>
+                    // Após imprimir ou cancelar, volta para a página
+                    window.onafterprint = function() {
+                        window.location.href = "VendasFiliais.php?id=principal_1";
+                    };
+                <\/script>
+            </body>
+            </html>
+        `;
 
-<?php if (empty($produtos)): ?>
-    <tr>
-        <td colspan="6" class="text-center text-muted py-3">
-            Nenhum produto encontrado para o filtro aplicado.
-        </td>
-    </tr>
-<?php else: ?>
-
-    <?php foreach ($produtos as $index => $p): ?>
-        <tr>
-            <td><?= $index + 1 ?></td>
-            <td><?= htmlspecialchars($p['sku']) ?></td>
-            <td><?= htmlspecialchars($p['nome']) ?></td>
-            <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
-            <td class="text-end"><?= number_format($p['total_pedidos'], 0, ',', '.') ?></td>
-            <td class="text-end">R$ <?= number_format($p['faturamento'], 2, ',', '.') ?></td>
-        </tr>
-    <?php endforeach; ?>
-
-<?php endif; ?>
-
-</tbody>
-
-
-                            </table>
-                        </div>
-                    </div>
-
-
-                    <!-- Ranking por Filial (Top 10 de cada) -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Ranking por Filial (Top 10 de cada)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Filial</th>
-                                        <th>SKU</th>
-                                        <th>Produto</th>
-                                        <th class="text-end">Qtd.</th>
-                                        <th class="text-end">Pedidos</th>
-                                    </tr>
-                                </thead>
-                            <tbody>
-
-<?php if (empty($ranking)): ?>
-    <tr>
-        <td colspan="5" class="text-center text-muted py-3">
-            Nenhum ranking disponível para o filtro aplicado.
-        </td>
-    </tr>
-<?php else: ?>
-
-    <?php foreach ($ranking as $item): ?>
-        <tr>
-            <td><strong><?= htmlspecialchars($item['filial']) ?></strong></td>
-            <td><?= htmlspecialchars($item['sku']) ?></td>
-            <td><?= htmlspecialchars($item['produto']) ?></td>
-            <td class="text-end"><?= number_format($item['total_quantidade'], 0, ',', '.') ?></td>
-            <td class="text-end"><?= number_format($item['total_pedidos'], 0, ',', '.') ?></td>
-        </tr>
-    <?php endforeach; ?>
-
-<?php endif; ?>
-
-</tbody>
-
-
-                            </table>
-                        </div>
-                    </div>
+        win.document.open();
+        win.document.write(finalHtml);
+        win.document.close();
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao gerar o relatório para impressão: ' + err.message);
+    }
+}
+</script>
 
                 </div><!-- /container -->
             </div><!-- /Layout page -->
