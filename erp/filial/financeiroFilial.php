@@ -836,7 +836,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <!-- ============================= -->
 <div class="card mb-3">
     <div class="card-body">
-        <form class="d-flex flex-wrap w-100 gap-2 align-items-end" method="get">
+        <form class="d-flex flex-wrap w-100 gap-3 align-items-end" method="get">
             <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
 
            
