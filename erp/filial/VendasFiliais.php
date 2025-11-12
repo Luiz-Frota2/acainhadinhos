@@ -737,7 +737,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <i class="bx bx-eraser me-1"></i> Limpar Filtro
 </a>
                 <!-- ALTEREI AQUI: chamar a função que abre nova aba com relatório pronto -->
-                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="openPrintReport()"><i class="bx bx-printer me-1"></i> Imprimir Relatório</button>
+                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="openPrintReport()"><i class="bx bx-printer me-1"></i> Imprimir</button>
                 </div>
 
         </form>
