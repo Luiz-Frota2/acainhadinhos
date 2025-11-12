@@ -1201,7 +1201,7 @@ try {
 
                                 </div>
                                 <div class="alert alert-info mb-0">
-                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Transf.</strong> para enviar às Filiais.
+                                    <i class="bx bx-info-circle me-1"></i> Dica: clique em <strong>Transf.</strong> para enviar às Franquias.
                                 </div>
                             </div>
                             <div class="modal-footer">
