@@ -835,8 +835,8 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <!-- Filtros (De / Até, Status, Filial) -->
 <!-- ============================= -->
 <div class="card mb-3">
-    <div class="card-body py-2">
-        <form class="w-100" method="get">
+    <div class="card-body">
+        <form class="d-flex flex-wrap w-100 gap-4 align-items-end" method="get">
             <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
 
             <div class="row g-3 align-items-end">
