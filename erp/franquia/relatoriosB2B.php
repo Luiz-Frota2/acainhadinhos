@@ -1019,7 +1019,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
                             </div>
                              <div class="col-12 col-md-5">
-                                <label>Filial</label>
+                                <label>Franquia</label>
                                 <select class="form-select form-select-sm" name="status">
                                     <option value="">Todas as Franquia</option>
                                     <?php foreach ($filiaisSelect as $fs): ?>
