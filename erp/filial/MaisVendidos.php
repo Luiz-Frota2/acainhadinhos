@@ -1035,7 +1035,7 @@ function openPrintReport() {
                     setTimeout(() => window.print(), 300);
                     window.onafterprint = function() {
                         try {
-                            window.location.href = "VendasFiliais.php?id=principal_1";
+                            window.location.href = "MaisVendidos.php?id=principal_1";
                         } catch(e) {
                             window.close();
                         }
