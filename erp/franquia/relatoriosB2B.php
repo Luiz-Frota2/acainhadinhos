@@ -689,616 +689,621 @@ $fimTxt = $fim->format('d/m/Y');
           </div>
         </nav>
 
-        <!-- Content -->
-        <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0">
-            <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
-            Relatórios B2B
-          </h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font">
-            <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
-          </h5>
+      
+                <!-- Content -->
+                <div class="container-xxl flex-grow-1 container-p-y">
+                    <h4 class="fw-bold mb-0">
+                        <span class="text-muted fw-light"><a href="#">Franquia</a>/</span>
+                        Relatórios B2B
+                    </h4>
+                    <h5 class="fw-bold mt-3 mb-3 custor-font">
+                        <span class="text-muted fw-light">Indicadores e resumos do canal B2B</span>
+                    </h5>
 
-          <?php
-          // ======================
-          // === INÍCIO BLOCO B2B: FILTROS E CONSULTAS CORRIGIDOS ====
-          // ======================
+                    <?php
+                    // ======================
+                    // === INÍCIO BLOCO B2B: FILTROS E CONSULTAS CORRIGIDOS ====
+                    // ======================
 
-          // Franquia B2B filter: passa o ID da franquia (value = id)
-          $franquiaFiltroId = isset($_GET['status']) && $_GET['status'] !== '' ? intval($_GET['status']) : null;
+                    // Filial B2B filter: passa o ID da filial (value = id)
+                    $filialFiltroId = isset($_GET['status']) && $_GET['status'] !== '' ? intval($_GET['status']) : null;
 
-          // Datas do filtro B2B (input date envia YYYY-MM-DD)
-          $inicioFiltro = isset($_GET['codigo']) && $_GET['codigo'] !== '' ? trim($_GET['codigo']) : '';
-          $fimFiltro    = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim($_GET['categoria']) : '';
+                    // Datas do filtro B2B (input date envia YYYY-MM-DD)
+                    $inicioFiltro = isset($_GET['codigo']) && $_GET['codigo'] !== '' ? trim($_GET['codigo']) : '';
+                    $fimFiltro    = isset($_GET['categoria']) && $_GET['categoria'] !== '' ? trim($_GET['categoria']) : '';
 
-          // Se datas vierem vazias, usa padrão (primeiro e último dia do mês atual)
-          if ($inicioFiltro === "") $inicioFiltro = date("Y-m-01");
-          if ($fimFiltro === "")    $fimFiltro    = date("Y-m-t");
+                    // Se datas vierem vazias, usa padrão (primeiro e último dia do mês atual)
+                    if ($inicioFiltro === "") $inicioFiltro = date("Y-m-01");
+                    if ($fimFiltro === "")    $fimFiltro    = date("Y-m-t");
 
-          // Normaliza datetimes para comparação (incluir todo o dia final)
-          $inicioDatetime = $inicioFiltro . " 00:00:00";
-          $fimDatetime    = $fimFiltro    . " 23:59:59";
+                    // Normaliza datetimes para comparação (incluir todo o dia final)
+                    $inicioDatetime = $inicioFiltro . " 00:00:00";
+                    $fimDatetime    = $fimFiltro    . " 23:59:59";
 
-          // paginação padrão para tabelas B2B
-          $paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
+                    // paginação padrão para tabelas B2B
+                    $paginaAtual = isset($_GET['pagina']) ? max(1, intval($_GET['pagina'])) : 1;
 
-          // POPULA SELECT DINÂMICO DE  FRANQUIAS PARA O FORM
-          try {
-            $sqlSel = $pdo->query("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' ORDER BY nome");
-            $franquiasSelect = $sqlSel->fetchAll(PDO::FETCH_ASSOC);
-          } catch (PDOException $e) {
-            $franquiasSelect = [];
-          }
+                    // POPULA SELECT DINÂMICO DE FILIAIS PARA O FORM
+                    try {
+                        $sqlSel = $pdo->query("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' ORDER BY nome");
+                        $filiaisSelect = $sqlSel->fetchAll(PDO::FETCH_ASSOC);
+                    } catch (PDOException $e) {
+                        $filiaisSelect = [];
+                    }
 
-          // FUNÇÕES AUX
-          function placeholders(array $arr): string
-          {
-            if (empty($arr)) return "";
-            return implode(",", array_fill(0, count($arr), "?"));
-          }
-          function franquiaKeysFromIds(array $ids): array
-          {
-            return array_map(fn($id) => "unidade_" . $id, $ids);
-          }
+                    // FUNÇÕES AUX
+                    function placeholders(array $arr): string
+                    {
+                        if (empty($arr)) return "";
+                        return implode(",", array_fill(0, count($arr), "?"));
+                    }
+                    function filialKeysFromIds(array $ids): array
+                    {
+                        return array_map(fn($id) => "unidade_" . $id, $ids);
+                    }
 
-          // MONTAR LISTA DE FRANQUIAS APLICANDO O FILTRO (se houver)
-          if ($franquiaFiltroId !== null) {
-            $stmt = $pdo->prepare("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' AND id = ? ORDER BY nome");
-            $stmt->execute([$franquiaFiltroId]);
-            $franquias = $stmt->fetchAll(PDO::FETCH_ASSOC);
-          } else {
-            $stmt = $pdo->query("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' ORDER BY nome");
-            $franquias = $stmt->fetchAll(PDO::FETCH_ASSOC);
-          }
+                    // MONTAR LISTA DE FILIAIS APLICANDO O FILTRO (se houver)
+                    if ($filialFiltroId !== null) {
+                        $stmt = $pdo->prepare("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' AND id = ? ORDER BY nome");
+                        $stmt->execute([$filialFiltroId]);
+                        $filiais = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    } else {
+                        $stmt = $pdo->query("SELECT id, nome FROM unidades WHERE tipo = 'Franquia' ORDER BY nome");
+                        $filiais = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    }
 
-          $franquiasIds = array_column($franquias, 'id');
-          $franquiaKeys = !empty($franquiasIds) ? franquiaKeysFromIds($franquiasIds) : [];
+                    $filiaisIds = array_column($filiais, 'id');
+                    $filialKeys = !empty($filiaisIds) ? filialKeysFromIds($filiaisIds) : [];
 
-          // FUNÇÃO calcularPeriodo (B2B)
-          function calcularPeriodo(PDO $pdo, string $inicioDT, string $fimDT, array $franquiaKeys)
-          {
-            if (empty($franquiaKeys)) {
-              return ["pedidos" => 0, "itens" => 0, "faturamento" => 0, "ticket" => 0];
-            }
+                    // FUNÇÃO calcularPeriodo (B2B)
+                    function calcularPeriodo(PDO $pdo, string $inicioDT, string $fimDT, array $filialKeys)
+                    {
+                        if (empty($filialKeys)) {
+                            return ["pedidos" => 0, "itens" => 0, "faturamento" => 0, "ticket" => 0];
+                        }
 
-            $inFranquias = implode(",", array_fill(0, count($franquiaKeys), "?"));
+                        $inFiliais = implode(",", array_fill(0, count($filialKeys), "?"));
 
-            $sql = "
-                      SELECT id
-                      FROM solicitacoes_b2b
-                      WHERE id_solicitante IN ($inFranquias)
-                      AND created_at BETWEEN ? AND ?
-                  ";
-            $params = array_merge($franquiaKeys, [$inicioDT, $fimDT]);
-            $stmt = $pdo->prepare($sql);
-            $stmt->execute($params);
-            $idsPedidos = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                        $sql = "
+        SELECT id
+        FROM solicitacoes_b2b
+        WHERE id_solicitante IN ($inFiliais)
+        AND created_at BETWEEN ? AND ?
+    ";
+                        $params = array_merge($filialKeys, [$inicioDT, $fimDT]);
+                        $stmt = $pdo->prepare($sql);
+                        $stmt->execute($params);
+                        $idsPedidos = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-            if (empty($idsPedidos)) {
-              return ["pedidos" => 0, "itens" => 0, "faturamento" => 0, "ticket" => 0];
-            }
+                        if (empty($idsPedidos)) {
+                            return ["pedidos" => 0, "itens" => 0, "faturamento" => 0, "ticket" => 0];
+                        }
 
-            $inPedidos = implode(",", array_fill(0, count($idsPedidos), "?"));
-            $sql2 = "
-                        SELECT 
-                            SUM(quantidade) AS totalItens,
-                            SUM(subtotal) AS totalFaturamento
-                        FROM solicitacoes_b2b_itens
-                        WHERE solicitacao_id IN ($inPedidos)
-                    ";
-            $stmt2 = $pdo->prepare($sql2);
-            $stmt2->execute($idsPedidos);
-            $dados = $stmt2->fetch(PDO::FETCH_ASSOC);
+                        $inPedidos = implode(",", array_fill(0, count($idsPedidos), "?"));
+                        $sql2 = "
+        SELECT 
+            SUM(quantidade) AS totalItens,
+            SUM(subtotal) AS totalFaturamento
+        FROM solicitacoes_b2b_itens
+        WHERE solicitacao_id IN ($inPedidos)
+    ";
+                        $stmt2 = $pdo->prepare($sql2);
+                        $stmt2->execute($idsPedidos);
+                        $dados = $stmt2->fetch(PDO::FETCH_ASSOC);
 
-            $totalItens = (int)($dados['totalItens'] ?? 0);
-            $totalFaturamento = (float)($dados['totalFaturamento'] ?? 0.0);
-            $totalPedidos = count($idsPedidos);
+                        $totalItens = (int)($dados['totalItens'] ?? 0);
+                        $totalFaturamento = (float)($dados['totalFaturamento'] ?? 0.0);
+                        $totalPedidos = count($idsPedidos);
 
-            $ticket = $totalPedidos > 0 ? ($totalFaturamento / $totalPedidos) : 0;
+                        $ticket = $totalPedidos > 0 ? ($totalFaturamento / $totalPedidos) : 0;
 
-            return [
-              "pedidos" => $totalPedidos,
-              "itens" => $totalItens,
-              "faturamento" => $totalFaturamento,
-              "ticket" => $ticket
-            ];
-          }
+                        return [
+                            "pedidos" => $totalPedidos,
+                            "itens" => $totalItens,
+                            "faturamento" => $totalFaturamento,
+                            "ticket" => $ticket
+                        ];
+                    }
 
-          // CALCULA ATUAL E ANTERIOR (30 dias)
-          $inicioAnterior = date("Y-m-d", strtotime($inicioFiltro . " -30 days"));
-          $fimAnterior    = date("Y-m-d", strtotime($fimFiltro . " -30 days"));
+                    // CALCULA ATUAL E ANTERIOR (30 dias)
+                    $inicioAnterior = date("Y-m-d", strtotime($inicioFiltro . " -30 days"));
+                    $fimAnterior    = date("Y-m-d", strtotime($fimFiltro . " -30 days"));
 
-          $atual = calcularPeriodo($pdo, $inicioDatetime, $fimDatetime, $franquiaKeys);
-          $anterior = calcularPeriodo($pdo, $inicioAnterior . " 00:00:00", $fimAnterior . " 23:59:59", $franquiaKeys);
+                    $atual = calcularPeriodo($pdo, $inicioDatetime, $fimDatetime, $filialKeys);
+                    $anterior = calcularPeriodo($pdo, $inicioAnterior . " 00:00:00", $fimAnterior . " 23:59:59", $filialKeys);
 
-          function variacao($atual, $anterior)
-          {
-            if ($anterior <= 0) return 0;
-            return (($atual - $anterior) / $anterior) * 100;
-          }
+                    function variacao($atual, $anterior)
+                    {
+                        if ($anterior <= 0) return 0;
+                        return (($atual - $anterior) / $anterior) * 100;
+                    }
 
-          $resumo = [
-            "pedidos" => [
-              "valor" => $atual["pedidos"],
-              "var"   => variacao($atual["pedidos"], $anterior["pedidos"])
-            ],
-            "itens" => [
-              "valor" => $atual["itens"],
-              "var"   => variacao($atual["itens"], $anterior["itens"])
-            ],
-            "faturamento" => [
-              "valor" => $atual["faturamento"],
-              "var"   => variacao($atual["faturamento"], $anterior["faturamento"])
-            ],
-            "ticket" => [
-              "valor" => $atual["ticket"],
-              "var"   => variacao($atual["ticket"], $anterior["ticket"])
-            ]
-          ];
+                    $resumo = [
+                        "pedidos" => [
+                            "valor" => $atual["pedidos"],
+                            "var"   => variacao($atual["pedidos"], $anterior["pedidos"])
+                        ],
+                        "itens" => [
+                            "valor" => $atual["itens"],
+                            "var"   => variacao($atual["itens"], $anterior["itens"])
+                        ],
+                        "faturamento" => [
+                            "valor" => $atual["faturamento"],
+                            "var"   => variacao($atual["faturamento"], $anterior["faturamento"])
+                        ],
+                        "ticket" => [
+                            "valor" => $atual["ticket"],
+                            "var"   => variacao($atual["ticket"], $anterior["ticket"])
+                        ]
+                    ];
 
-          // MONTAR LISTA DE VENDAS POR FRANQUIA (usa datetimes)
-          $listaFranquias = [];
-          $totalFaturamentoGeral = 0;
-          $itensPorPagina = 5;
+                    // MONTAR LISTA DE VENDAS POR FILIAL (usa datetimes)
+                    $listaFiliais = [];
+                    $totalFaturamentoGeral = 0;
+                    $itensPorPagina = 5;
 
-          foreach ($franquias as $f) {
-            $empresaKey = "unidade_" . $f["id"];
-            $nomeFranquia = $f["nome"];
+                    foreach ($filiais as $f) {
+                        $empresaKey = "unidade_" . $f["id"];
+                        $nomeFilial = $f["nome"];
 
-            $sqlV = $pdo->prepare("
-                                    SELECT 
-                                        COUNT(*) AS pedidos,
-                                        SUM(valor_total) AS total_faturamento
-                                    FROM vendas
-                                    WHERE empresa_id = ?
-                                    AND data_venda BETWEEN ? AND ?
-                                ");
-            $sqlV->execute([$empresaKey, $inicioDatetime, $fimDatetime]);
-            $dados = $sqlV->fetch(PDO::FETCH_ASSOC);
+                        $sqlV = $pdo->prepare("
+        SELECT 
+            COUNT(*) AS pedidos,
+            SUM(valor_total) AS total_faturamento
+        FROM vendas
+        WHERE empresa_id = ?
+        AND data_venda BETWEEN ? AND ?
+    ");
+                        $sqlV->execute([$empresaKey, $inicioDatetime, $fimDatetime]);
+                        $dados = $sqlV->fetch(PDO::FETCH_ASSOC);
 
-            $pedidos = (int)($dados["pedidos"] ?? 0);
-            $faturamento = (float)($dados["total_faturamento"] ?? 0.0);
+                        $pedidos = (int)($dados["pedidos"] ?? 0);
+                        $faturamento = (float)($dados["total_faturamento"] ?? 0.0);
 
-            $sqlItens = $pdo->prepare("
-                                        SELECT SUM(iv.quantidade) AS total_itens
-                                        FROM itens_venda iv
-                                        INNER JOIN vendas v ON v.id = iv.venda_id
-                                        WHERE v.empresa_id = ?
-                                        AND v.data_venda BETWEEN ? AND ?
-                                    ");
-            $sqlItens->execute([$empresaKey, $inicioDatetime, $fimDatetime]);
-            $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
-            $itens = (int)($dadosItens["total_itens"] ?? 0);
+                        $sqlItens = $pdo->prepare("
+        SELECT SUM(iv.quantidade) AS total_itens
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        WHERE v.empresa_id = ?
+        AND v.data_venda BETWEEN ? AND ?
+    ");
+                        $sqlItens->execute([$empresaKey, $inicioDatetime, $fimDatetime]);
+                        $dadosItens = $sqlItens->fetch(PDO::FETCH_ASSOC);
+                        $itens = (int)($dadosItens["total_itens"] ?? 0);
 
-            $ticket = $pedidos > 0 ? ($faturamento / $pedidos) : 0;
+                        $ticket = $pedidos > 0 ? ($faturamento / $pedidos) : 0;
 
-            $totalFaturamentoGeral += $faturamento;
+                        $totalFaturamentoGeral += $faturamento;
 
-            $listaFranquias[] = [
-              "nome" => $nomeFranquia,
-              "pedidos" => $pedidos,
-              "itens" => $itens,
-              "faturamento" => $faturamento,
-              "ticket" => $ticket
-            ];
-          }
+                        $listaFiliais[] = [
+                            "nome" => $nomeFilial,
+                            "pedidos" => $pedidos,
+                            "itens" => $itens,
+                            "faturamento" => $faturamento,
+                            "ticket" => $ticket
+                        ];
+                    }
 
-          foreach ($listaFranquias as $i => $row) {
-            $perc = ($totalFaturamentoGeral > 0) ? ($row['faturamento'] / $totalFaturamentoGeral) * 100 : 0;
-            $listaFranquias[$i]['perc'] = $perc;
-          }
+                    foreach ($listaFiliais as $i => $row) {
+                        $perc = ($totalFaturamentoGeral > 0) ? ($row['faturamento'] / $totalFaturamentoGeral) * 100 : 0;
+                        $listaFiliais[$i]['perc'] = $perc;
+                    }
 
-          $totalRegistros = count($listaFranquias);
-          $totalPaginas = max(1, ceil($totalRegistros / $itensPorPagina));
-          $offset = ($paginaAtual - 1) * $itensPorPagina;
-          $listaPaginada = array_slice($listaFranquias, $offset, $itensPorPagina);
+                    $totalRegistros = count($listaFiliais);
+                    $totalPaginas = max(1, ceil($totalRegistros / $itensPorPagina));
+                    $offset = ($paginaAtual - 1) * $itensPorPagina;
+                    $listaPaginada = array_slice($listaFiliais, $offset, $itensPorPagina);
 
-          // PRODUTOS MAIS SOLICITADOS
-          $produtosLista = [];
-          if (!empty($franquiaKeys)) {
-            $inFranquias = placeholders($franquiaKeys);
-            $sqlSolic = $pdo->prepare("
-                                        SELECT id
-                                        FROM solicitacoes_b2b
-                                        WHERE id_solicitante IN ($inFranquias)
-                                        AND created_at BETWEEN ? AND ?
-                                    ");
-            $params = array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]);
-            $sqlSolic->execute($params);
-            $solicitacoesIds = $sqlSolic->fetchAll(PDO::FETCH_COLUMN);
+                    // PRODUTOS MAIS SOLICITADOS
+                    $produtosLista = [];
+                    if (!empty($filialKeys)) {
+                        $inFiliais = placeholders($filialKeys);
+                        $sqlSolic = $pdo->prepare("
+        SELECT id
+        FROM solicitacoes_b2b
+        WHERE id_solicitante IN ($inFiliais)
+        AND created_at BETWEEN ? AND ?
+    ");
+                        $params = array_merge($filialKeys, [$inicioDatetime, $fimDatetime]);
+                        $sqlSolic->execute($params);
+                        $solicitacoesIds = $sqlSolic->fetchAll(PDO::FETCH_COLUMN);
 
-            if (!empty($solicitacoesIds)) {
-              $inSolic = placeholders($solicitacoesIds);
-              $sqlItens = $pdo->prepare("
-                                          SELECT 
-                                              codigo_produto,
-                                              nome_produto,
-                                              SUM(quantidade) AS total_quantidade,
-                                              COUNT(DISTINCT solicitacao_id) AS total_pedidos
-                                          FROM solicitacoes_b2b_itens
-                                          WHERE solicitacao_id IN ($inSolic)
-                                          GROUP BY codigo_produto, nome_produto
-                                          ORDER BY total_quantidade DESC
-                                          LIMIT 5
-                                      ");
-              $sqlItens->execute($solicitacoesIds);
-              $produtosLista = $sqlItens->fetchAll(PDO::FETCH_ASSOC);
+                        if (!empty($solicitacoesIds)) {
+                            $inSolic = placeholders($solicitacoesIds);
+                            $sqlItens = $pdo->prepare("
+            SELECT 
+                codigo_produto,
+                nome_produto,
+                SUM(quantidade) AS total_quantidade,
+                COUNT(DISTINCT solicitacao_id) AS total_pedidos
+            FROM solicitacoes_b2b_itens
+            WHERE solicitacao_id IN ($inSolic)
+            GROUP BY codigo_produto, nome_produto
+            ORDER BY total_quantidade DESC
+            LIMIT 5
+        ");
+                            $sqlItens->execute($solicitacoesIds);
+                            $produtosLista = $sqlItens->fetchAll(PDO::FETCH_ASSOC);
 
-              $totalGeral = array_sum(array_column($produtosLista, "total_quantidade"));
-              foreach ($produtosLista as $i => $prod) {
-                $produtosLista[$i]["perc"] = $totalGeral > 0 ? ($prod["total_quantidade"] / $totalGeral) * 100 : 0;
-              }
-            }
-          }
+                            $totalGeral = array_sum(array_column($produtosLista, "total_quantidade"));
+                            foreach ($produtosLista as $i => $prod) {
+                                $produtosLista[$i]["perc"] = $totalGeral > 0 ? ($prod["total_quantidade"] / $totalGeral) * 100 : 0;
+                            }
+                        }
+                    }
 
-          // PAGAMENTOS X ENTREGAS (RESUMO)
-          $pendQtd = $pendValor = 0;
-          $aprovQtd = $aprovValor = 0;
-          $reprovQtd = $reprovValor = 0;
-          $remessasEnviadas = $remessasConcluidas = 0;
+                    // PAGAMENTOS X ENTREGAS (RESUMO)
+                    $pendQtd = $pendValor = 0;
+                    $aprovQtd = $aprovValor = 0;
+                    $reprovQtd = $reprovValor = 0;
+                    $remessasEnviadas = $remessasConcluidas = 0;
 
-          if (!empty($franquiaKeys)) {
-            $inFranquias = placeholders($franquiaKeys);
+                    if (!empty($filialKeys)) {
+                        $inFiliais = placeholders($filialKeys);
 
-            $sqlPend = $pdo->prepare("
-                                        SELECT COUNT(*) AS qtd, SUM(valor) AS total
-                                        FROM solicitacoes_pagamento
-                                        WHERE id_solicitante IN ($inFranquias)
-                                        AND status = 'pendente'
-                                        AND created_at BETWEEN ? AND ?
-                                    ");
-            $sqlPend->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
-            $r = $sqlPend->fetch(PDO::FETCH_ASSOC);
-            $pendQtd = (int)($r['qtd'] ?? 0);
-            $pendValor = (float)($r['total'] ?? 0);
+                        $sqlPend = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'pendente'
+        AND created_at BETWEEN ? AND ?
+    ");
+                        $sqlPend->execute(array_merge($filialKeys, [$inicioDatetime, $fimDatetime]));
+                        $r = $sqlPend->fetch(PDO::FETCH_ASSOC);
+                        $pendQtd = (int)($r['qtd'] ?? 0);
+                        $pendValor = (float)($r['total'] ?? 0);
 
-            $sqlAprov = $pdo->prepare("
-                                          SELECT COUNT(*) AS qtd, SUM(valor) AS total
-                                          FROM solicitacoes_pagamento
-                                          WHERE id_solicitante IN ($inFranquias)
-                                          AND status = 'aprovado'
-                                          AND created_at BETWEEN ? AND ?
-                                      ");
-            $sqlAprov->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
-            $r = $sqlAprov->fetch(PDO::FETCH_ASSOC);
-            $aprovQtd = (int)($r['qtd'] ?? 0);
-            $aprovValor = (float)($r['total'] ?? 0);
+                        $sqlAprov = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'aprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+                        $sqlAprov->execute(array_merge($filialKeys, [$inicioDatetime, $fimDatetime]));
+                        $r = $sqlAprov->fetch(PDO::FETCH_ASSOC);
+                        $aprovQtd = (int)($r['qtd'] ?? 0);
+                        $aprovValor = (float)($r['total'] ?? 0);
 
-            $sqlReprov = $pdo->prepare("
-                                          SELECT COUNT(*) AS qtd, SUM(valor) AS total
-                                          FROM solicitacoes_pagamento
-                                          WHERE id_solicitante IN ($inFranquias)
-                                          AND status = 'reprovado'
-                                          AND created_at BETWEEN ? AND ?
-                                      ");
-            $sqlReprov->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
-            $r = $sqlReprov->fetch(PDO::FETCH_ASSOC);
-            $reprovQtd = (int)($r['qtd'] ?? 0);
-            $reprovValor = (float)($r['total'] ?? 0);
+                        $sqlReprov = $pdo->prepare("
+        SELECT COUNT(*) AS qtd, SUM(valor) AS total
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'reprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+                        $sqlReprov->execute(array_merge($filialKeys, [$inicioDatetime, $fimDatetime]));
+                        $r = $sqlReprov->fetch(PDO::FETCH_ASSOC);
+                        $reprovQtd = (int)($r['qtd'] ?? 0);
+                        $reprovValor = (float)($r['total'] ?? 0);
 
-            $sqlAprovadoCount = $pdo->prepare("
-                                                  SELECT COUNT(*)
-                                                  FROM solicitacoes_pagamento
-                                                  WHERE id_solicitante IN ($inFranquias)
-                                                  AND status = 'aprovado'
-                                                  AND created_at BETWEEN ? AND ?
-                                              ");
-            $sqlAprovadoCount->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
-            $remessasEnviadas = (int)$sqlAprovadoCount->fetchColumn();
+                        $sqlAprovadoCount = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'aprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+                        $sqlAprovadoCount->execute(array_merge($filialKeys, [$inicioDatetime, $fimDatetime]));
+                        $remessasEnviadas = (int)$sqlAprovadoCount->fetchColumn();
 
-            $sqlReprovadoCount = $pdo->prepare("
-                                                  SELECT COUNT(*)
-                                                  FROM solicitacoes_pagamento
-                                                  WHERE id_solicitante IN ($inFranquias)
-                                                  AND status = 'reprovado'
-                                                  AND created_at BETWEEN ? AND ?
-                                              ");
-            $sqlReprovadoCount->execute(array_merge($franquiaKeys, [$inicioDatetime, $fimDatetime]));
-            $remessasConcluidas = (int)$sqlReprovadoCount->fetchColumn();
-          }
+                        $sqlReprovadoCount = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM solicitacoes_pagamento
+        WHERE id_solicitante IN ($inFiliais)
+        AND status = 'reprovado'
+        AND created_at BETWEEN ? AND ?
+    ");
+                        $sqlReprovadoCount->execute(array_merge($filialKeys, [$inicioDatetime, $fimDatetime]));
+                        $remessasConcluidas = (int)$sqlReprovadoCount->fetchColumn();
+                    }
 
-          ?>
-          <!-- ====================== -->
-          <!-- FORMULÁRIO DE FILTRO B2B -->
-          <!-- ====================== -->
-          <div class="card mb-3">
-            <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
-              <!-- preserva o contexto id -->
-              <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+                    ?>
+                    <!-- ====================== -->
+                    <!-- FORMULÁRIO DE FILTRO B2B -->
+                    <!-- ====================== -->
+                    <div class="card mb-3">
+                        <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
+                            <!-- preserva o contexto id -->
+                            <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-              <div class="col-12 col-md-3">
-                <label>Franquia</label>
-                <select class="form-select form-select-sm" name="status">
-                  <option value="">Todas as Franquias</option>
-                  <?php foreach ($franquiasSelect as $fs): ?>
-                    <option value="<?= (int)$fs['id'] ?>" <?= ($franquiaFiltroId === (int)$fs['id']) ? 'selected' : '' ?>>
-                      <?= htmlspecialchars($fs['nome']) ?>
-                    </option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
+                           
 
-              <div class="col-12 col-md-2">
-                <label class="form-label">de</label>
-                <input type="date" name="codigo" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
-              </div>
+                            <div class="col-12 col-md-2">
+                                <label class="form-label">de</label>
+                                <input type="date" name="codigo" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+                            </div>
 
-              <div class="col-12 col-md-2">
-                <label class="form-label">até</label>
-                <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
-              </div>
+                            <div class="col-12 col-md-2">
+                                <label class="form-label">até</label>
+                                <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+                            </div>
+                             <div class="col-12 col-md-5">
+                                <label>Filial</label>
+                                <select class="form-select form-select-sm" name="status">
+                                    <option value="">Todas as Franquia</option>
+                                    <?php foreach ($filiaisSelect as $fs): ?>
+                                        <option value="<?= (int)$fs['id'] ?>" <?= ($filialFiltroId === (int)$fs['id']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($fs['nome']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
 
-              <div class="col-12 col-md-5 d-flex gap-2">
-                <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
-                <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-                <a class="btn btn-sm btn-outline-secondary"> Exportar XLSX</a>
-                <a class="btn btn-sm btn-outline-secondary"> Exportar CSV</a>
-                <a class="btn btn-sm btn-outline-secondary">Imprimir</a>
-              </div>
-            </form>
-          </div>
+                            <div class="col-12 col-md-3 d-flex gap-2">
+                                <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
+                                <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
+                            <a href="relatorio_b2b_export.php?tipo=print&<?= http_build_query($_GET) ?>" 
+   class="btn btn-sm btn-outline-secondary" target="_blank">
+   Imprimir
+</a>
 
-          <!-- ============================================== -->
-          <!--  Resumo do Período (HTML)                       -->
-          <!-- ============================================== -->
-          <div class="card mb-3">
-            <h5 class="card-header">Resumo do Período</h5>
-            <div class="table-responsive">
-              <table class="table table-striped table-hover">
-                <thead>
-                  <tr>
-                    <th>Métrica</th>
-                    <th>Valor</th>
-                    <th>Variação</th>
-                    <th>Obs.</th>
-                  </tr>
-                </thead>
-                <tbody>
 
-                  <!-- Pedidos -->
-                  <tr>
-                    <td>Pedidos B2B</td>
-                    <td><?= $resumo["pedidos"]["valor"] ?></td>
-                    <td>
-                      <span class="<?= $resumo["pedidos"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
-                        <?= number_format($resumo["pedidos"]["var"], 1, ',', '.') ?>%
-                      </span>
-                    </td>
-                    <td>Somente solicitações feitas por franquias</td>
-                  </tr>
+                            </div>
+                        </form>
+                    </div>
 
-                  <!-- Itens -->
-                  <tr>
-                    <td>Itens Solicitados</td>
-                    <td><?= $resumo["itens"]["valor"] ?></td>
-                    <td>
-                      <span class="<?= $resumo["itens"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
-                        <?= number_format($resumo["itens"]["var"], 1, ',', '.') ?>%
-                      </span>
-                    </td>
-                    <td>Total somado dos itens solicitados</td>
-                  </tr>
+                    <!-- ============================================== -->
+                    <!--  Resumo do Período (HTML)                       -->
+                    <!-- ============================================== -->
+                    <div class="card mb-3">
+                        <h5 class="card-header">Resumo do Período</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Métrica</th>
+                                        <th>Valor</th>
+                                        <th>Variação</th>
+                                        <th>Obs.</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
 
-                  <!-- Faturamento -->
-                  <tr>
-                    <td>Faturamento Estimado</td>
-                    <td>R$ <?= number_format($resumo["faturamento"]["valor"], 2, ',', '.') ?></td>
-                    <td>
-                      <span class="<?= $resumo["faturamento"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
-                        <?= number_format($resumo["faturamento"]["var"], 1, ',', '.') ?>%
-                      </span>
-                    </td>
-                    <td>Subtotal total</td>
-                  </tr>
+                                    <!-- Pedidos -->
+                                    <tr>
+                                        <td>Pedidos B2B</td>
+                                        <td><?= $resumo["pedidos"]["valor"] ?></td>
+                                        <td>
+                                            <span class="<?= $resumo["pedidos"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                                                <?= number_format($resumo["pedidos"]["var"], 1, ',', '.') ?>%
+                                            </span>
+                                        </td>
+                                        <td>Somente solicitações feitas por franquia</td>
+                                    </tr>
 
-                  <!-- Ticket Médio -->
-                  <tr>
-                    <td>Ticket Médio</td>
-                    <td>R$ <?= number_format($resumo["ticket"]["valor"], 2, ',', '.') ?></td>
-                    <td>
-                      <span class="<?= $resumo["ticket"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
-                        <?= number_format($resumo["ticket"]["var"], 1, ',', '.') ?>%
-                      </span>
-                    </td>
-                    <td>Faturamento / número de pedidos</td>
-                  </tr>
+                                    <!-- Itens -->
+                                    <tr>
+                                        <td>Itens Solicitados</td>
+                                        <td><?= $resumo["itens"]["valor"] ?></td>
+                                        <td>
+                                            <span class="<?= $resumo["itens"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                                                <?= number_format($resumo["itens"]["var"], 1, ',', '.') ?>%
+                                            </span>
+                                        </td>
+                                        <td>Total somado dos itens solicitados</td>
+                                    </tr>
 
-                </tbody>
-              </table>
+                                    <!-- Faturamento -->
+                                    <tr>
+                                        <td>Faturamento Estimado</td>
+                                        <td>R$ <?= number_format($resumo["faturamento"]["valor"], 2, ',', '.') ?></td>
+                                        <td>
+                                            <span class="<?= $resumo["faturamento"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                                                <?= number_format($resumo["faturamento"]["var"], 1, ',', '.') ?>%
+                                            </span>
+                                        </td>
+                                        <td>Subtotal total</td>
+                                    </tr>
+
+                                    <!-- Ticket Médio -->
+                                    <tr>
+                                        <td>Ticket Médio</td>
+                                        <td>R$ <?= number_format($resumo["ticket"]["valor"], 2, ',', '.') ?></td>
+                                        <td>
+                                            <span class="<?= $resumo["ticket"]["var"] >= 0 ? 'text-success' : 'text-danger' ?>">
+                                                <?= number_format($resumo["ticket"]["var"], 1, ',', '.') ?>%
+                                            </span>
+                                        </td>
+                                        <td>Faturamento / número de pedidos</td>
+                                    </tr>
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- TABELA: VENDAS / PEDIDOS POR FILIAL                      -->
+                    <!-- ========================================================= -->
+                    <div class="card mb-3">
+                        <h5 class="card-header">Vendas / Pedidos por Franquia</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Franquia</th>
+                                        <th>Pedidos</th>
+                                        <th>Itens</th>
+                                        <th>Faturamento (R$)</th>
+                                        <th>Ticket Médio (R$)</th>
+                                        <th>% do Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+
+                                    <?php foreach ($listaPaginada as $f): ?>
+                                        <tr>
+                                            <td><strong><?= htmlspecialchars($f["nome"]) ?></strong></td>
+                                            <td><?= $f["pedidos"] ?></td>
+                                            <td><?= $f["itens"] ?></td>
+                                            <td>R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
+                                            <td>R$ <?= number_format($f["ticket"], 2, ',', '.') ?></td>
+                                            <td><?= number_format($f["perc"], 1, ',', '.') ?>%</td>
+                                        </tr>
+                                    <?php endforeach; ?>
+
+                                </tbody>
+                            </table>
+
+                            <!-- PAGINAÇÃO -->
+                            <div class="d-flex justify-content-center mt-2">
+                                <nav>
+                                    <ul class="pagination pagination-sm m-0">
+                                        <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
+                                            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual - 1])) ?>" tabindex="-1">Anterior</a>
+                                        </li>
+
+                                        <li class="page-item active">
+                                            <span class="page-link"><?= $paginaAtual ?></span>
+                                        </li>
+
+                                        <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
+                                            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual + 1])) ?>">Próximo</a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- TABELA: PRODUTOS MAIS SOLICITADOS (FILIAIS)                -->
+                    <!-- ========================================================= -->
+                    <div class="card mb-3">
+                        <h5 class="card-header">Produtos Mais Solicitados</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>SKU</th>
+                                        <th>Produto</th>
+                                        <th>Quantidade</th>
+                                        <th>Pedidos</th>
+                                        <th>Participação</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+
+                                    <?php if (!empty($produtosLista)): ?>
+                                        <?php foreach ($produtosLista as $p): ?>
+                                            <tr>
+                                                <td><?= htmlspecialchars($p["codigo_produto"]) ?></td>
+                                                <td><?= htmlspecialchars($p["nome_produto"]) ?></td>
+                                                <td><?= (int)$p["total_quantidade"] ?></td>
+                                                <td><?= (int)$p["total_pedidos"] ?></td>
+                                                <td><?= number_format($p["perc"], 1, ',', '.') ?>%</td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <tr>
+                                            <td colspan="5" class="text-center">Nenhum produto solicitado por franquia no período.</td>
+                                        </tr>
+                                    <?php endif; ?>
+
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ========================================================= -->
+                    <!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                    -->
+                    <!-- ========================================================= -->
+                    <div class="card mb-3">
+                        <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Métrica</th>
+                                        <th>Quantidade</th>
+                                        <th>Valor (R$)</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Solicitados -->
+                                    <tr>
+                                        <td>Pagamentos Solicitados</td>
+                                        <td><?= $pendQtd ?></td>
+                                        <td>R$ <?= number_format($pendValor, 2, ',', '.') ?></td>
+                                        <td>Pendente</td>
+                                    </tr>
+
+                                    <!-- Aprovados -->
+                                    <tr>
+                                        <td>Remessa Concluida</td>
+                                        <td><?= $aprovQtd ?></td>
+                                        <td>R$ <?= number_format($aprovValor, 2, ',', '.') ?></td>
+                                        <td>Aprovado</td>
+                                    </tr>
+
+                                    <!-- Reprovados -->
+                                    <tr>
+                                        <td>Remessa Reprovada</td>
+                                        <td><?= $reprovQtd ?></td>
+                                        <td>R$ <?= number_format($reprovValor, 2, ',', '.') ?></td>
+                                        <td>Reprovado</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- / Content -->
+
+                    <!-- Footer -->
+                    <footer class="content-footer footer bg-footer-theme text-center">
+                        <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
+                            <div class="mb-2 mb-md-0">
+                                &copy;
+                                <script>
+                                    document.write(new Date().getFullYear());
+                                </script>
+                                , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
+                                Desenvolvido por <strong>CodeGeek</strong>.
+                            </div>
+                        </div>
+                    </footer>
+
+                    <!-- / Footer -->
+
+                    <div class="content-backdrop fade"></div>
+                </div>
+                <!-- Content wrapper -->
             </div>
-          </div>
+            <!-- / Layout page -->
 
-          <!-- ========================================================= -->
-          <!-- TABELA: VENDAS / PEDIDOS POR FRANQUIA                      -->
-          <!-- ========================================================= -->
-          <div class="card mb-3">
-            <h5 class="card-header">Vendas / Pedidos por Franquia</h5>
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Franquia</th>
-                    <th>Pedidos</th>
-                    <th>Itens</th>
-                    <th>Faturamento (R$)</th>
-                    <th>Ticket Médio (R$)</th>
-                    <th>% do Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-
-                  <?php foreach ($listaPaginada as $f): ?>
-                    <tr>
-                      <td><strong><?= htmlspecialchars($f["nome"]) ?></strong></td>
-                      <td><?= $f["pedidos"] ?></td>
-                      <td><?= $f["itens"] ?></td>
-                      <td>R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
-                      <td>R$ <?= number_format($f["ticket"], 2, ',', '.') ?></td>
-                      <td><?= number_format($f["perc"], 1, ',', '.') ?>%</td>
-                    </tr>
-                  <?php endforeach; ?>
-
-                </tbody>
-              </table>
-
-              <!-- PAGINAÇÃO -->
-              <div class="d-flex justify-content-center mt-2">
-                <nav>
-                  <ul class="pagination pagination-sm m-0">
-                    <li class="page-item <?= ($paginaAtual <= 1) ? 'disabled' : '' ?>">
-                      <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual - 1])) ?>" tabindex="-1">Anterior</a>
-                    </li>
-
-                    <li class="page-item active">
-                      <span class="page-link"><?= $paginaAtual ?></span>
-                    </li>
-
-                    <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
-                      <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual + 1])) ?>">Próximo</a>
-                    </li>
-                  </ul>
-                </nav>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- ========================================================= -->
-          <!-- TABELA: PRODUTOS MAIS SOLICITADOS (FRANQUIAS)                -->
-          <!-- ========================================================= -->
-          <div class="card mb-3">
-            <h5 class="card-header">Produtos Mais Solicitados</h5>
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>SKU</th>
-                    <th>Produto</th>
-                    <th>Quantidade</th>
-                    <th>Pedidos</th>
-                    <th>Participação</th>
-                  </tr>
-                </thead>
-                <tbody>
-
-                  <?php if (!empty($produtosLista)): ?>
-                    <?php foreach ($produtosLista as $p): ?>
-                      <tr>
-                        <td><?= htmlspecialchars($p["codigo_produto"]) ?></td>
-                        <td><?= htmlspecialchars($p["nome_produto"]) ?></td>
-                        <td><?= (int)$p["total_quantidade"] ?></td>
-                        <td><?= (int)$p["total_pedidos"] ?></td>
-                        <td><?= number_format($p["perc"], 1, ',', '.') ?>%</td>
-                      </tr>
-                    <?php endforeach; ?>
-                  <?php else: ?>
-                    <tr>
-                      <td colspan="5" class="text-center">Nenhum produto solicitado por franquias no período.</td>
-                    </tr>
-                  <?php endif; ?>
-
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- ========================================================= -->
-          <!-- TABELA: PAGAMENTOS X ENTREGAS (RESUMO)                    -->
-          <!-- ========================================================= -->
-          <div class="card mb-3">
-            <h5 class="card-header">Pagamentos x Entregas (Resumo)</h5>
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Métrica</th>
-                    <th>Quantidade</th>
-                    <th>Valor (R$)</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Solicitados -->
-                  <tr>
-                    <td>Pagamentos Solicitados</td>
-                    <td><?= $pendQtd ?></td>
-                    <td>R$ <?= number_format($pendValor, 2, ',', '.') ?></td>
-                    <td>Pendente</td>
-                  </tr>
-
-                  <!-- Aprovados -->
-                  <tr>
-                    <td>Remessa Concluida</td>
-                    <td><?= $aprovQtd ?></td>
-                    <td>R$ <?= number_format($aprovValor, 2, ',', '.') ?></td>
-                    <td>Aprovado</td>
-                  </tr>
-
-                  <!-- Reprovados -->
-                  <tr>
-                    <td>Remessa Reprovada</td>
-                    <td><?= $reprovQtd ?></td>
-                    <td>R$ <?= number_format($reprovValor, 2, ',', '.') ?></td>
-                    <td>Reprovado</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- / Content -->
-
-          <!-- Footer -->
-          <footer class="content-footer footer bg-footer-theme text-center">
-            <div class="container-xxl d-flex  py-2 flex-md-row flex-column justify-content-center">
-              <div class="mb-2 mb-md-0">
-                &copy;
-                <script>
-                  document.write(new Date().getFullYear());
-                </script>
-                , <strong>Açaínhadinhos</strong>. Todos os direitos reservados.
-                Desenvolvido por <strong>CodeGeek</strong>.
-              </div>
-            </div>
-          </footer>
-
-          <!-- / Footer -->
-
-          <div class="content-backdrop fade"></div>
         </div>
-        <!-- Content wrapper -->
-      </div>
-      <!-- / Layout page -->
 
+        <!-- Overlay -->
+        <div class="layout-overlay layout-menu-toggle"></div>
     </div>
+    <!-- / Layout wrapper -->
 
-    <!-- Overlay -->
-    <div class="layout-overlay layout-menu-toggle"></div>
-  </div>
-  <!-- / Layout wrapper -->
+    <!-- Core JS -->
+    <!-- build:js assets/vendor/js/core.js -->
+    <script src="../../js/saudacao.js"></script>
+    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+    <script src="../../assets/vendor/libs/popper/popper.js"></script>
+    <script src="../../assets/vendor/js/bootstrap.js"></script>
+    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
 
-  <!-- Core JS -->
-  <!-- build:js assets/vendor/js/core.js -->
-  <script src="../../js/saudacao.js"></script>
-  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-  <script src="../../assets/vendor/libs/popper/popper.js"></script>
-  <script src="../../assets/vendor/js/bootstrap.js"></script>
-  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+    <script src="../../assets/vendor/js/menu.js"></script>
+    <!-- endbuild -->
 
-  <script src="../../assets/vendor/js/menu.js"></script>
-  <!-- endbuild -->
+    <!-- Vendors JS -->
+    <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
-  <!-- Vendors JS -->
-  <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+    <!-- Main JS -->
+    <script src="../../assets/js/main.js"></script>
 
-  <!-- Main JS -->
-  <script src="../../assets/js/main.js"></script>
+    <!-- Page JS -->
+    <script src="../../assets/js/dashboards-analytics.js"></script>
 
-  <!-- Page JS -->
-  <script src="../../assets/js/dashboards-analytics.js"></script>
-
-  <!-- Place this tag in your head or just before your close body tag. -->
-  <script async defer src="https://buttons.github.io/buttons.js"></script>
+    <!-- Place this tag in your head or just before your close body tag. -->
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 
 </html>
