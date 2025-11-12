@@ -998,6 +998,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <!-- ============================
          SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
          ============================ -->
+         <?php
    if ($tipo === 'print') {
     $titulo = "Relatório B2B - Filiais";
     $periodoTexto = date("d/m/Y", strtotime($inicioFiltro)) . " a " . date("d/m/Y", strtotime($fimFiltro));
