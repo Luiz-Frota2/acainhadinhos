@@ -663,7 +663,7 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <!-- Filtros -->
 <div class="card mb-3">
     <div class="card-body">
-        <form class="row g-3 align-items-end" method="get">
+        <form class="d-flex flex-wrap w-100 gap-4 align-items-end" method="get">
 
             <!-- ✅ MANTÉM O ID NA URL -->
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
@@ -677,7 +677,7 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <label class="form-label">até</label>
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <label>Filial</label>
             <select class="form-select form-select-sm" name="filial">
                 <option value="">Todas as Filiais</option>
