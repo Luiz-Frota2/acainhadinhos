@@ -713,7 +713,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <label class="form-label">até</label>
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-3">
                 <label>Filial</label>
             <select  class="form-select form-select-sm" name="filial">
                 <option value="">Todas as Filiais</option>
