@@ -724,7 +724,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <?php endforeach; ?>
             </select>
                 </div>
-            <div class="col-12 col-md-3 ">
+            <div class="col-12 col-md-3">
             <button class="btn btn-sm btn-primary"  type="submit">
                 <i class="bx bx-filter-alt me-1"></i> Aplicar
             </button>
