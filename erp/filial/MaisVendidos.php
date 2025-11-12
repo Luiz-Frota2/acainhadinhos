@@ -839,10 +839,13 @@ $nenhumResultado = (
 <!-- ============================
      SCRIPT DE IMPRESSÃO
      ============================ -->
+<!-- ============================
+     SCRIPT DE IMPRESSÃO
+     ============================ -->
 <script>
-function openPrintReport() {
+function openFilteredReportPrint() {
     try {
-        var reportHtml = document.getElementById('report-html').innerHTML;
+        var reportHtml = document.getElementById('filtered-report-html').innerHTML;
         var win = window.open('', '_blank');
         if (!win) {
             alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
@@ -853,10 +856,13 @@ function openPrintReport() {
             <style>
                 @page { size: A4; margin: 18mm; }
                 body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; }
+                h2, h4 { margin:0; }
                 table { width:100%; border-collapse:collapse; }
                 th, td { padding:8px 10px; border:1px solid #e5e7eb; }
                 thead th { background:#f3f4f6; }
                 tr { page-break-inside: avoid; }
+                thead { display: table-header-group; }
+                tfoot { display: table-footer-group; }
             </style>
         `;
 
@@ -865,7 +871,7 @@ function openPrintReport() {
             <html>
             <head>
                 <meta charset="utf-8" />
-                <title>Relatório — Vendas por Filial</title>
+                <title>Relatório de Produtos</title>
                 <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
                 ${style}
             </head>
@@ -876,6 +882,8 @@ function openPrintReport() {
                     setTimeout(function(){
                         window.print();
                     }, 300);
+
+                    // Após imprimir ou cancelar, volta para a página
                     window.onafterprint = function() {
                         window.location.href = "VendasFiliais.php?id=principal_1";
                     };
@@ -893,7 +901,6 @@ function openPrintReport() {
     }
 }
 </script>
-
                 </div><!-- /container -->
             </div><!-- /Layout page -->
         </div><!-- /Layout container -->
