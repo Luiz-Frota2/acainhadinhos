@@ -1194,29 +1194,45 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 <script>
 function openPrintReport() {
     try {
-        // Captura apenas o conteúdo principal do relatório
+        // Captura as datas, mas de forma segura (sem quebrar se não existir)
+        var inicioEl = document.querySelector('[name="inicio"]');
+        var fimEl = document.querySelector('[name="fim"]');
+        var inicioVal = inicioEl ? inicioEl.value : '--';
+        var fimVal = fimEl ? fimEl.value : '--';
+
+        // Verifica se as seções existem antes de capturar
+        var kpiRow = document.querySelector('.row');
+        var topProdutos = document.querySelectorAll('.card.mb-3')[1];
+        var rankingFilial = document.querySelectorAll('.card.mb-3')[2];
+
+        if (!kpiRow || !topProdutos || !rankingFilial) {
+            alert('Erro: algumas seções do relatório não foram encontradas na página.');
+            return;
+        }
+
+        // Monta conteúdo do relatório
         var reportHtml = `
             <div style="text-align:center; margin-bottom:20px;">
                 <h2 style="margin:0;">Relatório de Vendas por Filial</h2>
-                <p style="margin:5px 0; font-size:13px; color:#555;">Período: ${document.querySelector('[name="inicio"]').value || '--'} até ${document.querySelector('[name="fim"]').value || '--'}</p>
+                <p style="margin:5px 0; font-size:13px; color:#555;">Período: ${inicioVal} até ${fimVal}</p>
             </div>
 
             <div>
-                ${document.querySelector('.row').outerHTML} <!-- KPIs -->
+                ${kpiRow.outerHTML}
             </div>
 
             <hr style="margin:20px 0; border:none; border-top:1px solid #ddd;">
 
             <div>
                 <h4 style="margin:0 0 10px;">Top 20 Produtos (Geral)</h4>
-                ${document.querySelectorAll('.card.mb-3')[1].querySelector('.table-responsive').outerHTML}
+                ${topProdutos.querySelector('.table-responsive').outerHTML}
             </div>
 
             <hr style="margin:20px 0; border:none; border-top:1px solid #ddd;">
 
             <div>
                 <h4 style="margin:0 0 10px;">Ranking por Filial (Top 10 de cada)</h4>
-                ${document.querySelectorAll('.card.mb-3')[2].querySelector('.table-responsive').outerHTML}
+                ${rankingFilial.querySelector('.table-responsive').outerHTML}
             </div>
         `;
 
@@ -1227,7 +1243,7 @@ function openPrintReport() {
             return;
         }
 
-        // Estilo corporativo para impressão
+        // Estilo profissional
         var style = `
             <style>
                 @page { size: A4; margin: 18mm; }
@@ -1283,7 +1299,7 @@ function openPrintReport() {
             </style>
         `;
 
-        // HTML da aba de impressão
+        // HTML final
         var finalHtml = `
             <!doctype html>
             <html>
@@ -1301,14 +1317,14 @@ function openPrintReport() {
                         window.print();
                     }, 300);
                     window.onafterprint = function() {
-                        window.location.href = "VendasFiliais.php?id=principal_1";
+                        window.location.href = "FinanceiroFiliais.php?id=principal_1";
                     };
                 <\/script>
             </body>
             </html>
         `;
 
-        // Escreve e finaliza
+        // Renderiza na nova janela
         win.document.open();
         win.document.write(finalHtml);
         win.document.close();
