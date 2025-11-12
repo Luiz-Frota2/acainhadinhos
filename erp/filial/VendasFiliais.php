@@ -698,7 +698,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
 
 <!-- Filtros -->
 <div class="card mb-3">
-    <div class="card-body d-flex flex-wrap toolbar">
+    <div class="card-body ">
         <form class="d-flex flex-wrap w-100 gap-3 align-items-end" autocomplete="off" method="get">
 
             <!-- ✅ MANTÉM O ID NA URL -->
