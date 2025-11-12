@@ -658,24 +658,23 @@ $stmt = $pdo->prepare("
 $stmt->execute($params);
 $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
-
-<!-- ✅ MANTÉM SUA PÁGINA NORMAL -->
-<!-- Seus filtros e tabelas ficam visíveis normalmente -->
+<!-- Filtros -->
 <div class="card mb-3">
     <div class="card-body">
         <form class="d-flex flex-wrap w-100 gap-4 align-items-end" method="get">
+
+            <!-- ✅ MANTÉM O ID NA URL -->
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
             <div class="col-12 col-md-2">
-                <label class="form-label">De</label>
+                <label class="form-label">de</label>
                 <input type="date" name="inicio" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
             </div>
 
             <div class="col-12 col-md-2">
-                <label class="form-label">Até</label>
+                <label class="form-label">até</label>
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
-
             <div class="col-12 col-md-4">
                 <label>Filial</label>
                 <select class="form-select form-select-sm" name="filial">
@@ -687,7 +686,6 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <?php endforeach; ?>
                 </select>
             </div>
-
             <div class="col-12 col-md-3 d-flex gap-2">
                 <button class="btn btn-sm btn-primary" type="submit">
                     <i class="bx bx-filter-alt me-1"></i> Aplicar
@@ -695,7 +693,8 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
                     <i class="bx bx-eraser me-1"></i> Limpar Filtro
                 </a>
-                <!-- 🔹 BOTÃO DE IMPRESSÃO -->
+
+                <!-- botao agora chama openPrintReport() -->
                 <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openPrintReport()">
                     <i class="bx bx-printer me-1"></i> Imprimir
                 </button>
@@ -704,81 +703,198 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 </div>
 
-<!-- 🔹 CONTEÚDO NORMAL DA PÁGINA -->
-<div id="tabelas-relatorio">
-    <!-- Tudo o que o usuário vê normalmente -->
+<?php
+$nenhumResultado = (
+    $kpis['itens'] == 0 &&
+    $kpis['pedidos'] == 0 &&
+    $kpis['faturamento'] == 0 &&
+    $kpis['produto_qtd'] == 0
+);
+?>
+
+<!-- ====== ÁREA VISÍVEL (mantida igual) ====== -->
+<div id="report-visible">
     <?php if ($nenhumResultado): ?>
         <div class="alert alert-warning text-center w-100">
             Nenhuma informação encontrada para o filtro aplicado.
         </div>
-    <?php else: ?>
-        <!-- Exemplo de tabela -->
-        <div class="card mb-3">
-            <h5 class="card-header">Top 20 Produtos (Geral)</h5>
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>SKU</th>
-                            <th>Produto</th>
-                            <th class="text-end">Qtd.</th>
-                            <th class="text-end">Pedidos</th>
-                            <th class="text-end">Faturamento (R$)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($produtos)): ?>
-                            <tr><td colspan="6" class="text-center text-muted py-3">Nenhum produto encontrado.</td></tr>
-                        <?php else: ?>
-                            <?php foreach ($produtos as $index => $p): ?>
-                                <tr>
-                                    <td><?= $index + 1 ?></td>
-                                    <td><?= htmlspecialchars($p['sku']) ?></td>
-                                    <td><?= htmlspecialchars($p['nome']) ?></td>
-                                    <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
-                                    <td class="text-end"><?= number_format($p['total_pedidos'], 0, ',', '.') ?></td>
-                                    <td class="text-end">R$ <?= number_format($p['faturamento'], 2, ',', '.') ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+    <?php endif; ?>
+
+    <div class="row">
+        <div class="col-md-2 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Itens Vendidos</div>
+                    <div class="kpi-value"><?= inteiro($kpis['itens']) ?></div>
+                    <div class="kpi-sub">de <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
+                </div>
             </div>
         </div>
-    <?php endif; ?>
-</div>
 
-<!-- ============================
-     SCRIPT DE IMPRESSÃO
-     ============================ -->
+        <div class="col-md-2 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Pedidos</div>
+                    <div class="kpi-value"><?= inteiro($kpis['pedidos']) ?></div>
+                    <div class="kpi-sub">Pedidos fechados</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Faturamento</div>
+                    <div class="kpi-value"><?= moeda($kpis['faturamento']) ?></div>
+                    <div class="kpi-sub">Total período</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Produto Mais Vendido</div>
+                    <div class="kpi-value">
+                        <?= $kpis['produto_nome'] ?: 'Nenhum produto' ?>
+                    </div>
+                    <div class="kpi-sub">
+                        <?= $kpis['produto_sku'] ?: '--' ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top 20 Produtos (visível) -->
+    <div class="card mb-3">
+        <h5 class="card-header">Top 20 Produtos (Geral)</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>SKU</th>
+                        <th>Produto</th>
+                        <th class="text-end">Qtd.</th>
+                        <th class="text-end">Pedidos</th>
+                        <th class="text-end">Faturamento (R$)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($produtos)): ?>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-3">
+                                Nenhum produto encontrado para o filtro aplicado.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($produtos as $index => $p): ?>
+                            <tr>
+                                <td><?= $index + 1 ?></td>
+                                <td><?= htmlspecialchars($p['sku']) ?></td>
+                                <td><?= htmlspecialchars($p['nome']) ?></td>
+                                <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
+                                <td class="text-end"><?= number_format($p['total_pedidos'], 0, ',', '.') ?></td>
+                                <td class="text-end">R$ <?= number_format($p['faturamento'], 2, ',', '.') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Ranking por Filial (visível) -->
+    <div class="card mb-3">
+        <h5 class="card-header">Ranking por Filial (Top 10 de cada)</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Filial</th>
+                        <th>SKU</th>
+                        <th>Produto</th>
+                        <th class="text-end">Qtd.</th>
+                        <th class="text-end">Pedidos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($ranking)): ?>
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">
+                                Nenhum ranking disponível para o filtro aplicado.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($ranking as $item): ?>
+                            <tr>
+                                <td><strong><?= htmlspecialchars($item['filial']) ?></strong></td>
+                                <td><?= htmlspecialchars($item['sku']) ?></td>
+                                <td><?= htmlspecialchars($item['produto']) ?></td>
+                                <td class="text-end"><?= number_format($item['total_quantidade'], 0, ',', '.') ?></td>
+                                <td class="text-end"><?= number_format($item['total_pedidos'], 0, ',', '.') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div> <!-- fim report-visible -->
+
+<!-- ====== ÁREA OCULTA PARA MONTAR O RELATÓRIO (é gerada dinamicamente pelo JS) ====== -->
+<!-- NÃO coloca conteúdo estático aqui; o JS irá clonar o HTML visível -->
+
+<!-- SCRIPT DE IMPRESSÃO -->
 <script>
 function openPrintReport() {
     try {
-        // Captura o conteúdo que será impresso (somente a área das tabelas e KPIs)
-        var reportHtml = document.getElementById('tabelas-relatorio').innerHTML;
+        // Pega o HTML visível que queremos imprimir
+        var contentEl = document.getElementById('report-visible');
+        if (!contentEl) {
+            alert('Conteúdo para impressão não encontrado.');
+            return;
+        }
 
-        // Abre nova aba
+        // Clona o HTML para evitar alterações no DOM original
+        var clonedHtml = contentEl.cloneNode(true);
+
+        // Remove elementos indesejados da cópia (botões, inputs, actions) — ajusta conforme necessário
+        var elementsToRemove = clonedHtml.querySelectorAll('button, a.btn, form, input[type="checkbox"], input[type="radio"]');
+        elementsToRemove.forEach(function(el){ 
+            // se for botão de ação dentro da tabela, remove somente se for do tipo button (não remove células)
+            el.remove(); 
+        });
+
+        // Monta HTML final para a nova aba
         var win = window.open('', '_blank');
         if (!win) {
             alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
             return;
         }
 
-        // CSS de impressão
         var style = `
             <style>
                 @page { size: A4; margin: 18mm; }
                 body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; }
-                table { width:100%; border-collapse:collapse; }
+                .card { border: none; box-shadow: none; margin-bottom: 8px; }
+                h5.card-header { background: transparent; border-bottom: 1px solid #e6e6e6; padding: 8px 0; font-weight:600; }
+                table { width:100%; border-collapse:collapse; font-size:12px; }
                 th, td { padding:8px 10px; border:1px solid #e5e7eb; }
-                thead th { background:#f3f4f6; }
+                thead th { background:#f3f4f6; text-align: left; }
+                .kpi-label { font-size:12px; color:#6b7280; }
+                .kpi-value { font-size:18px; font-weight:700; color:#0f172a; }
+                .kpi-sub { font-size:11px; color:#6b7280; }
                 tr { page-break-inside: avoid; }
-                h5.card-header { margin: 0; padding: 10px 0; font-size: 15px; }
+                thead { display: table-header-group; }
+                tfoot { display: table-footer-group; }
             </style>
         `;
 
-        // HTML final que vai pra nova aba
+        // Use outerHTML do clone (string)
+        var printBody = clonedHtml.outerHTML;
+
         var finalHtml = `
             <!doctype html>
             <html>
@@ -789,24 +905,34 @@ function openPrintReport() {
                 ${style}
             </head>
             <body>
-                ${reportHtml}
+                <div style="padding:18px;">
+                    ${printBody}
+                </div>
                 <script>
+                    // foca e imprime
                     window.focus();
                     setTimeout(function(){
                         window.print();
                     }, 300);
+
+                    // após imprimir ou cancelar, redireciona a aba de impressão
                     window.onafterprint = function() {
-                        window.location.href = "MaisVendidos.php?id=principal_1";
+                        try {
+                            window.location.href = "VendasFiliais.php?id=principal_1";
+                        } catch (e) {
+                            window.close();
+                        }
                     };
                 <\/script>
             </body>
             </html>
         `;
 
-        // Escreve o conteúdo na nova janela
+        // escreve na nova janela
         win.document.open();
         win.document.write(finalHtml);
         win.document.close();
+
     } catch (err) {
         console.error(err);
         alert('Erro ao gerar o relatório para impressão: ' + err.message);
