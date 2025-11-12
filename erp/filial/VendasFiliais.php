@@ -1039,18 +1039,23 @@ function openPrintReport() {
             <body>
                 ${reportHtml}
                 <script>
-                    // Foca e imprime automaticamente
-                    window.focus();
-                    setTimeout(function(){
-                        window.print();
-                    }, 300);
+    // Foca e imprime automaticamente
+    window.focus();
+    setTimeout(function() {
+        window.print();
+    }, 300);
 
-                    // Quando o usuário cancelar ou concluir a impressão
-                    window.onafterprint = function() {
-                        // Redireciona de volta para a página principal
-                        window.location.href = "VendasFiliais.php?id=principal_1";
-                    };
-                <\/script>
+    // Quando o usuário cancelar ou concluir a impressão
+    window.onafterprint = function() {
+        // Retorna para a página anterior
+        try {
+            history.back();
+        } catch (e) {
+            window.close();
+        }
+    };
+</script>
+
             </body>
             </html>
         `;
