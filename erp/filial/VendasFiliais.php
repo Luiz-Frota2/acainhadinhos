@@ -737,7 +737,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <i class="bx bx-eraser me-1"></i> Limpar Filtro
 </a>
                 <!-- ALTEREI AQUI: chamar a função que abre nova aba com relatório pronto -->
-                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="openPrintReport()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+                <button  href="/assets/php/relatorios/print_relatorio_vendas_filial.php?id=<?= urlencode($idSelecionado) ?>&inicio=<?= urlencode($inicioFiltro) ?>&fim=<?= urlencode($fimFiltro) ?>" class="btn btn-sm btn-outline-secondary"  type="button" onclick="openPrintReport()"><i class="bx bx-printer me-1"></i> Imprimir</button>
                 </div>
 
         </form>
@@ -998,147 +998,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <!-- ============================
          SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
          ============================ -->
-         <?php
-   if ($tipo === 'print') {
-    $titulo = "Relatório B2B - Filiais";
-    $periodoTexto = date("d/m/Y", strtotime($inicioFiltro)) . " a " . date("d/m/Y", strtotime($fimFiltro));
-    // garante que $idSelecionado esteja definido
-    $idSelecionado = isset($idSelecionado) ? $idSelecionado : '';
-    ?>
-    <!DOCTYPE html>
-    <html lang="pt-br">
-    <head>
-        <meta charset="utf-8">
-        <title><?= htmlspecialchars($titulo) ?></title>
-        <style>
-            body{ font-family: "Arial",sans-serif; margin:20mm; color:#222; }
-            header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-            /* oculta logo, independentemente de classe/id */
-            img.logo, .logo, #logo, header .logo { display:none !important; }
-            h1 { font-size:18px; margin:0; }
-            .meta { font-size:12px; color:#555; }
-            .section-title { background:#f3f3f3; padding:8px; font-weight:700; margin-top:18px; margin-bottom:6px; border:1px solid #e0e0e0; }
-            table { width:100%; border-collapse:collapse; margin-bottom:12px; font-size:12px; }
-            th, td { border:1px solid #cfcfcf; padding:6px 8px; text-align:left; }
-            th { background:#efefef; font-weight:700; }
-            footer { position:fixed; bottom:10mm; left:0; right:0; text-align:center; font-size:11px; color:#666; }
-            @page { margin: 20mm; }
-            @media print {
-                footer { position: fixed; bottom: 10mm; }
-                .no-print { display:none; }
-            }
-        </style>
-    </head>
-    <body>
-        <header>
-            <div class="brand">
-                <div style="font-weight:700; font-size:16px;">Relatório Empresarial</div>
-                <div class="meta">Gerado automaticamente pelo sistema</div>
-            </div>
-            <div class="empresa">
-                <h1><?= htmlspecialchars($titulo) ?></h1>
-                <div class="meta"><?= htmlspecialchars($periodoTexto) ?></div>
-            </div>
-        </header>
-
-        <!-- SUAS SEÇÕES AQUI (resumo, filiais, produtos, etc.) -->
-        <div class="section-title">Resumo do Período</div>
-        <table>
-            <thead>
-                <tr><th>Métrica</th><th>Valor</th></tr>
-            </thead>
-            <tbody>
-                <!-- EXEMPLO: substitua pelo seu loop real -->
-                <?php foreach ($resumo as $metric => $vals): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($metric) ?></td>
-                        <td><?= is_numeric($vals[0]) ? number_format($vals[0], 2, ',', '.') : htmlspecialchars($vals[0]) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-
-        <footer><?= htmlspecialchars(date('d/m/Y H:i')) ?> — Relatório automático</footer>
-
-        <script>
-            // ID seguro vindo do PHP (usar json_encode para não quebrar JS)
-            const filialId = <?= json_encode($idSelecionado) ?>;
-            let redirected = false;
-
-            function doRedirect() {
-                if (redirected) return;
-                redirected = true;
-                // redireciona para a página desejada mantendo o id
-                const target = 'vendas_por_filial.php?id=' + encodeURIComponent(filialId);
-                // usa replace para não empilhar histórico
-                try {
-                    window.location.replace(target);
-                } catch (e) {
-                    // fallback
-                    window.location.href = target;
-                }
-            }
-
-            // tenta imprimir automaticamente
-            window.addEventListener('load', function() {
-                // dá um pequeno delay para garantir que tudo carregou
-                setTimeout(() => {
-                    try { window.print(); } catch(e) { /* ignore */ }
-                }, 300);
-            });
-
-            // Usar onafterprint quando disponível
-            if ('onafterprint' in window) {
-                window.onafterprint = function() {
-                    // dá um pequeno delay pra evitar conflitos
-                    setTimeout(doRedirect, 200);
-                };
-            }
-
-            // matchMedia fallback (alguns navegadores disparam esse evento)
-            try {
-                const mediaQueryList = window.matchMedia('print');
-                if (typeof mediaQueryList.addEventListener === 'function') {
-                    mediaQueryList.addEventListener('change', function(mql) {
-                        if (!mql.matches) { // print dialog foi fechado
-                            setTimeout(doRedirect, 200);
-                        }
-                    });
-                } else if (typeof mediaQueryList.addListener === 'function') {
-                    mediaQueryList.addListener(function(mql) {
-                        if (!mql.matches) setTimeout(doRedirect, 200);
-                    });
-                }
-            } catch (e) {
-                // ignore
-            }
-
-            // Fallback extra: detecta quando a aba volta ao foco (quando print dialog fecha em alguns browsers)
-            window.addEventListener('focus', function() {
-                // se já redirecionou, ignora
-                if (redirected) return;
-                // espera um tiquinho para evitar disparo imediato por outros motivos
-                setTimeout(function() {
-                    if (!redirected) doRedirect();
-                }, 400);
-            });
-
-            // Também usa visibilitychange para quando o usuário fecha a caixa de diálogo de impressão
-            document.addEventListener('visibilitychange', function() {
-                if (document.visibilityState === 'visible' && !redirected) {
-                    // espera para garantir que não seja foco temporário
-                    setTimeout(function() {
-                        if (!redirected) doRedirect();
-                    }, 400);
-                }
-            });
-        </script>
-    </body>
-    </html>
-    <?php
-    exit;
-}
-
+   
 </body>
 
 </html>
