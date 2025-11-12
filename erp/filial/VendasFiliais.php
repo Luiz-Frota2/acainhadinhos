@@ -713,7 +713,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <label class="form-label">até</label>
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
-
+            <div class="col-12 col-md-2">
             <select class="form-select me-2" name="filial">
                 <option value="">Todas as Filiais</option>
                 <?php foreach ($listaFiliais as $f): ?>
@@ -722,6 +722,8 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                     </option>
                 <?php endforeach; ?>
             </select>
+            </div>
+             <div class="col-12 col-md-2">
 
             <button class="btn btn-outline-secondary me-2" type="submit">
                 <i class="bx bx-filter-alt me-1"></i> Aplicar
@@ -729,10 +731,9 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
             <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-outline-danger">
     <i class="bx bx-x-circle me-1"></i> Limpar Filtro
 </a>
-
-
             <div class="ms-auto d-flex gap-2">
                 <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+            </div>
             </div>
 
         </form>
