@@ -736,7 +736,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
             <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
     <i class="bx bx-eraser me-1"></i> Limpar Filtro
 </a>
-              <a href="/print_relatorio_vendas_filial.php?<?= http_build_query($_GET) ?>" 
+              <a href="print_relatorio_vendas_filial.php?<?= http_build_query($_GET) ?>" 
    class="btn btn-sm btn-outline-secondary" target="_blank">
    <i class="bx bx-printer me-1"></i> Imprimir
 </a>
