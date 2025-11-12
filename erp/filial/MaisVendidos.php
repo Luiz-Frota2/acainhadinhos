@@ -662,8 +662,8 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                     <!-- Filtros -->
 <div class="card mb-3">
-    <div class="card-body d-flex flex-wrap toolbar">
-        <form class="d-flex flex-wrap w-100 gap-2" method="get">
+    <div class="card-body">
+        <form class="d-flex flex-wrap align-items-end" method="get">
 
             <!-- ✅ MANTÉM O ID NA URL -->
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
@@ -677,8 +677,9 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <label class="form-label">até</label>
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
-
-            <select class="form-select me-2" name="filial">
+            <div class="col-12 col-md-3">
+                <label>Filial</label>
+            <select class="form-select form-select-sm" name="filial">
                 <option value="">Todas as Filiais</option>
                 <?php foreach ($listaFiliais as $f): ?>
                     <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
@@ -686,19 +687,16 @@ $ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </option>
                 <?php endforeach; ?>
             </select>
-
-            <button class="btn btn-outline-secondary me-2" type="submit">
+                </div>
+               <div class="col-12 col-md-5 d-flex gap-2">
+            <button class="btn btn-sm btn-primary" type="submit">
                 <i class="bx bx-filter-alt me-1"></i> Aplicar
             </button>
-            <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-outline-danger">
-    <i class="bx bx-x-circle me-1"></i> Limpar Filtro
-</a>
-
-
-            <div class="ms-auto d-flex gap-2">
-                <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
-            </div>
-
+                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
+                <i class="bx bx-eraser me-1"></i> Limpar Filtro
+                        </a>
+                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+                </div>
         </form>
     </div>
 </div>
