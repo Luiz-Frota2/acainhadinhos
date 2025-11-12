@@ -1006,7 +1006,7 @@ $fimTxt = $fim->format('d/m/Y');
                             <!-- preserva o contexto id -->
                             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-                            <div class="col-12 col-md-3">
+                            <div class="col-12 col-md-4">
                                 <label>Filial</label>
                                 <select class="form-select form-select-sm" name="status">
                                     <option value="">Todas as Filiais</option>
