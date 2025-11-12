@@ -989,29 +989,6 @@ function openPrintReport() {
                     <div><strong>Usuário:</strong> ${sessionStorage.getItem('usuarioLogado') || 'Administrador'}</div>
                 </div>
 
-                <!-- Indicadores principais (mantidos) -->
-                <div class="kpi-container">
-                    <div class="kpi-box">
-                        <div class="kpi-label">Itens Vendidos</div>
-                        <div class="kpi-value">1</div>
-                        <div class="kpi-sub">Período: 13/10 até 12/11</div>
-                    </div>
-                    <div class="kpi-box">
-                        <div class="kpi-label">Pedidos</div>
-                        <div class="kpi-value">1</div>
-                        <div class="kpi-sub">Pedidos Fechados</div>
-                    </div>
-                    <div class="kpi-box">
-                        <div class="kpi-label">Faturamento Total</div>
-                        <div class="kpi-value">R$ 24,90</div>
-                        <div class="kpi-sub">Total no Período</div>
-                    </div>
-                    <div class="kpi-box">
-                        <div class="kpi-label">Produto Mais Vendido</div>
-                        <div class="kpi-value">Polpa de Açaí 1kg</div>
-                        <div class="kpi-sub">Cód: 7890000000001</div>
-                    </div>
-                </div>
 
                 <!-- Conteúdo da página -->
                 ${clonedHtml.outerHTML}
