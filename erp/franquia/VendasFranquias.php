@@ -500,244 +500,567 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
           </div>
         </nav>
         <!-- /Navbar -->
+ <?php 
+// -------------------------------
+// CAPTURAR FILTROS
+// -------------------------------
+$inicioFiltro = isset($_GET['inicio']) ? $_GET['inicio'] : '';
+$fimFiltro    = isset($_GET['fim']) ? $_GET['fim'] : '';
+$filialSelecionada = isset($_GET['franquia']) ? $_GET['franquia'] : '';
 
-        <div class="container-xxl flex-grow-1 container-p-y">
-          <h4 class="fw-bold mb-0">
-            <span class="text-muted fw-light"><a href="#">Franquias</a>/</span>
-            Vendas por Franquias
-          </h4>
-          <h5 class="fw-bold mt-3 mb-3 custor-font">
-            <span class="text-muted fw-light">Indicadores e comparativos por unidade franqueada — <?= htmlspecialchars($tituloPeriodo) ?></span>
-          </h5>
 
-          <!-- Filtros -->
-          <div class="card mb-3">
-            <div class="card-body d-flex flex-wrap toolbar">
-              <form class="d-flex flex-wrap w-100 gap-2" method="get">
-                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                <select class="form-select me-2" name="periodo">
-                  <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
-                  <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
-                  <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
-                  <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
-                </select>
+// -------------------------------
+// LISTAR FILIAIS ATIVAS
+// -------------------------------
+$listaFiliais = $pdo->query("
+    SELECT id, nome 
+    FROM unidades 
+    WHERE tipo = 'Franquia' AND status = 'Ativa'
+")->fetchAll(PDO::FETCH_ASSOC);
 
-                <select class="form-select me-2" name="franquia_id">
-                  <option value="">Todas as Franquias</option>
-                  <?php foreach ($franquias as $f): ?>
-                    <option value="<?= (int)$f['id'] ?>" <?= $franquiaId === (int)$f['id'] ? 'selected' : ''; ?>>
-                      <?= htmlspecialchars($f['nome']) ?>
+
+// -------------------------------
+// MONTAR WHERE DINÂMICO
+// -------------------------------
+$where = [];
+$params = [];
+
+// 1. FILTRO DE FILIAL
+if ($filialSelecionada != '') {
+    // Apenas 1 filial
+    $where[] = "v.empresa_id LIKE :filial";
+    $params[':filial'] = "%_" . $filialSelecionada;
+} else {
+    // Todas as filiais ativas
+    $partes = [];
+    foreach ($listaFiliais as $f) {
+        $id = intval($f['id']);
+        $partes[] = "v.empresa_id LIKE '%_$id'";
+    }
+    $where[] = "(" . implode(" OR ", $partes) . ")";
+}
+
+// 2. FILTRO DE DATA INÍCIO
+if (!empty($inicioFiltro)) {
+    $where[] = "DATE(v.data_venda) >= :inicio";
+    $params[':inicio'] = $inicioFiltro;
+}
+
+// 3. FILTRO DE DATA FIM
+if (!empty($fimFiltro)) {
+    $where[] = "DATE(v.data_venda) <= :fim";
+    $params[':fim'] = $fimFiltro;
+}
+
+$whereSQL = implode(" AND ", $where);
+
+
+// -------------------------------
+// KPIs (Faturamento, Pedidos, Itens, Ticket Médio)
+// 🔥 100% CORRIGIDO — agora usa os filtros da tabela
+// -------------------------------
+$sqlKPI = "
+    SELECT 
+        COUNT(v.id) AS pedidos,
+        SUM(v.valor_total) AS faturamento
+    FROM vendas v
+    WHERE $whereSQL
+";
+$stm = $pdo->prepare($sqlKPI);
+$stm->execute($params);
+$kp = $stm->fetch(PDO::FETCH_ASSOC);
+
+$pedidosTotal = intval($kp['pedidos']);
+$faturTotal = floatval($kp['faturamento']);
+
+
+// === TOTAL DE ITENS VENDIDOS (com filtro aplicado)
+$sqlItens = "
+    SELECT SUM(iv.quantidade) AS total_itens
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    WHERE $whereSQL
+";
+$stm = $pdo->prepare($sqlItens);
+$stm->execute($params);
+$it = $stm->fetch(PDO::FETCH_ASSOC);
+
+$itensTotal = intval($it['total_itens']);
+
+
+// === Ticket médio
+$ticketMedio = ($pedidosTotal > 0) ? ($faturTotal / $pedidosTotal) : 0;
+
+
+// -------------------------------------------
+// RESUMO POR FILIAL (com filtro aplicado)
+// -------------------------------------------
+$resumoFiliais = [];
+
+foreach ($listaFiliais as $f) {
+
+    // Se está filtrando por 1 filial → só calcula ela
+    if ($filialSelecionada != '' && $filialSelecionada != $f['id']) {
+        continue;
+    }
+
+    $idFilial = intval($f['id']);
+    $nomeFilial = $f['nome'];
+
+    // Filtro específico da filial
+    $whereFilial = $whereSQL;
+    if ($filialSelecionada == '') {
+        $whereFilial = str_replace($partes, "v.empresa_id LIKE '%_$idFilial'", $whereFilial);
+    }
+
+    // Pedidos + Faturamento
+    $sqlF = "
+        SELECT 
+            COUNT(v.id) AS pedidos,
+            SUM(v.valor_total) AS faturamento
+        FROM vendas v
+        WHERE " . ( $filialSelecionada == '' ? "v.empresa_id LIKE '%_$idFilial' AND " : "" ) . "
+              ($whereSQL)
+    ";
+
+    $stm = $pdo->prepare($sqlF);
+    $stm->execute($params);
+    $r = $stm->fetch(PDO::FETCH_ASSOC);
+
+    $ped = intval($r['pedidos']);
+    $fat = floatval($r['faturamento']);
+
+    // Itens
+    $sqlItensFilial = "
+        SELECT SUM(iv.quantidade) AS total_itens
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        WHERE v.empresa_id LIKE '%_$idFilial' 
+        AND $whereSQL
+    ";
+    $stm = $pdo->prepare($sqlItensFilial);
+    $stm->execute($params);
+    $rowItens = $stm->fetch(PDO::FETCH_ASSOC);
+
+    $totalItens = intval($rowItens['total_itens']);
+
+    // Ticket
+    $ticket = ($ped > 0) ? $fat / $ped : 0;
+
+    $resumoFiliais[] = [
+        "nome" => $nomeFilial,
+        "pedidos" => $ped,
+        "itens" => $totalItens,
+        "faturamento" => $fat,
+        "ticket_medio" => $ticket
+    ];
+}
+
+// Percentual total
+$totalFat = array_sum(array_column($resumoFiliais, 'faturamento'));
+foreach ($resumoFiliais as &$linha) {
+    $linha['percentual'] = ($totalFat > 0) ? ($linha['faturamento'] / $totalFat) * 100 : 0;
+}
+
+
+// -------------------------------------------
+// TOP 5 PRODUTOS (dinâmico com filtro)
+// -------------------------------------------
+$sqlTop = "
+    SELECT 
+        iv.produto_id AS sku,
+        iv.produto_nome AS nome,
+        SUM(iv.quantidade) AS total_quantidade,
+        COUNT(DISTINCT iv.venda_id) AS total_pedidos
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    WHERE $whereSQL
+    GROUP BY iv.produto_id, iv.produto_nome
+    ORDER BY total_quantidade DESC
+    LIMIT 5
+";
+
+$stm = $pdo->prepare($sqlTop);
+$stm->execute($params);
+$topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
+
+?>
+
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold mb-0">
+        <span class="text-muted fw-light"><a href="#">Franquia</a>/</span>
+        Vendas por Franquia
+    </h4>
+    <h5 class="fw-bold mt-3 mb-3 custor-font">
+        <span class="text-muted fw-light">Indicadores e comparativos por unidade franqueada — <?= htmlspecialchars($tituloPeriodo) ?></span>
+    </h5>
+
+<!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body ">
+        <form class="d-flex flex-wrap w-100 gap-4 align-items-end" autocomplete="off" method="get">
+
+            <!-- ✅ MANTÉM O ID NA URL -->
+            <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+
+            <div class="col-12 col-md-2">
+                <label class="form-label">de</label>
+                <input type="date" name="inicio" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-12 col-md-2">
+                <label class="form-label">até</label>
+                <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+            </div>
+            <div class="col-12 col-md-4">
+                <label>Franquia</label>
+            <select  class="form-select form-select-sm" name="filial">
+                <option value="">Todas as Franquias</option>
+                <?php foreach ($listaFiliais as $f): ?>
+                    <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
+                        <?= htmlspecialchars($f['nome']) ?>
                     </option>
-                  <?php endforeach; ?>
-                </select>
+                <?php endforeach; ?>
+            </select>
+                </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+            <button class="btn btn-sm btn-primary"  type="submit">
+                <i class="bx bx-filter-alt me-1"></i> Aplicar
+            </button>
+            <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
+    <i class="bx bx-eraser me-1"></i> Limpar Filtro
+</a>
+                <!-- ALTEREI AQUI: chamar a função que abre nova aba com relatório pronto -->
+                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="openPrintReport()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+                </div>
 
-                <button class="btn btn-outline-secondary me-2" type="submit">
-                  <i class="bx bx-filter-alt me-1"></i> Aplicar
-                </button>
+        </form>
+    </div>
+</div>
 
-                <div class="ms-auto d-flex gap-2">
-                  <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
-                </div>
-              </form>
+<!-- ✅ KPIs SINCRONIZADOS -->
+<div class="row">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Faturamento</div>
+                <div class="kpi-value"><?= moeda($faturTotal) ?></div>
+                <div class="kpi-sub"><?= htmlspecialchars($tituloPeriodo) ?></div>
             </div>
-          </div>
+        </div>
+    </div>
 
-          <!-- KPIs -->
-          <div class="row">
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card kpi-card">
-                <div class="card-body">
-                  <div class="kpi-label">Faturamento</div>
-                  <div class="kpi-value"><?= moeda($faturTotal) ?></div>
-                  <div class="kpi-sub"><?= htmlspecialchars($tituloPeriodo) ?></div>
-                </div>
-              </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Pedidos</div>
+                <div class="kpi-value"><?= inteiro($pedidosTotal) ?></div>
+                <div class="kpi-sub">Pedidos fechados</div>
             </div>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card kpi-card">
-                <div class="card-body">
-                  <div class="kpi-label">Pedidos</div>
-                  <div class="kpi-value"><?= inteiro($pedidosTotal) ?></div>
-                  <div class="kpi-sub">Pedidos fechados</div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card kpi-card">
-                <div class="card-body">
-                  <div class="kpi-label">Itens Vendidos</div>
-                  <div class="kpi-value"><?= inteiro($itensTotal) ?></div>
-                  <div class="kpi-sub">Qtde total</div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-3 col-sm-6 mb-3">
-              <div class="card kpi-card">
-                <div class="card-body">
-                  <div class="kpi-label">Ticket Médio</div>
-                  <div class="kpi-value"><?= moeda($ticketMedio) ?></div>
-                  <div class="kpi-sub">Faturamento / Pedidos</div>
-                </div>
-              </div>
-            </div>
-          </div>
+        </div>
+    </div>
 
-          <!-- Tabela: Vendas por Franquia -->
-          <div class="card mb-3">
-            <h5 class="card-header">Resumo por Franquia</h5>
-            <div class="table-responsive">
-              <table class="table table-hover align-middle">
-                <thead>
-                  <tr>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Itens Vendidos</div>
+                <div class="kpi-value"><?= inteiro($itensTotal) ?></div>
+                <div class="kpi-sub">Qtde total</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card kpi-card">
+            <div class="card-body">
+                <div class="kpi-label">Ticket Médio</div>
+                <div class="kpi-value"><?= moeda($ticketMedio) ?></div>
+                <div class="kpi-sub">Faturamento / Pedidos</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+                 
+                   <div class="card mb-3">
+    <h5 class="card-header">Resumo por Franquia</h5>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
                     <th>Franquia</th>
                     <th class="text-end">Pedidos</th>
                     <th class="text-end">Itens</th>
                     <th class="text-end">Faturamento (R$)</th>
                     <th class="text-end">Ticket Médio</th>
                     <th style="min-width:180px;">% do Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <!-- Linha 1 -->
-                  <tr>
-                    <td><strong>Franquia Centro</strong></td>
-                    <td class="text-end">74</td>
-                    <td class="text-end">2.140</td>
-                    <td class="text-end">R$ 58.700,00</td>
-                    <td class="text-end">R$ 793,24</td>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($resumoFiliais as $f): ?>
+                <tr>
+                    <td><strong><?= $f["nome"] ?></strong></td>
+                    <td class="text-end"><?= $f["pedidos"] ?></td>
+                    <td class="text-end"><?= $f["itens"] ?></td>
+                    <td class="text-end">R$ <?= number_format($f["faturamento"], 2, ',', '.') ?></td>
+                    <td class="text-end">R$ <?= number_format($f["ticket_medio"], 2, ',', '.') ?></td>
                     <td>
-                      <div class="d-flex align-items-center gap-2">
-                        <div class="flex-grow-1">
-                          <div class="progress" style="height:8px;">
-                            <div class="progress-bar" role="progressbar" style="width: 45%;" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100"></div>
-                          </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="flex-grow-1">
+                                <div class="progress" style="height:8px;">
+                                    <div class="progress-bar"
+                                         role="progressbar"
+                                         style="width: <?= number_format($f["percentual"], 2) ?>%;"></div>
+                                </div>
+                            </div>
+                            <div style="width:58px;" class="text-end">
+                                <?= number_format($f["percentual"], 1, ',', '.') ?>%
+                            </div>
                         </div>
-                        <div style="width:58px;" class="text-end">45,0%</div>
-                      </div>
                     </td>
-                  </tr>
-                  <!-- Linha 2 -->
-                  <tr>
-                    <td><strong>Franquia Norte</strong></td>
-                    <td class="text-end">58</td>
-                    <td class="text-end">1.720</td>
-                    <td class="text-end">R$ 41.320,00</td>
-                    <td class="text-end">R$ 712,41</td>
-                    <td>
-                      <div class="d-flex align-items-center gap-2">
-                        <div class="flex-grow-1">
-                          <div class="progress" style="height:8px;">
-                            <div class="progress-bar" role="progressbar" style="width: 32%;" aria-valuenow="32" aria-valuemin="0" aria-valuemax="100"></div>
-                          </div>
-                        </div>
-                        <div style="width:58px;" class="text-end">32,0%</div>
-                      </div>
-                    </td>
-                  </tr>
-                  <!-- Linha 3 -->
-                  <tr>
-                    <td><strong>Franquia Sul</strong></td>
-                    <td class="text-end">52</td>
-                    <td class="text-end">1.570</td>
-                    <td class="text-end">R$ 28.430,00</td>
-                    <td class="text-end">R$ 546,73</td>
-                    <td>
-                      <div class="d-flex align-items-center gap-2">
-                        <div class="flex-grow-1">
-                          <div class="progress" style="height:8px;">
-                            <div class="progress-bar" role="progressbar" style="width: 23%;" aria-valuenow="23" aria-valuemin="0" aria-valuemax="100"></div>
-                          </div>
-                        </div>
-                        <div style="width:58px;" class="text-end">23,0%</div>
-                      </div>
-                    </td>
-                  </tr>
-                  <!-- Se quiser uma linha de “sem dados”, deixe-a comentada e descomente quando necessário
-        <tr><td colspan="6" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
-        -->
-                </tbody>
-                <tfoot>
-                  <tr>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+
+            <tfoot>
+                <tr>
                     <th>Total</th>
-                    <th class="text-end">184</th>
-                    <th class="text-end">5.430</th>
-                    <th class="text-end">R$ 128.450,00</th>
-                    <th class="text-end">R$ 698,10</th>
+                    <th class="text-end"><?= array_sum(array_column($resumoFiliais, 'pedidos')) ?></th>
+                    <th class="text-end"><?= array_sum(array_column($resumoFiliais, 'itens')) ?></th>
+                    <th class="text-end">
+                        R$ <?= number_format(array_sum(array_column($resumoFiliais, 'faturamento')), 2, ',', '.') ?>
+                    </th>
                     <th></th>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-
-
-          <!-- Tabela: Top Produtos no Período -->
-          <div class="card mb-3">
-            <h5 class="card-header">Top Produtos no Período</h5>
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+<div class="card mb-3">
+    <h5 class="card-header">Top Produtos no Período</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
                     <th>SKU</th>
                     <th>Produto</th>
                     <th class="text-end">Quantidade</th>
                     <th class="text-end">Pedidos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>ACA-500</td>
-                    <td>Polpa Açaí 500g</td>
-                    <td class="text-end">1.980</td>
-                    <td class="text-end">96</td>
-                  </tr>
-                  <tr>
-                    <td>ACA-1KG</td>
-                    <td>Polpa Açaí 1kg</td>
-                    <td class="text-end">1.210</td>
-                    <td class="text-end">64</td>
-                  </tr>
-                  <tr>
-                    <td>COPO-300</td>
-                    <td>Copo 300ml</td>
-                    <td class="text-end">1.050</td>
-                    <td class="text-end">51</td>
-                  </tr>
-                  <tr>
-                    <td>COLH-PP</td>
-                    <td>Colher PP</td>
-                    <td class="text-end">890</td>
-                    <td class="text-end">40</td>
-                  </tr>
-                  <tr>
-                    <td>GRAN-200</td>
-                    <td>Granola 200g</td>
-                    <td class="text-end">300</td>
-                    <td class="text-end">18</td>
-                  </tr>
-                  <!-- Linha “sem dados”, deixe comentada para uso futuro
-        <tr><td colspan="4" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
-        -->
-                </tbody>
-              </table>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($topProdutos as $p): ?>
+                <tr>
+                    <td><?= htmlspecialchars($p['sku']) ?></td>
+                    <td><?= htmlspecialchars($p['nome']) ?></td>
+                    <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
+                    <td class="text-end"><?= $p['total_pedidos'] ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</div><!-- /container -->
+            </div><!-- /Layout page -->
+        </div><!-- /Layout container -->
+    </div>
+
+    <!-- ============================
+         HTML DO RELATÓRIO (OCULTO)
+         Gera o conteúdo que será aberto na nova aba para impressão.
+         ============================ -->
+    <div id="report-html" style="display:none;">
+        <!-- Cabeçalho do relatório -->
+        <div class="report-document">
+            <div style="width:100%; padding:20px 24px; box-sizing:border-box; font-family: 'Public Sans', Arial, sans-serif;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div>
+                            <h2 style="margin:0; font-size:20px; color:#1f2937;">Relatório — Vendas por Franquia</h2>
+                            <div style="font-size:12px; color:#6b7280;">Período: <?= htmlspecialchars($tituloPeriodo) ?></div>
+                            <div style="font-size:12px; color:#6b7280;">Gerado por: <?= htmlspecialchars($nomeUsuario) ?> — <?= (new DateTime())->format('d/m/Y H:i') ?></div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:600; color:#374151;">Empresa: <?= htmlspecialchars($idSelecionado) ?></div>
+                    </div>
+                </div>
+
+                <hr style="border:none; border-top:1px solid #e6e6e6; margin:18px 0;">
+
+                <!-- KPIs -->
+                <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px;">
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Faturamento</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= moeda($faturTotal) ?></div>
+                    </div>
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Pedidos</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= inteiro($pedidosTotal) ?></div>
+                    </div>
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Itens Vendidos</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= inteiro($itensTotal) ?></div>
+                    </div>
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Ticket Médio</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= moeda($ticketMedio) ?></div>
+                    </div>
+                </div>
+
+                <!-- Tabela: Resumo por Filial -->
+                <h4 style="margin:8px 0 6px 0; font-size:16px; color:#111827;">Resumo por Franquia</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:14px;">
+                    <thead>
+                        <tr style="background:#f3f4f6; color:#111827;">
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">Franquia</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Pedidos</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Itens</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Faturamento (R$)</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Ticket Médio</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">% do Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($resumoFiliais as $f): ?>
+                        <tr>
+                            <td style="padding:8px 10px; border:1px solid #e5e7eb;"><?= htmlspecialchars($f['nome']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= intval($f['pedidos']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= intval($f['itens']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">R$ <?= number_format($f['faturamento'],2,',','.') ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">R$ <?= number_format($f['ticket_medio'],2,',','.') ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= number_format($f['percentual'],1,',','.') ?>%</td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">Total</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= array_sum(array_column($resumoFiliais,'pedidos')) ?></th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= array_sum(array_column($resumoFiliais,'itens')) ?></th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">R$ <?= number_format(array_sum(array_column($resumoFiliais,'faturamento')),2,',','.') ?></th>
+                            <th style="padding:8px 10px; border:1px solid #e5e7eb;"></th>
+                            <th style="padding:8px 10px; border:1px solid #e5e7eb;"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <!-- Tabela: Top Produtos -->
+                <h4 style="margin:8px 0 6px 0; font-size:16px; color:#111827;">Top Produtos no Período</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:18px;">
+                    <thead>
+                        <tr style="background:#f3f4f6; color:#111827;">
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">SKU</th>
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">Produto</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Quantidade</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Pedidos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($topProdutos as $p): ?>
+                        <tr>
+                            <td style="padding:8px 10px; border:1px solid #e5e7eb;"><?= htmlspecialchars($p['sku']) ?></td>
+                            <td style="padding:8px 10px; border:1px solid #e5e7eb;"><?= htmlspecialchars($p['nome']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= number_format($p['total_quantidade'],0,',','.') ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= intval($p['total_pedidos']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+
+                <div style="font-size:11px; color:#6b7280; margin-top:18px;">
+                    Relatório gerado em <?= (new DateTime())->format('d/m/Y H:i') ?> — Dados mostrados conforme filtros aplicados.
+                </div>
             </div>
-          </div>
+        </div>
+    </div>
+
+    <!-- Core JS -->
+    <script src="../../js/saudacao.js"></script>
+    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+    <script src="../../assets/vendor/libs/popper/popper.js"></script>
+    <script src="../../assets/vendor/js/bootstrap.js"></script>
+    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+    <script src="../../assets/vendor/js/menu.js"></script>
+    <script src="../../assets/js/main.js"></script>
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+    <!-- ============================
+         SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
+         ============================ -->
+ <script>
+function openPrintReport() {
+    try {
+        // Pega o HTML do relatório gerado server-side
+        var reportHtml = document.getElementById('report-html').innerHTML;
+
+        // Abre nova aba para impressão
+        var win = window.open('', '_blank');
+        if (!win) {
+            alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
+            return;
+        }
+
+        // Estilo de impressão
+        var style = `
+            <style>
+                @page { size: A4; margin: 18mm; }
+                body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; }
+                h2, h4 { margin:0; }
+                table { width:100%; border-collapse:collapse; }
+                th, td { padding:8px 10px; border:1px solid #e5e7eb; }
+                thead th { background:#f3f4f6; }
+                .no-print { display:none; }
+                tr { page-break-inside: avoid; }
+                thead { display: table-header-group; }
+                tfoot { display: table-footer-group; }
+            </style>
+        `;
+
+        // HTML da nova aba
+        var finalHtml = `
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8" />
+                <title>Relatório — Vendas por Franquia</title>
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                ${style}
+            </head>
+            <body>
+                ${reportHtml}
+                <script>
+                    // Foca e imprime automaticamente
+                    window.focus();
+                    setTimeout(function(){
+                        window.print();
+                    }, 300);
+
+                    // Quando o usuário cancelar ou concluir a impressão
+                    window.onafterprint = function() {
+                        // Redireciona de volta para a página principal
+                        window.location.href = "VendasFranquias.php?id=principal_1";
+                    };
+                <\/script>
+            </body>
+            </html>
+        `;
+
+        // Envia o conteúdo para a nova janela
+        win.document.open();
+        win.document.write(finalHtml);
+        win.document.close();
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao gerar o relatório para impressão: ' + err.message);
+    }
+}
+</script>
 
 
-        </div><!-- /container -->
-      </div><!-- /Layout page -->
-    </div><!-- /Layout container -->
-  </div>
-
-  <!-- Core JS -->
-  <script src="../../js/saudacao.js"></script>
-  <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-  <script src="../../assets/vendor/libs/popper/popper.js"></script>
-  <script src="../../assets/vendor/js/bootstrap.js"></script>
-  <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-  <script src="../../assets/vendor/js/menu.js"></script>
-  <script src="../../assets/js/main.js"></script>
-  <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 
 </html>
