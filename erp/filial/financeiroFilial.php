@@ -865,7 +865,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
                 </div>
 
                 <!-- Filial -->
-                <div class="col-6 col-md-4">
+                <div class="col-6 col-md-3">
                     <label for="filial" class="form-label mb-1">Filial</label>
                     <select id="filial" class="form-select form-select-sm" name="filial">
                         <option value="">Todas as Filiais</option>
