@@ -845,7 +845,7 @@ $nenhumResultado = (
 
 <!-- ====== ÁREA OCULTA PARA MONTAR O RELATÓRIO (é gerada dinamicamente pelo JS) ====== -->
 <!-- NÃO coloca conteúdo estático aqui; o JS irá clonar o HTML visível -->
-<!-- SCRIPT DE IMPRESSÃO (Versão Corporativa) -->
+<!-- SCRIPT DE IMPRESSÃO — VERSÃO CORPORATIVA APRIMORADA -->
 <script>
 function openPrintReport() {
     try {
@@ -855,20 +855,17 @@ function openPrintReport() {
             return;
         }
 
-        // Clona conteúdo principal
         const clonedHtml = contentEl.cloneNode(true);
 
-        // Remove elementos desnecessários
+        // Remove elementos que não devem aparecer
         clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination').forEach(el => el.remove());
 
-        // Cria nova janela
         const win = window.open('', '_blank');
         if (!win) {
             alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
             return;
         }
 
-        // Estilo corporativo
         const style = `
             <style>
                 @page { size: A4; margin: 15mm; }
@@ -880,38 +877,68 @@ function openPrintReport() {
                     -webkit-print-color-adjust: exact;
                 }
 
-                /* Cabeçalho elegante */
+                /* Cabeçalho */
                 .report-header {
                     text-align: center;
                     border-bottom: 2px solid #1e293b;
                     padding-bottom: 10px;
-                    margin-bottom: 20px;
+                    margin-bottom: 25px;
                 }
                 .report-header h2 {
                     margin: 0;
                     font-size: 20px;
                     color: #0f172a;
+                    font-weight: 700;
                 }
                 .report-header p {
-                    margin: 2px 0 0;
+                    margin: 3px 0 0;
                     font-size: 13px;
                     color: #475569;
                 }
 
-                /* Informações do relatório */
+                /* Informações gerais */
                 .report-info {
                     display: flex;
                     justify-content: space-between;
                     font-size: 12px;
                     color: #475569;
-                    margin-bottom: 10px;
+                    margin-bottom: 20px;
+                }
+
+                /* Blocos de Indicadores (KPIs) */
+                .kpi-container {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 25px;
+                }
+                .kpi-box {
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    padding: 10px 12px;
+                    background: #f9fafb;
+                }
+                .kpi-label {
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-bottom: 3px;
+                }
+                .kpi-value {
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: #0f172a;
+                }
+                .kpi-sub {
+                    font-size: 11px;
+                    color: #6b7280;
+                    margin-top: 3px;
                 }
 
                 /* Tabelas */
                 table {
                     width: 100%;
                     border-collapse: collapse;
-                    margin-bottom: 20px;
+                    margin-bottom: 25px;
                     page-break-inside: avoid;
                 }
                 thead {
@@ -940,23 +967,20 @@ function openPrintReport() {
                     font-size: 11px;
                     color: #64748b;
                     border-top: 1px solid #e2e8f0;
-                    margin-top: 30px;
+                    margin-top: 40px;
                     padding-top: 8px;
                 }
 
-                /* Evitar quebra de linhas críticas */
-                tr, thead, tfoot {
-                    page-break-inside: avoid;
-                }
+                tr, thead, tfoot { page-break-inside: avoid; }
             </style>
         `;
 
-        // Corpo da impressão
+        // Montagem do corpo com organização dos blocos
         const printBody = `
             <div style="padding: 20px;">
                 <div class="report-header">
                     <h2>Relatório de Vendas por Filial</h2>
-                    <p>Gerado automaticamente pelo sistema</p>
+                    <p>Emitido automaticamente pelo sistema</p>
                 </div>
 
                 <div class="report-info">
@@ -964,15 +988,38 @@ function openPrintReport() {
                     <div><strong>Usuário:</strong> ${sessionStorage.getItem('usuarioLogado') || 'Administrador'}</div>
                 </div>
 
+                <!-- Indicadores -->
+                <div class="kpi-container">
+                    <div class="kpi-box">
+                        <div class="kpi-label">Itens Vendidos</div>
+                        <div class="kpi-value">1</div>
+                        <div class="kpi-sub">Período: 13/10 até 12/11</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Pedidos</div>
+                        <div class="kpi-value">1</div>
+                        <div class="kpi-sub">Pedidos Fechados</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Faturamento Total</div>
+                        <div class="kpi-value">R$ 24,90</div>
+                        <div class="kpi-sub">Total no Período</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Produto Mais Vendido</div>
+                        <div class="kpi-value">Polpa de Açaí 1kg</div>
+                        <div class="kpi-sub">Cód: 7890000000001</div>
+                    </div>
+                </div>
+
                 ${clonedHtml.outerHTML}
 
                 <div class="report-footer">
-                    Relatório confidencial - Uso interno apenas
+                    Relatório confidencial — uso interno exclusivo
                 </div>
             </div>
         `;
 
-        // Página completa
         const finalHtml = `
             <!DOCTYPE html>
             <html lang="pt-BR">
