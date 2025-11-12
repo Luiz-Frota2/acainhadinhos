@@ -699,7 +699,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
 <!-- Filtros -->
 <div class="card mb-3">
     <div class="card-body d-flex flex-wrap toolbar">
-        <form class="d-flex flex-wrap w-100 gap-2 align-items-end" method="get">
+        <form class="d-flex flex-wrap w-100 gap-2 align-items-end" autocomplete="off" method="get">
 
             <!-- ✅ MANTÉM O ID NA URL -->
             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
@@ -714,7 +714,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
 
-            <select class="form-select col-12 me-3" name="filial">
+            <select class="form-select  me-3" name="filial">
                 <option value="">Todas as Filiais</option>
                 <?php foreach ($listaFiliais as $f): ?>
                     <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
