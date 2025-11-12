@@ -714,7 +714,7 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
             </div>
 
-            <select class="form-select me-3" name="filial">
+            <select class="form-select col-12 me-3" name="filial">
                 <option value="">Todas as Filiais</option>
                 <?php foreach ($listaFiliais as $f): ?>
                     <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
