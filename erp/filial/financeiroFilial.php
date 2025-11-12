@@ -1317,7 +1317,7 @@ function openPrintReport() {
                         window.print();
                     }, 300);
                     window.onafterprint = function() {
-                        window.location.href = "FinanceiroFiliais.php?id=principal_1";
+                        window.location.href = "FinanceiroFilial.php?id=principal_1";
                     };
                 <\/script>
             </body>
