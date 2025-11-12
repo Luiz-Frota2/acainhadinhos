@@ -529,7 +529,7 @@ $params = [];
 if ($filialSelecionada != '') {
     // Apenas 1 filial
     $where[] = "v.empresa_id LIKE :franquia";
-    $params[':filial'] = "%_" . $filialSelecionada;
+    $params[':franquia'] = "%_" . $filialSelecionada;
 } else {
     // Todas as filiais ativas
     $partes = [];
