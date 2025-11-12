@@ -796,7 +796,7 @@ function openPrintReport() {
                         window.print();
                     }, 300);
                     window.onafterprint = function() {
-                        window.location.href = "VendasFiliais.php?id=principal_1";
+                        window.location.href = "MaisVendidos.php?id=principal_1";
                     };
                 <\/script>
             </body>
