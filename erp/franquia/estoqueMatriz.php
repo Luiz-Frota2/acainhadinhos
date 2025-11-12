@@ -958,7 +958,7 @@ try {
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
-                        <span class="text-muted fw-light"><a href="#">Filial</a>/</span>
+                        <span class="text-muted fw-light"><a href="#">Franquia</a>/</span>
                         Estoque Matriz
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
@@ -1247,7 +1247,7 @@ try {
                         <div class="modal-content">
                             <form method="POST">
                                 <div class="modal-header">
-                                    <h5 class="modal-title">Transferir para Filial</h5>
+                                    <h5 class="modal-title">Transferir para Franquia</h5>
                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                                 </div>
                                 <div class="modal-body">
@@ -1259,11 +1259,11 @@ try {
 
 
                                         <div class="col-12">
-                                            <label class="form-label">Filial</label>
+                                            <label class="form-label">Franquia</label>
                                             <select name="id_filial" class="form-select" required>
                                                 <?php
                                                 // Puxar filiais da empresa
-                                                $filiais = $pdo->query("SELECT id, nome FROM unidades WHERE empresa_id = '{$idSelecionado}' AND tipo='Filial' AND status='Ativa'")->fetchAll(PDO::FETCH_ASSOC);
+                                                $filiais = $pdo->query("SELECT id, nome FROM unidades WHERE empresa_id = '{$idSelecionado}' AND tipo='Franquia' AND status='Ativa'")->fetchAll(PDO::FETCH_ASSOC);
                                                 foreach ($filiais as $f) {
                                                     echo "<option value='{$f['id']}'>" . htmlspecialchars($f['nome']) . "</option>";
                                                 }
