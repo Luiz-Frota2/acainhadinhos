@@ -723,18 +723,19 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
                 <?php endforeach; ?>
             </select>
                 </div>
-
-            <button class="btn btn-outline-secondary me-1" type="submit">
+            <div class="col-12 col-md-1 d-flex gap-2">
+            <button class="btn btn-sm btn-primary"  type="submit">
                 <i class="bx bx-filter-alt me-1"></i> Aplicar
             </button>
-            <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-outline-danger">
-    <i class="bx bx-x-circle me-1"></i> Limpar Filtro
+            <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
+    <i class="bx bx-eraser me-1"></i> Limpar Filtro
 </a>
+                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+                </div>
 
 
-            <div class="ms-auto d-flex gap-2">
-                <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
-            </div>
+
+          
 
         </form>
     </div>
