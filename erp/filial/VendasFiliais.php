@@ -277,6 +277,11 @@ $baseFaturamento = max(0.01, $faturTotal); // evita divisão por zero
         .progress-skinny {
             height: 8px;
         }
+
+        /* Small tweak to make progress bar color consistent */
+        .progress-bar {
+            background-color: #2b6cb0;
+        }
     </style>
 </head>
 
@@ -731,12 +736,9 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
             <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
     <i class="bx bx-eraser me-1"></i> Limpar Filtro
 </a>
-                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
+                <!-- ALTEREI AQUI: chamar a função que abre nova aba com relatório pronto -->
+                <button class="btn btn-sm btn-outline-secondary"  type="button" onclick="openPrintReport()"><i class="bx bx-printer me-1"></i> Imprimir Relatório</button>
                 </div>
-
-
-
-          
 
         </form>
     </div>
@@ -786,8 +788,6 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
                  
-
-
                    <div class="card mb-3">
     <h5 class="card-header">Resumo por Filial</h5>
     <div class="table-responsive">
@@ -868,12 +868,121 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
         </table>
     </div>
 </div>
-  
 
-
-                </div><!-- /container -->
+</div><!-- /container -->
             </div><!-- /Layout page -->
         </div><!-- /Layout container -->
+    </div>
+
+    <!-- ============================
+         HTML DO RELATÓRIO (OCULTO)
+         Gera o conteúdo que será aberto na nova aba para impressão.
+         ============================ -->
+    <div id="report-html" style="display:none;">
+        <!-- Cabeçalho do relatório -->
+        <div class="report-document">
+            <div style="width:100%; padding:20px 24px; box-sizing:border-box; font-family: 'Public Sans', Arial, sans-serif;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <img src="<?= htmlspecialchars($logoEmpresa, ENT_QUOTES) ?>" alt="Logo" style="height:64px; object-fit:contain;">
+                        <div>
+                            <h2 style="margin:0; font-size:20px; color:#1f2937;">Relatório — Vendas por Filial</h2>
+                            <div style="font-size:12px; color:#6b7280;">Período: <?= htmlspecialchars($tituloPeriodo) ?></div>
+                            <div style="font-size:12px; color:#6b7280;">Gerado por: <?= htmlspecialchars($nomeUsuario) ?> — <?= (new DateTime())->format('d/m/Y H:i') ?></div>
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-weight:600; color:#374151;">Empresa: <?= htmlspecialchars($idSelecionado) ?></div>
+                    </div>
+                </div>
+
+                <hr style="border:none; border-top:1px solid #e6e6e6; margin:18px 0;">
+
+                <!-- KPIs -->
+                <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:18px;">
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Faturamento</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= moeda($faturTotal) ?></div>
+                    </div>
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Pedidos</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= inteiro($pedidosTotal) ?></div>
+                    </div>
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Itens Vendidos</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= inteiro($itensTotal) ?></div>
+                    </div>
+                    <div style="flex:1; min-width:160px; padding:12px; border-radius:6px; border:1px solid #eaeaea;">
+                        <div style="font-size:12px; color:#6b7280;">Ticket Médio</div>
+                        <div style="font-size:18px; font-weight:700; color:#0f172a;"><?= moeda($ticketMedio) ?></div>
+                    </div>
+                </div>
+
+                <!-- Tabela: Resumo por Filial -->
+                <h4 style="margin:8px 0 6px 0; font-size:16px; color:#111827;">Resumo por Filial</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:14px;">
+                    <thead>
+                        <tr style="background:#f3f4f6; color:#111827;">
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">Filial</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Pedidos</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Itens</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Faturamento (R$)</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Ticket Médio</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">% do Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($resumoFiliais as $f): ?>
+                        <tr>
+                            <td style="padding:8px 10px; border:1px solid #e5e7eb;"><?= htmlspecialchars($f['nome']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= intval($f['pedidos']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= intval($f['itens']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">R$ <?= number_format($f['faturamento'],2,',','.') ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">R$ <?= number_format($f['ticket_medio'],2,',','.') ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= number_format($f['percentual'],1,',','.') ?>%</td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">Total</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= array_sum(array_column($resumoFiliais,'pedidos')) ?></th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= array_sum(array_column($resumoFiliais,'itens')) ?></th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">R$ <?= number_format(array_sum(array_column($resumoFiliais,'faturamento')),2,',','.') ?></th>
+                            <th style="padding:8px 10px; border:1px solid #e5e7eb;"></th>
+                            <th style="padding:8px 10px; border:1px solid #e5e7eb;"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <!-- Tabela: Top Produtos -->
+                <h4 style="margin:8px 0 6px 0; font-size:16px; color:#111827;">Top Produtos no Período</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:18px;">
+                    <thead>
+                        <tr style="background:#f3f4f6; color:#111827;">
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">SKU</th>
+                            <th style="text-align:left; padding:8px 10px; border:1px solid #e5e7eb;">Produto</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Quantidade</th>
+                            <th style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;">Pedidos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($topProdutos as $p): ?>
+                        <tr>
+                            <td style="padding:8px 10px; border:1px solid #e5e7eb;"><?= htmlspecialchars($p['sku']) ?></td>
+                            <td style="padding:8px 10px; border:1px solid #e5e7eb;"><?= htmlspecialchars($p['nome']) ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= number_format($p['total_quantidade'],0,',','.') ?></td>
+                            <td style="text-align:right; padding:8px 10px; border:1px solid #e5e7eb;"><?= intval($p['total_pedidos']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+
+                <div style="font-size:11px; color:#6b7280; margin-top:18px;">
+                    Relatório gerado em <?= (new DateTime())->format('d/m/Y H:i') ?> — Dados mostrados conforme filtros aplicados.
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Core JS -->
@@ -885,6 +994,75 @@ $topProdutos = $stm->fetchAll(PDO::FETCH_ASSOC);
     <script src="../../assets/vendor/js/menu.js"></script>
     <script src="../../assets/js/main.js"></script>
     <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+    <!-- ============================
+         SCRIPTS DE IMPRESSÃO (abre nova aba e imprime)
+         ============================ -->
+    <script>
+        function openPrintReport() {
+            try {
+                // pega o HTML do relatório gerado server-side
+                var reportHtml = document.getElementById('report-html').innerHTML;
+
+                // Monta o documento completo (incluir CSS de impressão)
+                var win = window.open('', '_blank');
+                if (!win) {
+                    alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
+                    return;
+                }
+
+                var style = `
+                    <style>
+                        @page { size: A4; margin: 18mm; }
+                        body { font-family: 'Public Sans', Arial, sans-serif; color: #111827; font-size: 12px; -webkit-print-color-adjust: exact; }
+                        h2, h4 { margin:0; }
+                        table { width:100%; border-collapse:collapse; }
+                        th, td { padding:8px 10px; border:1px solid #e5e7eb; }
+                        thead th { background:#f3f4f6; }
+                        .no-print { display:none; }
+                        /* Ajustes para evitar que a tabela quebre de forma estranha */
+                        tr { page-break-inside: avoid; }
+                        thead { display: table-header-group; }
+                        tfoot { display: table-footer-group; }
+                    </style>
+                `;
+
+                // Monta HTML final
+                var finalHtml = `
+                    <!doctype html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8" />
+                        <title>Relatório — Vendas por Filial</title>
+                        <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                        ${style}
+                    </head>
+                    <body>
+                        ${reportHtml}
+                        <script>
+                            // Auto imprimir ao carregar
+                            (function() {
+                                window.focus();
+                                setTimeout(function(){
+                                    window.print();
+                                    // opcional: fecha a aba após imprimir (comentado pois pode ser incômodo)
+                                    // setTimeout(function(){ window.close(); }, 500);
+                                }, 300);
+                            })();
+                        <\/script>
+                    </body>
+                    </html>
+                `;
+
+                win.document.open();
+                win.document.write(finalHtml);
+                win.document.close();
+            } catch (err) {
+                console.error(err);
+                alert('Erro ao gerar o relatório para impressão: ' + err.message);
+            }
+        }
+    </script>
 </body>
 
 </html>
