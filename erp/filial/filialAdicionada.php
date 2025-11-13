@@ -544,8 +544,7 @@ try {
                                     </div>
                                     <div class="col-md-3">
                                       <label class="form-label">Tipo</label>
-                                      <select name="tipo" class="form-select" readonly>
-                                        <option value="Franquia" <?= $filial['tipo'] === 'Franquia' ? 'selected' : ''; ?>>Franquia</option>
+                                      <select name="tipo" class="form-select">
                                         <option value="Filial" <?= $filial['tipo'] === 'Filial'  ? 'selected' : ''; ?>>Filial</option>
                                       </select>
                                     </div>

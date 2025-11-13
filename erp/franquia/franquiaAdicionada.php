@@ -513,7 +513,6 @@ try {
                                     <label class="form-label">Tipo</label>
                                     <select name="tipo" class="form-select" >
                                       <option value="Franquia" <?= $franquia['tipo'] === 'Franquia' ? 'selected' : ''; ?>>Franquia</option>
-                                      <option value="Filial" <?= $franquia['tipo'] === 'Filial'  ? 'selected' : ''; ?>>Filial</option>
                                     </select>
                                   </div>
                                   <div class="col-md-3">
