@@ -1023,12 +1023,12 @@ try {
                                 <input type="text" name="codigo" value="<?= htmlspecialchars($fil_codigo) ?>" class="form-control form-control-sm" placeholder="Código">
                             </div>
 
-                            <div class="col-12 col-md-3">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label">Categoria</label>
                                 <input type="text" name="categoria" value="<?= htmlspecialchars($fil_categoria) ?>" class="form-control form-control-sm" placeholder="Categoria">
                             </div>
 
-                            <div class="col-12 col-md-4 d-flex gap-2">
+                            <div class="col-12 col-md-3 d-flex gap-2">
                                 <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a href="?id=<?= htmlspecialchars($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
                             </div>
