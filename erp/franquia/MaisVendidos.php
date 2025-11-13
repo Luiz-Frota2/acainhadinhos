@@ -463,9 +463,7 @@ if (!empty($topGeral)) {
                         </ul>
                     </div>
                 </nav>
-                <!-- /Navbar -->
-
-                <div class="container-xxl flex-grow-1 container-p-y">
+       <div class="container-xxl flex-grow-1 container-p-y">
                     <h4 class="fw-bold mb-0">
                         <span class="text-muted fw-light"><a href="#">Relatórios</a> / </span>
                         Mais Vendidos
@@ -473,233 +471,590 @@ if (!empty($topGeral)) {
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
                         <span class="text-muted fw-light">Produtos campeões — <?= htmlspecialchars($tituloPeriodo) ?><?= $franquiaFiltro ? ' · Franquia selecionada' : '' ?></span>
                     </h5>
+                 <?php
+// ---------------------------------------------
+// CAPTURA DE FILTROS
+// ---------------------------------------------
+$inicioFiltro = $_GET['inicio'] ?? '';
+$fimFiltro = $_GET['fim'] ?? '';
+$filialSelecionada = $_GET['franquia'] ?? '';
+$idSelecionado = $_GET['id'] ?? '';
 
-                    <!-- Filtros -->
-                    <div class="card mb-3">
-                        <div class="card-body d-flex flex-wrap toolbar">
-                            <form class="d-flex flex-wrap w-100 gap-2" method="get">
-                                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
-                                <select class="form-select me-2" name="periodo">
-                                    <option value="month_current" <?= $periodo === 'month_current' ? 'selected' : ''; ?>>Período: Mês Atual</option>
-                                    <option value="last30" <?= $periodo === 'last30' ? 'selected' : ''; ?>>Últimos 30 dias</option>
-                                    <option value="last90" <?= $periodo === 'last90' ? 'selected' : ''; ?>>Últimos 90 dias</option>
-                                    <option value="year" <?= $periodo === 'year' ? 'selected' : ''; ?>>Este ano</option>
-                                </select>
-                                <select class="form-select me-2" name="franquia_id">
-                                    <option value="">Todas as Franquias</option>
-                                    <?php foreach ($franquias as $f): ?>
-                                        <option value="<?= (int)$f['id'] ?>" <?= $franquiaFiltro === (int)$f['id'] ? 'selected' : ''; ?>>
-                                            <?= htmlspecialchars($f['nome']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <button class="btn btn-outline-secondary me-2" type="submit">
-                                    <i class="bx bx-filter-alt me-1"></i> Aplicar
-                                </button>
-                                <div class="ms-auto d-flex gap-2">
-                                    <button class="btn btn-outline-dark" type="button" onclick="window.print()"><i class="bx bx-printer me-1"></i> Imprimir</button>
-                                </div>
-                            </form>
-                        </div>
+if (!$idSelecionado) {
+    header("Location: ../login.php");
+    exit;
+}
+
+// Se datas não enviadas → últimos 30 dias
+if (empty($inicioFiltro) || empty($fimFiltro)) {
+    $inicioFiltro = date('Y-m-d', strtotime('-30 days'));
+    $fimFiltro = date('Y-m-d');
+}
+
+// ---------------------------------------------
+// WHERE PADRÃO
+// ---------------------------------------------
+$where = "
+    v.data_venda BETWEEN :inicio AND :fim
+    AND u.tipo = 'Franquia'
+    AND u.status = 'Ativa'
+";
+
+$params = [
+    ':inicio' => $inicioFiltro . ' 00:00:00',
+    ':fim' => $fimFiltro . ' 23:59:59',
+];
+
+// Se selecionar filial → filtrar
+if (!empty($filialSelecionada)) {
+    $where .= " AND u.id = :franquia";
+    $params[':franquia'] = $filialSelecionada;
+}
+
+// ---------------------------------------------
+// LISTA DE FILIAIS ATIVAS
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT id, nome 
+    FROM unidades 
+    WHERE tipo = 'Franquia' AND status = 'Ativa'
+");
+$stmt->execute();
+$listaFiliais = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// ---------------------------------------------
+
+// KPIs
+// ---------------------------------------------
+$kpis = [
+    'itens' => 0,
+    'pedidos' => 0,
+    'faturamento' => 0,
+    'produto_nome' => '',
+    'produto_sku' => '',
+    'produto_qtd' => 0
+];
+
+// ---------------------------------------------
+// ITENS VENDIDOS
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT SUM(iv.quantidade)
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    WHERE $where
+");
+$stmt->execute($params);
+$kpis['itens'] = $stmt->fetchColumn() ?: 0;
+
+// ---------------------------------------------
+// PEDIDOS
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT COUNT(DISTINCT v.id)
+    FROM vendas v
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    WHERE $where
+");
+$stmt->execute($params);
+$kpis['pedidos'] = $stmt->fetchColumn() ?: 0;
+
+// ---------------------------------------------
+// FATURAMENTO
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT SUM(v.valor_total)
+    FROM vendas v
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    WHERE $where
+");
+$stmt->execute($params);
+$kpis['faturamento'] = $stmt->fetchColumn() ?: 0;
+
+// ---------------------------------------------
+// PRODUTO MAIS VENDIDO
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT 
+        e.nome_produto AS nome,
+        e.codigo_produto AS sku,
+        SUM(iv.quantidade) AS qtd
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN estoque e ON e.id = iv.produto_id
+    WHERE $where
+    GROUP BY e.id
+    ORDER BY qtd DESC
+    LIMIT 1
+");
+$stmt->execute($params);
+$pmv = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if ($pmv) {
+    $kpis['produto_nome'] = $pmv['nome'];
+    $kpis['produto_sku'] = $pmv['sku'];
+    $kpis['produto_qtd'] = $pmv['qtd'];
+}
+
+// ---------------------------------------------
+// TOP 20 PRODUTOS
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT 
+        e.codigo_produto AS sku,
+        e.nome_produto AS nome,
+        SUM(iv.quantidade) AS total_quantidade,
+        COUNT(DISTINCT v.id) AS total_pedidos,
+        SUM(iv.quantidade * iv.preco_unitario) AS faturamento
+    FROM itens_venda iv
+    INNER JOIN vendas v ON v.id = iv.venda_id
+    INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+    INNER JOIN estoque e ON e.id = iv.produto_id
+    WHERE $where
+    GROUP BY e.id
+    ORDER BY total_quantidade DESC
+    LIMIT 20
+");
+$stmt->execute($params);
+$produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// ---------------------------------------------
+// RANKING POR FILIAL – TOP 10
+// ---------------------------------------------
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM (
+        SELECT 
+            u.nome AS franquia,
+            e.codigo_produto AS sku,
+            e.nome_produto AS produto,
+            SUM(iv.quantidade) AS total_quantidade,
+            COUNT(DISTINCT v.id) AS total_pedidos,
+            ROW_NUMBER() OVER (
+                PARTITION BY u.id
+                ORDER BY SUM(iv.quantidade) DESC
+            ) AS posicao
+        FROM itens_venda iv
+        INNER JOIN vendas v ON v.id = iv.venda_id
+        INNER JOIN unidades u ON v.empresa_id = CONCAT('unidade_', u.id)
+        INNER JOIN estoque e ON e.id = iv.produto_id
+        WHERE $where
+        GROUP BY u.id, u.nome, e.id
+    ) AS t
+    WHERE posicao <= 10
+    ORDER BY franquia, posicao
+");
+$stmt->execute($params);
+$ranking = $stmt->fetchAll(PDO::FETCH_ASSOC);
+?>
+<!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form class="d-flex flex-wrap w-100 gap-4 align-items-end" method="get">
+
+            <!-- ✅ MANTÉM O ID NA URL -->
+            <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+
+            <div class="col-12 col-md-2">
+                <label class="form-label">de</label>
+                <input type="date" name="inicio" value="<?= htmlspecialchars($inicioFiltro) ?>" class="form-control form-control-sm">
+            </div>
+
+            <div class="col-12 col-md-2">
+                <label class="form-label">até</label>
+                <input type="date" name="fim" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
+            </div>
+            <div class="col-12 col-md-4">
+                <label>Franquia</label>
+                <select class="form-select form-select-sm" name="franquia">
+                    <option value="">Todas as Franquia</option>
+                    <?php foreach ($listaFiliais as $f): ?>
+                        <option value="<?= $f['id'] ?>" <?= ($filialSelecionada == $f['id'] ? 'selected' : '') ?>>
+                            <?= htmlspecialchars($f['nome']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-3 d-flex gap-2">
+                <button class="btn btn-sm btn-primary" type="submit">
+                    <i class="bx bx-filter-alt me-1"></i> Aplicar
+                </button>
+                <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary">
+                    <i class="bx bx-eraser me-1"></i> Limpar Filtro
+                </a>
+
+                <!-- botao agora chama openPrintReport() -->
+                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openPrintReport()">
+                    <i class="bx bx-printer me-1"></i> Imprimir
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php
+$nenhumResultado = (
+    $kpis['itens'] == 0 &&
+    $kpis['pedidos'] == 0 &&
+    $kpis['faturamento'] == 0 &&
+    $kpis['produto_qtd'] == 0
+);
+?>
+
+<!-- ====== ÁREA VISÍVEL (mantida igual) ====== -->
+<div id="report-visible">
+    <?php if ($nenhumResultado): ?>
+        <div class="alert alert-warning text-center w-100">
+            Nenhuma informação encontrada para o filtro aplicado.
+        </div>
+    <?php endif; ?>
+
+    <div class="row">
+        <div class="col-md-2 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Itens Vendidos</div>
+                    <div class="kpi-value"><?= inteiro($kpis['itens']) ?></div>
+                    <div class="kpi-sub">de <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-2 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Pedidos</div>
+                    <div class="kpi-value"><?= inteiro($kpis['pedidos']) ?></div>
+                    <div class="kpi-sub">Pedidos fechados</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Faturamento</div>
+                    <div class="kpi-value"><?= moeda($kpis['faturamento']) ?></div>
+                    <div class="kpi-sub">Total período</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Produto Mais Vendido</div>
+                    <div class="kpi-value">
+                        <?= $kpis['produto_nome'] ?: 'Nenhum produto' ?>
                     </div>
-
-                    <!-- KPIs -->
-                    <div class="row">
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Itens Vendidos</div>
-                                    <div class="kpi-value"><?= inteiro($kpis['itens'] ?? 0) ?></div>
-                                    <div class="kpi-sub"><?= htmlspecialchars($tituloPeriodo) ?></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Pedidos</div>
-                                    <div class="kpi-value"><?= inteiro($kpis['pedidos'] ?? 0) ?></div>
-                                    <div class="kpi-sub">Pedidos fechados</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Faturamento</div>
-                                    <div class="kpi-value"><?= moeda($kpis['faturamento'] ?? 0) ?></div>
-                                    <div class="kpi-sub">Total período</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Campeão</div>
-                                    <div class="kpi-value"><?= htmlspecialchars($topSku) ?></div>
-                                    <div class="kpi-sub"><?= htmlspecialchars($topNome) ?> · <?= inteiro($topQtd) ?> un.</div>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="kpi-sub">
+                        <?= $kpis['produto_sku'] ?: '--' ?>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    <!-- Top 20 produtos (geral ou por franquia selecionada) -->
-                    <!-- Top 20 Produtos (Geral) -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Top 20 Produtos (Geral)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>SKU</th>
-                                        <th>Produto</th>
-                                        <th class="text-end">Qtd.</th>
-                                        <th class="text-end">Pedidos</th>
-                                        <th class="text-end">Faturamento (R$)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>1</td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">1.980</td>
-                                        <td class="text-end">96</td>
-                                        <td class="text-end">R$ 39.600,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>2</td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td class="text-end">1.210</td>
-                                        <td class="text-end">64</td>
-                                        <td class="text-end">R$ 30.250,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>3</td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td class="text-end">1.050</td>
-                                        <td class="text-end">51</td>
-                                        <td class="text-end">R$ 7.350,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>4</td>
-                                        <td>COLH-PP</td>
-                                        <td>Colher PP</td>
-                                        <td class="text-end">890</td>
-                                        <td class="text-end">40</td>
-                                        <td class="text-end">R$ 2.670,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td>5</td>
-                                        <td>GRAN-200</td>
-                                        <td>Granola 200g</td>
-                                        <td class="text-end">300</td>
-                                        <td class="text-end">18</td>
-                                        <td class="text-end">R$ 6.000,00</td>
-                                    </tr>
-                                    <!-- …adicione até 20 linhas conforme necessário -->
-                                    <!-- Exemplo de linha “sem dados” (deixe comentada para uso futuro)
-        <tr><td colspan="6" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
-        -->
-                                </tbody>
-                            </table>
-                        </div>
+    <!-- Top 20 Produtos (visível) -->
+    <div class="card mb-3">
+        <h5 class="card-header">Top 20 Produtos (Geral)</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>SKU</th>
+                        <th>Produto</th>
+                        <th class="text-end">Qtd.</th>
+                        <th class="text-end">Pedidos</th>
+                        <th class="text-end">Faturamento (R$)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($produtos)): ?>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-3">
+                                Nenhum produto encontrado para o filtro aplicado.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($produtos as $index => $p): ?>
+                            <tr>
+                                <td><?= $index + 1 ?></td>
+                                <td><?= htmlspecialchars($p['sku']) ?></td>
+                                <td><?= htmlspecialchars($p['nome']) ?></td>
+                                <td class="text-end"><?= number_format($p['total_quantidade'], 0, ',', '.') ?></td>
+                                <td class="text-end"><?= number_format($p['total_pedidos'], 0, ',', '.') ?></td>
+                                <td class="text-end">R$ <?= number_format($p['faturamento'], 2, ',', '.') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Ranking por Filial (visível) -->
+    <div class="card mb-3">
+        <h5 class="card-header">Ranking por Franquia (Top 10 de cada)</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Franquia</th>
+                        <th>SKU</th>
+                        <th>Produto</th>
+                        <th class="text-end">Qtd.</th>
+                        <th class="text-end">Pedidos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($ranking)): ?>
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">
+                                Nenhum ranking disponível para o filtro aplicado.
+                            </td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($ranking as $item): ?>
+                            <tr>
+                                <td><strong><?= htmlspecialchars($item['franquia']) ?></strong></td>
+                                <td><?= htmlspecialchars($item['sku']) ?></td>
+                                <td><?= htmlspecialchars($item['produto']) ?></td>
+                                <td class="text-end"><?= number_format($item['total_quantidade'], 0, ',', '.') ?></td>
+                                <td class="text-end"><?= number_format($item['total_pedidos'], 0, ',', '.') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div> <!-- fim report-visible -->
+<script>
+function openPrintReport() {
+    try {
+        const contentEl = document.getElementById('report-visible');
+        if (!contentEl) {
+            alert('Conteúdo para impressão não encontrado.');
+            return;
+        }
+
+        // Clona o conteúdo visível da página
+        const clonedHtml = contentEl.cloneNode(true);
+
+        // 🔹 Remove botões, filtros, inputs, paginação e elementos não desejados
+        clonedHtml.querySelectorAll('button, a.btn, form, input, select, textarea, .actions, .no-print, .filters, .pagination')
+            .forEach(el => el.remove());
+
+        // 🔹 Remove KPIs originais para evitar duplicação
+        clonedHtml.querySelectorAll('.kpi-card, .kpi-label, .kpi-value, .kpi-sub')
+            .forEach(el => el.closest('.col-md-2, .col-md-3, .col-md-5, .row')?.remove());
+
+        const win = window.open('', '_blank');
+        if (!win) {
+            alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
+            return;
+        }
+
+        const style = `
+            <style>
+                @page { size: A4; margin: 15mm; }
+                body {
+                    font-family: 'Public Sans', Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                    background: #fff;
+                    -webkit-print-color-adjust: exact;
+                }
+
+                /* ===== Cabeçalho ===== */
+                .report-header {
+                    text-align: center;
+                    border-bottom: 2px solid #1e293b;
+                    padding-bottom: 10px;
+                    margin-bottom: 25px;
+                }
+                .report-header h2 {
+                    margin: 0;
+                    font-size: 20px;
+                    color: #0f172a;
+                    font-weight: 700;
+                }
+                .report-header p {
+                    margin: 3px 0 0;
+                    font-size: 13px;
+                    color: #475569;
+                }
+
+                /* ===== Info superior ===== */
+                .report-info {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 12px;
+                    color: #475569;
+                    margin-bottom: 20px;
+                }
+
+                /* ===== KPIs ===== */
+                .kpi-container {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 25px;
+                }
+                .kpi-box {
+                    border: 1px solid #e2e8f0;
+                    border-radius: 6px;
+                    padding: 12px 14px;
+                    background: #f8fafc;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                }
+                .kpi-label {
+                    font-size: 12px;
+                    color: #6b7280;
+                    margin-bottom: 4px;
+                }
+                .kpi-value {
+                    font-size: 17px;
+                    font-weight: 700;
+                    color: #111827;
+                }
+                .kpi-sub {
+                    font-size: 11px;
+                    color: #6b7280;
+                    margin-top: 2px;
+                }
+
+                /* ===== Tabelas ===== */
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 25px;
+                    page-break-inside: avoid;
+                }
+                thead {
+                    background: #f1f5f9;
+                    border-bottom: 2px solid #cbd5e1;
+                }
+                th, td {
+                    border: 1px solid #e2e8f0;
+                    padding: 8px 10px;
+                    text-align: left;
+                    vertical-align: middle;
+                }
+                th {
+                    font-weight: 600;
+                    color: #1e293b;
+                    font-size: 12.5px;
+                }
+                td {
+                    font-size: 12px;
+                    color: #334155;
+                }
+
+                /* ===== Rodapé ===== */
+                .report-footer {
+                    text-align: right;
+                    font-size: 11px;
+                    color: #64748b;
+                    border-top: 1px solid #e2e8f0;
+                    margin-top: 40px;
+                    padding-top: 8px;
+                }
+
+                tr, thead, tfoot { page-break-inside: avoid; }
+            </style>
+        `;
+
+        // 🔹 Monta HTML com KPIs corporativos (somente uma vez)
+        const printBody = `
+            <div style="padding: 20px;">
+                <div class="report-header">
+                    <h2>Relatório de Vendas por Franquia</h2>
+                    <p>Emitido automaticamente pelo sistema</p>
+                </div>
+
+                <div class="report-info">
+                    <div><strong>Data:</strong> <?= date('d/m/Y') ?></div>
+                    <div><strong>Usuário:</strong> <?= htmlspecialchars($_SESSION['usuario'] ?? 'Administrador') ?></div>
+                </div>
+
+                <!-- Bloco de Indicadores (corporativo, sem duplicação) -->
+                <div class="kpi-container">
+                    <div class="kpi-box">
+                        <div class="kpi-label">Itens Vendidos</div>
+                        <div class="kpi-value"><?= inteiro($kpis['itens']) ?></div>
+                        <div class="kpi-sub">Período: <?= date("d/m", strtotime($inicioFiltro)) ?> até <?= date("d/m", strtotime($fimFiltro)) ?></div>
                     </div>
-
-                    <!-- Ranking por Franquia (Top 10 de cada) -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Ranking por Franquia (Top 10 de cada)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Franquia</th>
-                                        <th>SKU</th>
-                                        <th>Produto</th>
-                                        <th class="text-end">Qtd.</th>
-                                        <th class="text-end">Pedidos</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Franquia Centro -->
-                                    <tr>
-                                        <td><strong>Franquia Centro</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">720</td>
-                                        <td class="text-end">32</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Centro</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td class="text-end">420</td>
-                                        <td class="text-end">20</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Centro</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td class="text-end">380</td>
-                                        <td class="text-end">18</td>
-                                    </tr>
-
-                                    <!-- Franquia Norte -->
-                                    <tr>
-                                        <td><strong>Franquia Norte</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">610</td>
-                                        <td class="text-end">30</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Norte</strong></td>
-                                        <td>ACA-1KG</td>
-                                        <td>Polpa Açaí 1kg</td>
-                                        <td class="text-end">420</td>
-                                        <td class="text-end">22</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Norte</strong></td>
-                                        <td>COLH-PP</td>
-                                        <td>Colher PP</td>
-                                        <td class="text-end">260</td>
-                                        <td class="text-end">12</td>
-                                    </tr>
-
-                                    <!-- Franquia Sul -->
-                                    <tr>
-                                        <td><strong>Franquia Sul</strong></td>
-                                        <td>ACA-500</td>
-                                        <td>Polpa Açaí 500g</td>
-                                        <td class="text-end">650</td>
-                                        <td class="text-end">34</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Sul</strong></td>
-                                        <td>COPO-300</td>
-                                        <td>Copo 300ml</td>
-                                        <td class="text-end">320</td>
-                                        <td class="text-end">16</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Sul</strong></td>
-                                        <td>GRAN-200</td>
-                                        <td>Granola 200g</td>
-                                        <td class="text-end">140</td>
-                                        <td class="text-end">8</td>
-                                    </tr>
-
-                                    <!-- Exemplo de linha “sem dados” (deixe comentada para uso futuro)
-        <tr><td colspan="5" class="text-center text-muted py-4">Sem dados para o período selecionado.</td></tr>
-        -->
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Pedidos</div>
+                        <div class="kpi-value"><?= inteiro($kpis['pedidos']) ?></div>
+                        <div class="kpi-sub">Pedidos Fechados</div>
                     </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Faturamento Total</div>
+                        <div class="kpi-value"><?= moeda($kpis['faturamento']) ?></div>
+                        <div class="kpi-sub">Total no Período</div>
+                    </div>
+                    <div class="kpi-box">
+                        <div class="kpi-label">Produto Mais Vendido</div>
+                        <div class="kpi-value"><?= $kpis['produto_nome'] ?: 'Nenhum produto' ?></div>
+                        <div class="kpi-sub"><?= $kpis['produto_sku'] ?: '--' ?></div>
+                    </div>
+                </div>
+
+                <!-- Tabelas (sem KPIs duplicados) -->
+                ${clonedHtml.outerHTML}
+
+                <div class="report-footer">
+                    Relatório confidencial — uso interno exclusivo
+                </div>
+            </div>
+        `;
+
+        const finalHtml = `
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="utf-8" />
+                <title>Relatório — Vendas por Franquia</title>
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+                ${style}
+            </head>
+            <body>
+                ${printBody}
+                <script>
+                    window.focus();
+                    setTimeout(() => window.print(), 300);
+                    window.onafterprint = function() {
+                        try {
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.location.reload();
+                                window.opener.focus();
+                            }
+                        } catch (e) {}
+                        window.close();
+                    };
+                <\/script>
+            </body>
+            </html>
+        `;
+
+        win.document.open();
+        win.document.write(finalHtml);
+        win.document.close();
+
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao gerar o relatório para impressão: ' + err.message);
+    }
+}
+</script>
+
+
 
                 </div><!-- /container -->
             </div><!-- /Layout page -->
