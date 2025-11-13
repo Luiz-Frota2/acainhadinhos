@@ -833,168 +833,210 @@ document.addEventListener('DOMContentLoaded', function() {
             const btnPrint = btnPrintIcon.closest('button, a');
             if (btnPrint) {
                 btnPrint.addEventListener('click', function(e) {
-                    e.preventDefault();
+    e.preventDefault();
 
-                    // Captura as seções para o relatório impresso
-                    const cardsResumo = document.querySelector('.row.mb-4');
-                    const tabela = area.querySelector('table');
-                    const melhoresMeses = document.querySelector('.col-md-6:nth-of-type(1) .list-group');
-                    const resumoTrimestre = document.querySelector('.col-md-6:nth-of-type(2) .list-group');
+    // Captura as seções para o relatório impresso
+    const cardsResumo = document.querySelector('.row.mb-4');
+    const tabela = area.querySelector('table');
+    const melhoresMeses = document.querySelector('.col-md-6:nth-of-type(1) .list-group');
+    const resumoTrimestre = document.querySelector('.col-md-6:nth-of-type(2) .list-group');
 
-                    // Abre nova janela para impressão
-                    const w = window.open('', '_blank');
-                    w.document.write(`
-                        <html>
-                            <head>
-                                <meta charset="utf-8" />
-                                <title>Relatório Anual - Financeiro</title>
-                                <style>
-                                    body {
-                                        font-family: Arial, sans-serif;
-                                        margin: 30px 50px;
-                                        color: #333;
-                                        background: #fff;
-                                    }
-                                    header {
-                                        text-align: center;
-                                        margin-bottom: 25px;
-                                    }
-                                    header h2 {
-                                        margin: 0;
-                                        font-size: 22px;
-                                        font-weight: 700;
-                                        color: #222;
-                                    }
-                                    header p {
-                                        margin: 0;
-                                        font-size: 14px;
-                                        color: #777;
-                                    }
-                                    section {
-                                        margin-bottom: 25px;
-                                    }
-                                    h3 {
-                                        border-bottom: 2px solid #ccc;
-                                        padding-bottom: 5px;
-                                        margin-bottom: 10px;
-                                        color: #444;
-                                    }
-                                    table {
-                                        width: 100%;
-                                        border-collapse: collapse;
-                                        margin-top: 10px;
-                                        font-size: 14px;
-                                    }
-                                    th, td {
-                                        padding: 8px 10px;
-                                        border: 1px solid #ccc;
-                                    }
-                                    th {
-                                        background-color: #f9f9f9;
-                                        font-weight: 600;
-                                    }
-                                    td.text-end, th.text-end {
-                                        text-align: right;
-                                    }
-                                    .card-resumo {
-                                        display: grid;
-                                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                                        gap: 12px;
-                                        margin-top: 15px;
-                                    }
-                                    .card-item {
-                                        border: 1px solid #ddd;
-                                        border-radius: 5px;
-                                        padding: 10px;
-                                        text-align: center;
-                                        background: #fafafa;
-                                    }
-                                    .card-item small {
-                                        color: #666;
-                                        display: block;
-                                    }
-                                    .card-item h4 {
-                                        margin: 5px 0 0;
-                                        font-size: 16px;
-                                        font-weight: bold;
-                                    }
-                                    .list-group {
-                                        border: 1px solid #ddd;
-                                        border-radius: 5px;
-                                        overflow: hidden;
-                                    }
-                                    .list-group-item {
-                                        padding: 10px 15px;
-                                        border-bottom: 1px solid #eee;
-                                        display: flex;
-                                        justify-content: space-between;
-                                        align-items: center;
-                                    }
-                                    .list-group-item:last-child {
-                                        border-bottom: none;
-                                    }
-                                    .list-group-item h6 {
-                                        margin: 0;
-                                        font-size: 14px;
-                                        font-weight: 600;
-                                    }
-                                    .list-group-item small {
-                                        color: #777;
-                                    }
-                                    .fw-semibold {
-                                        font-weight: bold;
-                                    }
-                                    @media print {
-                                        body {
-                                            margin: 10mm;
-                                        }
-                                        table {
-                                            page-break-inside: avoid;
-                                        }
-                                    }
-                                </style>
-                            </head>
-                            <body>
-                                <header>
-                                    <h2>Relatório Financeiro Anual</h2>
-                                    <p>Desempenho e Indicadores - ${new Date().getFullYear()}</p>
-                                </header>
+    // Abre nova janela para impressão
+    const w = window.open('', '_blank');
+    w.document.write(`
+        <html>
+            <head>
+                <meta charset="utf-8" />
+                <title>Relatório Anual - Financeiro</title>
+                <style>
+                    body {
+                        font-family: "Segoe UI", Arial, sans-serif;
+                        margin: 25px 40px;
+                        color: #222;
+                        background: #fff;
+                        line-height: 1.5;
+                    }
 
-                                <section>
-                                    <h3>Resumo Geral</h3>
-                                    ${cardsResumo ? cardsResumo.outerHTML : '<p>Nenhum dado disponível</p>'}
-                                </section>
+                    header {
+                        text-align: center;
+                        border-bottom: 3px solid #0d6efd;
+                        padding-bottom: 8px;
+                        margin-bottom: 30px;
+                    }
 
-                                <section>
-                                    <h3>Desempenho Mensal</h3>
-                                    ${tabela ? tabela.outerHTML : '<p>Nenhum dado mensal encontrado</p>'}
-                                </section>
+                    header h2 {
+                        margin: 0;
+                        font-size: 22px;
+                        font-weight: 700;
+                        color: #0d6efd;
+                    }
 
-                                <section>
-                                    <h3>Melhores Meses</h3>
-                                    ${melhoresMeses ? melhoresMeses.outerHTML : '<p>Sem destaques disponíveis</p>'}
-                                </section>
+                    header p {
+                        margin: 4px 0 0;
+                        font-size: 13px;
+                        color: #555;
+                    }
 
-                                <section>
-                                    <h3>Resumo por Trimestre</h3>
-                                    ${resumoTrimestre ? resumoTrimestre.outerHTML : '<p>Sem resumo trimestral disponível</p>'}
-                                </section>
+                    section {
+                        margin-bottom: 35px;
+                    }
 
-                                <script>
-                                    // Foca e imprime automaticamente
-                                    window.focus();
-                                    setTimeout(() => window.print(), 300);
-                                    // Se o usuário cancelar ou concluir a impressão
-                                    window.onafterprint = function() {
-                                        window.close();
-                                        history.back();
-                                    };
-                                <\/script>
-                            </body>
-                        </html>
-                    `);
-                    w.document.close();
-                });
+                    h3 {
+                        border-left: 5px solid #0d6efd;
+                        padding-left: 8px;
+                        margin-bottom: 12px;
+                        color: #333;
+                        font-size: 17px;
+                        font-weight: 600;
+                    }
+
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 13px;
+                        margin-top: 10px;
+                    }
+
+                    th, td {
+                        padding: 8px 10px;
+                        border: 1px solid #ddd;
+                    }
+
+                    th {
+                        background-color: #f3f6fa;
+                        font-weight: 600;
+                    }
+
+                    td.text-end, th.text-end {
+                        text-align: right;
+                    }
+
+                    /* Cards de Resumo */
+                    .row.mb-4 {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                        gap: 12px;
+                    }
+
+                    .card-slim, .card, .card-item {
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                        background: #fafafa;
+                        padding: 10px 14px;
+                        box-shadow: none;
+                    }
+
+                    .card small {
+                        display: block;
+                        color: #777;
+                        margin-bottom: 2px;
+                        font-size: 12px;
+                    }
+
+                    .card h6, .card h4 {
+                        margin: 0;
+                        font-size: 15px;
+                        font-weight: 700;
+                        color: #333;
+                    }
+
+                    /* Listas */
+                    .list-group {
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                        overflow: hidden;
+                    }
+
+                    .list-group-item {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        padding: 10px 14px;
+                        border-bottom: 1px solid #eee;
+                        font-size: 13px;
+                    }
+
+                    .list-group-item:last-child {
+                        border-bottom: none;
+                    }
+
+                    .list-group-item h6 {
+                        margin: 0;
+                        font-size: 14px;
+                        font-weight: 600;
+                    }
+
+                    .list-group-item small {
+                        color: #777;
+                    }
+
+                    .fw-semibold {
+                        font-weight: bold;
+                    }
+
+                    footer {
+                        text-align: center;
+                        margin-top: 40px;
+                        font-size: 12px;
+                        color: #888;
+                        border-top: 1px solid #ddd;
+                        padding-top: 10px;
+                    }
+
+                    @media print {
+                        body {
+                            margin: 10mm;
+                        }
+                        table {
+                            page-break-inside: avoid;
+                        }
+                    }
+                </style>
+            </head>
+            <body>
+                <header>
+                    <h2>Relatório Financeiro Anual</h2>
+                    <p>Indicadores e Desempenho • ${new Date().getFullYear()}</p>
+                </header>
+
+                <section>
+                    <h3>Resumo Geral</h3>
+                    ${cardsResumo ? cardsResumo.outerHTML : '<p>Nenhum dado disponível</p>'}
+                </section>
+
+                <section>
+                    <h3>Desempenho Mensal</h3>
+                    ${tabela ? tabela.outerHTML : '<p>Nenhum dado mensal encontrado</p>'}
+                </section>
+
+                <section>
+                    <h3>Melhores Meses</h3>
+                    ${melhoresMeses ? melhoresMeses.outerHTML : '<p>Sem destaques disponíveis</p>'}
+                </section>
+
+                <section>
+                    <h3>Resumo por Trimestre</h3>
+                    ${resumoTrimestre ? resumoTrimestre.outerHTML : '<p>Sem resumo trimestral disponível</p>'}
+                </section>
+
+                <footer>
+                    Relatório gerado automaticamente em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
+                </footer>
+
+                <script>
+                    window.focus();
+                    setTimeout(() => window.print(), 300);
+                    window.onafterprint = function() {
+                        window.close();
+                        history.back();
+                    };
+                <\/script>
+            </body>
+        </html>
+    `);
+    w.document.close();
+});
+
             }
         }
     }
