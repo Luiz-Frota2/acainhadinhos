@@ -657,7 +657,7 @@ $fimTxt = $fim->format('d/m/Y');
                                             </div>
                                         </a>
                                     </li>
-                                    
+
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
@@ -992,7 +992,7 @@ $fimTxt = $fim->format('d/m/Y');
                             <!-- preserva o contexto id -->
                             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-                           
+
 
                             <div class="col-12 col-md-2">
                                 <label class="form-label">de</label>
@@ -1003,7 +1003,7 @@ $fimTxt = $fim->format('d/m/Y');
                                 <label class="form-label">até</label>
                                 <input type="date" name="categoria" value="<?= htmlspecialchars($fimFiltro) ?>" class="form-control form-control-sm">
                             </div>
-                             <div class="col-12 col-md-5">
+                            <div class="col-12 col-md-5">
                                 <label>Filial</label>
                                 <select class="form-select form-select-sm" name="status">
                                     <option value="">Todas as Filiais</option>
@@ -1018,11 +1018,10 @@ $fimTxt = $fim->format('d/m/Y');
                             <div class="col-12 col-md-3 d-flex gap-2">
                                 <button class="btn btn-sm btn-primary"><i class="bx bx-filter-alt me-1"></i> Filtrar</button>
                                 <a href="?id=<?= urlencode($idSelecionado) ?>" class="btn btn-sm btn-outline-secondary"><i class="bx bx-eraser me-1"></i> Limpar</a>
-                            <a href="relatorio_b2b_export.php?tipo=print&<?= http_build_query($_GET) ?>" 
-   class="btn btn-sm btn-outline-secondary" target="_blank">
-   Imprimir
-</a>
-
+                                <a href="relatorio_b2b_export.php?tipo=print&<?= http_build_query($_GET) ?>"
+                                    class="btn btn-sm btn-outline-secondary" target="_blank">
+                                    Imprimir
+                                </a>
 
                             </div>
                         </form>
@@ -1143,7 +1142,7 @@ $fimTxt = $fim->format('d/m/Y');
                                             <span class="page-link"><?= $paginaAtual ?></span>
                                         </li>
 
-                                        <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?>">
+                                        <li class="page-item <?= ($paginaAtual >= $totalPaginas) ? 'disabled' : '' ?> mb-3">
                                             <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['pagina' => $paginaAtual + 1])) ?>">Próximo</a>
                                         </li>
                                     </ul>
