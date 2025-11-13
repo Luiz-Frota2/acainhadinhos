@@ -1,5 +1,5 @@
 <?php
-// ./assets/php/filial/editarFilial_Processar.php
+
 declare(strict_types=1);
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -32,13 +32,13 @@ if ($id <= 0 || $nome === '' || $cnpj === '' || $telefone === '' || $email === '
 }
 
 try {
-  // Atualiza a filial
+ 
   $sql = "UPDATE fornecedores SET 
             nome_fornecedor = :nome_fornecedor,
             cnpj_fornecedor = :cnpj_fornecedor,
             telefone_fornecedor = :telefone_fornecedor,
             email_fornecedor = :email_fornecedor,
-            endereco_fornecedor = :endereco_fornecedor,
+            endereco_fornecedor = :endereco_fornecedor
           WHERE id = :id";
   $stmt = $pdo->prepare($sql);
   $stmt->bindValue(':nome_fornecedor', $nome);
