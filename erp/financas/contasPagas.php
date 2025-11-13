@@ -562,11 +562,7 @@ try {
 
           </div>
 
-          <div id="" class="mt-3 add-category justify-content-center d-flex text-center align-items-center" onclick="window.location.href='adicionarConta.php';" style="cursor: pointer;">
-            <i class="tf-icons bx bx-plus me-2"></i>
-            <span>Adicionar nova Conta</span>
-          </div>
-
+    
         </div>
 
       </div>
