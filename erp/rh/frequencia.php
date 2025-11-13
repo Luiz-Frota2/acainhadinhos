@@ -569,7 +569,7 @@ try {
                     <div class="card mt-3">
                         <h5 class="card-header">Lista de Funcionários</h5>
                         <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
+                            <table class="table table-hover" id="tabelaBancoHoras ">
                                 <thead>
                                     <tr>
                                         <th>Funcionário</th>
