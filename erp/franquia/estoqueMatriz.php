@@ -851,7 +851,7 @@ try {
                     </li>
                     <li class="menu-item">
                         <a href="../filial/index.php?id=principal_1" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-building"></i>
+                             <i class="menu-icon tf-icons bx bx-building"></i>
                             <div data-i18n="Authentications">Filial</div>
                         </a>
                     </li>
