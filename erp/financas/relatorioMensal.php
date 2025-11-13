@@ -865,145 +865,198 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
 
- <script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     const btnPrint = document.getElementById('btn-print');
     const table = document.getElementById('tb-semanas');
 
-    if (!btnPrint || !table) return; // segurança
+    if (!btnPrint || !table) return;
 
     btnPrint.addEventListener('click', function(e) {
         e.preventDefault();
 
-        // Seleciona corretamente os blocos de resumo
-        const cards = document.querySelectorAll('.card-flow .list-group');
-        const movs = cards[0] ? cards[0].outerHTML : '<p>Nenhum dado de movimentações</p>';
-        const resumoCat = cards[1] ? cards[1].outerHTML : '<p>Nenhum resumo por categoria</p>';
+        // Captura os blocos de KPI (cards do resumo superior)
+        const kpiRow = document.querySelector('.row.mb-4');
+        const movsList = document.querySelectorAll('.card-flow .list-group')[0];
+        const resumoCatList = document.querySelectorAll('.card-flow .list-group')[1];
+
+        const movs = movsList ? movsList.outerHTML : '<p>Nenhum dado de movimentações</p>';
+        const resumoCat = resumoCatList ? resumoCatList.outerHTML : '<p>Nenhum resumo por categoria</p>';
 
         // Abre nova janela para impressão
         const w = window.open('', '_blank');
-        w.document.write(`
+        if (!w) {
+            alert('Bloqueador de pop-ups impediu a abertura da janela.');
+            return;
+        }
+
+        const style = `
+            <style>
+                @page { size: A4; margin: 18mm; }
+                body {
+                    font-family: 'Public Sans', Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                    -webkit-print-color-adjust: exact;
+                    background: white;
+                }
+                h2, h3, h4 {
+                    font-weight: 600;
+                    color: #222;
+                }
+                header {
+                    text-align: center;
+                    margin-bottom: 25px;
+                }
+                header h2 {
+                    margin: 0;
+                    font-size: 22px;
+                    font-weight: 700;
+                    color: #0d6efd;
+                }
+                header p {
+                    margin: 5px 0;
+                    font-size: 13px;
+                    color: #555;
+                }
+                .row.mb-4 {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 20px;
+                }
+                .card-slim {
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    background: #fafafa;
+                    padding: 10px 14px;
+                }
+                .card-slim small {
+                    display: block;
+                    color: #777;
+                    font-size: 12px;
+                    margin-bottom: 3px;
+                }
+                .card-slim h4 {
+                    margin: 0;
+                    font-size: 16px;
+                    font-weight: 700;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                    font-size: 13px;
+                }
+                th, td {
+                    padding: 8px 10px;
+                    border: 1px solid #ddd;
+                }
+                thead th {
+                    background: #f2f3f5;
+                    text-transform: uppercase;
+                    font-weight: 600;
+                    font-size: 11px;
+                }
+                td.text-end, th.text-end { text-align: right; }
+                tbody tr:nth-child(even) { background: #fafafa; }
+                tbody tr:hover { background: #f0f4ff; }
+                .list-group {
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    overflow: hidden;
+                }
+                .list-group-item {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 10px 14px;
+                    border-bottom: 1px solid #eee;
+                    font-size: 13px;
+                }
+                .list-group-item:last-child { border-bottom: none; }
+                .list-group-item h6 {
+                    margin: 0;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+                .list-group-item small { color: #777; }
+                .fw-semibold { font-weight: 600; }
+                hr {
+                    border: none;
+                    border-top: 1px solid #ddd;
+                    margin: 25px 0;
+                }
+                footer {
+                    text-align: center;
+                    margin-top: 40px;
+                    font-size: 11px;
+                    color: #888;
+                    border-top: 1px solid #ddd;
+                    padding-top: 10px;
+                }
+            </style>
+        `;
+
+        const html = `
+            <!DOCTYPE html>
             <html>
-                <head>
-                    <meta charset="utf-8" />
-                    <title>Relatório Mensal - Financeiro</title>
-                    <style>
-                        body {
-                            font-family: Arial, sans-serif;
-                            margin: 30px 50px;
-                            color: #333;
-                            background: #fff;
-                        }
-                        header {
-                            text-align: center;
-                            margin-bottom: 30px;
-                        }
-                        header h2 {
-                            margin: 0;
-                            font-size: 22px;
-                            font-weight: 700;
-                            color: #222;
-                        }
-                        header p {
-                            margin: 0;
-                            font-size: 14px;
-                            color: #777;
-                        }
-                        section {
-                            margin-bottom: 30px;
-                        }
-                        h3 {
-                            border-bottom: 2px solid #ccc;
-                            padding-bottom: 5px;
-                            margin-bottom: 10px;
-                            color: #444;
-                        }
-                        table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin-top: 10px;
-                            font-size: 14px;
-                        }
-                        th, td {
-                            padding: 8px 10px;
-                            border: 1px solid #ccc;
-                        }
-                        th {
-                            background-color: #f9f9f9;
-                            font-weight: 600;
-                        }
-                        td.text-end, th.text-end {
-                            text-align: right;
-                        }
-                        .list-group {
-                            border: 1px solid #ddd;
-                            border-radius: 5px;
-                            overflow: hidden;
-                        }
-                        .list-group-item {
-                            padding: 10px 15px;
-                            border-bottom: 1px solid #eee;
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                        }
-                        .list-group-item:last-child {
-                            border-bottom: none;
-                        }
-                        .list-group-item small {
-                            color: #777;
-                            display: block;
-                        }
-                        .list-group-item h6 {
-                            margin: 0;
-                            font-size: 14px;
-                            font-weight: 600;
-                        }
-                        .fw-semibold {
-                            font-weight: bold;
-                        }
-                        @media print {
-                            body {
-                                margin: 10mm;
+            <head>
+                <meta charset="utf-8">
+                <title>Relatório Financeiro Mensal</title>
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                ${style}
+            </head>
+            <body>
+                <header>
+                    <h2>Relatório Financeiro Mensal</h2>
+                    <p>Indicadores e Desempenho</p>
+                </header>
+
+                <section>
+                    <h3>Resumo Geral</h3>
+                    ${kpiRow ? kpiRow.outerHTML : '<p>Sem KPIs disponíveis</p>'}
+                </section>
+
+                <section>
+                    <h3>Detalhes por Semana</h3>
+                    ${table.outerHTML}
+                </section>
+
+                <section>
+                    <h3>Movimentações</h3>
+                    ${movs}
+                </section>
+
+                <section>
+                    <h3>Resumo por Categoria</h3>
+                    ${resumoCat}
+                </section>
+
+                <footer>
+                    Relatório gerado automaticamente em ${new Date().toLocaleDateString('pt-BR')}
+                    às ${new Date().toLocaleTimeString('pt-BR')}
+                </footer>
+
+                <script>
+                    window.focus();
+                    setTimeout(() => window.print(), 300);
+                    window.onafterprint = function() {
+                        try {
+                            if (window.opener && !window.opener.closed) {
+                                window.opener.location.reload();
+                                window.opener.focus();
                             }
-                            table {
-                                page-break-inside: avoid;
-                            }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <header>
-                        <h2>Relatório Financeiro Mensal</h2>
-                        <p>Detalhes e Resumos</p>
-                    </header>
-
-                    <section>
-                        <h3>Detalhes por Semana</h3>
-                        ${table.outerHTML}
-                    </section>
-
-                    <section>
-                        <h3>Movimentações</h3>
-                        ${movs}
-                    </section>
-
-                    <section>
-                        <h3>Resumo por Categoria</h3>
-                        ${resumoCat}
-                    </section>
-
-                    <script>
-                        window.focus();
-                        setTimeout(() => window.print(), 300);
-                        window.onafterprint = function() {
-                            window.close();
-                            history.back();
-                        };
-                    <\/script>
-                </body>
+                        } catch (e) {}
+                        window.close();
+                    };
+                <\/script>
+            </body>
             </html>
-        `);
+        `;
+
+        w.document.open();
+        w.document.write(html);
         w.document.close();
     });
 });
