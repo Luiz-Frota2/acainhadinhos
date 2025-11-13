@@ -912,7 +912,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     margin: 0;
                     font-size: 22px;
                     font-weight: 700;
-                    color: #0d6efd;
+                    color: #222; 
                 }
                 header p {
                     margin: 5px 0;
