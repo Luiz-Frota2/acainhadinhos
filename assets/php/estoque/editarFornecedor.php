@@ -34,22 +34,18 @@ if ($id <= 0 || $nome === '' || $cnpj === '' || $telefone === '' || $email === '
 try {
   // Atualiza a filial
   $sql = "UPDATE forncedores SET 
-            nome_fornecedor = :nome,
-            cnpj_fornecedor = :cnpj,
-            telefone_fornecedor = :telefone,
-            email_fornecedor = :email,
-            endereco_fornecedor = :endereco,
+            nome_fornecedor = :nome_fornecedor,
+            cnpj_fornecedor = :cnpj_fornecedor,
+            telefone_fornecedor = :telefone_fornecedor,
+            email_fornecedor = :email_fornecedor,
+            endereco_fornecedor = :endereco_fornecedor,
           WHERE id = :id";
   $stmt = $pdo->prepare($sql);
-  $stmt->bindValue(':nome', $nome);
-  $stmt->bindValue(':tipo', $tipo);
-  $stmt->bindValue(':cnpj', $cnpj);
-  $stmt->bindValue(':telefone', $telefone);
-  $stmt->bindValue(':email', $email);
-  $stmt->bindValue(':responsavel', $responsavel);
-  $stmt->bindValue(':endereco', $endereco);
-  $stmt->bindValue(':data_abertura', $dataAbert);
-  $stmt->bindValue(':status', $status);
+  $stmt->bindValue(':nome_fornecedor', $nome);
+  $stmt->bindValue(':cnpj_fornecedor', $cnpj);
+  $stmt->bindValue(':telefone_fornecedor', $telefone);
+  $stmt->bindValue(':email_fornecedor', $email);
+  $stmt->bindValue(':endereco_fornecedor', $endereco);
   $stmt->bindValue(':id', $id, PDO::PARAM_INT);
   $stmt->execute();
 
