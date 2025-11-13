@@ -963,7 +963,7 @@ try {
 
                     <!-- Cards resumo -->
                     <div class="row g-3 mb-3">
-                        <div class="col-12 col-sm-6 col-lg-4">
+                        <div class="col-12 col-sm-6 col-lg-6">
                             <div class="card h-100">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center">
@@ -977,7 +977,7 @@ try {
                             </div>
                         </div>
 
-                        <div class="col-12 col-sm-6 col-lg-4">
+                        <div class="col-12 col-sm-6 col-lg-6">
                             <div class="card h-100">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center">
@@ -986,20 +986,6 @@ try {
                                             <h4 class="mb-0"><?= number_format($card2, 0, ',', '.') ?></h4>
                                         </div>
                                         <i class="bx bx-package fs-2 text-success"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-sm-6 col-lg-4">
-                            <div class="card h-100">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <p class="mb-1 text-muted">Reservado</p>
-                                            <h4 class="mb-0"><?= number_format($card3, 0, ',', '.') ?></h4>
-                                        </div>
-                                        <i class="bx bx-bookmark-alt fs-2 text-warning"></i>
                                     </div>
                                 </div>
                             </div>
@@ -1049,8 +1035,6 @@ try {
                                         <th>Unidade</th>
                                         <th>Min</th>
                                         <th>Disp.</th>
-                                        <th>Reserv.</th>
-                            
                                         <th>Status</th>
                                         <th class="text-end">Ações</th>
                                     </tr>
@@ -1082,11 +1066,6 @@ try {
                                             <!-- ✅ DISPONÍVEL -->
                                             <td><?= number_format($p['quantidade_produto'], 0, ',', '.') ?></td>
 
-                                            <!-- ✅ Seu banco não possui estas colunas, então deixei 0 -->
-                                            <td><?= htmlspecialchars($p['reservado']) ?></td> <!-- Reservado -->
-                                          
-
-
                                             <!-- ✅ Status automático -->
                                             <td><span class="badge bg-label-<?= $statusCor ?>"><?= $statusTexto ?></span></td>
 
@@ -1100,9 +1079,7 @@ try {
                                                         data-categoria="<?= htmlspecialchars($p['categoria_produto']) ?>"
                                                         data-unidade="<?= htmlspecialchars($p['unidade']) ?>"
                                                         data-min="<?= number_format(max(1, $p['quantidade_produto'] * 0.10), 0, ',', '.') ?>"
-                                                        data-disp="<?= number_format($p['quantidade_produto'], 0, ',', '.') ?>"
-                                                        data-res="<?= htmlspecialchars($p['reservado']) ?>"
-                                                        data-transf="<?= htmlspecialchars($p['total_transferencias']) ?>">
+                                                        data-disp="<?= number_format($p['quantidade_produto'], 0, ',', '.') ?>">
                                                         Detalhes
                                                     </button>
 
@@ -1163,10 +1140,7 @@ try {
                                     <div class="col-md-3">
                                         <p class="mb-1"><strong>Disponível:</strong> <span id="det-disp">—</span></p>
                                     </div>
-                                    <div class="col-md-3">
-                                        <p class="mb-1"><strong>Reservado:</strong> <span id="det-res">—</span></p>
-                                    </div>
-
+                              
 
                                 </div>
                               
