@@ -403,7 +403,7 @@ if (!empty($topGeral)) {
                             <div>Estoque</div>
                         </a></li>
                     <li class="menu-item"><a class="menu-link" href="../franquia/index.php?id=principal_1"> <i class="menu-icon tf-icons bx bx-store"></i></i>
-                            <div>Franquia</div>
+                            <div>Franquias</div>
                         </a></li>
                     <li class="menu-item"><a class="menu-link" href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>"><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>Usuários</div>
