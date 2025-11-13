@@ -729,12 +729,7 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                                             </div>
                                         </a>
                                     </li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
-                                    <li><a class="dropdown-item" href="#"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
-                                    <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i><span class="align-middle">Configurações</span></a></li>
-                                    <li>
+                                   <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
                                     <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>

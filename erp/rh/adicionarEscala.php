@@ -393,21 +393,7 @@ try {
                       </div>
                     </a>
                   </li>
-                  <li>
-                    <div class="dropdown-divider"></div>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>">
-                      <i class="bx bx-user me-2"></i>
-                      <span class="align-middle">Minha Conta</span>
-                    </a>
-                  </li>
-                  <li>
-                    <a class="dropdown-item" href="#">
-                      <i class="bx bx-cog me-2"></i>
-                      <span class="align-middle">Configurações</span>
-                    </a>
-                  </li>
+              
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>

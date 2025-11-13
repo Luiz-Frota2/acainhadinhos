@@ -244,10 +244,6 @@ $csrf = $_SESSION['csrf_pagamento'];
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
-                                    <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i><span class="align-middle">Minha Conta</span></a></li>
-                                    <li>
-                                        <div class="dropdown-divider"></div>
-                                    </li>
                                     <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i><span class="align-middle">Sair</span></a></li>
                                 </ul>
                             </li>

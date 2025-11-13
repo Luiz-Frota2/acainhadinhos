@@ -381,12 +381,7 @@ try {
                       </div>
                     </a>
                   </li>
-                  <li>
-                    <div class="dropdown-divider"></div>
-                  </li>
-                  <li><a class="dropdown-item" href="./contaUsuario.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-user me-2"></i> Minha Conta</a></li>
-                  <li><a class="dropdown-item" href="#"><i class="bx bx-cog me-2"></i> Configurações</a></li>
-                  <li>
+                  
                     <div class="dropdown-divider"></div>
                   </li>
                   <li><a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>"><i class="bx bx-power-off me-2"></i> Sair</a></li>
