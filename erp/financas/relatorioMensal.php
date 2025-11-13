@@ -643,7 +643,6 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
                         <div class="card-header d-flex justify-content-between align-items-center p-3">
                             <h5 class="mb-0">Detalhes por Semana</h5>
                             <div>
-                                <button class="btn btn-sm btn-outline-secondary me-2" id="btn-download"><i class="bx bx-download"></i></button>
                                 <button class="btn btn-sm btn-outline-secondary" id="btn-print"><i class="bx bx-printer"></i></button>
                             </div>
                         </div>
@@ -651,7 +650,7 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
                             <table class="table table-sm table-hover mb-0" id="tb-semanas">
                                 <thead class="table-light">
                                     <tr>
-                                        <th>Semana</th>
+                                        <th>Semana</th> 
                                         <th class="text-end">Entradas</th>
                                         <th class="text-end">Saídas</th>
                                         <th class="text-end">Saldo</th>
@@ -866,37 +865,91 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
 
-    <script>
-        // Download CSV e impressão da tabela "Detalhes por Semana"
-        (function() {
-            const btnDown = document.getElementById('btn-download');
-            const btnPrint = document.getElementById('btn-print');
-            const table = document.getElementById('tb-semanas');
+  <script>
+(function() {
+    const btnPrint = document.getElementById('btn-print');
+    const table = document.getElementById('tb-semanas');
 
-            if (btnDown) {
-                btnDown.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const q = new URLSearchParams(window.location.search);
-                    q.set('download', '1');
-                    window.location.href = window.location.pathname + '?' + q.toString();
-                });
-            }
-            if (btnPrint && table) {
-                btnPrint.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const w = window.open('', '_blank');
-                    w.document.write('<html><head><title>Imprimir</title><meta charset="utf-8" /></head><body>');
-                    w.document.write('<h3>Detalhes por Semana</h3>');
-                    w.document.write(table.outerHTML);
-                    w.document.write('</body></html>');
-                    w.document.close();
-                    w.focus();
-                    w.print();
-                    w.close();
-                });
-            }
-        })();
-    </script>
+    if (btnPrint && table) {
+        btnPrint.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            // Cria uma nova janela para impressão
+            const w = window.open('', '_blank');
+            w.document.write(`
+                <html>
+                    <head>
+                        <meta charset="utf-8" />
+                        <title>Relatório Mensal - Detalhes por Semana</title>
+                        <style>
+                            body {
+                                font-family: Arial, sans-serif;
+                                margin: 40px;
+                                color: #333;
+                                background: #fff;
+                            }
+                            h2, h3 {
+                                text-align: center;
+                                margin-bottom: 10px;
+                            }
+                            .sub {
+                                text-align: center;
+                                font-size: 14px;
+                                color: #777;
+                                margin-bottom: 25px;
+                            }
+                            table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-top: 20px;
+                            }
+                            th, td {
+                                padding: 8px 10px;
+                                border: 1px solid #ccc;
+                                font-size: 14px;
+                            }
+                            th {
+                                background: #f8f9fa;
+                                text-align: left;
+                            }
+                            td.text-end, th.text-end {
+                                text-align: right;
+                            }
+                            tfoot th {
+                                background: #f1f1f1;
+                                font-weight: bold;
+                            }
+                            @media print {
+                                body {
+                                    margin: 10mm;
+                                }
+                                table {
+                                    page-break-inside: avoid;
+                                }
+                                tfoot {
+                                    font-weight: bold;
+                                }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Relatório Financeiro Mensal</h2>
+                        <div class="sub">Detalhes por Semana</div>
+                        ${table.outerHTML}
+                        <script>
+                            window.focus();
+                            window.print();
+                            window.onafterprint = () => window.close();
+                        <\/script>
+                    </body>
+                </html>
+            `);
+            w.document.close();
+        });
+    }
+})();
+</script>
+
 </body>
 
 </html>
