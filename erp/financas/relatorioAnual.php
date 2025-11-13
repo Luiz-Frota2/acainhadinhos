@@ -819,9 +819,8 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
         <script src="../../assets/js/dashboards-analytics.js"></script>
         <script async defer src="https://buttons.github.io/buttons.js"></script>
 
-     <script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Localiza a área do "Desempenho Mensal"
     const area = Array.from(document.querySelectorAll('.card')).find(c => {
         const h = c.querySelector('.card-header h5, .card-header h4');
         return h && h.textContent.trim().toLowerCase() === 'desempenho mensal';
@@ -835,88 +834,97 @@ document.addEventListener('DOMContentLoaded', function() {
                 btnPrint.addEventListener('click', function(e) {
                     e.preventDefault();
 
-                    // Captura as seções para o relatório impresso
                     const cardsResumo = document.querySelector('.row.mb-4');
                     const tabela = area.querySelector('table');
                     const melhoresMeses = document.querySelector('.col-md-6:nth-of-type(1) .list-group');
                     const resumoTrimestre = document.querySelector('.col-md-6:nth-of-type(2) .list-group');
 
-                    // Abre nova janela para impressão
                     const w = window.open('', '_blank');
                     w.document.write(`
                         <html>
                             <head>
                                 <meta charset="utf-8" />
-                                <title>Relatório Anual - Financeiro</title>
+                                <title>Relatório Financeiro Anual</title>
                                 <style>
+                                    @page { margin: 15mm; }
                                     body {
-                                        font-family: Arial, sans-serif;
-                                        margin: 30px 50px;
+                                        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
                                         color: #333;
                                         background: #fff;
+                                        margin: 0;
+                                        padding: 20px 40px;
                                     }
                                     header {
                                         text-align: center;
-                                        margin-bottom: 25px;
+                                        border-bottom: 3px solid #004080;
+                                        padding-bottom: 10px;
+                                        margin-bottom: 30px;
                                     }
-                                    header h2 {
+                                    header h1 {
+                                        color: #004080;
+                                        font-size: 26px;
                                         margin: 0;
-                                        font-size: 22px;
                                         font-weight: 700;
-                                        color: #222;
                                     }
                                     header p {
-                                        margin: 0;
                                         font-size: 14px;
-                                        color: #777;
+                                        color: #666;
+                                        margin-top: 5px;
                                     }
                                     section {
-                                        margin-bottom: 25px;
+                                        margin-bottom: 30px;
                                     }
-                                    h3 {
-                                        border-bottom: 2px solid #ccc;
-                                        padding-bottom: 5px;
+                                    h2 {
+                                        color: #004080;
+                                        font-size: 18px;
                                         margin-bottom: 10px;
-                                        color: #444;
+                                        border-left: 5px solid #004080;
+                                        padding-left: 10px;
+                                        text-transform: uppercase;
                                     }
                                     table {
                                         width: 100%;
                                         border-collapse: collapse;
                                         margin-top: 10px;
-                                        font-size: 14px;
+                                        font-size: 13px;
                                     }
                                     th, td {
                                         padding: 8px 10px;
                                         border: 1px solid #ccc;
                                     }
                                     th {
-                                        background-color: #f9f9f9;
+                                        background-color: #f0f4f8;
+                                        color: #222;
                                         font-weight: 600;
                                     }
                                     td.text-end, th.text-end {
                                         text-align: right;
                                     }
-                                    .card-resumo {
+                                    .kpi-container {
                                         display: grid;
-                                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                                        gap: 12px;
+                                        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                                        gap: 15px;
                                         margin-top: 15px;
                                     }
-                                    .card-item {
-                                        border: 1px solid #ddd;
-                                        border-radius: 5px;
-                                        padding: 10px;
-                                        text-align: center;
-                                        background: #fafafa;
+                                    .kpi-card {
+                                        background: #f8fafc;
+                                        border: 1px solid #d0d7de;
+                                        border-left: 6px solid #004080;
+                                        border-radius: 6px;
+                                        padding: 12px;
+                                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
                                     }
-                                    .card-item small {
-                                        color: #666;
-                                        display: block;
+                                    .kpi-card h4 {
+                                        margin: 0;
+                                        font-size: 14px;
+                                        color: #004080;
+                                        text-transform: uppercase;
                                     }
-                                    .card-item h4 {
-                                        margin: 5px 0 0;
+                                    .kpi-card p {
+                                        margin: 6px 0 0;
                                         font-size: 16px;
-                                        font-weight: bold;
+                                        font-weight: 700;
+                                        color: #222;
                                     }
                                     .list-group {
                                         border: 1px solid #ddd;
@@ -941,50 +949,65 @@ document.addEventListener('DOMContentLoaded', function() {
                                     .list-group-item small {
                                         color: #777;
                                     }
-                                    .fw-semibold {
-                                        font-weight: bold;
+                                    footer {
+                                        text-align: center;
+                                        font-size: 12px;
+                                        color: #777;
+                                        border-top: 1px solid #ddd;
+                                        padding-top: 10px;
+                                        margin-top: 40px;
                                     }
                                     @media print {
-                                        body {
-                                            margin: 10mm;
-                                        }
-                                        table {
-                                            page-break-inside: avoid;
-                                        }
+                                        body { margin: 10mm; }
+                                        table { page-break-inside: avoid; }
                                     }
                                 </style>
                             </head>
                             <body>
                                 <header>
-                                    <h2>Relatório Financeiro Anual</h2>
-                                    <p>Desempenho e Indicadores - ${new Date().getFullYear()}</p>
+                                    <h1>Relatório Financeiro Anual</h1>
+                                    <p>Desempenho Consolidado — ${new Date().getFullYear()}</p>
                                 </header>
 
                                 <section>
-                                    <h3>Resumo Geral</h3>
-                                    ${cardsResumo ? cardsResumo.outerHTML : '<p>Nenhum dado disponível</p>'}
+                                    <h2>Resumo Executivo</h2>
+                                    <div class="kpi-container">
+                                        ${cardsResumo ? 
+                                            Array.from(cardsResumo.querySelectorAll('.card')).map(card => {
+                                                const title = card.querySelector('.card-title')?.innerText || '';
+                                                const value = card.querySelector('.h4')?.innerText || '';
+                                                return `
+                                                    <div class="kpi-card">
+                                                        <h4>${title}</h4>
+                                                        <p>${value}</p>
+                                                    </div>`;
+                                            }).join('') : '<p>Sem dados disponíveis</p>'
+                                        }
+                                    </div>
                                 </section>
 
                                 <section>
-                                    <h3>Desempenho Mensal</h3>
+                                    <h2>Desempenho Mensal</h2>
                                     ${tabela ? tabela.outerHTML : '<p>Nenhum dado mensal encontrado</p>'}
                                 </section>
 
                                 <section>
-                                    <h3>Melhores Meses</h3>
+                                    <h2>Melhores Meses</h2>
                                     ${melhoresMeses ? melhoresMeses.outerHTML : '<p>Sem destaques disponíveis</p>'}
                                 </section>
 
                                 <section>
-                                    <h3>Resumo por Trimestre</h3>
+                                    <h2>Resumo por Trimestre</h2>
                                     ${resumoTrimestre ? resumoTrimestre.outerHTML : '<p>Sem resumo trimestral disponível</p>'}
                                 </section>
 
+                                <footer>
+                                    <p>Relatório gerado automaticamente pelo sistema financeiro | ${new Date().toLocaleDateString()}</p>
+                                </footer>
+
                                 <script>
-                                    // Foca e imprime automaticamente
                                     window.focus();
                                     setTimeout(() => window.print(), 300);
-                                    // Se o usuário cancelar ou concluir a impressão
                                     window.onafterprint = function() {
                                         window.close();
                                         history.back();
@@ -1015,6 +1038,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
 
     </div> <!-- /layout-wrapper -->
 </body>
