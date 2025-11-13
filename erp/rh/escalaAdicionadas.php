@@ -455,14 +455,7 @@ try {
                       <td><?= htmlspecialchars($escala['nome_escala']) ?></td>
                       <td><?= (new DateTime($escala['data_escala']))->format('d/m/Y') ?></td>
                       <td>
-                        <!-- ✏️ Editar -->
-                        <button class="btn btn-link text-primary p-0" title="Editar" onclick="window.location.href='#'">
-                          <i class="tf-icons bx bx-edit"></i>
-                        </button>
-
-                        <!-- Separador -->
-                        <span class="mx-2">|</span>
-
+                  
                         <!-- 🗑️ Excluir -->
                         <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
                           data-bs-target="#modalExcluir_<?= $escala['id'] ?>">
