@@ -818,8 +818,7 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
         <script src="../../assets/js/main.js"></script>
         <script src="../../assets/js/dashboards-analytics.js"></script>
         <script async defer src="https://buttons.github.io/buttons.js"></script>
-
-     <script>
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     // Localiza a área do "Desempenho Mensal"
     const area = Array.from(document.querySelectorAll('.card')).find(c => {
@@ -833,215 +832,182 @@ document.addEventListener('DOMContentLoaded', function() {
             const btnPrint = btnPrintIcon.closest('button, a');
             if (btnPrint) {
                 btnPrint.addEventListener('click', function(e) {
-    e.preventDefault();
+                    e.preventDefault();
 
-    // Captura as seções para o relatório impresso
-    const cardsResumo = document.querySelector('.row.mb-4');
-    const tabela = area.querySelector('table');
-    const melhoresMeses = document.querySelector('.col-md-6:nth-of-type(1) .list-group');
-    const resumoTrimestre = document.querySelector('.col-md-6:nth-of-type(2) .list-group');
+                    // Captura seções
+                    const cardsResumo = document.querySelector('.row.mb-4');
+                    const tabela = area.querySelector('table');
+                    const melhoresMeses = document.querySelector('.col-md-6:nth-of-type(1) .list-group');
+                    const resumoTrimestre = document.querySelector('.col-md-6:nth-of-type(2) .list-group');
 
-    // Abre nova janela para impressão
-    const w = window.open('', '_blank');
-    w.document.write(`
-        <html>
-            <head>
-                <meta charset="utf-8" />
-                <title>Relatório Anual - Financeiro</title>
-                <style>
-                    body {
-                        font-family: "Segoe UI", Arial, sans-serif;
-                        margin: 25px 40px;
-                        color: #222;
-                        background: #fff;
-                        line-height: 1.5;
+                    // Verificação mínima
+                    if (!cardsResumo && !tabela) {
+                        alert('Nenhum dado disponível para impressão.');
+                        return;
                     }
 
-                    header {
-                        text-align: center;
-                        border-bottom: 3px solid #0d6efd;
-                        padding-bottom: 8px;
-                        margin-bottom: 30px;
+                    // Conteúdo principal do relatório
+                    const reportHtml = `
+                        <div style="text-align:center; margin-bottom:25px;">
+                            <h2 style="margin:0;">Relatório Financeiro Anual</h2>
+                            <p style="margin:5px 0; font-size:13px; color:#555;">
+                                Indicadores e Desempenho • ${new Date().getFullYear()}
+                            </p>
+                        </div>
+
+                        <div>
+                            <h4 style="margin-bottom:10px;">Resumo Geral</h4>
+                            ${cardsResumo ? cardsResumo.outerHTML : '<p style="color:#777;">Nenhum dado disponível</p>'}
+                        </div>
+
+                        <hr style="margin:25px 0; border:none; border-top:1px solid #ddd;">
+
+                        <div>
+                            <h4 style="margin-bottom:10px;">Desempenho Mensal</h4>
+                            ${tabela ? tabela.outerHTML : '<p style="color:#777;">Nenhum dado mensal encontrado</p>'}
+                        </div>
+
+                        <hr style="margin:25px 0; border:none; border-top:1px solid #ddd;">
+
+                        <div>
+                            <h4 style="margin-bottom:10px;">Melhores Meses</h4>
+                            ${melhoresMeses ? melhoresMeses.outerHTML : '<p style="color:#777;">Sem destaques disponíveis</p>'}
+                        </div>
+
+                        <hr style="margin:25px 0; border:none; border-top:1px solid #ddd;">
+
+                        <div>
+                            <h4 style="margin-bottom:10px;">Resumo por Trimestre</h4>
+                            ${resumoTrimestre ? resumoTrimestre.outerHTML : '<p style="color:#777;">Sem resumo trimestral disponível</p>'}
+                        </div>
+
+                        <footer style="text-align:center; margin-top:40px; font-size:11px; color:#888;">
+                            Relatório gerado automaticamente em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
+                        </footer>
+                    `;
+
+                    // Abre nova aba
+                    const win = window.open('', '_blank');
+                    if (!win) {
+                        alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
+                        return;
                     }
 
-                    header h2 {
-                        margin: 0;
-                        font-size: 22px;
-                        font-weight: 700;
-                        color: #0d6efd;
-                    }
+                    // Estilo moderno e limpo
+                    const style = `
+                        <style>
+                            @page { size: A4; margin: 18mm; }
+                            body {
+                                font-family: 'Public Sans', Arial, sans-serif;
+                                color: #111827;
+                                font-size: 12px;
+                                -webkit-print-color-adjust: exact;
+                                background: white;
+                            }
+                            h2, h4 {
+                                font-weight: 600;
+                                color: #222;
+                            }
+                            table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-top: 10px;
+                            }
+                            th, td {
+                                padding: 8px 10px;
+                                border: 1px solid #ddd;
+                                text-align: left;
+                                font-size: 12px;
+                            }
+                            thead th {
+                                background: #f2f3f5;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                                font-size: 11px;
+                            }
+                            tbody tr:nth-child(even) { background: #fafafa; }
+                            tbody tr:hover { background: #f0f4ff; }
+                            .list-group {
+                                border: 1px solid #ddd;
+                                border-radius: 6px;
+                                overflow: hidden;
+                                margin-top: 10px;
+                            }
+                            .list-group-item {
+                                display: flex;
+                                justify-content: space-between;
+                                padding: 8px 10px;
+                                border-bottom: 1px solid #eee;
+                                font-size: 12px;
+                            }
+                            .list-group-item:last-child {
+                                border-bottom: none;
+                            }
+                            .fw-semibold { font-weight: 600; }
+                            .row.mb-4 {
+                                display: grid;
+                                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                                gap: 12px;
+                            }
+                            .card {
+                                border: 1px solid #ddd;
+                                border-radius: 6px;
+                                padding: 8px 10px;
+                                text-align: center;
+                                background: #fafafa;
+                            }
+                            .card small {
+                                display: block;
+                                color: #666;
+                                font-size: 11px;
+                            }
+                            .card h6, .card h4 {
+                                margin: 4px 0 0;
+                                font-size: 14px;
+                                font-weight: 600;
+                            }
+                            hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+                        </style>
+                    `;
 
-                    header p {
-                        margin: 4px 0 0;
-                        font-size: 13px;
-                        color: #555;
-                    }
+                    // HTML final com script de impressão e retorno
+                    const finalHtml = `
+                        <!doctype html>
+                        <html>
+                        <head>
+                            <meta charset="utf-8" />
+                            <title>Relatório Financeiro Anual</title>
+                            <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                            ${style}
+                        </head>
+                        <body>
+                            ${reportHtml}
+                            <script>
+                                window.focus();
+                                setTimeout(() => window.print(), 300);
+                                window.onafterprint = function() {
+                                    try {
+                                        if (window.opener && !window.opener.closed) {
+                                            window.opener.focus();
+                                        }
+                                    } catch(e){}
+                                    window.close();
+                                    history.back();
+                                };
+                            <\/script>
+                        </body>
+                        </html>
+                    `;
 
-                    section {
-                        margin-bottom: 35px;
-                    }
-
-                    h3 {
-                        border-left: 5px solid #0d6efd;
-                        padding-left: 8px;
-                        margin-bottom: 12px;
-                        color: #333;
-                        font-size: 17px;
-                        font-weight: 600;
-                    }
-
-                    table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        font-size: 13px;
-                        margin-top: 10px;
-                    }
-
-                    th, td {
-                        padding: 8px 10px;
-                        border: 1px solid #ddd;
-                    }
-
-                    th {
-                        background-color: #f3f6fa;
-                        font-weight: 600;
-                    }
-
-                    td.text-end, th.text-end {
-                        text-align: right;
-                    }
-
-                    /* Cards de Resumo */
-                    .row.mb-4 {
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                        gap: 12px;
-                    }
-
-                    .card-slim, .card, .card-item {
-                        border: 1px solid #ddd;
-                        border-radius: 6px;
-                        background: #fafafa;
-                        padding: 10px 14px;
-                        box-shadow: none;
-                    }
-
-                    .card small {
-                        display: block;
-                        color: #777;
-                        margin-bottom: 2px;
-                        font-size: 12px;
-                    }
-
-                    .card h6, .card h4 {
-                        margin: 0;
-                        font-size: 15px;
-                        font-weight: 700;
-                        color: #333;
-                    }
-
-                    /* Listas */
-                    .list-group {
-                        border: 1px solid #ddd;
-                        border-radius: 6px;
-                        overflow: hidden;
-                    }
-
-                    .list-group-item {
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        padding: 10px 14px;
-                        border-bottom: 1px solid #eee;
-                        font-size: 13px;
-                    }
-
-                    .list-group-item:last-child {
-                        border-bottom: none;
-                    }
-
-                    .list-group-item h6 {
-                        margin: 0;
-                        font-size: 14px;
-                        font-weight: 600;
-                    }
-
-                    .list-group-item small {
-                        color: #777;
-                    }
-
-                    .fw-semibold {
-                        font-weight: bold;
-                    }
-
-                    footer {
-                        text-align: center;
-                        margin-top: 40px;
-                        font-size: 12px;
-                        color: #888;
-                        border-top: 1px solid #ddd;
-                        padding-top: 10px;
-                    }
-
-                    @media print {
-                        body {
-                            margin: 10mm;
-                        }
-                        table {
-                            page-break-inside: avoid;
-                        }
-                    }
-                </style>
-            </head>
-            <body>
-                <header>
-                    <h2>Relatório Financeiro Anual</h2>
-                    <p>Indicadores e Desempenho • ${new Date().getFullYear()}</p>
-                </header>
-
-                <section>
-                    <h3>Resumo Geral</h3>
-                    ${cardsResumo ? cardsResumo.outerHTML : '<p>Nenhum dado disponível</p>'}
-                </section>
-
-                <section>
-                    <h3>Desempenho Mensal</h3>
-                    ${tabela ? tabela.outerHTML : '<p>Nenhum dado mensal encontrado</p>'}
-                </section>
-
-                <section>
-                    <h3>Melhores Meses</h3>
-                    ${melhoresMeses ? melhoresMeses.outerHTML : '<p>Sem destaques disponíveis</p>'}
-                </section>
-
-                <section>
-                    <h3>Resumo por Trimestre</h3>
-                    ${resumoTrimestre ? resumoTrimestre.outerHTML : '<p>Sem resumo trimestral disponível</p>'}
-                </section>
-
-                <footer>
-                    Relatório gerado automaticamente em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
-                </footer>
-
-                <script>
-                    window.focus();
-                    setTimeout(() => window.print(), 300);
-                    window.onafterprint = function() {
-                        window.close();
-                        history.back();
-                    };
-                <\/script>
-            </body>
-        </html>
-    `);
-    w.document.close();
-});
-
+                    win.document.open();
+                    win.document.write(finalHtml);
+                    win.document.close();
+                });
             }
         }
     }
 
-    // Filtro de ano permanece igual
+    // Filtro de ano (mantém igual)
     const toolbar = document.querySelector('.input-group.input-group-sm.w-auto');
     if (toolbar) {
         const sel = toolbar.querySelector('select.form-select');
@@ -1057,6 +1023,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
 
     </div> <!-- /layout-wrapper -->
 </body>
