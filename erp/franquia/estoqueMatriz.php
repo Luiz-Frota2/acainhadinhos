@@ -1000,7 +1000,7 @@ try {
                         <form method="get" class="card-body row g-3 align-items-end" autocomplete="off">
                             <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
 
-                            <div class="col-12 col-md-3">
+                            <div class="col-12 col-md-4">
                                 <label class="form-label">Produto</label>
                                 <input type="text" name="produto" value="<?= htmlspecialchars($fil_produto) ?>" class="form-control form-control-sm" placeholder="Nome do produto">
                             </div>
@@ -1010,7 +1010,7 @@ try {
                                 <input type="text" name="codigo" value="<?= htmlspecialchars($fil_codigo) ?>" class="form-control form-control-sm" placeholder="Código">
                             </div>
 
-                            <div class="col-12 col-md-2">
+                            <div class="col-12 col-md-3">
                                 <label class="form-label">Categoria</label>
                                 <input type="text" name="categoria" value="<?= htmlspecialchars($fil_categoria) ?>" class="form-control form-control-sm" placeholder="Categoria">
                             </div>
