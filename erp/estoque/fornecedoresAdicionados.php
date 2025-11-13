@@ -408,10 +408,11 @@ try {
                                                 <td><?= htmlspecialchars($fornecedor['email_fornecedor']) ?></td>
                                                 <td><?= htmlspecialchars($fornecedor['endereco_fornecedor']) ?></td>
                                                 <td>
-                                                    <button class="btn btn-link text-primary p-0" title="Editar"
-                                                        onclick="window.location.href='editarFornecedor.php?id=<?= $idSelecionado ?>&fornecedor_id=<?= $fornecedor['id'] ?>';">
-                                                        <i class="tf-icons bx bx-edit"></i>
-                                                    </button>
+                                                      <button class="btn btn-link text-primary p-0" title="Editar"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editarFilialModal_<?php echo $fornecedor['id']; ?>">
+                            <i class="tf-icons bx bx-edit"></i>
+                          </button>
                                                     <span class="mx-2">|</span>
                                                     <button class="btn btn-link text-danger p-0" title="Excluir" data-bs-toggle="modal"
                                                         data-bs-target="#deleteContaModal<?= $fornecedor['id'] ?>">
@@ -443,6 +444,62 @@ try {
                                                 </div>
                                             </div>
                                             <!-- /Modal de Exclusão -->
+                                               <!-- Modal Editar Filial -->
+                        <div class="modal fade" id="editarFilialModal_<?php echo $fornecedor['id']; ?>" tabindex="-1"
+                          aria-labelledby="editarFilialLabel_<?php echo $fornecedor['id']; ?>" aria-hidden="true">
+                          <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                              <form action="../../assets/php/estoque/editarFornecedor.php" method="POST" autocomplete="off">
+                                <div class="modal-header">
+                                  <h5 class="modal-title" id="editarFilialLabel_<?php echo $fornecedor['id']; ?>">
+                                    Editar Fornecedor — <?php echo htmlspecialchars($fornecedor['nome_fornecedor']); ?>
+                                  </h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                  <input type="hidden" name="id" value="<?php echo (int)$fornecedor['id']; ?>">
+                                  <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado); ?>">
+                                  <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']); ?>">
+                                  <div class="row g-3">
+                                    <div class="col-md-6">
+                                      <label class="form-label">Nome do Fornecedor</label>
+                                      <input type="text" name="nome_fornecedor" class="form-control"
+                                        value="<?= htmlspecialchars($fornecedor['nome_fornecedor']) ?>" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">Email</label>
+                                      <input type="email" name="email_fornecedor" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['email_fornecedor']) ?>" required>
+                                    </div>
+                                    
+                                    <div class="col-md-4">
+                                      <label class="form-label">CNPJ</label>
+                                      <input type="text" name="cnpj_fornecedor" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['cnpj_fornecedor']) ?>" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">Telefone</label>
+                                      <input type="text" name="telefone_fornecedor" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['telefone_fornecedor']) ?>" required>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                      <label class="form-label">Endereço</label>
+                                      <input type="text" name="endereco_fornecedor" class="form-control"
+                                        value="<?= htmlspecialchars($fornecedor['endereco_fornecedor']) ?>" required>
+                                    </div>
+                                    
+                                  </div>
+                                </div>
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="submit" class="btn btn-primary">Salvar</button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- /Modal Editar Filial -->
 
                                         <?php endforeach; ?>
                                     <?php endif; ?>
