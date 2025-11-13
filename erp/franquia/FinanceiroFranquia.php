@@ -325,443 +325,1042 @@ try {
                         Financeiro
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Recebíveis, fluxo de caixa e status por franquia — Mês Atual</span>
+                        <span class="text-muted fw-light">Recebíveis, fluxo de caixa e status por Filial — Mês Atual</span>
                     </h5>
+<?php
+// ================================================================
+// SISTEMA FINANCEIRO — SOMENTE FILIAL ATIVA (refatorado)
+// ================================================================
 
-                    <!-- ============================= -->
-                    <!-- Filtros                       -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <div class="card-body py-2">
-                            <form class="w-100" method="get">
-                                <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado) ?>">
+// Escape
+if (!function_exists('h')) {
+    function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+}
 
-                                <div class="row g-2 align-items-end">
-                                    <!-- Filtros -->
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <label for="periodo" class="form-label mb-1">Período</label>
-                                        <select id="periodo" class="form-select form-select-sm" name="periodo">
-                                            <option selected>Período: Mês Atual</option>
-                                            <option>Últimos 30 dias</option>
-                                            <option>Últimos 90 dias</option>
-                                            <option>Este ano</option>
-                                        </select>
+// percent
+if (!function_exists('percentVal')) {
+    function percentVal($valor, $total) {
+        if ($total <= 0) return 0;
+        return ($valor / $total) * 100;
+    }
+}
+
+// -----------------------------
+// CONFIG
+// -----------------------------
+$perPage = 6; // itens por página (fixado conforme solicitado)
+
+// -----------------------------
+// ID
+// -----------------------------
+$idSelecionado = $_GET['id'] ?? ($idSelecionado ?? '');
+if (!$idSelecionado) {
+    echo '<div class="alert alert-danger">ID inválido</div>';
+    return;
+}
+
+// -----------------------------
+// FILTROS (mudança: se todos vazios => NÃO aplica filtro nenhum)
+// -----------------------------
+$de_raw     = isset($_GET['de']) ? trim($_GET['de']) : '';
+$ate_raw    = isset($_GET['ate']) ? trim($_GET['ate']) : '';
+$status_raw = isset($_GET['status']) ? trim($_GET['status']) : '';
+$filial_raw = isset($_GET['filial']) ? trim($_GET['filial']) : '';
+
+try { $tz = new DateTimeZone('America/Sao_Paulo'); } catch (Exception $e) { $tz = null; }
+
+// IMPORTANT: by default do NOT apply date filters if user didn't provide them
+$applyDateFilter = ($de_raw !== '' || $ate_raw !== '');
+
+// prepare date boundaries only if provided
+$de = $ate = null;
+$de_datetime = $ate_datetime = null;
+if ($de_raw !== '') {
+    $de = $de_raw;
+    $de_datetime = $de . ' 00:00:00';
+}
+if ($ate_raw !== '') {
+    $ate = $ate_raw;
+    $ate_datetime = $ate . ' 23:59:59';
+}
+
+// normalize status (allow only known values)
+$status = '';
+if ($status_raw !== '') {
+    $s = strtolower(trim($status_raw));
+    if (in_array($s, ['aprovado','pendente','reprovado'])) $status = $s;
+}
+
+// filial string
+$filial = trim((string)$filial_raw);
+
+// -----------------------------
+// FILIAIS ATIVAS (select options)
+// -----------------------------
+$filiaisOptions = [];
+try {
+    $stmt = $pdo->prepare("
+        SELECT id, nome, empresa_id 
+        FROM unidades 
+        WHERE tipo = 'Franquia' 
+          AND status = 'Ativa'
+        ORDER BY nome
+    ");
+    $stmt->execute();
+    $filiaisOptions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $filiaisOptions = [];
+}
+
+// JOIN template: replace FIELD_ID at runtime with correct column
+$JOIN_FILIAL = "
+    JOIN unidades u 
+      ON u.id = REPLACE(FIELD_ID, 'unidade_', '') 
+     AND u.tipo = 'Fraquia'
+     AND u.status = 'Ativa'
+";
+
+// -----------------------------
+// UTIL: build WHERE and params based on filters (date optional)
+// -----------------------------
+function buildWhereAndParams(array $baseWhere, array $baseParams, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, $dateColumn = 'created_at') {
+    $where = $baseWhere;
+    $params = $baseParams;
+
+    if ($applyDateFilter) {
+        // if only one boundary provided, still use appropriate condition
+        if (!empty($de_datetime) && !empty($ate_datetime)) {
+            $where[] = " {$dateColumn} BETWEEN :d1 AND :d2 ";
+            $params[':d1'] = $de_datetime;
+            $params[':d2'] = $ate_datetime;
+        } elseif (!empty($de_datetime)) {
+            $where[] = " {$dateColumn} >= :d1 ";
+            $params[':d1'] = $de_datetime;
+        } elseif (!empty($ate_datetime)) {
+            $where[] = " {$dateColumn} <= :d2 ";
+            $params[':d2'] = $ate_datetime;
+        }
+    }
+
+    if ($filial !== '') {
+        $where[] = " u.nome = :filialFiltro ";
+        $params[':filialFiltro'] = $filial;
+    }
+
+    if ($status !== '') {
+        $where[] = " sp.status = :statusFiltro ";
+        $params[':statusFiltro'] = $status;
+    }
+
+    return [$where, $params];
+}
+
+// ================================================================
+// 1) CARDS — solicitacoes_pagamento (mantém leitura total se sem filtro)
+// ================================================================
+$cards = ['aprovado'=>0.0,'pendente'=>0.0,'reprovado'=>0.0];
+
+try {
+    $where = ["1=1"];
+    $params = [];
+
+    // build dynamic where for cards based on if user applied anything
+    list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, 'sp.created_at');
+
+    $sql = "
+        SELECT sp.status, SUM(sp.valor) AS total
+        FROM solicitacoes_pagamento sp
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
+        GROUP BY sp.status
+    ";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $res = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($res as $r){
+        $k = strtolower($r['status']);
+        if(isset($cards[$k])) $cards[$k] = (float)$r['total'];
+    }
+
+} catch (PDOException $e){
+    // opcional: log($e->getMessage());
+}
+
+$totalGeralCards = $cards['aprovado'] + $cards['pendente'] + $cards['reprovado'];
+
+// ================================================================
+// 2) RECEBÍVEIS POR STATUS (sem paginação — fixo: 3 linhas)
+// ================================================================
+$dados = [
+    'aprovado' => ['quantidade'=>0, 'valor'=>0.0],
+    'pendente' => ['quantidade'=>0, 'valor'=>0.0],
+    'reprovado'=> ['quantidade'=>0, 'valor'=>0.0]
+];
+
+try {
+    $where = ["1=1"];
+    $params = [];
+
+    list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, 'sp.created_at');
+
+    $sql = "
+        SELECT sp.status, COUNT(*) AS qtd, SUM(sp.valor) AS soma
+        FROM solicitacoes_pagamento sp
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ",$where)."
+        GROUP BY sp.status
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $res = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($res as $r){
+        $k = strtolower($r['status']);
+        if (isset($dados[$k])){
+            $dados[$k]['quantidade'] = (int)$r['qtd'];
+            $dados[$k]['valor'] = (float)$r['soma'];
+        }
+    }
+
+} catch (PDOException $e) { }
+
+$totalGeralRecebiveis = $dados['aprovado']['valor'] + $dados['pendente']['valor'] + $dados['reprovado']['valor'];
+
+// ================================================================
+// 3) FLUXO DE CAIXA (aberturas) — COM PAGINAÇÃO
+// ================================================================
+$fluxo = [];
+$totalEntradas = $totalSaidas = $totalSaldo = 0;
+$totalVendas = 0;
+
+try {
+    $where = ["1=1"];
+    $params = [];
+
+    // date column used: a.fechamento_datetime
+    if ($applyDateFilter) {
+        // reuse buildWhereAndParams but with different date column and no status param
+        list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, '', 'a.fechamento_datetime');
+    } else {
+        // only filial filter applies if set
+        if ($filial !== '') {
+            $where[] = " u.nome = :filialFiltro ";
+            $params[':filialFiltro'] = $filial;
+        }
+    }
+
+    // always only closed
+    $where[] = " a.status = 'fechado' ";
+
+    // COUNT total
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM aberturas a
+        ".str_replace("FIELD_ID","a.empresa_id",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
+    $stmt->execute($params);
+    $totalRowsFluxo = (int)$stmt->fetchColumn();
+
+    // pagination variables
+    $page_fluxo = max(1, (int)($_GET['page_fluxo'] ?? 1));
+    $offset_fluxo = ($page_fluxo - 1) * $perPage;
+
+    $sql = "
+        SELECT a.responsavel, a.valor_total, a.valor_sangrias, a.valor_liquido,
+               a.quantidade_vendas, u.nome AS nome_filial, a.fechamento_datetime
+        FROM aberturas a
+        ".str_replace("FIELD_ID","a.empresa_id",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+        ORDER BY a.fechamento_datetime DESC
+        LIMIT :lim OFFSET :off
+    ";
+
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_fluxo, PDO::PARAM_INT);
+    $stmt->execute();
+    $fluxo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($fluxo as $f){
+        $totalEntradas += (float)$f['valor_total'];
+        $totalSaidas   += (float)$f['valor_sangrias'];
+        $totalSaldo    += (float)$f['valor_liquido'];
+        $totalVendas   += (int)$f['quantidade_vendas'];
+    }
+
+} catch(PDOException $e){
+    $fluxo = [];
+    $totalRowsFluxo = 0;
+}
+
+// ================================================================
+// 4) CONTAS FUTURAS — COM PAGINAÇÃO
+// ================================================================
+$contasFuturas = [];
+$totalRowsContasFuturas = 0;
+
+try {
+    $where = ["1=1"];
+    $params = [];
+
+    // date column: c.datatransacao (note: earlier used dates without times)
+    if ($applyDateFilter) {
+        // when using datatransacao, strip times
+        if (!empty($de)) {
+            $where[] = " c.datatransacao >= :d1date ";
+            $params[':d1date'] = $de;
+        }
+        if (!empty($ate)) {
+            $where[] = " c.datatransacao <= :d2date ";
+            $params[':d2date'] = $ate;
+        }
+    }
+
+    if ($filial !== '') {
+        $where[] = " u.nome = :filialFiltro ";
+        $params[':filialFiltro'] = $filial;
+    }
+
+    $where[] = " c.statuss = 'futura' ";
+
+    // count
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM contas c
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
+    $stmt->execute($params);
+    $totalRowsContasFuturas = (int)$stmt->fetchColumn();
+
+    // pagination
+    $page_contas_futuras = max(1, (int)($_GET['page_contas_futuras'] ?? 1));
+    $offset_contas_futuras = ($page_contas_futuras - 1) * $perPage;
+
+    $sql = "
+        SELECT c.*, u.nome AS nome_filial
+        FROM contas c
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+        ORDER BY c.datatransacao ASC
+        LIMIT :lim OFFSET :off
+    ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_contas_futuras, PDO::PARAM_INT);
+    $stmt->execute();
+    $contasFuturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch(PDOException $e){
+    $contasFuturas = [];
+    $totalRowsContasFuturas = 0;
+}
+
+// ================================================================
+// 5) CONTAS PAGAS — COM PAGINAÇÃO
+// ================================================================
+$contasPagas = [];
+$totalRowsContasPagas = 0;
+
+try {
+    $where = ["1=1"];
+    $params = [];
+
+    if ($applyDateFilter) {
+        if (!empty($de)) {
+            $where[] = " c.datatransacao >= :d1date ";
+            $params[':d1date'] = $de;
+        }
+        if (!empty($ate)) {
+            $where[] = " c.datatransacao <= :d2date ";
+            $params[':d2date'] = $ate;
+        }
+    }
+
+    if ($filial !== '') {
+        $where[] = " u.nome = :filialFiltro ";
+        $params[':filialFiltro'] = $filial;
+    }
+
+    $where[] = " c.statuss = 'pago' ";
+
+    // count
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM contas c
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
+    $stmt->execute($params);
+    $totalRowsContasPagas = (int)$stmt->fetchColumn();
+
+    // pagination
+    $page_contas_pagas = max(1, (int)($_GET['page_contas_pagas'] ?? 1));
+    $offset_contas_pagas = ($page_contas_pagas - 1) * $perPage;
+
+    $sql = "
+        SELECT c.*, u.nome AS nome_filial
+        FROM contas c
+        ".str_replace("FIELD_ID","c.id_selecionado",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+        ORDER BY c.datatransacao DESC
+        LIMIT :lim OFFSET :off
+    ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_contas_pagas, PDO::PARAM_INT);
+    $stmt->execute();
+    $contasPagas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch(PDOException $e){
+    $contasPagas = [];
+    $totalRowsContasPagas = 0;
+}
+
+// ================================================================
+// 6) PAGAMENTOS APROVADOS — COM PAGINAÇÃO
+// ================================================================
+$pagamentos = [];
+$totalGeralPagamentos = 0;
+$totalRowsPagamentos = 0;
+
+try {
+    $where = ["1=1"];
+    $params = [];
+
+    list($where, $params) = buildWhereAndParams($where, $params, $applyDateFilter, $de_datetime, $ate_datetime, $filial, $status, 'sp.created_at');
+
+    $where[] = " sp.status = 'aprovado' ";
+
+    // count
+    $countSql = "
+        SELECT COUNT(*) as cnt
+        FROM solicitacoes_pagamento sp
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+    ";
+    $stmt = $pdo->prepare($countSql);
+    $stmt->execute($params);
+    $totalRowsPagamentos = (int)$stmt->fetchColumn();
+
+    // pagination
+    $page_pagamentos = max(1, (int)($_GET['page_pagamentos'] ?? 1));
+    $offset_pagamentos = ($page_pagamentos - 1) * $perPage;
+
+    $sql = "
+        SELECT sp.*, u.nome AS nome_filial
+        FROM solicitacoes_pagamento sp
+        ".str_replace("FIELD_ID","sp.id_solicitante",$JOIN_FILIAL)."
+        WHERE ".implode(" AND ", $where)."
+        ORDER BY sp.created_at DESC
+        LIMIT :lim OFFSET :off
+    ";
+    $stmt = $pdo->prepare($sql);
+    foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+    $stmt->bindValue(':lim', (int)$perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':off', (int)$offset_pagamentos, PDO::PARAM_INT);
+    $stmt->execute();
+    $pagamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($pagamentos as $p){
+        $totalGeralPagamentos += (float)$p['valor'];
+    }
+
+} catch(PDOException $e){
+    $pagamentos = [];
+    $totalRowsPagamentos = 0;
+}
+
+// ================================================================
+// FUNÇÃO AUX: render pager links
+// ================================================================
+function renderPager($baseQueryParams, $currentPage, $totalRows, $perPage, $pageParamName) {
+    $totalPages = (int)ceil($totalRows / $perPage);
+    if ($totalPages <= 1) return '';
+
+    $out = '<nav aria-label="Page navigation" class="mt-2"><ul class="pagination pagination-sm mb-0">';
+
+    // previous
+    $prev = max(1, $currentPage - 1);
+    $qsPrev = http_build_query(array_merge($baseQueryParams, [$pageParamName => $prev]));
+    $out .= '<li class="page-item '.($currentPage==1?'disabled':'').'"><a class="page-link" href="?'.$qsPrev.'">&laquo;</a></li>';
+
+    // window pages (simple)
+    $start = max(1, $currentPage - 3);
+    $end = min($totalPages, $currentPage + 3);
+    for ($p = $start; $p <= $end; $p++) {
+        $qs = http_build_query(array_merge($baseQueryParams, [$pageParamName => $p]));
+        $out .= '<li class="page-item '.($p==$currentPage?'active':'').'"><a class="page-link" href="?'.$qs.'">'. $p .'</a></li>';
+    }
+
+    // next
+    $next = min($totalPages, $currentPage + 1);
+    $qsNext = http_build_query(array_merge($baseQueryParams, [$pageParamName => $next]));
+    $out .= '<li class="page-item '.($currentPage==$totalPages?'disabled':'').'"><a class="page-link" href="?'.$qsNext.'">&raquo;</a></li>';
+
+    $out .= '</ul></nav>';
+    return $out;
+}
+
+// Build base query params to preserve filters across pagination links
+$baseQueryParams = [];
+$baseQueryParams['id'] = $idSelecionado;
+if ($de_raw !== '') $baseQueryParams['de'] = $de_raw;
+if ($ate_raw !== '') $baseQueryParams['ate'] = $ate_raw;
+if ($status_raw !== '') $baseQueryParams['status'] = $status_raw;
+if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
+
+// ensure other page params preserved? we'll let pager generate individually
+
+// --------------------------
+// HTML: filtros reorganizados
+// --------------------------
+?><!-- ============================= -->
+<!-- Filtros (De / Até, Status, Filial) -->
+<!-- ============================= -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form class="d-flex flex-wrap w-100 gap-4 align-items-end" method="get">
+            <input type="hidden" name="id" value="<?= h($idSelecionado) ?>">
+
+            <!-- De -->
+            <div class="col-6 col-md-1">
+                <label class="form-label mb-1">De</label>
+                <input type="date" class="form-control form-control-sm" name="de" value="<?= h($de_raw) ?>">
+            </div>
+
+            <!-- Até -->
+            <div class="col-6 col-md-1">
+                <label class="form-label mb-1">Até</label>
+                <input type="date" class="form-control form-control-sm" name="ate" value="<?= h($ate_raw) ?>">
+            </div>
+
+            <!-- Status -->
+            <div class="col-6 col-md-2">
+                <label for="status" class="form-label mb-1">Status</label>
+                <select id="status" class="form-select form-select-sm" name="status">
+                    <option value="">Status: Todos</option>
+                    <option value="aprovado" <?= ($status === 'aprovado') ? 'selected' : '' ?>>Aprovado</option>
+                    <option value="pendente" <?= ($status === 'pendente') ? 'selected' : '' ?>>Pendente</option>
+                    <option value="reprovado" <?= ($status === 'reprovado') ? 'selected' : '' ?>>Reprovado</option>
+                </select>
+            </div>
+
+            <!-- Filial -->
+            <div class="col-6 col-md-4">
+                <label for="filial" class="form-label mb-1">Franquia</label>
+                <select id="filial" class="form-select form-select-sm" name="filial">
+                    <option value="">Todas as Franquia</option>
+                    <?php foreach ($filiaisOptions as $f): ?>
+                        <option value="<?= h($f['nome']) ?>" <?= ($filial === $f['nome']) ? 'selected' : '' ?>>
+                            <?= h($f['nome']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- Ações (reorganizado) -->
+            <div class="col-12 col-md-3">
+                <button class="btn btn-sm btn-primary" type="submit" title="Aplicar filtros">
+                    <i class="bx bx-filter-alt me-1"></i> Aplicar
+                </button>
+
+                <a class="btn btn-sm btn-outline-secondary" href="?id=<?= urlencode($idSelecionado) ?>" title="Limpar filtros">
+                    <i class="bx bx-x me-1"></i> Limpar
+                </a>
+
+                <!-- botão atualizado para usar a função JS -->
+                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openPrintReport()" title="Imprimir">
+                    <i class="bx bx-printer me-1"></i> Imprimir
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ====== ÁREA VISÍVEL (mantida igual) ====== -->
+<div id="report-visible">
+
+    <!-- ============================= -->
+    <!-- KPIs principais -->
+    <!-- ============================= -->
+    <div class="row">
+        <!-- FATURAMENTO TOTAL -->
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Faturamento (por Período)</div>
+                    <div class="kpi-value">R$ <?= number_format($totalGeralCards ?? 0, 2, ',', '.') ?></div>
+                    <div class="kpi-sub">Pedidos fechados</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- APROVADO -->
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Recebido (Aprovado)</div>
+                    <div class="kpi-value">R$ <?= number_format($cards['aprovado'] ?? 0, 2, ',', '.') ?></div>
+                    <div class="kpi-sub"><?= number_format(percentVal($cards['aprovado'] ?? 0, $totalGeralCards ?? 0),1,',','.') ?>% do total</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PENDENTE -->
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Em Aberto (Pendente)</div>
+                    <div class="kpi-value">R$ <?= number_format($cards['pendente'] ?? 0, 2, ',', '.') ?></div>
+                    <div class="kpi-sub"><?= number_format(percentVal($cards['pendente'] ?? 0, $totalGeralCards ?? 0),1,',','.') ?>% do total</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- REPROVADO -->
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="card kpi-card">
+                <div class="card-body">
+                    <div class="kpi-label">Reprovados</div>
+                    <div class="kpi-value">R$ <?= number_format($cards['reprovado'] ?? 0, 2, ',', '.') ?></div>
+                    <div class="kpi-sub"><?= number_format(percentVal($cards['reprovado'] ?? 0, $totalGeralCards ?? 0),1,',','.') ?>% do total</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================= -->
+    <!-- Recebíveis por Status (sem paginação) -->
+    <!-- ============================= -->
+    <div class="card mb-3">
+        <h5 class="card-header">Recebíveis por Status</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle text-nowrap">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th class="text-end">Quantidade</th>
+                        <th class="text-end">Valor (R$)</th>
+                        <th style="min-width:180px;">% do Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                        foreach (['aprovado','pendente','reprovado'] as $st) {
+                            $q = $dados[$st]['quantidade'] ?? 0;
+                            $v = $dados[$st]['valor'] ?? 0;
+                            $p = ($totalGeralRecebiveis>0) ? ($v / $totalGeralRecebiveis) * 100 : 0;
+                            $label = $st === 'aprovado' ? 'Pago' : ($st === 'pendente' ? 'Em Aberto' : 'Reprovado');
+                            $badgeClass = $st === 'aprovado' ? 'bg-success text-white' : ($st === 'pendente' ? 'bg-warning text-dark' : 'bg-danger text-white');
+                    ?>
+                    <tr>
+                        <td><span class="badge badge-soft <?= $badgeClass ?>"><?= $label ?></span></td>
+                        <td class="text-end"><?= $q ?></td>
+                        <td class="text-end">R$ <?= number_format($v,2,',','.') ?></td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="flex-grow-1">
+                                    <div class="progress progress-skinny">
+                                        <div class="progress-bar" style="width: <?= $p ?>%;" aria-valuenow="<?= $p ?>" aria-valuemin="0" aria-valuemax="100"></div>
                                     </div>
-
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <label for="status" class="form-label mb-1">Status</label>
-                                        <select id="status" class="form-select form-select-sm" name="status">
-                                            <option selected>Status: Todos</option>
-                                            <option>Pagos</option>
-                                            <option>Em Aberto</option>
-                                            <option>Vencidos</option>
-                                        </select>
-                                    </div>
-
-                                    <div class="col-12 col-sm-6 col-lg-3">
-                                        <label for="franquia" class="form-label mb-1">Franquia</label>
-                                        <select id="franquia" class="form-select form-select-sm" name="franquia">
-                                            <option selected>Todas as Franquias</option>
-                                            <option>Franquia Centro</option>
-                                            <option>Franquia Norte</option>
-                                            <option>Franquia Sul</option>
-                                        </select>
-                                    </div>
-
-                                    <!-- Ações principais -->
-                                    <!-- Ações primárias -->
-                                    <div class="col-12 col-sm-6 col-lg-3 mr-3">
-                                       
-                                
-                                        <div class="btn-toolbar" role="toolbar" aria-label="Exportar e imprimir">
-                                            <div class="btn-group btn-group-sm me-2" role="group" aria-label="Exportar">
-                                                <button type="button" class="btn btn-outline-dark dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="bx bx-download me-1"></i>
-                                                    <span class="align-middle">Exportar</span>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-file me-2"></i> XLSX</button></li>
-                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-data me-2"></i> CSV</button></li>
-                                                    <li>
-                                                        <hr class="dropdown-divider">
-                                                    </li>
-                                                    <li><button class="dropdown-item" type="button"><i class="bx bx-table me-2"></i> PDF (tabela)</button></li>
-                                                </ul>
-                                            </div>
-
-                                            <div class="btn-group btn-group-sm" role="group" aria-label="Imprimir">
-                                                <button class="btn btn-outline-dark" type="button" onclick="window.print()" data-bs-toggle="tooltip" data-bs-title="Imprimir página">
-                                                    <i class="bx bx-printer me-1"></i>
-                                                    <span class="align-middle">Imprimir</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
-                            </form>
-                        </div>
-                    </div>
-
-
-                    <!-- ============================= -->
-                    <!-- KPIs principais               -->
-                    <!-- ============================= -->
-                    <div class="row">
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Faturamento (Período)</div>
-                                    <div class="kpi-value">R$ 128.450,00</div>
-                                    <div class="kpi-sub">Pedidos fechados</div>
-                                </div>
+                                <div style="width:58px;" class="text-end"><?= number_format($p,1,',','.') ?>%</div>
                             </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Recebido</div>
-                                    <div class="kpi-value">R$ 103.900,00</div>
-                                    <div class="kpi-sub">80,9% do total</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Em Aberto</div>
-                                    <div class="kpi-value">R$ 18.750,00</div>
-                                    <div class="kpi-sub">14,6% do total</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3 col-sm-6 mb-3">
-                            <div class="card kpi-card">
-                                <div class="card-body">
-                                    <div class="kpi-label">Vencidos</div>
-                                    <div class="kpi-value">R$ 5.800,00</div>
-                                    <div class="kpi-sub">4,5% do total</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        </td>
+                    </tr>
+                    <?php } ?>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>Total</th>
+                        <th class="text-end"><?= ($dados['aprovado']['quantidade'] ?? 0) + ($dados['pendente']['quantidade'] ?? 0) + ($dados['reprovado']['quantidade'] ?? 0) ?></th>
+                        <th class="text-end">R$ <?= number_format($totalGeralRecebiveis ?? 0,2,',','.') ?></th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
 
-                    <!-- ============================= -->
-                    <!-- Recebíveis por Status         -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Recebíveis por Status</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Status</th>
-                                        <th class="text-end">Qtde Títulos</th>
-                                        <th class="text-end">Valor (R$)</th>
-                                        <th style="min-width:180px;">% do Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><span class="badge badge-soft">Pago</span></td>
-                                        <td class="text-end">142</td>
-                                        <td class="text-end">R$ 103.900,00</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress progress-skinny">
-                                                        <div class="progress-bar" style="width: 80.9%;" aria-valuenow="80.9" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">80,9%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td><span class="badge badge-soft">Em Aberto</span></td>
-                                        <td class="text-end">38</td>
-                                        <td class="text-end">R$ 18.750,00</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress progress-skinny">
-                                                        <div class="progress-bar" style="width: 14.6%;" aria-valuenow="14.6" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">14,6%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td><span class="badge badge-soft">Vencido</span></td>
-                                        <td class="text-end">12</td>
-                                        <td class="text-end">R$ 5.800,00</td>
-                                        <td>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <div class="flex-grow-1">
-                                                    <div class="progress progress-skinny">
-                                                        <div class="progress-bar" style="width: 4.5%;" aria-valuenow="4.5" aria-valuemin="0" aria-valuemax="100"></div>
-                                                    </div>
-                                                </div>
-                                                <div style="width:58px;" class="text-end">4,5%</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>Total</th>
-                                        <th class="text-end">192</th>
-                                        <th class="text-end">R$ 128.450,00</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
+    <!-- ============================= -->
+    <!-- Fluxo de Caixa (Resumo) + pager -->
+    <!-- ============================= -->
+    <div class="card mb-3">
+        <h5 class="card-header">Fluxo de Caixa — Resumo do Período</h5>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover text-nowrap">
+                <thead>
+                    <tr>
+                        <th>Responsável</th>
+                        <th class="text-end">Entradas (R$)</th>
+                        <th class="text-end">Saídas (R$)</th>
+                        <th class="text-end">Saldo (R$)</th>
+                        <th class="text-end">Quantidade de Vnd</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($fluxo)) : ?>
+                        <tr><td colspan="5" class="text-center text-muted">Nenhum caixa fechado de franquia ativa encontrado.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($fluxo as $f): ?>
+                            <tr>
+                                <td><?= h($f['responsavel']) ?> <small class="text-muted">/ <?= h($f['nome_filial']) ?></small></td>
+                                <td class="text-end">R$ <?= number_format($f['valor_total'],2,',','.') ?></td>
+                                <td class="text-end">R$ <?= number_format($f['valor_sangrias'],2,',','.') ?></td>
+                                <td class="text-end">R$ <?= number_format($f['valor_liquido'],2,',','.') ?></td>
+                                <td class="text-end"><?= (int)$f['quantidade_vendas'] ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>Total</th>
+                        <th class="text-end">R$ <?= number_format($totalEntradas,2,',','.') ?></th>
+                        <th class="text-end">R$ <?= number_format($totalSaidas,2,',','.') ?></th>
+                        <th class="text-end">R$ <?= number_format($totalSaldo,2,',','.') ?></th>
+                        <th class="text-end"><?= $totalVendas ?></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
 
-                    <!-- ============================= -->
-                    <!-- Fluxo de Caixa (Resumo)       -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Fluxo de Caixa — Resumo do Período</h5>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Categoria</th>
-                                        <th class="text-end">Entradas (R$)</th>
-                                        <th class="text-end">Saídas (R$)</th>
-                                        <th class="text-end">Saldo (R$)</th>
-                                        <th>Obs.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Vendas B2B</td>
-                                        <td class="text-end">R$ 103.900,00</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 103.900,00</td>
-                                        <td>Baixas confirmadas</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Vendas PDV</td>
-                                        <td class="text-end">R$ 42.500,00</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 42.500,00</td>
-                                        <td>PIX + Cartão</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Despesas Fixas</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 24.300,00</td>
-                                        <td class="text-end">- R$ 24.300,00</td>
-                                        <td>Aluguel, folha, energia</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Compras/Estoque</td>
-                                        <td class="text-end">—</td>
-                                        <td class="text-end">R$ 11.800,00</td>
-                                        <td class="text-end">- R$ 11.800,00</td>
-                                        <td>Reposição insumos</td>
-                                    </tr>
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>Total</th>
-                                        <th class="text-end">R$ 146.400,00</th>
-                                        <th class="text-end">R$ 36.100,00</th>
-                                        <th class="text-end">R$ 110.300,00</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
+        <div class="card-body pt-2">
+            <?= renderPager($baseQueryParams, $page_fluxo ?? 1, $totalRowsFluxo ?? 0, $perPage, 'page_fluxo') ?>
+        </div>
+    </div>
 
-                    <!-- ============================= -->
-                    <!-- Contas a Receber              -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Contas a Receber (Títulos)</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Franquia</th>
-                                        <th>Documento</th>
-                                        <th>Emissão</th>
-                                        <th>Vencimento</th>
-                                        <th class="text-end">Valor (R$)</th>
-                                        <th>Status</th>
-                                        <th>Obs.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>001245</td>
-                                        <td>Franquia Centro</td>
-                                        <td>NF 345/2025</td>
-                                        <td>05/09/2025</td>
-                                        <td>20/09/2025</td>
-                                        <td class="text-end">R$ 2.450,00</td>
-                                        <td><span class="badge bg-success">Pago</span></td>
-                                        <td>PIX confirmado</td>
-                                    </tr>
-                                    <tr>
-                                        <td>001371</td>
-                                        <td>Franquia Norte</td>
-                                        <td>NF 412/2025</td>
-                                        <td>12/09/2025</td>
-                                        <td>27/09/2025</td>
-                                        <td class="text-end">R$ 1.980,00</td>
-                                        <td><span class="badge bg-warning text-dark">Em Aberto</span></td>
-                                        <td>Ag. comprovante</td>
-                                    </tr>
-                                    <tr>
-                                        <td>001402</td>
-                                        <td>Franquia Sul</td>
-                                        <td>NF 433/2025</td>
-                                        <td>15/09/2025</td>
-                                        <td>25/09/2025</td>
-                                        <td class="text-end">R$ 3.120,00</td>
-                                        <td><span class="badge bg-danger">Vencido</span></td>
-                                        <td>Recontatar cliente</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+    <!-- ============================= -->
+    <!-- Contas a Pagar (Futura) + pager -->
+    <!-- ============================= -->
+    <div class="card mb-3">
+        <h5 class="card-header">Contas a pagar (Futura)</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle text-nowrap">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Franquia</th>
+                        <th>Descrição</th>
+                        <th>Data Transação</th>
+                        <th class="text-end">Valor (R$)</th>
+                        <th>Responsável</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($contasFuturas)) : ?>
+                        <tr><td colspan="7" class="text-center text-muted">Nenhuma conta futura de franquia ativa encontrada.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($contasFuturas as $c): ?>
+                            <tr>
+                                <td><?= h($c['id']) ?></td>
+                                <td><?= h($c['nome_filial']) ?></td>
+                                <td><?= h($c['descricao']) ?></td>
+                                <td><?= date('d/m/Y', strtotime($c['datatransacao'])) ?></td>
+                                <td class="text-end">R$ <?= number_format($c['valorpago'],2,',','.') ?></td>
+                                <td><?= h($c['responsavel']) ?></td>
+                                <td><span class="badge bg-warning text-dark">Futura</span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
 
-                    <!-- ============================= -->
-                    <!-- Contas a Pagar                -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Contas a Pagar</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Fornecedor</th>
-                                        <th>Documento</th>
-                                        <th>Competência</th>
-                                        <th>Vencimento</th>
-                                        <th class="text-end">Valor (R$)</th>
-                                        <th>Status</th>
-                                        <th>Obs.</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>P-2099</td>
-                                        <td>Energia Amazonas</td>
-                                        <td>FAT 99821</td>
-                                        <td>09/2025</td>
-                                        <td>30/09/2025</td>
-                                        <td class="text-end">R$ 3.480,00</td>
-                                        <td><span class="badge bg-warning text-dark">Em Aberto</span></td>
-                                        <td>-</td>
-                                    </tr>
-                                    <tr>
-                                        <td>P-2107</td>
-                                        <td>Fornecedor Embalagens</td>
-                                        <td>NF 88219</td>
-                                        <td>09/2025</td>
-                                        <td>28/09/2025</td>
-                                        <td class="text-end">R$ 5.900,00</td>
-                                        <td><span class="badge bg-danger">Vencido</span></td>
-                                        <td>Negociar multa</td>
-                                    </tr>
-                                    <tr>
-                                        <td>P-2111</td>
-                                        <td>Granola Norte Ltda</td>
-                                        <td>NF 12911</td>
-                                        <td>09/2025</td>
-                                        <td>29/09/2025</td>
-                                        <td class="text-end">R$ 2.420,00</td>
-                                        <td><span class="badge bg-success">Pago</span></td>
-                                        <td>PIX 26/09</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+        <div class="card-body pt-2">
+            <?= renderPager($baseQueryParams, $page_contas_futuras ?? 1, $totalRowsContasFuturas ?? 0, $perPage, 'page_contas_futuras') ?>
+        </div>
+    </div>
 
-                    <!-- ============================= -->
-                    <!-- Pagamentos por Franquia       -->
-                    <!-- ============================= -->
-                    <div class="card mb-3">
-                        <h5 class="card-header">Pagamentos por Franquia — Resumo</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead>
-                                    <tr>
-                                        <th>Franquia</th>
-                                        <th class="text-end">Recebido (R$)</th>
-                                        <th class="text-end">Em Aberto (R$)</th>
-                                        <th class="text-end">Vencido (R$)</th>
-                                        <th class="text-end">Total (R$)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><strong>Franquia Centro</strong></td>
-                                        <td class="text-end">R$ 45.200,00</td>
-                                        <td class="text-end">R$ 6.100,00</td>
-                                        <td class="text-end">R$ 1.100,00</td>
-                                        <td class="text-end">R$ 52.400,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Norte</strong></td>
-                                        <td class="text-end">R$ 36.700,00</td>
-                                        <td class="text-end">R$ 7.900,00</td>
-                                        <td class="text-end">R$ 2.300,00</td>
-                                        <td class="text-end">R$ 46.900,00</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Franquia Sul</strong></td>
-                                        <td class="text-end">R$ 21.900,00</td>
-                                        <td class="text-end">R$ 4.750,00</td>
-                                        <td class="text-end">R$ 2.400,00</td>
-                                        <td class="text-end">R$ 29.050,00</td>
-                                    </tr>
-                                </tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th>Total</th>
-                                        <th class="text-end">R$ 103.800,00</th>
-                                        <th class="text-end">R$ 18.750,00</th>
-                                        <th class="text-end">R$ 5.800,00</th>
-                                        <th class="text-end">R$ 128.350,00</th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
+    <!-- ============================= -->
+    <!-- Contas Pagas + pager -->
+    <!-- ============================= -->
+    <div class="card mb-3">
+        <h5 class="card-header">Contas Pagas</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle text-nowrap">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Franquia</th>
+                        <th>Descrição</th>
+                        <th>Data Transação</th>
+                        <th class="text-end">Valor (R$)</th>
+                        <th>Responsável</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($contasPagas)) : ?>
+                        <tr><td colspan="7" class="text-center text-muted">Nenhuma conta paga por franquia ativa encontrada.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($contasPagas as $c): ?>
+                            <tr>
+                                <td><?= h($c['id']) ?></td>
+                                <td><?= h($c['nome_filial']) ?></td>
+                                <td><?= h($c['descricao']) ?></td>
+                                <td><?= date('d/m/Y', strtotime($c['datatransacao'])) ?></td>
+                                <td class="text-end">R$ <?= number_format($c['valorpago'],2,',','.') ?></td>
+                                <td><?= h($c['responsavel']) ?></td>
+                                <td><span class="badge bg-success">Pago</span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card-body pt-2">
+            <?= renderPager($baseQueryParams, $page_contas_pagas ?? 1, $totalRowsContasPagas ?? 0, $perPage, 'page_contas_pagas') ?>
+        </div>
+    </div>
+
+    <!-- ============================= -->
+    <!-- Pagamentos por Filial — Aprovados + pager -->
+    <!-- ============================= -->
+    <div class="card mb-3">
+        <h5 class="card-header">Pagamentos por Franquia — Resumo</h5>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle text-nowrap">
+                <thead>
+                    <tr>
+                        <th>Filial</th>
+                        <th class="text-end">Valor</th>
+                        <th class="text-end">Data de Emissão</th>
+                        <th class="text-end">Vencimento</th>
+                        <th class="text-end">Comprovante</th>
+                        <th class="text-end">Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($pagamentos)) : ?>
+                        <tr><td colspan="6" class="text-center text-muted">Nenhum pagamento aprovado de franquia ativa encontrado.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($pagamentos as $pg): ?>
+                            <tr>
+                                <td><strong><?= h($pg['nome_filial']) ?></strong></td>
+                                <td class="text-end">R$ <?= number_format($pg['valor'],2,',','.') ?></td>
+                                <td class="text-end"><?= date('d/m/Y H:i', strtotime($pg['created_at'])) ?></td>
+                                <td class="text-end"><?= date('d/m/Y', strtotime($pg['vencimento'])) ?></td>
+                                <td class="text-end">
+                                    <?php if (!empty($pg['comprovante_url'])): ?>
+                                        <a href="/assets/php/matriz/<?= h($pg['comprovante_url']) ?>" target="_blank">Abrir</a>
+                                    <?php else: ?>
+                                        <span class="text-muted">Sem arquivo</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end"><?= h($pg['descricao']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th>Total</th>
+                        <th class="text-end">R$ <?= number_format($totalGeralPagamentos ?? 0,2,',','.') ?></th>
+                         <th class="text-end"></th>
+                          <th class="text-end"></th>
+                           <th class="text-end"></th>
+                            <th class="text-end"></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="card-body pt-2">
+            <?= renderPager($baseQueryParams, $page_pagamentos ?? 1, $totalRowsPagamentos ?? 0, $perPage, 'page_pagamentos') ?>
+        </div>
+    </div>
+
+</div> <!-- fim report-visible -->
+
+<script>
+function openPrintReport() {
+    try {
+        // Captura as datas, mas de forma segura (sem quebrar se não existir)
+        var inicioEl = document.querySelector('[name="inicio"]');
+        var fimEl = document.querySelector('[name="fim"]');
+        var inicioVal = inicioEl ? inicioEl.value : '--';
+        var fimVal = fimEl ? fimEl.value : '--';
+
+        // Verifica se as seções existem antes de capturar
+        var kpiRow = document.querySelector('.row');
+        var topProdutos = document.querySelectorAll('.card.mb-3')[1];
+        var rankingFilial = document.querySelectorAll('.card.mb-3')[2];
+
+        if (!kpiRow || !topProdutos || !rankingFilial) {
+            alert('Erro: algumas seções do relatório não foram encontradas na página.');
+            return;
+        }
+
+        // Monta conteúdo do relatório
+        var reportHtml = `
+            <div style="text-align:center; margin-bottom:20px;">
+                <h2 style="margin:0;">Relatório de Vendas por Franquia</h2>
+                <p style="margin:5px 0; font-size:13px; color:#555;">Período: ${inicioVal} até ${fimVal}</p>
+            </div>
+
+            <div>
+                ${kpiRow.outerHTML}
+            </div>
+
+            <hr style="margin:20px 0; border:none; border-top:1px solid #ddd;">
+
+            <div>
+                <h4 style="margin:0 0 10px;">Top 20 Produtos (Geral)</h4>
+                ${topProdutos.querySelector('.table-responsive').outerHTML}
+            </div>
+
+            <hr style="margin:20px 0; border:none; border-top:1px solid #ddd;">
+
+            <div>
+                <h4 style="margin:0 0 10px;">Ranking por Franquia (Top 10 de cada)</h4>
+                ${rankingFilial.querySelector('.table-responsive').outerHTML}
+            </div>
+        `;
+
+        // Abre nova aba para impressão
+        var win = window.open('', '_blank');
+        if (!win) {
+            alert('Bloqueador de pop-ups impediu a abertura da janela. Permita pop-ups e tente novamente.');
+            return;
+        }
+
+        // Estilo profissional
+        var style = `
+            <style>
+                @page { size: A4; margin: 18mm; }
+                body {
+                    font-family: 'Public Sans', Arial, sans-serif;
+                    color: #111827;
+                    font-size: 12px;
+                    -webkit-print-color-adjust: exact;
+                    background: white;
+                }
+                h2, h4 {
+                    font-weight: 600;
+                    color: #222;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                }
+                th, td {
+                    padding: 8px 10px;
+                    border: 1px solid #ddd;
+                    text-align: left;
+                }
+                thead th {
+                    background: #f2f3f5;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    font-size: 11px;
+                }
+                tbody tr:nth-child(even) { background: #fafafa; }
+                tbody tr:hover { background: #f0f4ff; }
+                .card.kpi-card {
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    padding: 8px 10px;
+                    text-align: center;
+                }
+                .kpi-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+                .kpi-value { font-size: 16px; font-weight: 600; color: #111; }
+                .kpi-sub { font-size: 10px; color: #777; }
+                .row {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 10px;
+                    justify-content: flex-start;
+                }
+                .col-md-2, .col-md-3, .col-md-5 {
+                    flex: 1 1 20%;
+                    min-width: 180px;
+                }
+                hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+            </style>
+        `;
+
+        // HTML final
+        var finalHtml = `
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8" />
+                <title>Relatório — Vendas por Franquia</title>
+                <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                ${style}
+            </head>
+            <body>
+                ${reportHtml}
+                <script>
+                    window.focus();
+                    setTimeout(function(){
+                        window.print();
+                    }, 300);
+                    window.onafterprint = function() {
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        // recarrega a página principal para garantir estado + filtros
+                        window.opener.location.reload();
+                        window.opener.focus();
+                    }
+                } catch (e) {
+                    // ignore cross-origin issues
+                }
+                // fecha a aba de impressão
+                window.close();
+            };
+                <\/script>
+            </body>
+            </html>
+        `;
+
+        // Renderiza na nova janela
+        win.document.open();
+        win.document.write(finalHtml);
+        win.document.close();
+
+    } catch (err) {
+        console.error(err);
+        alert('Erro ao gerar o relatório para impressão: ' + err.message);
+    }
+}
+</script>
+
+
 
                 </div><!-- /container -->
             </div><!-- /Layout page -->
         </div><!-- /Layout container -->
     </div>
     <script>
-        
-            document.addEventListener('DOMContentLoaded', function() {
-                // tooltips bootstrap
-                document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+        document.addEventListener('DOMContentLoaded', function() {
+            // tooltips bootstrap
+            document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
 
-                // spinner no Aplicar
-                const form = document.querySelector('form[method="get"]');
-                const btnAplicar = document.getElementById('btnAplicar');
-                if (form && btnAplicar) {
-                    form.addEventListener('submit', function() {
-                        btnAplicar.disabled = true;
-                        btnAplicar.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processando...';
-                    });
-                }
-            });
-  
-
+            // spinner no Aplicar
+            const form = document.querySelector('form[method="get"]');
+            const btnAplicar = document.getElementById('btnAplicar');
+            if (form && btnAplicar) {
+                form.addEventListener('submit', function() {
+                    btnAplicar.disabled = true;
+                    btnAplicar.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processando...';
+                });
+            }
+        });
     </script>
     <!-- Core JS -->
     <script src="../../js/saudacao.js"></script>
