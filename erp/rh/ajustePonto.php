@@ -413,7 +413,7 @@ try {
           <div class="card">
             <h5 class="card-header">Lista de funcionários</h5>
             <div class="table-responsive text-nowrap">
-              <table class="table table-hover">
+              <table class="table table-hover" id="tabelaAjuste">
                 <thead>
                   <tr>
                     <th>Funcionário</th>
