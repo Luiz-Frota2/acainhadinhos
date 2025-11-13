@@ -626,7 +626,7 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
                         <div class="card-header d-flex justify-content-between align-items-center p-3">
                             <h5 class="mb-0">Desempenho Mensal</h5>
                             <div>
-                                <button class="btn btn-sm btn-outline-secondary"><i class="bx bx-printer"></i></button>
+                                <button id="btn-print" class="btn btn-sm btn-outline-secondary"><i class="bx bx-printer"></i></button>
                             </div>
                         </div>
 
