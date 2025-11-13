@@ -592,7 +592,7 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
                                             <small class="text-muted d-block">Entradas</small>
                                             <h4 class="mb-0"><?= fmtBR($mensal['entradas']) ?></h4>
                                         </div>
-                                        <span class="badge bg-label-success">+8%</span>
+                                    
                                     </div>
                                 </div>
                             </div>
@@ -605,7 +605,7 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
                                             <small class="text-muted d-block">Saídas</small>
                                             <h4 class="mb-0"><?= fmtBR($mensal['saidas']) ?></h4>
                                         </div>
-                                        <span class="badge bg-label-danger">+3%</span>
+                                      
                                     </div>
                                 </div>
                             </div>
@@ -618,7 +618,7 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
                                             <small class="text-muted d-block">Saldo</small>
                                             <h4 class="mb-0"><?= fmtBR($mensal['saldo']) ?></h4>
                                         </div>
-                                        <span class="badge bg-label-success">+12%</span>
+                                    
                                     </div>
                                 </div>
                             </div>
