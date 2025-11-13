@@ -449,7 +449,7 @@ try {
                               </div>
                               <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <a href="../../assets/php/pdv/excluirEstoque.php?id=<?= $estoques['id'] ?>&empresa_id=<?= urlencode($idSelecionado) ?>"
+                                <a href="../../assets/php/estoque/excluirEstoque.php?id=<?= $estoques['id'] ?>&empresa_id=<?= urlencode($idSelecionado) ?>"
                                   class="btn btn-danger">Excluir</a>
                               </div>
                             </div>
@@ -466,7 +466,7 @@ try {
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                               </div>
                               <div class="modal-body">
-                                <form action="../../assets/php/pdv/editarEstoque.php" method="POST">
+                                <form action="../../assets/php/estoque/editarEstoque.php" method="POST">
                                   <input type="hidden" name="id" value="<?= htmlspecialchars($estoques['id']) ?>">
                                   <input type="text" name="empresa_id" value="<?= $idSelecionado ?>">
 
