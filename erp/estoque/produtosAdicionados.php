@@ -329,7 +329,7 @@ try {
             <div class="navbar-nav align-items-center">
               <div class="nav-item d-flex align-items-center">
                 <i class="bx bx-search fs-4 lh-0"></i>
-                <input type="text" class="form-control border-0 shadow-none" placeholder="Search..."
+                <input type="text" id="searchInput" class="form-control border-0 shadow-none" placeholder="Pesquisar..."
                   aria-label="Search..." />
               </div>
             </div>
@@ -359,7 +359,7 @@ try {
                       </div>
                     </a>
                   </li>
-                 
+
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
@@ -385,7 +385,7 @@ try {
           <div class="card">
             <h5 class="card-header">Lista de Produtos Adicionados</h5>
             <div class="table-responsive text-nowrap">
-              <table class="table table-hover">
+              <table class="table table-hover" id="tabelaProdutosAdicionados">
                 <thead>
                   <tr>
                     <th>Código</th>
@@ -561,6 +561,13 @@ try {
                 </tbody>
               </table>
             </div>
+
+            <div class="d-flex gap-2 m-3">
+              <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+              <div id="paginacaoHoras" class="d-flex gap-1"></div>
+              <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
+            </div>
+
           </div>
 
           <div class="mt-3 add-category justify-content-center d-flex text-center align-items-center"
@@ -569,6 +576,69 @@ try {
             <i class="tf-icons bx bx-plus me-2"></i>
             <span>Adicionar novo Produto</span>
           </div>
+
+          <script>
+            const searchInput = document.getElementById('searchInput');
+            const allRows = Array.from(document.querySelectorAll('#tabelaProdutosAdicionados tbody tr'));
+            const prevBtn = document.getElementById('prevPageHoras');
+            const nextBtn = document.getElementById('nextPageHoras');
+            const pageContainer = document.getElementById('paginacaoHoras');
+            const perPage = 10;
+            let currentPage = 1;
+
+            function renderTable() {
+              const filter = searchInput.value.trim().toLowerCase();
+              const filteredRows = allRows.filter(row => {
+                if (!filter) return true;
+                return Array.from(row.cells).some(td =>
+                  td.textContent.toLowerCase().includes(filter)
+                );
+              });
+
+              const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
+              currentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+              // Hide all, then show slice
+              allRows.forEach(r => r.style.display = 'none');
+              filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
+                .forEach(r => r.style.display = '');
+
+              // Render page buttons
+              pageContainer.innerHTML = '';
+              for (let i = 1; i <= totalPages; i++) {
+                const btn = document.createElement('button');
+                btn.textContent = i;
+                btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                btn.style.marginRight = '4px';
+                btn.onclick = () => {
+                  currentPage = i;
+                  renderTable();
+                };
+                pageContainer.appendChild(btn);
+              }
+
+              prevBtn.disabled = currentPage === 1;
+              nextBtn.disabled = currentPage === totalPages;
+            }
+
+            prevBtn.addEventListener('click', () => {
+              if (currentPage > 1) {
+                currentPage--;
+                renderTable();
+              }
+            });
+            nextBtn.addEventListener('click', () => {
+              currentPage++;
+              renderTable();
+            });
+            searchInput.addEventListener('input', () => {
+              currentPage = 1;
+              renderTable();
+            });
+
+            document.addEventListener('DOMContentLoaded', renderTable);
+          </script>
+
         </div>
         <!-- / Content -->
 
