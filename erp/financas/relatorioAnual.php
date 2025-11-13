@@ -585,7 +585,6 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
                                             <small class="text-muted d-block">Saídas Anuais</small>
                                             <h6 class="mb-0"><?= fmtBR($saidasAno) ?></h6>
                                         </div>
-                                        <span class="badge bg-label-danger">+8%</span>
                                     </div>
                                 </div>
                             </div>
@@ -627,7 +626,6 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
                         <div class="card-header d-flex justify-content-between align-items-center p-3">
                             <h5 class="mb-0">Desempenho Mensal</h5>
                             <div>
-                                <button class="btn btn-sm btn-outline-secondary me-2"><i class="bx bx-download"></i></button>
                                 <button class="btn btn-sm btn-outline-secondary"><i class="bx bx-printer"></i></button>
                             </div>
                         </div>
@@ -722,7 +720,6 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
                                                     <h6 class="mb-1">Melhor Ticket Médio</h6>
                                                     <small class="text-muted"><?= nomeMes($__max_ticket_mes) ?> - <?= fmtBR($__max_ticket) ?></small>
                                                 </div>
-                                                <span class="badge bg-info">0,8% acima da média</span>
                                             </div>
                                         </div>
                                     </div>
@@ -822,66 +819,203 @@ $__projecao_crescimento_pct = ($__soma_receita_ate_agora > 0)
         <script src="../../assets/js/dashboards-analytics.js"></script>
         <script async defer src="https://buttons.github.io/buttons.js"></script>
 
-        <script>
-            // Toolbar "Desempenho Mensal": Download/Imprimir + Filtro de Ano
-            document.addEventListener('DOMContentLoaded', function() {
-                // Download/Print
-                var area = Array.from(document.querySelectorAll('.card')).find(c => {
-                    var h = c.querySelector('.card-header h5, .card-header h4');
-                    return h && h.textContent.trim().toLowerCase() === 'desempenho mensal';
+     <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Localiza a área do "Desempenho Mensal"
+    const area = Array.from(document.querySelectorAll('.card')).find(c => {
+        const h = c.querySelector('.card-header h5, .card-header h4');
+        return h && h.textContent.trim().toLowerCase() === 'desempenho mensal';
+    });
+
+    if (area) {
+        const btnPrintIcon = area.querySelector('.bx-printer');
+        if (btnPrintIcon) {
+            const btnPrint = btnPrintIcon.closest('button, a');
+            if (btnPrint) {
+                btnPrint.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // Captura as seções para o relatório impresso
+                    const cardsResumo = document.querySelector('.row.mb-4');
+                    const tabela = area.querySelector('table');
+                    const melhoresMeses = document.querySelector('.col-md-6:nth-of-type(1) .list-group');
+                    const resumoTrimestre = document.querySelector('.col-md-6:nth-of-type(2) .list-group');
+
+                    // Abre nova janela para impressão
+                    const w = window.open('', '_blank');
+                    w.document.write(`
+                        <html>
+                            <head>
+                                <meta charset="utf-8" />
+                                <title>Relatório Anual - Financeiro</title>
+                                <style>
+                                    body {
+                                        font-family: Arial, sans-serif;
+                                        margin: 30px 50px;
+                                        color: #333;
+                                        background: #fff;
+                                    }
+                                    header {
+                                        text-align: center;
+                                        margin-bottom: 25px;
+                                    }
+                                    header h2 {
+                                        margin: 0;
+                                        font-size: 22px;
+                                        font-weight: 700;
+                                        color: #222;
+                                    }
+                                    header p {
+                                        margin: 0;
+                                        font-size: 14px;
+                                        color: #777;
+                                    }
+                                    section {
+                                        margin-bottom: 25px;
+                                    }
+                                    h3 {
+                                        border-bottom: 2px solid #ccc;
+                                        padding-bottom: 5px;
+                                        margin-bottom: 10px;
+                                        color: #444;
+                                    }
+                                    table {
+                                        width: 100%;
+                                        border-collapse: collapse;
+                                        margin-top: 10px;
+                                        font-size: 14px;
+                                    }
+                                    th, td {
+                                        padding: 8px 10px;
+                                        border: 1px solid #ccc;
+                                    }
+                                    th {
+                                        background-color: #f9f9f9;
+                                        font-weight: 600;
+                                    }
+                                    td.text-end, th.text-end {
+                                        text-align: right;
+                                    }
+                                    .card-resumo {
+                                        display: grid;
+                                        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                                        gap: 12px;
+                                        margin-top: 15px;
+                                    }
+                                    .card-item {
+                                        border: 1px solid #ddd;
+                                        border-radius: 5px;
+                                        padding: 10px;
+                                        text-align: center;
+                                        background: #fafafa;
+                                    }
+                                    .card-item small {
+                                        color: #666;
+                                        display: block;
+                                    }
+                                    .card-item h4 {
+                                        margin: 5px 0 0;
+                                        font-size: 16px;
+                                        font-weight: bold;
+                                    }
+                                    .list-group {
+                                        border: 1px solid #ddd;
+                                        border-radius: 5px;
+                                        overflow: hidden;
+                                    }
+                                    .list-group-item {
+                                        padding: 10px 15px;
+                                        border-bottom: 1px solid #eee;
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                    }
+                                    .list-group-item:last-child {
+                                        border-bottom: none;
+                                    }
+                                    .list-group-item h6 {
+                                        margin: 0;
+                                        font-size: 14px;
+                                        font-weight: 600;
+                                    }
+                                    .list-group-item small {
+                                        color: #777;
+                                    }
+                                    .fw-semibold {
+                                        font-weight: bold;
+                                    }
+                                    @media print {
+                                        body {
+                                            margin: 10mm;
+                                        }
+                                        table {
+                                            page-break-inside: avoid;
+                                        }
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <header>
+                                    <h2>Relatório Financeiro Anual</h2>
+                                    <p>Desempenho e Indicadores - ${new Date().getFullYear()}</p>
+                                </header>
+
+                                <section>
+                                    <h3>Resumo Geral</h3>
+                                    ${cardsResumo ? cardsResumo.outerHTML : '<p>Nenhum dado disponível</p>'}
+                                </section>
+
+                                <section>
+                                    <h3>Desempenho Mensal</h3>
+                                    ${tabela ? tabela.outerHTML : '<p>Nenhum dado mensal encontrado</p>'}
+                                </section>
+
+                                <section>
+                                    <h3>Melhores Meses</h3>
+                                    ${melhoresMeses ? melhoresMeses.outerHTML : '<p>Sem destaques disponíveis</p>'}
+                                </section>
+
+                                <section>
+                                    <h3>Resumo por Trimestre</h3>
+                                    ${resumoTrimestre ? resumoTrimestre.outerHTML : '<p>Sem resumo trimestral disponível</p>'}
+                                </section>
+
+                                <script>
+                                    // Foca e imprime automaticamente
+                                    window.focus();
+                                    setTimeout(() => window.print(), 300);
+                                    // Se o usuário cancelar ou concluir a impressão
+                                    window.onafterprint = function() {
+                                        window.close();
+                                        history.back();
+                                    };
+                                <\/script>
+                            </body>
+                        </html>
+                    `);
+                    w.document.close();
                 });
+            }
+        }
+    }
 
-                if (area) {
-                    var btnDownIcon = area.querySelector('.bx-download');
-                    if (btnDownIcon) {
-                        var btnDown = btnDownIcon.closest('button, a');
-                        if (btnDown) btnDown.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            var q = new URLSearchParams(window.location.search);
-                            q.set('download', '1');
-                            window.location.href = window.location.pathname + '?' + q.toString();
-                        });
-                    }
-
-                    var btnPrintIcon = area.querySelector('.bx-printer');
-                    if (btnPrintIcon) {
-                        var btnPrint = btnPrintIcon.closest('button, a');
-                        if (btnPrint) btnPrint.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            var table = area.querySelector('table');
-                            if (!table) {
-                                window.print();
-                                return;
-                            }
-                            var w = window.open('', '_blank');
-                            w.document.write('<html><head><title>Imprimir</title><meta charset="utf-8" /></head><body>');
-                            w.document.write('<h3>Desempenho Mensal</h3>');
-                            w.document.write(table.outerHTML);
-                            w.document.write('</body></html>');
-                            w.document.close();
-                            w.focus();
-                            w.print();
-                            w.close();
-                        });
-                    }
-                }
-
-                // Filtro de Ano
-                var toolbar = document.querySelector('.input-group.input-group-sm.w-auto');
-                if (toolbar) {
-                    var sel = toolbar.querySelector('select.form-select');
-                    var btn = toolbar.querySelector('button.btn');
-                    if (sel && btn) {
-                        btn.addEventListener('click', function() {
-                            var ano = sel.value || new Date().getFullYear();
-                            var q = new URLSearchParams(window.location.search);
-                            q.set('ano', ano);
-                            window.location.href = window.location.pathname + '?' + q.toString();
-                        });
-                    }
-                }
+    // Filtro de ano permanece igual
+    const toolbar = document.querySelector('.input-group.input-group-sm.w-auto');
+    if (toolbar) {
+        const sel = toolbar.querySelector('select.form-select');
+        const btn = toolbar.querySelector('button.btn');
+        if (sel && btn) {
+            btn.addEventListener('click', function() {
+                const ano = sel.value || new Date().getFullYear();
+                const q = new URLSearchParams(window.location.search);
+                q.set('ano', ano);
+                window.location.href = window.location.pathname + '?' + q.toString();
             });
-        </script>
+        }
+    }
+});
+</script>
+
     </div> <!-- /layout-wrapper -->
 </body>
 
