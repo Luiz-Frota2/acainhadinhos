@@ -365,7 +365,7 @@ if (!$idSelecionado) {
 $de_raw     = isset($_GET['de']) ? trim($_GET['de']) : '';
 $ate_raw    = isset($_GET['ate']) ? trim($_GET['ate']) : '';
 $status_raw = isset($_GET['status']) ? trim($_GET['status']) : '';
-$filial_raw = isset($_GET['filial']) ? trim($_GET['filial']) : '';
+$filial_raw = isset($_GET['franquia']) ? trim($_GET['franquia']) : '';
 
 try { $tz = new DateTimeZone('America/Sao_Paulo'); } catch (Exception $e) { $tz = null; }
 
@@ -416,7 +416,7 @@ try {
 $JOIN_FILIAL = "
     JOIN unidades u 
       ON u.id = REPLACE(FIELD_ID, 'unidade_', '') 
-     AND u.tipo = 'Fraquia'
+     AND u.tipo = 'Franquia'
      AND u.status = 'Ativa'
 ";
 
@@ -817,7 +817,7 @@ $baseQueryParams['id'] = $idSelecionado;
 if ($de_raw !== '') $baseQueryParams['de'] = $de_raw;
 if ($ate_raw !== '') $baseQueryParams['ate'] = $ate_raw;
 if ($status_raw !== '') $baseQueryParams['status'] = $status_raw;
-if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
+if ($filial_raw !== '') $baseQueryParams['franquia'] = $filial_raw;
 
 // ensure other page params preserved? we'll let pager generate individually
 
@@ -857,8 +857,8 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
 
             <!-- Filial -->
             <div class="col-6 col-md-4">
-                <label for="filial" class="form-label mb-1">Franquia</label>
-                <select id="filial" class="form-select form-select-sm" name="filial">
+                <label for="franquia" class="form-label mb-1">Franquia</label>
+                <select id="franquia" class="form-select form-select-sm" name="franquia">
                     <option value="">Todas as Franquia</option>
                     <?php foreach ($filiaisOptions as $f): ?>
                         <option value="<?= h($f['nome']) ?>" <?= ($filial === $f['nome']) ? 'selected' : '' ?>>
@@ -1135,7 +1135,7 @@ if ($filial_raw !== '') $baseQueryParams['filial'] = $filial_raw;
             <table class="table table-hover align-middle text-nowrap">
                 <thead>
                     <tr>
-                        <th>Filial</th>
+                        <th>Franquia</th>
                         <th class="text-end">Valor</th>
                         <th class="text-end">Data de Emissão</th>
                         <th class="text-end">Vencimento</th>
