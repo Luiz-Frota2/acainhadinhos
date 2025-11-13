@@ -805,7 +805,7 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                                                 <th>Saldo</th>
                                                 <th>Responsável</th>
                                                 <th>Status</th>
-                                                <th>Ações</th>
+                                            
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -830,11 +830,7 @@ $ultimasMovimentacoes = obterUltimasMovimentacoes($pdo, $empresa_id);
                                                             <?= ucfirst(htmlspecialchars($registro['status'])) ?>
                                                         </span>
                                                     </td>
-                                                    <td>
-                                                        <button class="btn btn-sm btn-icon" title="Imprimir">
-                                                            <i class="bx bx-printer"></i>
-                                                        </button>
-                                                    </td>
+                                                 
                                                 </tr>
                                             <?php endforeach; ?>
                                         </tbody>
