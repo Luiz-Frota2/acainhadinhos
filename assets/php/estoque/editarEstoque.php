@@ -24,6 +24,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $origem = trim($_POST["origem"] ?? '0');
     $tributacao = trim($_POST["tributacao"] ?? '00');
     $unidade = trim($_POST["unidade"] ?? 'UN');
+    
+    // CORREÇÃO: Campo com nome correto
     $informacoes_adicionais = isset($_POST["informacoes_adicionais"]) && $_POST["informacoes_adicionais"] !== '' ? trim($_POST["informacoes_adicionais"]) : null;
 
     // Campos adicionais (opcionais)
@@ -35,27 +37,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $aliquota_pis = isset($_POST["aliquota_pis"]) && $_POST["aliquota_pis"] !== '' ? str_replace(',', '.', trim($_POST["aliquota_pis"])) : null;
     $aliquota_cofins = isset($_POST["aliquota_cofins"]) && $_POST["aliquota_cofins"] !== '' ? str_replace(',', '.', trim($_POST["aliquota_cofins"])) : null;
 
-    // DEBUG: Verificar valores recebidos
-    error_log("DEBUG - Valores recebidos:");
-    error_log("ID: " . $id);
-    error_log("Empresa ID: " . $empresa_id);
-    error_log("Fornecedor ID: " . $fornecedor_id);
-    error_log("Código Produto: " . $codigo_produto);
-    error_log("Nome Produto: " . $nome_produto);
-    error_log("Categoria: " . $categoria_produto);
-    error_log("Quantidade: " . $quantidade_produto);
-    error_log("Preço: " . $preco_produto);
-    error_log("Status: " . $status_produto);
-    error_log("NCM: " . $ncm);
-    error_log("CFOP: " . $cfop);
-    error_log("Origem: " . $origem);
-    error_log("Tributação: " . $tributacao);
-    error_log("Unidade: " . $unidade);
-
     // Verifica apenas campos realmente obrigatórios
     $camposObrigatorios = [
         'ID' => $id,
         'Empresa ID' => $empresa_id,
+        'Fornecedor' => $fornecedor_id,
         'Código do Produto' => $codigo_produto,
         'Nome do Produto' => $nome_produto,
         'Categoria' => $categoria_produto,
@@ -71,11 +57,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     $camposFaltantes = [];
     foreach ($camposObrigatorios as $nome => $campo) {
-        if ($campo === null || $campo === '' || $campo === '0') {
-            // Permite zero para quantidade e preço, mas não strings vazias
-            if (($nome === 'Quantidade' || $nome === 'Preço Unitário') && $campo === '0') {
-                continue; // Zero é permitido para quantidade e preço
-            }
+        if ($campo === null || $campo === '') {
             $camposFaltantes[] = $nome;
         }
     }
@@ -88,7 +70,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    // Validações numéricas apenas para campos preenchidos
+    // Validações numéricas
     if (!is_numeric($quantidade_produto) || $quantidade_produto < 0) {
         echo "<script>
                 alert('Quantidade deve ser um número válido e não negativo.');
