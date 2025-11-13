@@ -213,9 +213,7 @@ $dias_da_semana = [
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./formaPagamento.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                                    <div data-i18n="empresa">Formas de Pagamento</div>
-                                </a>
+                              
                             </li>
                         </ul>
                     </li>
