@@ -261,8 +261,6 @@ try {
                 <div data-i18n="Authentications">Franquias</div>
               </a>
             </li>
-                            <div>Filial</div>
-                        </a></li>
                     <li class="menu-item"><a href="../usuarios/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link "><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>Usuários</div>
                         </a></li>
