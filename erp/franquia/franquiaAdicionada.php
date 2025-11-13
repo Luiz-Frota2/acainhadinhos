@@ -438,12 +438,13 @@ try {
                           </a>
 
                           <span class="mx-2">|</span>
-
-                          <!-- Botão para editar -->
+    <!-- Editar (abre modal) -->
                           <button class="btn btn-link text-primary p-0" title="Editar"
-                            onclick="window.location.href='editarFranquia.php?id=<?= $franquia['id'] ?>';">
+                            data-bs-toggle="modal"
+                            data-bs-target="#editarFilialModal_<?php echo $franquia['id']; ?>">
                             <i class="tf-icons bx bx-edit"></i>
                           </button>
+
 
                           <span class="mx-2">|</span>
 
@@ -486,6 +487,82 @@ try {
                         </div>
                       </div>
                       <!-- /Modal Visualizar Franquia -->
+                        <!-- Modal Editar Filial -->
+                        <div class="modal fade" id="editarFilialModal_<?php echo $franquia['id']; ?>" tabindex="-1"
+                          aria-labelledby="editarFilialLabel_<?php echo $franquia['id']; ?>" aria-hidden="true">
+                          <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                              <form action="../../assets/php/franquia/editarFranquia.php" method="POST" autocomplete="off">
+                                <div class="modal-header">
+                                  <h5 class="modal-title" id="editarFilialLabel_<?php echo $franquia['id']; ?>">
+                                    Editar Franquia — <?php echo htmlspecialchars($franquia['nome']); ?>
+                                  </h5>
+                                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                </div>
+                                <div class="modal-body">
+                                  <input type="hidden" name="id" value="<?php echo (int)$franquia['id']; ?>">
+                                  <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($idSelecionado); ?>">
+                                  <input type="hidden" name="return_url" value="<?= htmlspecialchars($_SERVER['REQUEST_URI']); ?>">
+                                  <div class="row g-3">
+                                    <div class="col-md-6">
+                                      <label class="form-label">Nome</label>
+                                      <input type="text" name="nome" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['nome']) ?>" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                      <label class="form-label">Tipo</label>
+                                      <select name="tipo" class="form-select" disabled>
+                                        <option value="Franquia" <?= $franquia['tipo'] === 'Franquia' ? 'selected' : ''; ?>>Franquia</option>
+                                        <option value="Filial" <?= $franquia['tipo'] === 'Filial'  ? 'selected' : ''; ?>>Filial</option>
+                                      </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                      <label class="form-label">Status</label>
+                                      <select name="status" class="form-select" required>
+                                        <option value="Ativa" <?= $franquia['status'] === 'Ativa'  ? 'selected' : ''; ?>>Ativa</option>
+                                        <option value="Inativa" <?= $franquia['status'] === 'Inativa' ? 'selected' : ''; ?>>Inativa</option>
+                                      </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">CNPJ</label>
+                                      <input type="text" name="cnpj" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['cnpj']) ?>" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">Telefone</label>
+                                      <input type="text" name="telefone" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['telefone']) ?>" required>
+                                    </div>
+                                    <div class="col-md-4">
+                                      <label class="form-label">Email</label>
+                                      <input type="email" name="email" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['email']) ?>" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                      <label class="form-label">Responsável</label>
+                                      <input type="text" name="responsavel" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['responsavel']) ?>" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                      <label class="form-label">Data de Abertura</label>
+                                      <input type="date" name="data_abertura" class="form-control"
+                                        value="<?= htmlspecialchars($franquia['data_abertura']) ?>" required>
+                                    </div>
+                                    <div class="col-12">
+                                      <label class="form-label">Endereço</label>
+                                      <textarea name="endereco" class="form-control" rows="2" required><?= htmlspecialchars($franquia['endereco']) ?></textarea>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div class="modal-footer">
+                                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                  <button type="submit" class="btn btn-primary">Salvar</button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+                        <!-- /Modal Editar Filial -->
 
                       <!-- Modal Excluir Franquia -->
                       <div class="modal fade" id="excluirFranquiaModal_<?= $franquia['id'] ?>" tabindex="-1"
