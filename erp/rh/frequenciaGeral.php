@@ -593,7 +593,7 @@ unset($d);
                                 $stmt->execute();
 
                                 if ($stmt->rowCount() > 0) {
-                                    echo '<table class="table table-hover">
+                                    echo '<table class="table table-hover" id="tabelaBancoHoras">
                                     <thead>
                                         <tr>
                                             <th>Ano</th>
