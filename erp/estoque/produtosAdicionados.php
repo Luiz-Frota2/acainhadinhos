@@ -86,6 +86,16 @@ try {
   $logoEmpresa = "../../assets/img/favicon/logo.png"; // fallback
 }
 
+// ✅ Buscar fornecedores para a modal de edição
+try {
+  $stmtFornecedores = $pdo->prepare("SELECT id, nome_fornecedor, cnpj_fornecedor FROM fornecedores WHERE empresa_id = :empresa_id");
+  $stmtFornecedores->bindParam(':empresa_id', $idSelecionado, PDO::PARAM_STR);
+  $stmtFornecedores->execute();
+  $fornecedores = $stmtFornecedores->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+  $fornecedores = [];
+}
+
 try {
   // Consulta para filtrar os produtos pela empresa selecionada
   $sql = "SELECT * FROM estoque WHERE empresa_id = :empresa_id";
@@ -468,70 +478,137 @@ try {
                               <div class="modal-body">
                                 <form action="../../assets/php/estoque/editarEstoque.php" method="POST">
                                   <input type="hidden" name="id" value="<?= htmlspecialchars($estoques['id']) ?>">
-                                  <input type="text" name="empresa_id" value="<?= $idSelecionado ?>">
+                                  <input type="hidden" name="empresa_id" value="<?= $idSelecionado ?>">
 
                                   <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                      <label class="form-label">Código do Produto (GTIN/EAN)</label>
-                                      <input type="text" class="form-control" name="codigo_produto"
-                                        value="<?= htmlspecialchars($estoques['codigo_produto']) ?>" required>
+                                    <!-- Fornecedor -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="fornecedor_id_<?= $estoques['id'] ?>" class="form-label">Fornecedor*</label>
+                                      <select class="form-select" id="fornecedor_id_<?= $estoques['id'] ?>" name="fornecedor_id" required <?php echo empty($fornecedores) ? 'disabled' : ''; ?>>
+                                        <?php if (empty($fornecedores)): ?>
+                                          <option value="">Nenhum fornecedor cadastrado para esta empresa</option>
+                                        <?php else: ?>
+                                          <option value="">Selecione...</option>
+                                          <?php foreach ($fornecedores as $f): ?>
+                                            <option value="<?php echo (int)$f['id']; ?>" <?= $estoques['fornecedor_id'] == $f['id'] ? 'selected' : '' ?>>
+                                              <?php
+                                              echo htmlspecialchars($f['nome_fornecedor'] . ' — ' . $f['cnpj_fornecedor']);
+                                              ?>
+                                            </option>
+                                          <?php endforeach; ?>
+                                        <?php endif; ?>
+                                      </select>
+                                      <?php if (empty($fornecedores)): ?>
+                                        <small class="text-muted">Cadastre um fornecedor primeiro para poder vincular ao produto.</small>
+                                      <?php endif; ?>
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                      <label class="form-label">Nome do Produto*</label>
-                                      <input type="text" class="form-control" name="nome_produto"
-                                        value="<?= htmlspecialchars($estoques['nome_produto']) ?>" required>
+                                    <!-- Código do Produto -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="codigo_produto_<?= $estoques['id'] ?>" class="form-label">Código do Produto (GTIN/EAN)*</label>
+                                      <input type="text" class="form-control" id="codigo_produto_<?= $estoques['id'] ?>" name="codigo_produto"
+                                        value="<?= htmlspecialchars($estoques['codigo_produto']) ?>" 
+                                        placeholder="Ex: 7891234567890 (código de barras)" required />
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                      <label class="form-label">NCM*</label>
-                                      <input type="text" class="form-control" name="ncm"
-                                        value="<?= htmlspecialchars($estoques['ncm']) ?>" required>
+                                    <!-- Nome do Produto -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="nome_produto_<?= $estoques['id'] ?>" class="form-label">Nome do Produto*</label>
+                                      <input type="text" class="form-control" id="nome_produto_<?= $estoques['id'] ?>" name="nome_produto"
+                                        value="<?= htmlspecialchars($estoques['nome_produto']) ?>" 
+                                        placeholder="Nome completo do produto para NFC-e" required />
                                     </div>
 
-                                    <div class="col-md-6 mb-3">
-                                      <label class="form-label">CFOP*</label>
-                                      <input type="text" class="form-control" name="cfop"
-                                        value="<?= htmlspecialchars($estoques['cfop']) ?>" required>
+                                    <!-- Dados fiscais -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="ncm_<?= $estoques['id'] ?>" class="form-label">NCM*</label>
+                                      <input type="text" class="form-control" id="ncm_<?= $estoques['id'] ?>" name="ncm"
+                                        value="<?= htmlspecialchars($estoques['ncm']) ?>" 
+                                        placeholder="Código NCM (8 dígitos)" required />
                                     </div>
 
-                                    <div class="col-md-4 mb-3">
-                                      <label class="form-label">Categoria*</label>
-                                      <input type="text" class="form-control" name="categoria_produto"
-                                        value="<?= htmlspecialchars($estoques['categoria_produto']) ?>" required>
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="cest_<?= $estoques['id'] ?>" class="form-label">CEST (opcional)</label>
+                                      <input type="text" class="form-control" id="cest_<?= $estoques['id'] ?>" name="cest"
+                                        value="<?= htmlspecialchars($estoques['cest'] ?? '') ?>" 
+                                        placeholder="Código CEST (7 dígitos)" />
                                     </div>
 
-                                    <div class="col-md-4 mb-3">
-                                      <label class="form-label">Quantidade*</label>
-                                      <input type="number" step="0.01" class="form-control" name="quantidade_produto"
-                                        value="<?= htmlspecialchars($estoques['quantidade_produto']) ?>" required>
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="cfop_<?= $estoques['id'] ?>" class="form-label">CFOP*</label>
+                                      <input type="text" class="form-control" id="cfop_<?= $estoques['id'] ?>" name="cfop"
+                                        value="<?= htmlspecialchars($estoques['cfop']) ?>" 
+                                        placeholder="Ex: 5102" required />
                                     </div>
 
-                                    <div class="col-md-4 mb-3">
-                                      <label class="form-label">Unidade*</label>
-                                      <select class="form-select" name="unidade" required>
+                                    <!-- Dados tributários -->
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="origem_<?= $estoques['id'] ?>" class="form-label">Origem*</label>
+                                      <select class="form-select" id="origem_<?= $estoques['id'] ?>" name="origem" required>
+                                        <option value="">Selecione...</option>
+                                        <option value="0" <?= $estoques['origem'] === '0' ? 'selected' : '' ?>>0 - Nacional</option>
+                                        <option value="1" <?= $estoques['origem'] === '1' ? 'selected' : '' ?>>1 - Estrangeira (importação direta)</option>
+                                        <option value="2" <?= $estoques['origem'] === '2' ? 'selected' : '' ?>>2 - Estrangeira (adquirida no mercado interno)</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="tributacao_<?= $estoques['id'] ?>" class="form-label">Tributação*</label>
+                                      <select class="form-select" id="tributacao_<?= $estoques['id'] ?>" name="tributacao" required>
+                                        <option value="">Selecione...</option>
+                                        <option value="00" <?= $estoques['tributacao'] === '00' ? 'selected' : '' ?>>00 - Tributada integralmente</option>
+                                        <option value="20" <?= $estoques['tributacao'] === '20' ? 'selected' : '' ?>>20 - Com redução de base de cálculo</option>
+                                        <option value="40" <?= $estoques['tributacao'] === '40' ? 'selected' : '' ?>>40 - Isenta</option>
+                                        <option value="41" <?= $estoques['tributacao'] === '41' ? 'selected' : '' ?>>41 - Não tributada</option>
+                                        <option value="60" <?= $estoques['tributacao'] === '60' ? 'selected' : '' ?>>60 - ICMS cobrado anteriormente</option>
+                                      </select>
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="unidade_<?= $estoques['id'] ?>" class="form-label">Unidade*</label>
+                                      <select class="form-select" id="unidade_<?= $estoques['id'] ?>" name="unidade" required>
+                                        <option value="">Selecione...</option>
                                         <option value="UN" <?= $estoques['unidade'] === 'UN' ? 'selected' : '' ?>>UN - Unidade</option>
+                                        <option value="PC" <?= $estoques['unidade'] === 'PC' ? 'selected' : '' ?>>PC - Peça</option>
                                         <option value="KG" <?= $estoques['unidade'] === 'KG' ? 'selected' : '' ?>>KG - Quilograma</option>
                                         <option value="LT" <?= $estoques['unidade'] === 'LT' ? 'selected' : '' ?>>LT - Litro</option>
                                         <option value="CX" <?= $estoques['unidade'] === 'CX' ? 'selected' : '' ?>>CX - Caixa</option>
                                       </select>
                                     </div>
 
-                                    <div class="col-md-4 mb-3">
-                                      <label class="form-label">Preço Unitário (R$)*</label>
-                                      <input type="text" class="form-control money" name="preco_produto"
-                                        value="<?= number_format($estoques['preco_produto'], 2, ',', '.') ?>" required>
+                                    <!-- Dados comerciais -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="categoria_produto_<?= $estoques['id'] ?>" class="form-label">Categoria*</label>
+                                      <input type="text" class="form-control" id="categoria_produto_<?= $estoques['id'] ?>" name="categoria_produto"
+                                        value="<?= htmlspecialchars($estoques['categoria_produto']) ?>" 
+                                        placeholder="Informe a categoria" required />
                                     </div>
 
-                                    <div class="col-md-4 mb-3">
-                                      <label class="form-label">Preço de Custo (R$)</label>
-                                      <input type="text" class="form-control money" name="preco_custo"
-                                        value="<?= isset($estoques['preco_custo']) ? number_format($estoques['preco_custo'], 2, ',', '.') : '' ?>">
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="quantidade_produto_<?= $estoques['id'] ?>" class="form-label">Quantidade*</label>
+                                      <input type="number" step="0.01" class="form-control" id="quantidade_produto_<?= $estoques['id'] ?>" name="quantidade_produto"
+                                        value="<?= htmlspecialchars($estoques['quantidade_produto']) ?>" 
+                                        placeholder="Ex: 1.00" required />
                                     </div>
 
-                                    <div class="col-md-4 mb-3">
-                                      <label class="form-label">Status*</label>
-                                      <select class="form-select" name="status_produto" required>
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="preco_produto_<?= $estoques['id'] ?>" class="form-label">Preço Unitário (R$)*</label>
+                                      <input type="text" class="form-control money" id="preco_produto_<?= $estoques['id'] ?>" name="preco_produto"
+                                        value="<?= number_format($estoques['preco_produto'], 2, ',', '.') ?>" 
+                                        placeholder="Ex: 10,99" required />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="preco_custo_<?= $estoques['id'] ?>" class="form-label">Preço de Custo (R$)</label>
+                                      <input type="text" class="form-control money" id="preco_custo_<?= $estoques['id'] ?>" name="preco_custo"
+                                        value="<?= isset($estoques['preco_custo']) ? number_format($estoques['preco_custo'], 2, ',', '.') : '' ?>" 
+                                        placeholder="Ex: 7,50" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="status_produto_<?= $estoques['id'] ?>" class="form-label">Status*</label>
+                                      <select class="form-select" id="status_produto_<?= $estoques['id'] ?>" name="status_produto" required>
+                                        <option value=""></option>
                                         <option value="ativo" <?= $estoques['status_produto'] === 'ativo' ? 'selected' : '' ?>>Ativo</option>
                                         <option value="inativo" <?= $estoques['status_produto'] === 'inativo' ? 'selected' : '' ?>>Inativo</option>
                                         <option value="estoque_alto" <?= $estoques['status_produto'] === 'estoque_alto' ? 'selected' : '' ?>>Estoque Alto</option>
@@ -539,10 +616,61 @@ try {
                                       </select>
                                     </div>
 
-                                    <div class="col-12 mb-3">
-                                      <label class="form-label">Informações Adicionais (NFC-e)</label>
-                                      <textarea class="form-control" name="informacoes_adicionais" rows="2"><?=
-                                                                                                            htmlspecialchars($estoques['informacoes_adicionais'] ?? '') ?></textarea>
+                                    <!-- Campos adicionais -->
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="codigo_barras_<?= $estoques['id'] ?>" class="form-label">Código de Barras</label>
+                                      <input type="text" class="form-control" id="codigo_barras_<?= $estoques['id'] ?>" name="codigo_barras"
+                                        value="<?= htmlspecialchars($estoques['codigo_barras'] ?? '') ?>" 
+                                        placeholder="Código de barras do produto" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="codigo_anp_<?= $estoques['id'] ?>" class="form-label">Código ANP (para combustíveis)</label>
+                                      <input type="text" class="form-control" id="codigo_anp_<?= $estoques['id'] ?>" name="codigo_anp"
+                                        value="<?= htmlspecialchars($estoques['codigo_anp'] ?? '') ?>" 
+                                        placeholder="Código ANP (se aplicável)" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="peso_bruto_<?= $estoques['id'] ?>" class="form-label">Peso Bruto (kg)</label>
+                                      <input type="number" step="0.001" class="form-control" id="peso_bruto_<?= $estoques['id'] ?>" name="peso_bruto"
+                                        value="<?= htmlspecialchars($estoques['peso_bruto'] ?? '') ?>" 
+                                        placeholder="Peso bruto em kg" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="peso_liquido_<?= $estoques['id'] ?>" class="form-label">Peso Líquido (kg)</label>
+                                      <input type="number" step="0.001" class="form-control" id="peso_liquido_<?= $estoques['id'] ?>" name="peso_liquido"
+                                        value="<?= htmlspecialchars($estoques['peso_liquido'] ?? '') ?>" 
+                                        placeholder="Peso líquido em kg" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-4">
+                                      <label for="aliquota_icms_<?= $estoques['id'] ?>" class="form-label">Alíquota ICMS (%)</label>
+                                      <input type="number" step="0.01" class="form-control" id="aliquota_icms_<?= $estoques['id'] ?>" name="aliquota_icms"
+                                        value="<?= htmlspecialchars($estoques['aliquota_icms'] ?? '') ?>" 
+                                        placeholder="Ex: 18.00" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="aliquota_pis_<?= $estoques['id'] ?>" class="form-label">Alíquota PIS (%)</label>
+                                      <input type="number" step="0.01" class="form-control" id="aliquota_pis_<?= $estoques['id'] ?>" name="aliquota_pis"
+                                        value="<?= htmlspecialchars($estoques['aliquota_pis'] ?? '') ?>" 
+                                        placeholder="Ex: 1.65" />
+                                    </div>
+
+                                    <div class="mb-3 col-12 col-md-6">
+                                      <label for="aliquota_cofins_<?= $estoques['id'] ?>" class="form-label">Alíquota COFINS (%)</label>
+                                      <input type="number" step="0.01" class="form-control" id="aliquota_cofins_<?= $estoques['id'] ?>" name="aliquota_cofins"
+                                        value="<?= htmlspecialchars($estoques['aliquota_cofins'] ?? '') ?>" 
+                                        placeholder="Ex: 7.60" />
+                                    </div>
+
+                                    <!-- Informações adicionais para NFC-e -->
+                                    <div class="mb-3 col-12">
+                                      <label for="informacoes_adicionais_<?= $estoques['id'] ?>" class="form-label">Informações Adicionais (NFC-e)</label>
+                                      <textarea class="form-control" id="informacoes_adicionais_<?= $estoques['id'] ?>" name="informacoes_adicionalis"
+                                        rows="2" placeholder="Informações que aparecerão na NFC-e"><?= htmlspecialchars($estoques['informacoes_adicionais'] ?? '') ?></textarea>
                                     </div>
                                   </div>
 
