@@ -459,11 +459,10 @@ try {
                                                             class="w-px-40 h-auto rounded-circle" />
                                                     </div>
                                                 </div>
-                                                <div class="flex-grow-1">
-                                                    <!-- Exibindo o nome e nível do usuário -->
-                                                    <span class="fw-semibold d-block"><?php echo $nomeUsuario; ?></span>
-                                                    <small class="text-muted"><?php echo $nivelUsuario; ?></small>
-                                                </div>
+                                                  <div class="flex-grow-1">
+                          <span class="fw-semibold d-block"><?= htmlspecialchars($nomeUsuario, ENT_QUOTES); ?></span>
+                          <small class="text-muted"><?= htmlspecialchars($tipoUsuario, ENT_QUOTES); ?></small>
+                        </div>
                                             </div>
                                         </a>
                                     </li>
