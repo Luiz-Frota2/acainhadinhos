@@ -865,7 +865,7 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
     <!-- Main JS -->
     <script src="../../assets/js/main.js"></script>
 
-  <script>
+ <script>
 (function() {
     const btnPrint = document.getElementById('btn-print');
     const table = document.getElementById('tb-semanas');
@@ -874,49 +874,90 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
         btnPrint.addEventListener('click', function(e) {
             e.preventDefault();
 
-            // Cria uma nova janela para impressão
+            // Captura os blocos das seções adicionais
+            const movs = document.querySelector('.card-flow:nth-of-type(1) .list-group').outerHTML;
+            const resumoCat = document.querySelector('.card-flow:nth-of-type(2) .list-group').outerHTML;
+
+            // Abre nova janela para impressão
             const w = window.open('', '_blank');
             w.document.write(`
                 <html>
                     <head>
                         <meta charset="utf-8" />
-                        <title>Relatório Mensal - Detalhes por Semana</title>
+                        <title>Relatório Mensal - Financeiro</title>
                         <style>
                             body {
                                 font-family: Arial, sans-serif;
-                                margin: 40px;
+                                margin: 30px 50px;
                                 color: #333;
                                 background: #fff;
                             }
-                            h2, h3 {
+                            header {
                                 text-align: center;
-                                margin-bottom: 10px;
+                                margin-bottom: 30px;
                             }
-                            .sub {
-                                text-align: center;
+                            header h2 {
+                                margin: 0;
+                                font-size: 22px;
+                                font-weight: 700;
+                                color: #222;
+                            }
+                            header p {
+                                margin: 0;
                                 font-size: 14px;
                                 color: #777;
-                                margin-bottom: 25px;
+                            }
+                            section {
+                                margin-bottom: 30px;
+                            }
+                            h3 {
+                                border-bottom: 2px solid #ccc;
+                                padding-bottom: 5px;
+                                margin-bottom: 10px;
+                                color: #444;
                             }
                             table {
                                 width: 100%;
                                 border-collapse: collapse;
-                                margin-top: 20px;
+                                margin-top: 10px;
+                                font-size: 14px;
                             }
                             th, td {
                                 padding: 8px 10px;
                                 border: 1px solid #ccc;
-                                font-size: 14px;
                             }
                             th {
-                                background: #f8f9fa;
-                                text-align: left;
+                                background-color: #f9f9f9;
+                                font-weight: 600;
                             }
                             td.text-end, th.text-end {
                                 text-align: right;
                             }
-                            tfoot th {
-                                background: #f1f1f1;
+                            .list-group {
+                                border: 1px solid #ddd;
+                                border-radius: 5px;
+                                overflow: hidden;
+                            }
+                            .list-group-item {
+                                padding: 10px 15px;
+                                border-bottom: 1px solid #eee;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                            }
+                            .list-group-item:last-child {
+                                border-bottom: none;
+                            }
+                            .list-group-item small {
+                                color: #777;
+                                display: block;
+                            }
+                            .list-group-item h6 {
+                                margin: 0;
+                                font-size: 14px;
+                                font-weight: 600;
+                            }
+                            .fw-semibold {
                                 font-weight: bold;
                             }
                             @media print {
@@ -926,20 +967,42 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
                                 table {
                                     page-break-inside: avoid;
                                 }
-                                tfoot {
-                                    font-weight: bold;
-                                }
                             }
                         </style>
                     </head>
                     <body>
-                        <h2>Relatório Financeiro Mensal</h2>
-                        <div class="sub">Detalhes por Semana</div>
-                        ${table.outerHTML}
+                        <header>
+                            <h2>Relatório Financeiro Mensal</h2>
+                            <p>Detalhes e Resumos</p>
+                        </header>
+
+                        <section>
+                            <h3>Detalhes por Semana</h3>
+                            ${table.outerHTML}
+                        </section>
+
+                        <section>
+                            <h3>Movimentações</h3>
+                            ${movs}
+                        </section>
+
+                        <section>
+                            <h3>Resumo por Categoria</h3>
+                            ${resumoCat}
+                        </section>
+
                         <script>
+                            // Aguarda carregamento do conteúdo
                             window.focus();
-                            window.print();
-                            window.onafterprint = () => window.close();
+                            setTimeout(() => {
+                                window.print();
+                            }, 300);
+
+                            // Quando o usuário cancelar ou concluir a impressão
+                            window.onafterprint = function() {
+                                window.close();
+                                history.back();
+                            };
                         <\/script>
                     </body>
                 </html>
@@ -949,6 +1012,7 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
     }
 })();
 </script>
+
 
 </body>
 
