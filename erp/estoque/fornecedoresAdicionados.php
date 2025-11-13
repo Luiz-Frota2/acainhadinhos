@@ -469,18 +469,18 @@ try {
                                     <div class="col-md-4">
                                       <label class="form-label">Email</label>
                                       <input type="email" name="email_fornecedor" class="form-control"
-                                        value="<?= htmlspecialchars($franquia['email_fornecedor']) ?>" required>
+                                        value="<?= htmlspecialchars($fornecedor['email_fornecedor']) ?>" required>
                                     </div>
                                     
                                     <div class="col-md-4">
                                       <label class="form-label">CNPJ</label>
                                       <input type="text" name="cnpj_fornecedor" class="form-control"
-                                        value="<?= htmlspecialchars($franquia['cnpj_fornecedor']) ?>" required>
+                                        value="<?= htmlspecialchars($fornecedor['cnpj_fornecedor']) ?>" required>
                                     </div>
                                     <div class="col-md-4">
                                       <label class="form-label">Telefone</label>
                                       <input type="text" name="telefone_fornecedor" class="form-control"
-                                        value="<?= htmlspecialchars($franquia['telefone_fornecedor']) ?>" required>
+                                        value="<?= htmlspecialchars($fornecedor['telefone_fornecedor']) ?>" required>
                                     </div>
                                     
                                     <div class="col-md-6">
