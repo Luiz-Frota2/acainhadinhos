@@ -590,7 +590,7 @@ function mesPortugues($mesNumero)
                                 <h5 class="card-header">Frequência do Funcionário: <?= htmlspecialchars($nomeFuncionario) ?>
                                 </h5>
                                 <div class="table-responsive text-nowarp">
-                                    <table class="table table-hover">
+                                    <table class="table table-hover" id="tabelaBancoHoras">
                                         <thead>
                                             <tr>
                                                 <th>Ano</th>
