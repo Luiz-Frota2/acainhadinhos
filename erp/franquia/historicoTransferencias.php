@@ -633,6 +633,7 @@ function dateBr(?string $dt): string
                             </li>
                         </ul>
                     </li>
+                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Diversos</span></li>
 
                     <li class="menu-item"><a href="../rh/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link"><i class="menu-icon tf-icons bx bx-group"></i>
                             <div>RH</div>
