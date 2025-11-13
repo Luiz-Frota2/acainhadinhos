@@ -33,7 +33,7 @@ if ($id <= 0 || $nome === '' || $cnpj === '' || $telefone === '' || $email === '
 
 try {
   // Atualiza a filial
-  $sql = "UPDATE forncedores SET 
+  $sql = "UPDATE fornecedores SET 
             nome_fornecedor = :nome_fornecedor,
             cnpj_fornecedor = :cnpj_fornecedor,
             telefone_fornecedor = :telefone_fornecedor,
