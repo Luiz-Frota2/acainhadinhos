@@ -866,151 +866,147 @@ $__ticket_mes  = $mensal['ticket_medio'] ?? 0.0;
     <script src="../../assets/js/main.js"></script>
 
  <script>
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
     const btnPrint = document.getElementById('btn-print');
     const table = document.getElementById('tb-semanas');
 
-    if (btnPrint && table) {
-        btnPrint.addEventListener('click', function(e) {
-            e.preventDefault();
+    if (!btnPrint || !table) return; // segurança
 
-            // Captura os blocos das seções adicionais
-            const movs = document.querySelector('.card-flow:nth-of-type(1) .list-group').outerHTML;
-            const resumoCat = document.querySelector('.card-flow:nth-of-type(2) .list-group').outerHTML;
+    btnPrint.addEventListener('click', function(e) {
+        e.preventDefault();
 
-            // Abre nova janela para impressão
-            const w = window.open('', '_blank');
-            w.document.write(`
-                <html>
-                    <head>
-                        <meta charset="utf-8" />
-                        <title>Relatório Mensal - Financeiro</title>
-                        <style>
+        // Seleciona corretamente os blocos de resumo
+        const cards = document.querySelectorAll('.card-flow .list-group');
+        const movs = cards[0] ? cards[0].outerHTML : '<p>Nenhum dado de movimentações</p>';
+        const resumoCat = cards[1] ? cards[1].outerHTML : '<p>Nenhum resumo por categoria</p>';
+
+        // Abre nova janela para impressão
+        const w = window.open('', '_blank');
+        w.document.write(`
+            <html>
+                <head>
+                    <meta charset="utf-8" />
+                    <title>Relatório Mensal - Financeiro</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            margin: 30px 50px;
+                            color: #333;
+                            background: #fff;
+                        }
+                        header {
+                            text-align: center;
+                            margin-bottom: 30px;
+                        }
+                        header h2 {
+                            margin: 0;
+                            font-size: 22px;
+                            font-weight: 700;
+                            color: #222;
+                        }
+                        header p {
+                            margin: 0;
+                            font-size: 14px;
+                            color: #777;
+                        }
+                        section {
+                            margin-bottom: 30px;
+                        }
+                        h3 {
+                            border-bottom: 2px solid #ccc;
+                            padding-bottom: 5px;
+                            margin-bottom: 10px;
+                            color: #444;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-top: 10px;
+                            font-size: 14px;
+                        }
+                        th, td {
+                            padding: 8px 10px;
+                            border: 1px solid #ccc;
+                        }
+                        th {
+                            background-color: #f9f9f9;
+                            font-weight: 600;
+                        }
+                        td.text-end, th.text-end {
+                            text-align: right;
+                        }
+                        .list-group {
+                            border: 1px solid #ddd;
+                            border-radius: 5px;
+                            overflow: hidden;
+                        }
+                        .list-group-item {
+                            padding: 10px 15px;
+                            border-bottom: 1px solid #eee;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                        }
+                        .list-group-item:last-child {
+                            border-bottom: none;
+                        }
+                        .list-group-item small {
+                            color: #777;
+                            display: block;
+                        }
+                        .list-group-item h6 {
+                            margin: 0;
+                            font-size: 14px;
+                            font-weight: 600;
+                        }
+                        .fw-semibold {
+                            font-weight: bold;
+                        }
+                        @media print {
                             body {
-                                font-family: Arial, sans-serif;
-                                margin: 30px 50px;
-                                color: #333;
-                                background: #fff;
-                            }
-                            header {
-                                text-align: center;
-                                margin-bottom: 30px;
-                            }
-                            header h2 {
-                                margin: 0;
-                                font-size: 22px;
-                                font-weight: 700;
-                                color: #222;
-                            }
-                            header p {
-                                margin: 0;
-                                font-size: 14px;
-                                color: #777;
-                            }
-                            section {
-                                margin-bottom: 30px;
-                            }
-                            h3 {
-                                border-bottom: 2px solid #ccc;
-                                padding-bottom: 5px;
-                                margin-bottom: 10px;
-                                color: #444;
+                                margin: 10mm;
                             }
                             table {
-                                width: 100%;
-                                border-collapse: collapse;
-                                margin-top: 10px;
-                                font-size: 14px;
+                                page-break-inside: avoid;
                             }
-                            th, td {
-                                padding: 8px 10px;
-                                border: 1px solid #ccc;
-                            }
-                            th {
-                                background-color: #f9f9f9;
-                                font-weight: 600;
-                            }
-                            td.text-end, th.text-end {
-                                text-align: right;
-                            }
-                            .list-group {
-                                border: 1px solid #ddd;
-                                border-radius: 5px;
-                                overflow: hidden;
-                            }
-                            .list-group-item {
-                                padding: 10px 15px;
-                                border-bottom: 1px solid #eee;
-                                display: flex;
-                                justify-content: space-between;
-                                align-items: center;
-                            }
-                            .list-group-item:last-child {
-                                border-bottom: none;
-                            }
-                            .list-group-item small {
-                                color: #777;
-                                display: block;
-                            }
-                            .list-group-item h6 {
-                                margin: 0;
-                                font-size: 14px;
-                                font-weight: 600;
-                            }
-                            .fw-semibold {
-                                font-weight: bold;
-                            }
-                            @media print {
-                                body {
-                                    margin: 10mm;
-                                }
-                                table {
-                                    page-break-inside: avoid;
-                                }
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <header>
-                            <h2>Relatório Financeiro Mensal</h2>
-                            <p>Detalhes e Resumos</p>
-                        </header>
+                        }
+                    </style>
+                </head>
+                <body>
+                    <header>
+                        <h2>Relatório Financeiro Mensal</h2>
+                        <p>Detalhes e Resumos</p>
+                    </header>
 
-                        <section>
-                            <h3>Detalhes por Semana</h3>
-                            ${table.outerHTML}
-                        </section>
+                    <section>
+                        <h3>Detalhes por Semana</h3>
+                        ${table.outerHTML}
+                    </section>
 
-                        <section>
-                            <h3>Movimentações</h3>
-                            ${movs}
-                        </section>
+                    <section>
+                        <h3>Movimentações</h3>
+                        ${movs}
+                    </section>
 
-                        <section>
-                            <h3>Resumo por Categoria</h3>
-                            ${resumoCat}
-                        </section>
+                    <section>
+                        <h3>Resumo por Categoria</h3>
+                        ${resumoCat}
+                    </section>
 
-                        <script>
-                            // Aguarda carregamento do conteúdo
-                            window.focus();
-                            setTimeout(() => {
-                                window.print();
-                            }, 300);
-
-                            // Quando o usuário cancelar ou concluir a impressão
-                            window.onafterprint = function() {
-                                window.close();
-                                history.back();
-                            };
-                        <\/script>
-                    </body>
-                </html>
-            `);
-            w.document.close();
-        });
-    }
-})();
+                    <script>
+                        window.focus();
+                        setTimeout(() => window.print(), 300);
+                        window.onafterprint = function() {
+                            window.close();
+                            history.back();
+                        };
+                    <\/script>
+                </body>
+            </html>
+        `);
+        w.document.close();
+    });
+});
 </script>
 
 
