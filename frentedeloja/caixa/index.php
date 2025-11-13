@@ -319,8 +319,6 @@ try {
                     <div class="dropdown-divider"></div>
                   </li>
                   
-                    <div class="dropdown-divider"></div>
-                  </li>
                   <li>
                     <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-power-off me-2"></i>
