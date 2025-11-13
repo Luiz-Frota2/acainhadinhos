@@ -12,8 +12,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $codigo_produto = trim($_POST["codigo_produto"] ?? '');
     $nome_produto = trim($_POST["nome_produto"] ?? '');
     $categoria_produto = trim($_POST["categoria_produto"] ?? '');
-    $quantidade_produto = str_replace(',', '.', trim($_POST["quantidade_produto"] ?? ''));
-    $preco_produto = str_replace(['R$', '.', ','], ['', '', '.'], trim($_POST["preco_produto"] ?? ''));
+    $quantidade_produto = str_replace(',', '.', trim($_POST["quantidade_produto"] ?? '0'));
+    $preco_produto = str_replace(['R$', '.', ','], ['', '', '.'], trim($_POST["preco_produto"] ?? '0'));
     $preco_custo = isset($_POST["preco_custo"]) && $_POST["preco_custo"] !== '' ? str_replace(['R$', '.', ','], ['', '', '.'], trim($_POST["preco_custo"])) : null;
     $status_produto = trim($_POST["status_produto"] ?? '');
     
@@ -35,6 +35,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $aliquota_pis = isset($_POST["aliquota_pis"]) && $_POST["aliquota_pis"] !== '' ? str_replace(',', '.', trim($_POST["aliquota_pis"])) : null;
     $aliquota_cofins = isset($_POST["aliquota_cofins"]) && $_POST["aliquota_cofins"] !== '' ? str_replace(',', '.', trim($_POST["aliquota_cofins"])) : null;
 
+    // DEBUG: Verificar valores recebidos
+    error_log("DEBUG - Valores recebidos:");
+    error_log("ID: " . $id);
+    error_log("Empresa ID: " . $empresa_id);
+    error_log("Fornecedor ID: " . $fornecedor_id);
+    error_log("Código Produto: " . $codigo_produto);
+    error_log("Nome Produto: " . $nome_produto);
+    error_log("Categoria: " . $categoria_produto);
+    error_log("Quantidade: " . $quantidade_produto);
+    error_log("Preço: " . $preco_produto);
+    error_log("Status: " . $status_produto);
+    error_log("NCM: " . $ncm);
+    error_log("CFOP: " . $cfop);
+    error_log("Origem: " . $origem);
+    error_log("Tributação: " . $tributacao);
+    error_log("Unidade: " . $unidade);
+
     // Verifica apenas campos realmente obrigatórios
     $camposObrigatorios = [
         'ID' => $id,
@@ -54,7 +71,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
     $camposFaltantes = [];
     foreach ($camposObrigatorios as $nome => $campo) {
-        if (empty($campo)) {
+        if ($campo === null || $campo === '' || $campo === '0') {
+            // Permite zero para quantidade e preço, mas não strings vazias
+            if (($nome === 'Quantidade' || $nome === 'Preço Unitário') && $campo === '0') {
+                continue; // Zero é permitido para quantidade e preço
+            }
             $camposFaltantes[] = $nome;
         }
     }
