@@ -325,7 +325,7 @@ try {
                         Financeiro
                     </h4>
                     <h5 class="fw-bold mt-3 mb-3 custor-font">
-                        <span class="text-muted fw-light">Recebíveis, fluxo de caixa e status por Filial — Mês Atual</span>
+                        <span class="text-muted fw-light">Recebíveis, fluxo de caixa e status por Franquia — Mês Atual</span>
                     </h5>
 <?php
 // ================================================================
