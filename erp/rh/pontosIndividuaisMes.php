@@ -448,7 +448,7 @@ $mesesPortugues = [
                                             </div>
                                         </a>
                                     </li>
-                                   
+
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
@@ -473,7 +473,7 @@ $mesesPortugues = [
                     <div class="card mt-3">
                         <h5 class="card-header">Pontos Mensais</h5>
                         <div class="table-responsive text-nowrap">
-                            <table class="table table-hover">
+                            <table class="table table-hover" id="tabelaPontosIndividuaisMes">
                                 <thead>
                                     <tr>
                                         <th>Ano</th>
@@ -481,7 +481,7 @@ $mesesPortugues = [
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody id="tabelaBancoHoras">
+                                <tbody>
                                     <?php if (empty($mesesAnos)): ?>
                                         <tr>
                                             <td colspan="3" class="text-center">Nenhum registro encontrado</td>
@@ -516,141 +516,8 @@ $mesesPortugues = [
                 </div>
 
                 <script>
-                    // Script para paginação (simplificado)
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const rowsPerPage = 10;
-                        const rows = document.querySelectorAll('#tabelaBancoHoras tr');
-                        const pageCount = Math.ceil(rows.length / rowsPerPage);
-                        const pagination = document.getElementById('paginacaoHoras');
-
-                        let currentPage = 1;
-
-                        function showPage(page) {
-                            const start = (page - 1) * rowsPerPage;
-                            const end = start + rowsPerPage;
-
-                            rows.forEach((row, index) => {
-                                row.style.display = (index >= start && index < end) ? '' : 'none';
-                            });
-
-                            // Atualizar botões de paginação
-                            document.querySelectorAll('#paginacaoHoras button').forEach(btn => {
-                                btn.classList.remove('active');
-                            });
-
-                            const activeBtn = document.querySelector(`#paginacaoHoras button[data-page="${page}"]`);
-                            if (activeBtn) activeBtn.classList.add('active');
-                        }
-
-                        // Criar botões de paginação
-                        for (let i = 1; i <= pageCount; i++) {
-                            const btn = document.createElement('button');
-                            btn.className = 'btn btn-outline-primary btn-sm';
-                            btn.textContent = i;
-                            btn.dataset.page = i;
-                            btn.addEventListener('click', () => {
-                                currentPage = i;
-                                showPage(i);
-                            });
-                            pagination.appendChild(btn);
-                        }
-
-                        // Configurar botões anterior/próximo
-                        document.getElementById('prevPageHoras').addEventListener('click', () => {
-                            if (currentPage > 1) {
-                                currentPage--;
-                                showPage(currentPage);
-                            }
-                        });
-
-                        document.getElementById('nextPageHoras').addEventListener('click', () => {
-                            if (currentPage < pageCount) {
-                                currentPage++;
-                                showPage(currentPage);
-                            }
-                        });
-
-                        // Mostrar primeira página
-                        if (rows.length > 0) showPage(1);
-                    });
-                </script>
-
-
-
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-
-                        const tableBody = document.getElementById('tabelaBancoHoras');
-                        if (tableBody) {
-
-                            let currentPage = 1;
-                            const rowsPerPage = 10;
-                            const rows = tableBody.querySelectorAll('tr');
-                            const pageCount = Math.ceil(rows.length / rowsPerPage);
-
-                            function updatePagination() {
-                                const pagination = document.getElementById('paginacaoHoras');
-                                pagination.innerHTML = '';
-
-                                for (let i = 1; i <= pageCount; i++) {
-                                    const btn = document.createElement('button');
-                                    btn.className = `btn btn-sm ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
-                                    btn.textContent = i;
-                                    btn.onclick = () => {
-                                        currentPage = i;
-                                        updateTable();
-                                        updatePagination();
-                                    };
-                                    pagination.appendChild(btn);
-                                }
-                            }
-
-                            function updateTable() {
-                                const start = (currentPage - 1) * rowsPerPage;
-                                const end = start + rowsPerPage;
-
-                                rows.forEach((row, index) => {
-                                    row.style.display = (index >= start && index < end) ? '' : 'none';
-                                });
-                            }
-
-                            document.getElementById('prevPageHoras').onclick = () => {
-                                if (currentPage > 1) {
-                                    currentPage--;
-                                    updateTable();
-                                    updatePagination();
-                                }
-                            };
-
-                            document.getElementById('nextPageHoras').onclick = () => {
-                                if (currentPage < pageCount) {
-                                    currentPage++;
-                                    updateTable();
-                                    updatePagination();
-                                }
-                            };
-
-
-                            updateTable();
-                            updatePagination();
-                        }
-
-
-                        document.querySelectorAll('.btn-enviar-email').forEach(btn => {
-                            btn.addEventListener('click', function() {
-                                const ano = this.getAttribute('data-ano');
-                                const mes = this.getAttribute('data-mes');
-
-                                document.getElementById('modalAno').value = ano;
-                                document.getElementById('modalMes').value = mes;
-                            });
-                        });
-                    });
-                </script>
-
-                <script>
                     const searchInput = document.getElementById('searchInput');
-                    const allRows = Array.from(document.querySelectorAll('#tabelaBancoHoras tbody tr'));
+                    const allRows = Array.from(document.querySelectorAll('#tabelaPontosIndividuaisMes tbody tr'));
                     const prevBtn = document.getElementById('prevPageHoras');
                     const nextBtn = document.getElementById('nextPageHoras');
                     const pageContainer = document.getElementById('paginacaoHoras');
