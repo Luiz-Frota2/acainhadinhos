@@ -386,7 +386,7 @@ try {
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
-                 
+
                   <li>
                     <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-power-off me-2"></i>
@@ -413,7 +413,7 @@ try {
           <div class="card">
             <h5 class="card-header">Lista de funcionários</h5>
             <div class="table-responsive text-nowrap">
-              <table class="table table-hover" id="tabelaAjuste">
+              <table class="table table-hover" id="tabelaAjustePonto">
                 <thead>
                   <tr>
                     <th>Funcionário</th>
@@ -436,96 +436,86 @@ try {
               </table>
             </div>
 
-            <!-- Paginação -->
-            <div class="d-flex justify-content-start align-items-center gap-2 m-3">
-              <div>
-                <button id="prevPage" class="btn btn-sm btn-outline-primary">Anterior</button>
-                <div id="paginacao" class="btn-group"></div>
-                <button id="nextPage" class="btn btn-sm btn-outline-primary">Próximo</button>
-              </div>
+            <div class="d-flex gap-2 m-3">
+              <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+              <div id="paginacaoHoras" class="d-flex gap-1"></div>
+              <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
             </div>
 
           </div>
+
         </div>
+      </div>
 
-        <script>
-          const searchInput = document.getElementById('searchInput');
-          const linhas = Array.from(document.querySelectorAll('#tabelaAjuste tr'));
-          const rowsPerPage = 20;
-          let currentPage = 1;
+      <script>
+        const searchInput = document.getElementById('searchInput');
+        const allRows = Array.from(document.querySelectorAll('#tabelaAjustePonto tbody tr'));
+        const prevBtn = document.getElementById('prevPageHoras');
+        const nextBtn = document.getElementById('nextPageHoras');
+        const pageContainer = document.getElementById('paginacaoHoras');
+        const perPage = 10;
+        let currentPage = 1;
 
-          function renderTable() {
-            const filtro = searchInput.value.toLowerCase();
-            const linhasFiltradas = linhas.filter(linha => {
-              return Array.from(linha.querySelectorAll('td')).some(td =>
-                td.textContent.toLowerCase().includes(filtro)
-              );
-            });
+        function renderTable() {
+          const filter = searchInput.value.trim().toLowerCase();
+          const filteredRows = allRows.filter(row => {
+            if (!filter) return true;
+            return Array.from(row.cells).some(td =>
+              td.textContent.toLowerCase().includes(filter)
+            );
+          });
 
-            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
-            const inicio = (currentPage - 1) * rowsPerPage;
-            const fim = inicio + rowsPerPage;
+          const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
+          currentPage = Math.min(Math.max(1, currentPage), totalPages);
 
-            linhas.forEach(linha => linha.style.display = 'none');
-            linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
+          // Hide all, then show slice
+          allRows.forEach(r => r.style.display = 'none');
+          filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
+            .forEach(r => r.style.display = '');
 
-            const paginacao = document.getElementById('paginacao');
-            paginacao.innerHTML = '';
-            for (let i = 1; i <= totalPages; i++) {
-              const btn = document.createElement('button');
-              btn.textContent = i;
-
-              // Adiciona espaçamento horizontal entre os botões
-              btn.style.marginRight = "6px";
-
-              btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-              btn.addEventListener('click', () => {
-                currentPage = i;
-                renderTable();
-              });
-              paginacao.appendChild(btn);
-            }
-
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+          // Render page buttons
+          pageContainer.innerHTML = '';
+          for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.textContent = i;
+            btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+            btn.style.marginRight = '4px';
+            btn.onclick = () => {
+              currentPage = i;
+              renderTable();
+            };
+            pageContainer.appendChild(btn);
           }
 
-          searchInput.addEventListener('input', () => {
-            currentPage = 1;
+          prevBtn.disabled = currentPage === 1;
+          nextBtn.disabled = currentPage === totalPages;
+        }
+
+        prevBtn.addEventListener('click', () => {
+          if (currentPage > 1) {
+            currentPage--;
             renderTable();
-          });
-
-          document.getElementById('prevPage').addEventListener('click', () => {
-            if (currentPage > 1) {
-              currentPage--;
-              renderTable();
-            }
-          });
-
-          document.getElementById('nextPage').addEventListener('click', () => {
-            const filtro = searchInput.value.toLowerCase();
-            const linhasFiltradas = linhas.filter(linha => {
-              return Array.from(linha.querySelectorAll('td')).some(td =>
-                td.textContent.toLowerCase().includes(filtro)
-              );
-            });
-            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
-            if (currentPage < totalPages) {
-              currentPage++;
-              renderTable();
-            }
-          });
-
+          }
+        });
+        nextBtn.addEventListener('click', () => {
+          currentPage++;
           renderTable();
-        </script>
+        });
+        searchInput.addEventListener('input', () => {
+          currentPage = 1;
+          renderTable();
+        });
 
-        <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-        <script src="../../assets/vendor/libs/popper/popper.js"></script>
-        <script src="../../assets/vendor/js/bootstrap.js"></script>
-        <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-        <script src="../../assets/vendor/js/menu.js"></script>
-        <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
-        <script src="../../assets/js/main.js"></script>
+        document.addEventListener('DOMContentLoaded', renderTable);
+      </script>
+
+      <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+      <script src="../../assets/vendor/libs/popper/popper.js"></script>
+      <script src="../../assets/vendor/js/bootstrap.js"></script>
+      <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+      <script src="../../assets/vendor/js/menu.js"></script>
+      <script src="../../assets/vendor/libs/apex-charts/apexcharts.js"></script>
+      <script src="../../assets/js/main.js"></script>
 </body>
 
 </html>
