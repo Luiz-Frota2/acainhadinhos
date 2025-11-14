@@ -385,7 +385,7 @@ try {
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
-                  
+
                   <li>
                     <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-power-off me-2"></i>
@@ -500,6 +500,13 @@ try {
                 </tbody>
               </table>
             </div>
+
+            <div class="d-flex gap-2 m-3">
+              <button id="prevPageHoras" class="btn btn-outline-primary btn-sm">&laquo; Anterior</button>
+              <div id="paginacaoHoras" class="d-flex gap-1"></div>
+              <button id="nextPageHoras" class="btn btn-outline-primary btn-sm">Próxima &raquo;</button>
+            </div>
+
           </div>
 
         </div>
