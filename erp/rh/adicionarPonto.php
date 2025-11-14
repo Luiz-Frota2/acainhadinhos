@@ -411,7 +411,7 @@ try {
           <div class="card">
             <h5 class="card-header">Lista de Funcionários</h5>
             <div class="table-responsive text-nowrap">
-              <table class="table table-hover">
+              <table class="table table-hover" id="tabelaAjuste">
                 <thead>
                   <tr>
                     <th>Funcionário</th>
@@ -420,7 +420,7 @@ try {
                     <th>Ações</th>
                   </tr>
                 </thead>
-                <tbody class="table-border-bottom-0" id="tabelaAjuste">
+                <tbody class="table-border-bottom-0">
                   <?php foreach ($funcionarios as $funcionario): ?>
                     <?php
                     // Remove all non-digit characters from CPF for HTML id attributes
@@ -513,73 +513,64 @@ try {
 
         <script>
           const searchInput = document.getElementById('searchInput');
-          const linhas = Array.from(document.querySelectorAll('#tabelaAjuste tr'));
-          const rowsPerPage = 20;
+          const allRows = Array.from(document.querySelectorAll('#tabelaAjuste tbody tr'));
+          const prevBtn = document.getElementById('prevPageHoras');
+          const nextBtn = document.getElementById('nextPageHoras');
+          const pageContainer = document.getElementById('paginacaoHoras');
+          const perPage = 10;
           let currentPage = 1;
 
           function renderTable() {
-            const filtro = searchInput.value.toLowerCase();
-            const linhasFiltradas = linhas.filter(linha => {
-              return Array.from(linha.querySelectorAll('td')).some(td =>
-                td.textContent.toLowerCase().includes(filtro)
+            const filter = searchInput.value.trim().toLowerCase();
+            const filteredRows = allRows.filter(row => {
+              if (!filter) return true;
+              return Array.from(row.cells).some(td =>
+                td.textContent.toLowerCase().includes(filter)
               );
             });
 
-            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
-            const inicio = (currentPage - 1) * rowsPerPage;
-            const fim = inicio + rowsPerPage;
+            const totalPages = Math.ceil(filteredRows.length / perPage) || 1;
+            currentPage = Math.min(Math.max(1, currentPage), totalPages);
 
-            linhas.forEach(linha => linha.style.display = 'none');
-            linhasFiltradas.slice(inicio, fim).forEach(linha => linha.style.display = '');
+            // Hide all, then show slice
+            allRows.forEach(r => r.style.display = 'none');
+            filteredRows.slice((currentPage - 1) * perPage, currentPage * perPage)
+              .forEach(r => r.style.display = '');
 
-            const paginacao = document.getElementById('paginacao');
-            paginacao.innerHTML = '';
+            // Render page buttons
+            pageContainer.innerHTML = '';
             for (let i = 1; i <= totalPages; i++) {
               const btn = document.createElement('button');
               btn.textContent = i;
-
-              // Adiciona espaçamento horizontal entre os botões
-              btn.style.marginRight = "6px";
-
               btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
-              btn.addEventListener('click', () => {
+              btn.style.marginRight = '4px';
+              btn.onclick = () => {
                 currentPage = i;
                 renderTable();
-              });
-              paginacao.appendChild(btn);
+              };
+              pageContainer.appendChild(btn);
             }
 
-            document.getElementById('prevPage').disabled = currentPage === 1;
-            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
           }
 
-          searchInput.addEventListener('input', () => {
-            currentPage = 1;
-            renderTable();
-          });
-
-          document.getElementById('prevPage').addEventListener('click', () => {
+          prevBtn.addEventListener('click', () => {
             if (currentPage > 1) {
               currentPage--;
               renderTable();
             }
           });
-
-          document.getElementById('nextPage').addEventListener('click', () => {
-            const filtro = searchInput.value.toLowerCase();
-            const linhasFiltradas = linhas.filter(linha => {
-              return Array.from(linha.querySelectorAll('td')).some(td =>
-                td.textContent.toLowerCase().includes(filtro)
-              );
-            });
-            const totalPages = Math.ceil(linhasFiltradas.length / rowsPerPage);
-            if (currentPage < totalPages) {
-              currentPage++;
-              renderTable();
-            }
+          nextBtn.addEventListener('click', () => {
+            currentPage++;
+            renderTable();
+          });
+          searchInput.addEventListener('input', () => {
+            currentPage = 1;
+            renderTable();
           });
 
-          renderTable();
+          document.addEventListener('DOMContentLoaded', renderTable);
         </script>
 
         <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
