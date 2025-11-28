@@ -13,18 +13,29 @@ if (!$empresaID) {
 /* =========================================================
    2. BUSCAR DADOS DA EMPRESA EM SOBRE_EMPRESA
    ========================================================= */
-$stmt = $pdo->prepare("SELECT nome_empresa, imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
+$stmt = $pdo->prepare("
+    SELECT nome_empresa, imagem 
+    FROM sobre_empresa 
+    WHERE id_selecionado = :id 
+    LIMIT 1
+");
 $stmt->bindValue(":id", $empresaID);
 $stmt->execute();
 $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
 $nomeEmpresa = $empresa["nome_empresa"] ?? "Nome da Empresa";
-$fotoEmpresa = $empresa["imagem"] ? "./assets/img/uploads/" . $empresa["imagem"] : "./assets/img/default.jpg";
+$fotoEmpresa = !empty($empresa["imagem"])
+    ? "./assets/img/uploads/" . $empresa["imagem"]
+    : "./assets/img/default.jpg";
 
 /* =========================================================
-   3. ENDEREÇO DA EMPRESA
+   3. ENDEREÇO DA EMPRESA (SE NÃO TIVER → FICTÍCIO)
    ========================================================= */
-$stmt = $pdo->prepare("SELECT cidade, uf FROM endereco_empresa WHERE empresa_id = :id LIMIT 1");
+$stmt = $pdo->prepare("
+    SELECT cidade, uf 
+    FROM endereco_empresa 
+    WHERE empresa_id = :id LIMIT 1
+");
 $stmt->bindValue(":id", $empresaID);
 $stmt->execute();
 $end = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -32,9 +43,13 @@ $end = $stmt->fetch(PDO::FETCH_ASSOC);
 $cidadeUF = $end ? ($end['cidade'] . " - " . $end['uf']) : "Cidade não informada";
 
 /* =========================================================
-   4. HORÁRIO DE FUNCIONAMENTO (RETIRADA)
+   4. BUSCAR HORÁRIO DE ABERTURA (RETIRADA)
    ========================================================= */
-$stmt = $pdo->prepare("SELECT tempo_min, tempo_max, retirada FROM configuracoes_retirada WHERE id_empresa = :id LIMIT 1");
+$stmt = $pdo->prepare("
+    SELECT retirada, tempo_min, tempo_max 
+    FROM configuracoes_retirada 
+    WHERE id_empresa = :id LIMIT 1
+");
 $stmt->bindValue(":id", $empresaID);
 $stmt->execute();
 $retirada = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -42,44 +57,62 @@ $retirada = $stmt->fetch(PDO::FETCH_ASSOC);
 /* =========================================================
    5. ENTREGA (DELIVERY)
    ========================================================= */
-$stmt = $pdo->prepare("SELECT entrega, tempo_min, tempo_max FROM entregas WHERE id_empresa = :id LIMIT 1");
+$stmt = $pdo->prepare("
+    SELECT entrega, tempo_min, tempo_max 
+    FROM entregas 
+    WHERE id_empresa = :id LIMIT 1
+");
 $stmt->bindValue(":id", $empresaID);
 $stmt->execute();
 $delivery = $stmt->fetch(PDO::FETCH_ASSOC);
 
 /* =========================================================
-   6. VERIFICAR SE A LOJA ESTÁ ABERTA
-   ========================================================= */
+   6. CALCULAR SE A LOJA ESTÁ ABERTA
+   =========================================================
+   ► Se NÃO tiver registro, assume FECHADA
+   ► Senão usa horários cadastrados
+*/
 $horaAtual = date("H:i");
-$abertura = "10:00";
-$fechamento = "23:00";
 
-$aberta = ($horaAtual >= $abertura && $horaAtual <= $fechamento);
+if (!$retirada && !$delivery) {
+    $aberta = false;
+    $abertura = "00:00";
+    $fechamento = "00:00";
+} else {
+    $abertura = "10:00";
+    $fechamento = "23:00";
+    $aberta = ($horaAtual >= $abertura && $horaAtual <= $fechamento);
+}
 
 /* =========================================================
    7. BUSCAR CATEGORIAS DA EMPRESA
    ========================================================= */
-$stmt = $pdo->prepare("SELECT id_categoria, nome_categoria 
-                       FROM adicionarCategoria 
-                       WHERE empresa_id = :id
-                       ORDER BY id_categoria ASC");
+$stmt = $pdo->prepare("
+    SELECT id_categoria, nome_categoria 
+    FROM adicionarCategoria 
+    WHERE empresa_id = :id
+    ORDER BY id_categoria ASC
+");
 $stmt->bindValue(":id", $empresaID);
 $stmt->execute();
 $categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-/* Selecionar categoria ativa */
+/* Categoria selecionada */
 $id_categoria_selecionada = isset($_GET['categoria'])
     ? intval($_GET['categoria'])
     : ($categorias[0]['id_categoria'] ?? null);
 
 /* =========================================================
-   8. BUSCAR PRODUTOS DA CATEGORIA SELECIONADA
+   8. BUSCAR PRODUTOS
    ========================================================= */
 $produtos = [];
 if ($id_categoria_selecionada) {
-    $stmt = $pdo->prepare("SELECT * FROM adicionarProdutos 
-                           WHERE id_categoria = :cat 
-                           AND empresa_id = :emp");
+    $stmt = $pdo->prepare("
+        SELECT * 
+        FROM adicionarProdutos 
+        WHERE id_categoria = :cat 
+        AND empresa_id = :emp
+    ");
     $stmt->bindValue(":cat", $id_categoria_selecionada);
     $stmt->bindValue(":emp", $empresaID);
     $stmt->execute();
@@ -88,6 +121,7 @@ if ($id_categoria_selecionada) {
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -104,10 +138,12 @@ if ($id_categoria_selecionada) {
 <div class="bg-top"></div>
 
 <header class="width-fix mt-5">
+
     <div class="card">
+
         <div class="d-flex">
 
-            <div class="container-img" 
+            <div class="container-img"
                  style="background-image: url('<?= $fotoEmpresa ?>'); background-size: cover;"></div>
 
             <div class="infos">
@@ -120,37 +156,47 @@ if ($id_categoria_selecionada) {
                         <p class="status-close"><i class="fas fa-clock"></i> Fechada</p>
                     <?php endif; ?>
 
-                    <a href="./sobre.php?empresa=<?= $empresaID ?>" class="link">ver mais</a>
+                    <a href="./sobre.php?empresa=<?= $empresaID ?>" class="link">
+                        ver mais
+                    </a>
                 </div>
-
             </div>
 
         </div>
+
     </div>
+
 </header>
 
 <!-- CATEGORIAS -->
 <section class="categoria width-fix mt-4">
     <div class="container-menu">
-        <?php foreach ($categorias as $c): ?>
-            <a href="?empresa=<?= $empresaID ?>&categoria=<?= $c['id_categoria'] ?>"
-               class="item-categoria btn btn-white btn-sm mb-3 me-3 <?= ($id_categoria_selecionada == $c['id_categoria']) ? 'active' : '' ?>">
-               <i class="fa-solid fa-tag"></i> <?= htmlspecialchars($c['nome_categoria']) ?>
-            </a>
-        <?php endforeach; ?>
+        <?php if ($categorias): ?>
+            <?php foreach ($categorias as $c): ?>
+                <a href="?empresa=<?= $empresaID ?>&categoria=<?= $c['id_categoria'] ?>"
+                   class="item-categoria btn btn-white btn-sm mb-3 me-3 
+                   <?= ($id_categoria_selecionada == $c['id_categoria']) ? 'active' : '' ?>">
+                   <i class="fa-solid fa-tag"></i> <?= htmlspecialchars($c['nome_categoria']) ?>
+                </a>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <p class="text-center mt-3 text-muted">Nenhuma categoria cadastrada.</p>
+        <?php endif; ?>
     </div>
 </section>
 
-<!-- PRODUTOS DA CATEGORIA -->
+<!-- PRODUTOS -->
 <section class="lista width-fix mt-0 pb-5">
 
 <?php if ($aberta): ?>
 
     <?php if ($produtos): ?>
         <div class="container-group mb-5">
-            <p class="title-categoria"><b>
-                <?= htmlspecialchars($categorias[array_search($id_categoria_selecionada, array_column($categorias, 'id_categoria'))]['nome_categoria']) ?>
-            </b></p>
+            <p class="title-categoria">
+                <b><?= $categorias ? htmlspecialchars(
+                    current(array_filter($categorias, fn($c) => $c['id_categoria'] == $id_categoria_selecionada))['nome_categoria']
+                    ) : '' ?></b>
+            </p>
 
             <?php foreach ($produtos as $p): ?>
                 <div class="card mb-2 item-cardapio abrir"
@@ -158,7 +204,7 @@ if ($id_categoria_selecionada) {
 
                     <div class="d-flex">
                         <div class="container-img-produto"
-                             style="background-image: url('./assets/img/uploads/<?= htmlspecialchars($p['imagem_produto']) ?>'); background-size: cover;">
+                             style="background-image: url('./assets/img/uploads/<?= htmlspecialchars($p['imagem_produto']) ?>');">
                         </div>
 
                         <div class="infos-produto">
@@ -179,9 +225,9 @@ if ($id_categoria_selecionada) {
 
 <?php else: ?>
 
-    <section class="menu-bottom disabled visible" id="menu-bottom-closed">
-        <p class="mb-0 text-center text-danger"><b>Loja fechada no momento.</b></p>
-    </section>
+    <div class="text-center mt-4">
+        <p class="text-danger"><b>Loja fechada no momento.</b></p>
+    </div>
 
 <?php endif; ?>
 
@@ -189,10 +235,12 @@ if ($id_categoria_selecionada) {
 
 <!-- MENU INFERIOR -->
 <section class="menu-bottom <?= $aberta ? '' : 'disabled hidden' ?>">
-    <a class="menu-bottom-item active"><i class="fas fa-book-open"></i> Cardápio</a>
+    <a class="menu-bottom-item active">
+        <i class="fas fa-book-open"></i>&nbsp; Cardápio
+    </a>
 
     <a href="./pedido.php?empresa=<?= $empresaID ?>" class="menu-bottom-item">
-        <i class="fas fa-utensils"></i> Pedido
+        <i class="fas fa-utensils"></i>&nbsp; Pedido
     </a>
 
     <a href="./carrinho.php?empresa=<?= $empresaID ?>" class="menu-bottom-item">
