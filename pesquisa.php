@@ -72,7 +72,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
       --badge-filial: #3b82f6;
       --badge-franquia: #f97316;
       --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
-      --radius-lg: 18px;
+      --radius-lg: 9px;
     }
 
     * {
