@@ -660,7 +660,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const numeroWhatsapp = '559791434585'; //numero de telefone
             const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-            window.open(url, '_blank');
+            fetch("finalizar_pedido.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+        nome: nome,
+        telefone: telefone,
+        endereco: endereco,
+        pagamento: pagamento,
+        detalhe_pagamento: detalhePagamento,
+        total: totalPedido,
+        itens_json: JSON.stringify(carrinhoPHP)
+    })
+})
+.then(res => res.json())
+.then(data => {
+    if (data.status === "ok") {
+        // Empresa envia msg para cliente
+        window.open(data.redirect, "_blank");
+
+        // Cliente é redirecionado
+        window.location.href = "pedido.php?id=" + data.pedido_id;
+    }
+});
+
         });
     }
 });
