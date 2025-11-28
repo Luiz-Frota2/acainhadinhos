@@ -192,6 +192,9 @@ session_start();
             <!-- Campos ocultos hidden -->
             <input type="hidden" name="quantidade_itens" id="quantidade_itens" value="1 x">
             <input type="hidden" name="total_itens" id="total_itens" value="R$ 0.00">
+            <input type="hidden" name="opcionais_simples[]" id="opcionais_simples_hidden">
+<input type="hidden" name="opcao_selecao[]" id="opcao_selecao_hidden">
+
 
             <!-- Botão "Adicionar" -->
             <button type="submit" id="btn-adicionar" name="btn-adicionar" value="btn-adicionar"
