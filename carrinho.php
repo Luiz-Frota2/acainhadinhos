@@ -654,7 +654,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Pagamento
             texto += 'FORMA DE PAGAMENTO:\n';
-            texto += pagamento + '%0A%0A';
+            texto += pagamento + '\n\n';
 
             texto += 'Enviado automaticamente pelo sistema.';
 
