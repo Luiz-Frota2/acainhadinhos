@@ -195,7 +195,7 @@ if ($id_categoria_selecionada) {
                     <?php
                         $imgProd = !empty($produto['imagem_produto'])
                             ? './assets/img/uploads/' . $produto['imagem_produto']
-                            : './assets/img/default.jpg';
+                            : './assets/img/favicon/logo.png';
                     ?>
                     <div class="card mb-2 item-cardapio abrir" 
                          onclick="window.location.href='item.php?id=<?= htmlspecialchars($produto['id_produto']) ?>&empresa=<?= urlencode($empresaID) ?>'">
