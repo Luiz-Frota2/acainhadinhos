@@ -256,7 +256,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .hero-tag-dot {
       width: 6px;
       height: 6px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #22c55e;
     }
 
