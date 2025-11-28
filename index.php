@@ -133,7 +133,7 @@ if ($id_categoria_selecionada) {
                                 <i class="fas fa-clock"></i> Fechado
                             </p>
                         <?php endif; ?>
-                        <a href="./sobre.html" class="link">
+                        <a href="./sobre.php?empresa=<?= urlencode($empresaID) ?>" class="link">
                             ver mais
                         </a>
                     </div>
