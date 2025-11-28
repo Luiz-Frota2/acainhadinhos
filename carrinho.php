@@ -653,8 +653,8 @@ document.addEventListener('DOMContentLoaded', function () {
             texto += endereco + '\n\n';
 
             // Pagamento
-            texto += 'FORMA DE PAGAMENTO:\n';
-            texto += pagamento + '\n\n';
+            texto += 'FORMA DE PAGAMENTO:%0A';
+            texto += pagamento + '%0A%0A';
 
             texto += 'Enviado automaticamente pelo sistema.';
 
