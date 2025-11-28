@@ -80,43 +80,24 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                             </p>
                         </div>
 
-                        <!-- OPCIONAIS SIMPLES -->
                         <?php if (!empty($opcSimples)): ?>
                             <?php foreach ($opcSimples as $op): ?>
-                                <?php
-                                $opNome  = $op['nome']  ?? '';
-                                $opPreco = isset($op['preco']) ? (float)$op['preco'] : 0;
-                                ?>
                                 <div class="infos-produto">
-                                    <p class="name-opcional mb-0">
-                                        + <?= htmlspecialchars($opNome) ?>
-                                    </p>
-                                    <p class="price-opcional mb-0">
-                                        + R$ <?= number_format($opPreco, 2, ',', '.') ?>
-                                    </p>
+                                    <p class="name-opcional mb-0">+ <?= htmlspecialchars($op['nome']) ?></p>
+                                    <p class="price-opcional mb-0">+ R$ <?= number_format($op['preco'], 2, ',', '.') ?></p>
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
 
-                        <!-- OPCIONAIS DAS SELEÇÕES -->
                         <?php if (!empty($opcSelecao)): ?>
                             <?php foreach ($opcSelecao as $op): ?>
-                                <?php
-                                $opNome  = $op['nome']  ?? '';
-                                $opPreco = isset($op['preco']) ? (float)$op['preco'] : 0;
-                                ?>
                                 <div class="infos-produto">
-                                    <p class="name-opcional mb-0">
-                                        + <?= htmlspecialchars($opNome) ?>
-                                    </p>
-                                    <p class="price-opcional mb-0">
-                                        + R$ <?= number_format($opPreco, 2, ',', '.') ?>
-                                    </p>
+                                    <p class="name-opcional mb-0">+ <?= htmlspecialchars($op['nome']) ?></p>
+                                    <p class="price-opcional mb-0">+ R$ <?= number_format($op['preco'], 2, ',', '.') ?></p>
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
 
-                        <!-- OBSERVAÇÃO -->
                         <?php if ($obs !== ''): ?>
                             <div class="infos-produto">
                                 <p class="obs-opcional mb-0">
@@ -127,7 +108,6 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 
                     </div>
 
-                    <!-- AÇÕES DO ITEM (remover) -->
                     <form action="remove_from_cart.php" method="post" style="margin-top:5px;">
                         <input type="hidden" name="index" value="<?= $idx ?>">
                         <div class="detalhes-produto-edit">
@@ -154,10 +134,9 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
     <?php endif; ?>
 
 </section>
-
 <section class="opcionais width-fix mt-5 pb-5">
 
-    <!-- Tipo de entrega (mantido simples) -->
+    <!-- Tipo de entrega -->
     <div class="container-group mb-5">
         <span class="badge">Obrigatório</span>
         <p class="title-categoria mb-0"><b>Escolha uma opção</b></p>
@@ -188,7 +167,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
         </div>
     </div>
 
-    <!-- ENDEREÇO (com modal) -->
+    <!-- ENDEREÇO -->
     <div class="container-group mb-5">
         <span class="badge">Obrigatório</span>
 
@@ -204,7 +183,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
             </div>
         </div>
 
-        <!-- Card com endereço preenchido -->
+        <!-- Card quando preenchido -->
         <div class="card card-address mt-2 d-none" id="card-address-filled">
             <div class="img-icon-details">
                 <i class="fas fa-map-marked-alt"></i>
@@ -239,7 +218,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                placeholder="(00) 00000-0000">
     </div>
 
-    <!-- Pagamento (com modal) -->
+    <!-- PAGAMENTO -->
     <div class="container-group mb-5">
         <span class="badge">Obrigatório</span>
         <p class="title-categoria mb-0"><b>Como você prefere pagar?</b></p>
@@ -254,7 +233,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
             </div>
         </div>
 
-        <!-- Card com forma selecionada -->
+        <!-- Card quando preenchido -->
         <div class="card card-address mt-2 d-none" id="card-pagamento-filled">
             <div class="img-icon-details">
                 <i class="fas fa-credit-card"></i>
@@ -280,7 +259,8 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 </button>
 
 
-<!-- MODAL ENDEREÇO -->
+<!-- =============== MODAL ENDEREÇO =============== -->
+
 <div class="modal fade" id="modalEndereco" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -288,11 +268,14 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                 <h5 class="modal-title">Endereço de entrega</h5>
                 <button type="button" class="btn-close" id="btn-close-endereco" aria-label="Fechar"></button>
             </div>
+
             <div class="modal-body">
+
                 <div class="mb-2">
                     <label class="form-label mb-1">Rua / Avenida</label>
                     <input type="text" class="form-control" id="endereco_rua" placeholder="Ex: Rua Projetada A" />
                 </div>
+
                 <div class="row">
                     <div class="col-6 mb-2">
                         <label class="form-label mb-1">Número</label>
@@ -303,6 +286,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                         <input type="text" class="form-control" id="endereco_bairro" placeholder="Ex: Centro" />
                     </div>
                 </div>
+
                 <div class="row">
                     <div class="col-7 mb-2">
                         <label class="form-label mb-1">Cidade</label>
@@ -313,17 +297,21 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                         <input type="text" class="form-control" id="endereco_cep" placeholder="XXXXX-XXX" />
                     </div>
                 </div>
+
                 <div class="mb-2">
                     <label class="form-label mb-1">Complemento</label>
                     <input type="text" class="form-control" id="endereco_complemento"
                            placeholder="Casa, apto, ponto de referência..." />
                 </div>
+
                 <div class="mb-0">
                     <label class="form-label mb-1">Referência</label>
                     <input type="text" class="form-control" id="endereco_referencia"
-                           placeholder="Ex: Próximo à praça, escola..." />
+                           placeholder="Ex: Próximo à praça..." />
                 </div>
+
             </div>
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-cancelar-endereco">Cancelar</button>
                 <button type="button" class="btn btn-yellow btn-sm" id="btn-salvar-endereco">Salvar endereço</button>
@@ -332,15 +320,20 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
     </div>
 </div>
 
-<!-- MODAL PAGAMENTO -->
+
+<!-- =============== MODAL PAGAMENTO =============== -->
+
 <div class="modal fade" id="modalPagamento" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
+
             <div class="modal-header">
                 <h5 class="modal-title">Forma de pagamento</h5>
                 <button type="button" class="btn-close" id="btn-close-pagamento" aria-label="Fechar"></button>
             </div>
+
             <div class="modal-body">
+
                 <div class="mb-2">
                     <label class="container-check w-100">
                         <div class="d-flex justify-content-between align-items-center">
@@ -350,10 +343,12 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                         <span class="checkmark"></span>
                     </label>
                 </div>
+
                 <div class="mb-2" id="grupo_troco" style="display:none;">
                     <label class="form-label mb-1">Troco para quanto?</label>
                     <input type="text" class="form-control" id="pag_troco" placeholder="Ex: 50,00" />
                 </div>
+
                 <div class="mb-2">
                     <label class="container-check w-100">
                         <div class="d-flex justify-content-between align-items-center">
@@ -363,6 +358,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                         <span class="checkmark"></span>
                     </label>
                 </div>
+
                 <div class="mb-0">
                     <label class="container-check w-100">
                         <div class="d-flex justify-content-between align-items-center">
@@ -372,7 +368,9 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                         <span class="checkmark"></span>
                     </label>
                 </div>
+
             </div>
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" id="btn-cancelar-pagamento">Cancelar</button>
                 <button type="button" class="btn btn-yellow btn-sm" id="btn-salvar-pagamento">Salvar forma de pagamento</button>
@@ -380,7 +378,6 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
         </div>
     </div>
 </div>
-
 <section class="menu-bottom disabled hidden" id="menu-bottom-closed">
     <p class="mb-0"><b>Loja fechada no momento.</b></p>
 </section>
@@ -388,40 +385,43 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 <script type="text/javascript" src="./js/bootstrap.bundle.min.js"></script>
 
 <script type="text/javascript">
-const carrinhoPHP   = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
+
+const carrinhoPHP = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
 const totalPedidoPHP = <?php echo json_encode($total_pedido); ?>;
 
 document.addEventListener('DOMContentLoaded', function () {
 
-    // --------- ENDEREÇO ----------
+    /* =======================================================
+       MODAL ENDEREÇO
+    ======================================================= */
     const cardAddressEmpty   = document.getElementById('card-address-empty');
     const cardAddressFilled  = document.getElementById('card-address-filled');
     const resumoEnderecoL1   = document.getElementById('resumo_endereco_linha1');
     const resumoEnderecoL2   = document.getElementById('resumo_endereco_linha2');
     const enderecoTextoInput = document.getElementById('endereco_texto');
+
     const modalEnderecoEl    = document.getElementById('modalEndereco');
     let modalEndereco        = null;
+
     if (typeof bootstrap !== 'undefined' && modalEnderecoEl) {
         modalEndereco = new bootstrap.Modal(modalEnderecoEl);
     }
 
     function abrirModalEndereco() {
-        if (modalEndereco) modalEndereco.show();
-        else if (modalEnderecoEl) modalEnderecoEl.style.display = 'block';
+        modalEndereco ? modalEndereco.show() : (modalEnderecoEl.style.display = 'block');
     }
     function fecharModalEndereco() {
-        if (modalEndereco) modalEndereco.hide();
-        else if (modalEnderecoEl) modalEnderecoEl.style.display = 'none';
+        modalEndereco ? modalEndereco.hide() : (modalEnderecoEl.style.display = 'none');
     }
 
     if (cardAddressEmpty) {
         cardAddressEmpty.style.cursor = 'pointer';
-        cardAddressEmpty.addEventListener('click', abrirModalEndereco);
+        cardAddressEmpty.onclick = abrirModalEndereco;
     }
     const btnEditEndereco = document.getElementById('btn-edit-endereco');
     if (btnEditEndereco) {
         btnEditEndereco.style.cursor = 'pointer';
-        btnEditEndereco.addEventListener('click', abrirModalEndereco);
+        btnEditEndereco.onclick = abrirModalEndereco;
     }
 
     const btnSalvarEndereco   = document.getElementById('btn-salvar-endereco');
@@ -429,78 +429,67 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnCloseEndereco    = document.getElementById('btn-close-endereco');
 
     function salvarEndereco() {
-        const rua   = (document.getElementById('endereco_rua') || {}).value || '';
-        const num   = (document.getElementById('endereco_numero') || {}).value || '';
-        const bairro= (document.getElementById('endereco_bairro') || {}).value || '';
-        const cid   = (document.getElementById('endereco_cidade') || {}).value || '';
-        const cep   = (document.getElementById('endereco_cep') || {}).value || '';
-        const compl = (document.getElementById('endereco_complemento') || {}).value || '';
-        const ref   = (document.getElementById('endereco_referencia') || {}).value || '';
+        const rua   = document.getElementById('endereco_rua').value.trim();
+        const num   = document.getElementById('endereco_numero').value.trim();
+        const bairro= document.getElementById('endereco_bairro').value.trim();
+        const cid   = document.getElementById('endereco_cidade').value.trim();
+        const cep   = document.getElementById('endereco_cep').value.trim();
+        const compl = document.getElementById('endereco_complemento').value.trim();
+        const ref   = document.getElementById('endereco_referencia').value.trim();
 
-        if (!rua.trim() || !num.trim() || !bairro.trim() || !cid.trim()) {
+        if (!rua || !num || !bairro || !cid) {
             alert('Preencha rua, número, bairro e cidade.');
             return;
         }
 
         const linha1 = rua + ', ' + num + ' - ' + bairro;
-        let linha2   = cid;
-        if (cep.trim()) {
-            linha2 += ' - ' + cep;
-        }
+        let linha2 = cid + (cep ? ' - ' + cep : '');
 
         let textoEndereco = linha1 + ' - ' + linha2;
-        if (compl.trim()) textoEndereco += ' | Compl.: ' + compl.trim();
-        if (ref.trim())   textoEndereco += ' | Ref.: ' + ref.trim();
+        if (compl) textoEndereco += ' | Compl.: ' + compl;
+        if (ref) textoEndereco += ' | Ref.: ' + ref;
 
-        if (resumoEnderecoL1) resumoEnderecoL1.textContent = linha1;
-        if (resumoEnderecoL2) resumoEnderecoL2.textContent = linha2;
-        if (enderecoTextoInput) enderecoTextoInput.value   = textoEndereco;
+        resumoEnderecoL1.textContent = linha1;
+        resumoEnderecoL2.textContent = linha2;
+        enderecoTextoInput.value = textoEndereco;
 
-        if (cardAddressEmpty) cardAddressEmpty.classList.add('d-none');
-        if (cardAddressFilled) cardAddressFilled.classList.remove('d-none');
+        cardAddressEmpty.classList.add('d-none');
+        cardAddressFilled.classList.remove('d-none');
 
         fecharModalEndereco();
     }
 
-    if (btnSalvarEndereco)   btnSalvarEndereco.addEventListener('click', salvarEndereco);
-    if (btnCancelarEndereco) btnCancelarEndereco.addEventListener('click', fecharModalEndereco);
-    if (btnCloseEndereco)    btnCloseEndereco.addEventListener('click', fecharModalEndereco);
+    btnSalvarEndereco && btnSalvarEndereco.addEventListener('click', salvarEndereco);
+    btnCancelarEndereco && btnCancelarEndereco.addEventListener('click', fecharModalEndereco);
+    btnCloseEndereco && btnCloseEndereco.addEventListener('click', fecharModalEndereco);
 
-    // --------- PAGAMENTO ----------
+
+
+    /* =======================================================
+       MODAL PAGAMENTO
+    ======================================================= */
     const cardPagamentoEmpty   = document.getElementById('card-pagamento-empty');
     const cardPagamentoFilled  = document.getElementById('card-pagamento-filled');
     const resumoPagamentoL1    = document.getElementById('resumo_pagamento_linha1');
     const resumoPagamentoL2    = document.getElementById('resumo_pagamento_linha2');
     const pagamentoTextoInput  = document.getElementById('pagamento_texto');
 
-    const modalPagamentoEl = document.getElementById('modalPagamento');
-    let modalPagamento     = null;
+    const modalPagamentoEl     = document.getElementById('modalPagamento');
+    let modalPagamento         = null;
+
     if (typeof bootstrap !== 'undefined' && modalPagamentoEl) {
         modalPagamento = new bootstrap.Modal(modalPagamentoEl);
     }
 
     function abrirModalPagamento() {
-        if (modalPagamento) modalPagamento.show();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'block';
+        modalPagamento ? modalPagamento.show() : (modalPagamentoEl.style.display = 'block');
     }
     function fecharModalPagamento() {
-        if (modalPagamento) modalPagamento.hide();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'none';
+        modalPagamento ? modalPagamento.hide() : (modalPagamentoEl.style.display = 'none');
     }
 
-    if (cardPagamentoEmpty) {
-        cardPagamentoEmpty.style.cursor = 'pointer';
-        cardPagamentoEmpty.addEventListener('click', abrirModalPagamento);
-    }
-    const btnEditPagamento = document.getElementById('btn-edit-pagamento');
-    if (btnEditPagamento) {
-        btnEditPagamento.style.cursor = 'pointer';
-        btnEditPagamento.addEventListener('click', abrirModalPagamento);
-    }
-
-    const btnSalvarPagamento   = document.getElementById('btn-salvar-pagamento');
-    const btnCancelarPagamento = document.getElementById('btn-cancelar-pagamento');
-    const btnClosePagamento    = document.getElementById('btn-close-pagamento');
+    cardPagamentoEmpty.onclick = abrirModalPagamento;
+    document.getElementById('btn-edit-pagamento').onclick = abrirModalPagamento;
 
     const inputDinheiro = document.getElementById('pag_dinheiro');
     const inputCartao   = document.getElementById('pag_cartao');
@@ -508,184 +497,130 @@ document.addEventListener('DOMContentLoaded', function () {
     const grupoTroco    = document.getElementById('grupo_troco');
     const inputTroco    = document.getElementById('pag_troco');
 
-    function atualizarVisibilidadeTroco() {
-        if (inputDinheiro && inputDinheiro.checked) {
-            if (grupoTroco) grupoTroco.style.display = 'block';
+    function atualizarTroco() {
+        if (inputDinheiro.checked) {
+            grupoTroco.style.display = 'block';
         } else {
-            if (grupoTroco) grupoTroco.style.display = 'none';
-            if (inputTroco) inputTroco.value = '';
+            grupoTroco.style.display = 'none';
+            inputTroco.value = '';
         }
     }
 
-    if (inputDinheiro) inputDinheiro.addEventListener('change', atualizarVisibilidadeTroco);
-    if (inputCartao)   inputCartao.addEventListener('change', atualizarVisibilidadeTroco);
-    if (inputPix)      inputPix.addEventListener('change', atualizarVisibilidadeTroco);
+    inputDinheiro.onclick = atualizarTroco;
+    inputCartao.onclick   = atualizarTroco;
+    inputPix.onclick      = atualizarTroco;
 
     function salvarPagamento() {
         let metodo = '';
         let detalhe = '';
 
-        if (inputDinheiro && inputDinheiro.checked) {
+        if (inputDinheiro.checked) {
             metodo = 'Dinheiro';
-            if (inputTroco && inputTroco.value.trim()) {
-                detalhe = 'Troco para: R$ ' + inputTroco.value.trim();
-            } else {
-                detalhe = 'Levar troco, se necessário.';
-            }
-        } else if (inputCartao && inputCartao.checked) {
+            detalhe = inputTroco.value.trim()
+                ? ('Troco para: R$ ' + inputTroco.value.trim())
+                : 'Levar troco.';
+        }
+        else if (inputCartao.checked) {
             metodo = 'Cartão (crédito/débito)';
             detalhe = 'Levar maquininha.';
-        } else if (inputPix && inputPix.checked) {
+        }
+        else if (inputPix.checked) {
             metodo = 'Pix';
             detalhe = 'Cobrar chave na entrega.';
         }
 
         if (!metodo) {
-            alert('Selecione uma forma de pagamento.');
+            alert('Selecione a forma de pagamento.');
             return;
         }
 
-        if (resumoPagamentoL1) resumoPagamentoL1.textContent = metodo;
-        if (resumoPagamentoL2) resumoPagamentoL2.textContent = detalhe;
-        if (pagamentoTextoInput) pagamentoTextoInput.value = metodo + (detalhe ? ' - ' + detalhe : '');
+        resumoPagamentoL1.textContent = metodo;
+        resumoPagamentoL2.textContent = detalhe;
+        pagamentoTextoInput.value = metodo + ' - ' + detalhe;
 
-        if (cardPagamentoEmpty) cardPagamentoEmpty.classList.add('d-none');
-        if (cardPagamentoFilled) cardPagamentoFilled.classList.remove('d-none');
+        cardPagamentoEmpty.classList.add('d-none');
+        cardPagamentoFilled.classList.remove('d-none');
 
         fecharModalPagamento();
     }
 
-    if (btnSalvarPagamento)   btnSalvarPagamento.addEventListener('click', salvarPagamento);
-    if (btnCancelarPagamento) btnCancelarPagamento.addEventListener('click', fecharModalPagamento);
-    if (btnClosePagamento)    btnClosePagamento.addEventListener('click', fecharModalPagamento);
+    document.getElementById('btn-salvar-pagamento').onclick = salvarPagamento;
+    document.getElementById('btn-cancelar-pagamento').onclick = fecharModalPagamento;
+    document.getElementById('btn-close-pagamento').onclick = fecharModalPagamento;
 
-    // --------- FINALIZAR PEDIDO / WHATSAPP ----------
+
+
+    /* =======================================================
+       FINALIZAR PEDIDO -> GRAVAÇÃO NO BANCO + WHATSAPP
+    ======================================================= */
+
     const btnFinalizar = document.getElementById('btn-finalizar-pedido');
-    if (btnFinalizar) {
-        btnFinalizar.addEventListener('click', function () {
-            if (!carrinhoPHP || !Array.isArray(carrinhoPHP) || carrinhoPHP.length === 0) {
-                alert('Seu carrinho está vazio.');
-                return;
-            }
 
-            const nome      = (document.getElementById('cliente_nome') || {}).value || '';
-            const telefone  = (document.getElementById('cliente_telefone') || {}).value || '';
-            const endereco  = (document.getElementById('endereco_texto') || {}).value || '';
-            const pagamento = (document.getElementById('pagamento_texto') || {}).value || '';
+    btnFinalizar.addEventListener('click', function () {
 
-            if (!nome.trim()) {
-                alert('Informe o seu nome.');
-                return;
-            }
-            if (!telefone.trim()) {
-                alert('Informe o número do seu celular.');
-                return;
-            }
-            if (!endereco.trim()) {
-                alert('Selecione e salve um endereço de entrega.');
-                return;
-            }
-            if (!pagamento.trim()) {
-                alert('Selecione e salve uma forma de pagamento.');
-                return;
-            }
+        if (!carrinhoPHP || carrinhoPHP.length === 0) {
+            alert('Seu carrinho está vazio.');
+            return;
+        }
 
-            let texto = '';
-            texto += 'NOVO PEDIDO - AÇAIDINHOS\n\n';
-            texto += 'Cliente: ' + nome.trim() + '\n';
-            texto += 'Telefone: ' + telefone.trim() + '\n\n';
+        const nome      = document.getElementById('cliente_nome').value.trim();
+        const telefone  = document.getElementById('cliente_telefone').value.trim();
+        const endereco  = document.getElementById('endereco_texto').value.trim();
+        const pagamento = document.getElementById('pagamento_texto').value.trim();
 
-            texto += 'ITENS DO PEDIDO:\n';
+        if (!nome)      return alert('Informe seu nome.');
+        if (!telefone)  return alert('Informe seu número de celular.');
+        if (!endereco)  return alert('Informe seu endereço.');
+        if (!pagamento) return alert('Selecione a forma de pagamento.');
 
-            carrinhoPHP.forEach(function (item, idx) {
-                if (!item) return;
-
-                const nomeItem  = item.nome || ('Item ' + (idx + 1));
-                const quantItem = item.quant || 1;
-                const precoItemNum = Number(item.preco || 0);
-                const precoItemTxt = 'R$ ' + precoItemNum.toFixed(2).replace('.', ',');
-
-                texto += '- ' + quantItem + 'x ' + nomeItem + ' - ' + precoItemTxt + '\n';
-
-                // Opcionais simples
-                if (Array.isArray(item.opc_simples) && item.opc_simples.length > 0) {
-                    texto += '  Adicionais:\n';
-                    item.opc_simples.forEach(function (opc) {
-                        if (!opc) return;
-                        const n = opc.nome || '';
-                        const pNum = Number(opc.preco || 0);
-                        const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
-                    });
-                }
-
-                // Opcionais de seleção
-                if (Array.isArray(item.opc_selecao) && item.opc_selecao.length > 0) {
-                    if (!(Array.isArray(item.opc_simples) && item.opc_simples.length > 0)) {
-                        texto += '  Adicionais:\n';
-                    }
-                    item.opc_selecao.forEach(function (opc) {
-                        if (!opc) return;
-                        const n = opc.nome || '';
-                        const pNum = Number(opc.preco || 0);
-                        const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
-                    });
-                }
-
-                // Observação
-                if (item.observacao) {
-                    texto += '  Observação: ' + item.observacao + '\n';
-                }
-
-                texto += '\n';
+        // Convertendo itens para formato do banco
+        let itens = [];
+        carrinhoPHP.forEach(item => {
+            itens.push({
+                nome: item.nome,
+                quant: item.quant,
+                preco_unit: item.preco,
+                observacao: item.observacao,
+                opcionais: [
+                    ...(item.opc_simples ?? []),
+                    ...(item.opc_selecao ?? [])
+                ]
             });
-
-            // Total
-            if (totalPedidoPHP !== null && totalPedidoPHP !== undefined) {
-                const totalNum = Number(totalPedidoPHP) || 0;
-                texto += 'TOTAL:\n';
-                texto += 'R$ ' + totalNum.toFixed(2).replace('.', ',') + '\n\n';
-            }
-
-            // Endereço
-            texto += 'ENDEREÇO DE ENTREGA:\n';
-            texto += endereco + '\n\n';
-
-            // Pagamento
-            texto += 'FORMA DE PAGAMENTO:\n';
-            texto += pagamento + '\n\n';
-
-            texto += 'Enviado automaticamente pelo sistema.';
-
-            const numeroWhatsapp = '559791434585'; //numero de telefone
-            const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-            fetch("finalizar_pedido.php", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-        nome: nome,
-        telefone: telefone,
-        endereco: endereco,
-        pagamento: pagamento,
-        detalhe_pagamento: detalhePagamento,
-        total: totalPedido,
-        itens_json: JSON.stringify(carrinhoPHP)
-    })
-})
-.then(res => res.json())
-.then(data => {
-    if (data.status === "ok") {
-        // Empresa envia msg para cliente
-        window.open(data.redirect, "_blank");
-
-        // Cliente é redirecionado
-        window.location.href = "pedido.php?id=" + data.pedido_id;
-    }
-});
-
         });
-    }
+
+        // Envio ao arquivo finalizador
+        fetch("finalizar_pedido.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                nome: nome,
+                telefone: telefone,
+                endereco: endereco,
+                pagamento: pagamento,
+                detalhe_pagamento: "",
+                total: totalPedidoPHP,
+                itens_json: JSON.stringify(itens)
+            })
+        })
+        .then(resp => resp.json())
+        .then(ret => {
+            if (ret.status === "ok") {
+
+                // 1) Empresa envia mensagem ao cliente
+                window.open(ret.redirect, "_blank");
+
+                // 2) Cliente é redirecionado
+                window.location.href = "pedido.php?id=" + ret.pedido_id;
+            } else {
+                alert("Erro: " + ret.erro);
+            }
+        })
+        .catch(err => {
+            console.log(err);
+            alert("Erro na comunicação com o servidor.");
+        });
+
+    });
 });
 </script>
 
