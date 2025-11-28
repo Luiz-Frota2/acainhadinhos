@@ -1,238 +1,148 @@
-<?php
-require './assets/php/conexao.php';
-
-/* ==========================================================
-   1. PEGAR A EMPRESA SELECIONADA
-   ========================================================== */
-$empresaID = $_GET['empresa'] ?? null;
-
-if (!$empresaID) {
-    die("<h2>Erro: nenhuma empresa informada.</h2>");
-}
-
-/* ==========================================================
-   2. BUSCAR INFORMAÇÕES DA EMPRESA
-   ========================================================== */
-$stmt = $pdo->prepare("SELECT * FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
-$stmt->bindValue(":id", $empresaID);
-$stmt->execute();
-$empresa = $stmt->fetch(PDO::FETCH_ASSOC);
-
-$nomeEmpresa = $empresa["nome_empresa"] ?? "Açainhadinhos";
-$imgEmpresa = !empty($empresa["imagem"]) ?
-    "./assets/img/uploads/" . $empresa["imagem"] :
-    "./assets/img/default.jpg";
-
-/* ==========================================================
-   3. ENDEREÇO DA EMPRESA
-   ========================================================== */
-$stmt = $pdo->prepare("SELECT * FROM endereco_empresa WHERE empresa_id = :id LIMIT 1");
-$stmt->bindValue(":id", $empresaID);
-$stmt->execute();
-$end = $stmt->fetch(PDO::FETCH_ASSOC);
-
-$cidadeUF = $end ? ($end["cidade"] . " - " . $end["uf"]) : "Cidade não informada";
-
-/* ==========================================================
-   4. HORÁRIO / STATUS (ABERTA ou FECHADA)
-   ========================================================== */
-$stmt = $pdo->prepare("SELECT * FROM entregas WHERE id_empresa = :id LIMIT 1");
-$stmt->bindValue(":id", $empresaID);
-$stmt->execute();
-$horario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-$abertura = $horario["abertura"] ?? null;
-$fechamento = $horario["fechamento"] ?? null;
-
-$horaAtual = date("H:i");
-
-$abertaAgora = false;
-
-if ($abertura && $fechamento) {
-    if ($horaAtual >= $abertura && $horaAtual <= $fechamento) {
-        $abertaAgora = true;
-    }
-}
-
-/* ==========================================================
-   5. BUSCAR CATEGORIAS SOMENTE DA EMPRESA
-   ========================================================== */
-$stmt = $pdo->prepare("
-    SELECT id_categoria, nome_categoria
-    FROM adicionarCategoria
-    WHERE empresa_id = :id
-    ORDER BY id_categoria ASC
-");
-$stmt->bindValue(":id", $empresaID);
-$stmt->execute();
-$categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-/* Categoria padrão */
-$id_categoria_selecionada = $_GET['categoria'] ?? ($categorias[0]['id_categoria'] ?? null);
-
-/* ==========================================================
-   6. BUSCAR PRODUTOS DA CATEGORIA E EMPRESA
-   ========================================================== */
-$produtos = [];
-
-if ($id_categoria_selecionada) {
-    $stmt = $pdo->prepare("
-        SELECT *
-        FROM adicionarProdutos
-        WHERE id_categoria = :cat
-        AND id_empresa = :empresa
-        ORDER BY id_produto DESC
-    ");
-    $stmt->bindValue(":cat", $id_categoria_selecionada);
-    $stmt->bindValue(":empresa", $empresaID);
-    $stmt->execute();
-    $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-?>
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= htmlspecialchars($nomeEmpresa) ?></title>
+    <title>Açaidinhos</title>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/cardapio/animate.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
+
 </head>
 <body>
 
     <div class="bg-top"></div>
 
-    <!-- CABEÇALHO -->
     <header class="width-fix mt-5">
+
         <div class="card">
+
             <div class="d-flex">
 
-                <div class="container-img"
-                     style="background-image:url('<?= $imgEmpresa ?>'); background-size:cover;">
-                </div>
+                <div class="container-img"></div>
 
                 <div class="infos">
-                    <h1><b><?= htmlspecialchars($nomeEmpresa) ?></b></h1>
-
+                    <h1><b>Açainhadinhos</b></h1>
                     <div class="infos-sub">
-                        <?php if ($abertaAgora): ?>
-                            <p class="status-open"><i class="fas fa-clock"></i> Aberta agora</p>
-                        <?php else: ?>
-                            <p class="status-close"><i class="fas fa-clock"></i> Fechada</p>
-                        <?php endif; ?>
-
-                        <a href="./sobre.php?empresa=<?= $empresaID ?>" class="link">ver mais</a>
+                        <p class="status-open">
+                            <i class="fas fa-clock"></i> Aberta
+                        </p>
+                        <a href="./sobre.html" class="link">
+                            ver mais
+                        </a>
                     </div>
 
                 </div>
+
             </div>
+
+
         </div>
+
     </header>
+
+    <?php
+        
+        require './assets/php/conexao.php';
+
+        try {
+            // Busca todas as categorias ordenadas pelo menor ID
+            $sql = "SELECT id_categoria, nome_categoria FROM adicionarCategoria ORDER BY id_categoria ASC";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute();
+            $categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            die("Erro ao buscar categorias: " . $e->getMessage());
+        }
+
+        // Captura a categoria selecionada na URL OU seleciona a primeira categoria da lista
+        $id_categoria_selecionada = isset($_GET['categoria']) ? (int)$_GET['categoria'] : ($categorias[0]['id_categoria'] ?? null);
+
+        // Se houver uma categoria selecionada, busca os produtos dela
+        $produtos = [];
+        if ($id_categoria_selecionada) {
+            try {
+                $sql = "SELECT * FROM adicionarProdutos WHERE id_categoria = :id_categoria";
+                $stmt = $pdo->prepare($sql);
+                $stmt->bindParam(':id_categoria', $id_categoria_selecionada, PDO::PARAM_INT);
+                $stmt->execute();
+                $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                die("Erro ao buscar produtos: " . $e->getMessage());
+            }
+        }
+    ?>
 
     <!-- LISTA DE CATEGORIAS -->
     <section class="categoria width-fix mt-4">
-        <div class="container-menu">
-
-            <?php if ($categorias): ?>
-                <?php foreach ($categorias as $c): ?>
-                    <a href="?empresa=<?= $empresaID ?>&categoria=<?= $c['id_categoria'] ?>"
-                       class="item-categoria btn btn-white btn-sm mb-3 me-3
-                       <?= ($id_categoria_selecionada == $c['id_categoria']) ? 'active' : '' ?>">
-                        <i class="fa-solid fa-tag"></i>
-                        <?= htmlspecialchars($c['nome_categoria']) ?>
+        <div class="container-menu" id="listaCategorias">
+            <?php if (!empty($categorias)): ?>
+                <?php foreach ($categorias as $categoria): ?>
+                    <a href="?categoria=<?= $categoria['id_categoria'] ?>" 
+                    class="item-categoria btn btn-white btn-sm mb-3 me-3 
+                    <?= ($id_categoria_selecionada === $categoria['id_categoria']) ? 'active' : '' ?>">
+                        <i class="fa-solid fa-tag"></i>&nbsp; <?= htmlspecialchars($categoria['nome_categoria']) ?>
                     </a>
                 <?php endforeach; ?>
             <?php else: ?>
-                <p class="text-muted">Nenhuma categoria cadastrada.</p>
+                <p></p>
             <?php endif; ?>
-
         </div>
     </section>
 
-    <!-- LISTA DE PRODUTOS -->
-    <section class="lista width-fix mt-0 pb-5">
-
-        <?php if (!$abertaAgora): ?>
-            <div class="text-center mt-5">
-                <h4><b>Loja fechada no momento</b></h4>
-                <p>Horário de funcionamento: <?= $abertura ?> às <?= $fechamento ?></p>
-            </div>
-        <?php else: ?>
-
-            <?php if ($produtos): ?>
-                <div class="container-group mb-5">
-
-                    <p class="title-categoria"><b>
-                        <?php
-                        $catNome = "";
-                        foreach ($categorias as $c) {
-                            if ($c['id_categoria'] == $id_categoria_selecionada) {
-                                $catNome = $c['nome_categoria'];
-                            }
-                        }
-                        echo htmlspecialchars($catNome);
-                        ?>
-                    </b></p>
-
-                    <?php foreach ($produtos as $p): ?>
-                        <div class="card mb-2 item-cardapio abrir"
-                             onclick="window.location.href='item.php?id=<?= $p['id_produto'] ?>&empresa=<?= $empresaID ?>'">
-
-                            <div class="d-flex">
-
-                                <?php
-                                $img = (!empty($p["imagem_produto"]))
-                                    ? "./assets/img/uploads/" . $p["imagem_produto"]
-                                    : "./assets/img/default.jpg";
-                                ?>
-
-                                <div class="container-img-produto"
-                                     style="background-image:url('<?= $img ?>'); background-size:cover;">
-                                </div>
-
-                                <div class="infos-produto">
-                                    <p class="name"><b><?= htmlspecialchars($p['nome_produto']) ?></b></p>
-                                    <p class="description"><?= htmlspecialchars($p['descricao_produto'] ?: "Sem descrição.") ?></p>
-                                    <p class="price"><b>R$
-                                        <?= number_format($p['preco_produto'], 2, ',', '.') ?>
-                                    </b></p>
-                                </div>
-
+    <!-- LISTA DE PRODUTOS POR CATEGORIA SELECIONADA -->
+    <section class="lista width-fix mt-0 pb-5" id="listaItensCardapio">
+        <?php if ($id_categoria_selecionada && !empty($produtos)): ?>
+            <div class="container-group mb-5">
+                <p class="title-categoria"><b>
+                    <?= htmlspecialchars($categorias[array_search($id_categoria_selecionada, array_column($categorias, 'id_categoria'))]['nome_categoria']) ?>
+                </b></p>
+                <?php foreach ($produtos as $produto): ?>
+                    <div class="card mb-2 item-cardapio abrir" 
+                        onclick="window.location.href='item.php?id=<?= htmlspecialchars($produto['id_produto']) ?>'">
+                        <div class="d-flex">
+                            <div class="container-img-produto" 
+                                style="background-image: url('./assets/img/uploads/<?= htmlspecialchars($produto['imagem_produto'] ?: './img/default.jpg') ?>'); background-size: cover;">
                             </div>
-
+                            <div class="infos-produto">
+                                <p class="name"><b><?= htmlspecialchars($produto['nome_produto']) ?></b></p>
+                                <p class="description"><?= htmlspecialchars($produto['descricao_produto'] ?: 'Sem descrição.') ?></p>
+                                <p class="price"><b>R$ <?= number_format($produto['preco_produto'], 2, ',', '.') ?></b></p>
+                            </div>
                         </div>
-                    <?php endforeach; ?>
-
-                </div>
-
-            <?php else: ?>
-                <p class="text-center mt-4">Nenhum produto nesta categoria.</p>
-            <?php endif; ?>
-
+                    </div>
+                <?php endforeach; ?>
+                
+            </div>
+        <?php elseif ($id_categoria_selecionada): ?>
+            <p class="text-center"></p>
         <?php endif; ?>
-
     </section>
 
-    <!-- MENU INFERIOR -->
-    <section class="menu-bottom <?= $abertaAgora ? '' : 'disabled hidden' ?>">
+
+    <section class="menu-bottom" id="menu-bottom" >
         <a class="menu-bottom-item active">
             <i class="fas fa-book-open"></i>&nbsp; Cardápio
         </a>
-
-        <a href="./pedido.php?empresa=<?= $empresaID ?>" class="menu-bottom-item">
+        <a href="./pedido.php" class="menu-bottom-item">
             <i class="fas fa-utensils"></i>&nbsp; Pedido
         </a>
-
-        <a href="./carrinho.php?empresa=<?= $empresaID ?>" class="menu-bottom-item">
+        <a href="./carrinho.php" class="menu-bottom-item">
+            <span class="badge-total-carrinho">2</span>
+            <!-- <i class="fas fa-shopping-cart"></i> -->
             Carrinho
         </a>
     </section>
 
-    <script src="./js/bootstrap.bundle.min.js"></script>
-    <script src="./js/cardapio.js"></script>
+    <section class="menu-bottom disabled hidden" id="menu-bottom-closed">
+        <p class="mb-0"><b>Loja fechada no momento.</b></p>
+    </section>
 
+
+    <script type="text/javascript" src="./js/bootstrap.bundle.min.js"></script>
+    <script type="text/javascript" src="./js/cardapio.js"></script>
+    
 </body>
 </html>
