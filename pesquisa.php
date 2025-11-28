@@ -100,7 +100,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .app-shell {
       width: 100%;
       background: var(--card-soft);
-      border-radius: 24px;
+      border-radius: 9px;
       border: 1px solid var(--border);
       box-shadow: var(--shadow-soft);
       padding: 22px 28px 26px;
@@ -125,7 +125,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .logo-circle {
       width: 40px;
       height: 40px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       display: flex;
       align-items: center;
@@ -160,7 +160,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
       align-items: center;
       gap: 8px;
       padding: 7px 12px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #ffffff;
       border: 1px solid var(--border);
       font-size: 0.8rem;
@@ -171,7 +171,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .location-dot {
       width: 10px;
       height: 10px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #22c55e;
     }
 
@@ -214,7 +214,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .hero-kicker-dot {
       width: 6px;
       height: 6px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: var(--accent);
     }
 
@@ -256,7 +256,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .hero-tag-dot {
       width: 6px;
       height: 6px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #22c55e;
     }
 
@@ -269,7 +269,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     .filter-chip {
       padding: 6px 10px;
-      border-radius: 999px;
+      border-radius:9px;
       border: 1px solid var(--border);
       background: #ffffff;
       font-size: 0.8rem;
@@ -286,7 +286,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     /* COMO FUNCIONA */
     .hero-steps {
-      border-radius: 18px;
+      border-radius: 9px;
       border: 1px solid var(--border);
       background: #ffffff;
       padding: 14px 16px 12px;
@@ -311,7 +311,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .steps-badge {
       font-size: 0.72rem;
       padding: 3px 8px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #eef2ff;
       color: var(--accent);
       border: 1px solid rgba(129, 140, 248, 0.4);
