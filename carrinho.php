@@ -275,10 +275,10 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 
 <?php $valor_total_formatado = number_format($total_pedido, 2, ',', '.'); ?>
 <button type="button" id="btn-finalizar-pedido"
-        class="btn btn-yellow btn-full"
-        <?= empty($_SESSION['carrinho']) ? 'disabled' : '' ?>>
+        class="btn btn-yellow btn-full">
     Fazer pedido <span id="valor_total_pedido">R$ <?= $valor_total_formatado ?></span>
 </button>
+
 
 <!-- MODAL ENDEREÇO -->
 <div class="modal fade" id="modalEndereco" tabindex="-1" aria-hidden="true">
@@ -653,14 +653,37 @@ document.addEventListener('DOMContentLoaded', function () {
             texto += endereco + '\n\n';
 
             // Pagamento
-            texto += 'FORMA DE PAGAMENTO:%0A';
-            texto += pagamento + '%0A%0A';
+            texto += 'FORMA DE PAGAMENTO:\n';
+            texto += pagamento + '\n\n';
 
             texto += 'Enviado automaticamente pelo sistema.';
 
             const numeroWhatsapp = '559791434585'; //numero de telefone
             const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-            window.open(url, '_blank');
+            fetch("finalizar_pedido.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+        nome: nome,
+        telefone: telefone,
+        endereco: endereco,
+        pagamento: pagamento,
+        detalhe_pagamento: detalhePagamento,
+        total: totalPedido,
+        itens_json: JSON.stringify(carrinhoPHP)
+    })
+})
+.then(res => res.json())
+.then(data => {
+    if (data.status === "ok") {
+        // Empresa envia msg para cliente
+        window.open(data.redirect, "_blank");
+
+        // Cliente é redirecionado
+        window.location.href = "pedido.php?id=" + data.pedido_id;
+    }
+});
+
         });
     }
 });
