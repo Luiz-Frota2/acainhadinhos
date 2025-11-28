@@ -790,9 +790,6 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
           </div>
 
-          <div class="steps-footnote">
-            Depois conecte cada unidade à página de produtos do delivery.
-          </div>
         </aside>
       </section>
 
