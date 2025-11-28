@@ -160,7 +160,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
       align-items: center;
       gap: 8px;
       padding: 7px 12px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #ffffff;
       border: 1px solid var(--border);
       font-size: 0.8rem;
@@ -171,7 +171,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .location-dot {
       width: 10px;
       height: 10px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #22c55e;
     }
 
