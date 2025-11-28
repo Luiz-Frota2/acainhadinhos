@@ -275,10 +275,10 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 
 <?php $valor_total_formatado = number_format($total_pedido, 2, ',', '.'); ?>
 <button type="button" id="btn-finalizar-pedido"
-        class="btn btn-yellow btn-full"
-        <?= empty($_SESSION['carrinho']) ? 'disabled' : '' ?>>
+        class="btn btn-yellow btn-full">
     Fazer pedido <span id="valor_total_pedido">R$ <?= $valor_total_formatado ?></span>
 </button>
+
 
 <!-- MODAL ENDEREÇO -->
 <div class="modal fade" id="modalEndereco" tabindex="-1" aria-hidden="true">
