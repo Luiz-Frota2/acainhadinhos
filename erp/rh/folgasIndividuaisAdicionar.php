@@ -511,38 +511,84 @@ try {
                             $action = 'folga_Salvar.php?id=' . urlencode($empresaId) . '&cpf=' . urlencode($cpfUrl);
                             ?>
 
-                            <!-- Modal -->
-                            <div class="modal fade" id="modalFolga" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <form id="formFolga" method="post" action="<?= $action ?>">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Cadastrar folga</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                                            </div>
+                           <!-- Modal -->
+<div class="modal fade" id="modalFolga" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formFolga" method="post" action="<?= $action ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title">Cadastrar folga</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
 
-                                            <div class="modal-body">
-                                                <!-- A DATA DEVE TER ESSE name: data_folga -->
-                                                <div class="mb-3">
-                                                    <label for="data_folga" class="form-label">Data da folga</label>
-                                                    <input type="date" class="form-control" id="data_folga" name="data_folga" required>
-                                                </div>
+                <div class="modal-body">
 
-                                                <!-- (Opcional) redundância: mantém id/cpf também no POST 
-               (não muda layout, ficam ocultos) -->
-                                                <input type="hidden" name="id" value="<?= htmlspecialchars($empresaId) ?>">
-                                                <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpfUrl) ?>">
-                                            </div>
+                    <!-- SELEÇÃO DO TIPO DE FOLGA -->
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Folga</label>
+                        <select class="form-select" id="tipoFolga" name="tipo_folga" required>
+                            <option value="">Selecione...</option>
+                            <option value="normal">Folga Normal</option>
+                            <option value="ferias">Folga por Férias</option>
+                        </select>
+                    </div>
 
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                                <!-- IMPORTANTE: NÃO use data-bs-dismiss aqui -->
-                                                <button type="submit" class="btn btn-primary" id="btnSalvarFolga">Salvar</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
+                    <!-- CAMPO DATA (SEM MEXER NO ORIGINAL) -->
+                    <div class="mb-3" id="boxData" style="display:none;">
+                        <label for="data_folga" class="form-label">Data da folga</label>
+                        <input type="date" class="form-control" id="data_folga" name="data_folga">
+                    </div>
+
+                    <!-- CAMPO MOTIVO (APENAS PARA FOLGA POR FÉRIAS) -->
+                    <div class="mb-3" id="boxMotivo" style="display:none;">
+                        <label for="motivo_folga" class="form-label">Motivo</label>
+                        <textarea class="form-control" id="motivo_folga" name="motivo_folga" rows="2"></textarea>
+                    </div>
+
+                    <!-- (Ocultos) -->
+                    <input type="hidden" name="id" value="<?= htmlspecialchars($empresaId) ?>">
+                    <input type="hidden" name="cpf" value="<?= htmlspecialchars($cpfUrl) ?>">                        
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnSalvarFolga">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- JS PARA EXIBIR/OCULTAR CAMPOS -->
+<script>
+document.getElementById('tipoFolga').addEventListener('change', function () {
+    const tipo = this.value;
+
+    const boxData   = document.getElementById('boxData');
+    const boxMotivo = document.getElementById('boxMotivo');
+    const dataInput = document.getElementById('data_folga');
+    const motivoInput = document.getElementById('motivo_folga');
+
+    // Reseta obrigatoriedade
+    dataInput.required = false;
+    motivoInput.required = false;
+
+    // Oculta tudo inicialmente
+    boxData.style.display = "none";
+    boxMotivo.style.display = "none";
+
+    if (tipo === "normal") {
+        boxData.style.display = "block";
+        dataInput.required = true;
+
+    } else if (tipo === "ferias") {
+        boxData.style.display = "block";
+        boxMotivo.style.display = "block";
+        dataInput.required = true;
+        motivoInput.required = true;
+    }
+});
+</script>
 
 
 
