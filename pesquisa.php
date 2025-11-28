@@ -125,7 +125,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .logo-circle {
       width: 40px;
       height: 40px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       display: flex;
       align-items: center;
