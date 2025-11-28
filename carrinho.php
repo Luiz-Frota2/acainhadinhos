@@ -589,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Envio ao arquivo finalizador
-        fetch("finalizar_pedido.php", {
+        fetch("/finalizar_pedido.php", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
