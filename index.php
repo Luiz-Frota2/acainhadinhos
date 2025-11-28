@@ -26,7 +26,7 @@
                 <div class="infos">
                     <h1><b>Açainhadinhos</b></h1>
                     <div class="infos-sub">
-                        <p class="status-open-closed">
+                        <p class="status-open closed">
                             <i class="fas fa-clock"></i> Fechado
                         </p>
                         <a href="./sobre.html" class="link">
