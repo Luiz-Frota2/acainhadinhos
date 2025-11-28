@@ -72,7 +72,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
       --badge-filial: #3b82f6;
       --badge-franquia: #f97316;
       --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
-      --radius-lg: 18px;
+      --radius-lg: 9px;
     }
 
     * {
@@ -333,7 +333,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     .step-card {
       padding: 8px 9px;
-      border-radius: 14px;
+      border-radius: 9px;
       background: #f9fafb;
       border: 1px solid #e5e7eb;
       display: flex;
@@ -407,7 +407,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
       text-transform: uppercase;
       letter-spacing: 0.16em;
       padding: 4px 10px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: rgba(34, 197, 94, 0.08);
       border: 1px solid rgba(34, 197, 94, 0.7);
       color: #166534;
@@ -453,7 +453,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .info-tag {
       font-size: 0.7rem;
       padding: 4px 8px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #f9fafb;
       border: 1px solid #e5e7eb;
       color: var(--muted);
@@ -470,7 +470,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     .btn-primary {
       padding: 9px 16px;
-      border-radius: 999px;
+      border-radius: 9px;
       border: none;
       outline: none;
       cursor: pointer;
@@ -585,7 +585,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .badge-tipo {
       font-size: 0.7rem;
       padding: 3px 7px;
-      border-radius: 999px;
+      border-radius: 9px;
       text-transform: uppercase;
       letter-spacing: 0.14em;
       border: 1px solid transparent;
@@ -607,7 +607,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .badge-remote {
       font-size: 0.68rem;
       padding: 3px 7px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #fef3c7;
       border: 1px solid #facc15;
       color: #92400e;
@@ -641,7 +641,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     .status-pill {
       padding: 3px 7px;
-      border-radius: 999px;
+      border-radius: 9px;
       border: 1px solid rgba(34, 197, 94, 0.4);
       background: rgba(34, 197, 94, 0.1);
       color: #166534;
@@ -677,7 +677,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
       .app-shell {
         padding: 14px 14px 16px;
-        border-radius: 18px;
+        border-radius: 9px;
       }
 
       .top-bar {
