@@ -702,7 +702,7 @@ if (!empty($_SESSION['carrinho'])) {
                         texto += 'Endereço de entrega:\\n' + endereco + '\\n\\n';
                         texto += 'Forma de pagamento: ' + pagamento + '\\n';
 
-                        const numeroWhatsapp = '5597981434585'; // Número fixo informado
+                        const numeroWhatsapp = '559791434585'; // Número fixo informado
                         const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
 
                         window.open(url, '_blank');
