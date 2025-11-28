@@ -708,7 +708,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="brand">
           <div class="logo-circle">DL</div>
           <div class="brand-text">
-            <div class="brand-name"><?= htmlspecialchars($nomeEmpresa) ?></div>
+            <div class="brand-name">AÇAINHADINHOS</div>
             <div class="brand-sub">Escolha a unidade</div>
           </div>
         </div>
