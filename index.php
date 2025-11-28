@@ -34,7 +34,7 @@ try {
    3. BUSCAR NOME E IMAGEM DA EMPRESA (opcional)
    =========================================== */
 $nomeEmpresa = 'Açainhadinhos';
-$imagemEmpresa = './assets/img/default.jpg';
+$imagemEmpresa = './assets/img/favicon/logo.png';
 
 try {
     $sql = "SELECT nome_empresa, imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1";
