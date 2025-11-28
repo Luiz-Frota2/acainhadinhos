@@ -26,8 +26,8 @@
                 <div class="infos">
                     <h1><b>Açainhadinhos</b></h1>
                     <div class="infos-sub">
-                        <p class="status-open closed">
-                            <i class="fas fa-clock"></i> Fechado
+                        <p class="status-open">
+                            <i class="fas fa-clock"></i> Aberta
                         </p>
                         <a href="./sobre.html" class="link">
                             ver mais
@@ -136,7 +136,7 @@
         </a>
     </section>
 
-    <section class="menu-bottom" id="menu-bottom-closed">
+    <section class="menu-bottom disabled" id="menu-bottom-closed">
         <p class="mb-0"><b>Loja fechada no momento.</b></p>
     </section>
 
