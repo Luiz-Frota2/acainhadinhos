@@ -100,7 +100,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .app-shell {
       width: 100%;
       background: var(--card-soft);
-      border-radius: 24px;
+      border-radius: 9px;
       border: 1px solid var(--border);
       box-shadow: var(--shadow-soft);
       padding: 22px 28px 26px;
