@@ -588,37 +588,36 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-        // Envio ao arquivo finalizador
-        fetch("finalizar_pedido.php", {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-                nome: nome,
-                telefone: telefone,
-                endereco: endereco,
-                pagamento: pagamento,
-                detalhe_pagamento: "",
-                total: totalPedidoPHP,
-                itens_json: JSON.stringify(itens)
-            })
-        })
-        .then(resp => resp.json())
-        .then(ret => {
-            if (ret.status === "ok") {
+fetch("finalizar_pedido.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+        nome: nome,
+        telefone: telefone,
+        endereco: endereco,
+        pagamento: pagamento,
+        detalhe_pagamento: "",
+        total: totalPedidoPHP,
+        itens_json: JSON.stringify(itens)
+    })
+})
+.then(resp => resp.text()) // <- ALTERADO
+.then(txt => {
+    console.log("RETORNO DO SERVIDOR:", txt);
 
-                // 1) Empresa envia mensagem ao cliente
-                window.open(ret.redirect, "_blank");
+    try {
+        let ret = JSON.parse(txt);
+        if (ret.status === "ok") {
+            window.open(ret.redirect, "_blank");
+            window.location.href = "pedido.php?id=" + ret.pedido_id;
+        } else {
+            alert("Erro: " + ret.erro);
+        }
+    } catch (e) {
+        alert("Retorno inválido do servidor. Veja o console.");
+    }
+});
 
-                // 2) Cliente é redirecionado
-                window.location.href = "pedido.php?id=" + ret.pedido_id;
-            } else {
-                alert("Erro: " + ret.erro);
-            }
-        })
-        .catch(err => {
-            console.log(err);
-            alert("Erro na comunicação com o servidor.");
-        });
 
     });
 });
