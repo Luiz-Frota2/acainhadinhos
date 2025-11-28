@@ -588,7 +588,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
 
-   fetch("finalizar_pedido.php", {
+fetch("finalizar_pedido.php", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -618,6 +618,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+
+    });
 });
 </script>
 
