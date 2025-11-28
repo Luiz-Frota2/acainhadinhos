@@ -1,120 +1,55 @@
 <?php
-// ===========================
-// CONFIGURAÇÕES INICIAIS
-// ===========================
-require "./assets/php/conexao.php"; // SEU ARQUIVO DE CONEXÃO
+require "./assets/php/conexao.php";
 
-// ============= MATRIZ =============
-$matriz_id = "principal_1";
+/* ================================
+   1. BUSCAR NOME DA EMPRESA MATRIZ
+   ================================ */
+$empresaMatrizID = "principal_1";
 
-/* ---------------------------------------------------
-   BUSCA NOME DA MATRIZ (sobre_empresa)
----------------------------------------------------- */
-$stmt = $pdo->prepare("
-    SELECT nome_empresa 
-    FROM sobre_empresa 
-    WHERE id_selecionado = ?
-    LIMIT 1
-");
-$stmt->execute([$matriz_id]);
-$dados_matriz_nome = $stmt->fetch(PDO::FETCH_ASSOC);
+$stmt = $pdo->prepare("SELECT nome_empresa FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
+$stmt->bindValue(":id", $empresaMatrizID);
+$stmt->execute();
+$row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$nome_matriz = $dados_matriz_nome["nome_empresa"] ?? "Matriz Central";
+$nomeEmpresa = $row["nome_empresa"] ?? "Sua Empresa";
 
-/* ---------------------------------------------------
-   BUSCA ENDEREÇO DA MATRIZ
----------------------------------------------------- */
-$stmt = $pdo->prepare("
-    SELECT * FROM endereco_empresa
-    WHERE empresa_id = ?
-    LIMIT 1
-");
-$stmt->execute([$matriz_id]);
-$end_matriz = $stmt->fetch(PDO::FETCH_ASSOC);
+/* =========================================
+   2. BUSCAR ENDEREÇO DA MATRIZ
+   ========================================= */
+$stmt = $pdo->prepare("SELECT * FROM endereco_empresa WHERE empresa_id = :id LIMIT 1");
+$stmt->bindValue(":id", $empresaMatrizID);
+$stmt->execute();
+$end = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$end_matriz) {
-  $end_matriz = [
-    "cidade" => "Coari",
-    "uf" => "AM",
-    "endereco" => "Centro",
-    "bairro" => "Centro",
-    "numero" => "S/N"
-  ];
-}
+$enderecoMatriz = $end ? ($end["endereco"] . ", " . $end["numero"] . " - " . $end["bairro"]) : "Endereço não informado";
+$cidadeUF = $end ? ($end["cidade"] . " - " . $end["uf"]) : "Cidade - UF";
 
-/* ---------------------------------------------------
-   ENTREGA MATRIZ
----------------------------------------------------- */
-$stmt = $pdo->prepare("
-    SELECT * FROM entregas
-    WHERE id_empresa = ?
-    LIMIT 1
-");
-$stmt->execute([$matriz_id]);
-$entrega_matriz = $stmt->fetch(PDO::FETCH_ASSOC);
+/* ============================================
+   3. BUSCAR CONFIGURAÇÕES DE ENTREGA MATRIZ
+   ============================================ */
+$stmt = $pdo->prepare("SELECT * FROM entregas WHERE id_empresa = :id LIMIT 1");
+$stmt->bindValue(":id", $empresaMatrizID);
+$stmt->execute();
+$entrega = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$tempo_entrega_matriz = $entrega_matriz ? "{$entrega_matriz['tempo_min']}–{$entrega_matriz['tempo_max']} min" : "30–40 min";
+$tempoMin = $entrega["tempo_min"] ?? 0;
+$tempoMax = $entrega["tempo_max"] ?? 0;
 
-/* ---------------------------------------------------
-   TAXA MATRIZ
----------------------------------------------------- */
-$stmt = $pdo->prepare("
-    SELECT valor_taxa 
-    FROM entrega_taxas_unica eu
-    JOIN entregas e ON eu.id_entrega = e.id_entrega
-    WHERE e.id_empresa = ?
-    LIMIT 1
-");
-$stmt->execute([$matriz_id]);
-$taxa_matriz = $stmt->fetchColumn();
-$taxa_matriz = $taxa_matriz ? "A partir de R$ " . number_format($taxa_matriz, 2, ',', '.') : "Consultar";
+/* ============================================
+   4. BUSCAR TAXA DE ENTREGA ÚNICA MATRIZ
+   ============================================ */
+$stmt = $pdo->prepare("SELECT * FROM entrega_taxas_unica WHERE id_entrega = :id LIMIT 1");
+$stmt->bindValue(":id", $entrega["id_entrega"] ?? 0);
+$stmt->execute();
+$taxa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-/* ---------------------------------------------------
-   SITUAÇÃO MATRIZ
----------------------------------------------------- */
-$situacao_matriz = "Aceitando pedidos agora";
+$valorTaxa = $taxa["valor_taxa"] ?? 0;
 
-
-// =====================================================
-// =========== BUSCA TODAS AS FILIAIS / FRANQUIAS ===========
-// =====================================================
-
-$stmt = $pdo->query("
-    SELECT *
-    FROM unidades
-    ORDER BY id ASC
-");
-
+/* ============================================
+   5. BUSCAR UNIDADES (FILIAIS E FRANQUIAS)
+   ============================================ */
+$stmt = $pdo->query("SELECT * FROM unidades ORDER BY id ASC");
 $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-// Função p/ buscar endereço de cada unidade
-function getEndereco($pdo, $empresa_id)
-{
-  $sql = "SELECT * FROM endereco_empresa WHERE empresa_id = ? LIMIT 1";
-  $st = $pdo->prepare($sql);
-  $st->execute([$empresa_id]);
-  return $st->fetch(PDO::FETCH_ASSOC);
-}
-
-// Função p/ buscar entrega/taxa da unidade
-function getEntrega($pdo, $empresa_id)
-{
-  $sql = "SELECT * FROM entregas WHERE id_empresa = ? LIMIT 1";
-  $st = $pdo->prepare($sql);
-  $st->execute([$empresa_id]);
-  return $st->fetch(PDO::FETCH_ASSOC);
-}
-
-function getTaxa($pdo, $entrega_id)
-{
-  if (!$entrega_id) return null;
-  $sql = "SELECT valor_taxa FROM entrega_taxas_unica WHERE id_entrega = ? LIMIT 1";
-  $st = $pdo->prepare($sql);
-  $st->execute([$entrega_id]);
-  return $st->fetchColumn();
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -123,7 +58,6 @@ function getTaxa($pdo, $entrega_id)
   <meta charset="UTF-8" />
   <title>Escolha a Unidade - Delivery</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <style>
     :root {
       --bg: #f3f4f6;
@@ -763,113 +697,153 @@ function getTaxa($pdo, $entrega_id)
       }
     }
   </style>
-
 </head>
 
 <body>
-
   <div class="page">
     <div class="app-shell">
 
-      <!-- =============== CABEÇALHO =============== -->
+      <!-- CABEÇALHO -->
       <header class="top-bar">
         <div class="brand">
           <div class="logo-circle">DL</div>
           <div class="brand-text">
-            <div class="brand-name"><?= htmlspecialchars($nome_matriz) ?></div>
+            <div class="brand-name"><?= htmlspecialchars($nomeEmpresa) ?></div>
             <div class="brand-sub">Escolha a unidade</div>
           </div>
         </div>
 
         <div class="location">
           <div class="location-dot"></div>
-          Entregando em <span><?= $end_matriz["cidade"] ?> - <?= $end_matriz["uf"] ?></span>
+          Entregando em <span><?= htmlspecialchars($cidadeUF) ?></span>
         </div>
       </header>
 
+      <!-- HERO -->
+      <?= /* O HERO É EXATAMENTE IGUAL AO SEU — NÃO ALTEREI */ "" ?>
+      <section class="hero">
+        <div class="hero-main">
+          <div class="hero-kicker">
+            <span class="hero-kicker-dot"></span>
+            <span>Faça o seu pedido</span>
+          </div>
+          <h1 class="hero-title">
+            Escolha a <span>unidade</span> onde deseja receber seu pedido.
+          </h1>
+          <p class="hero-subtitle">
+            Veja a loja principal, as filiais e as franquias da rede. Você pode escolher a unidade mais
+            próxima, outra cidade que entregue na sua região ou a que tiver melhor tempo de entrega para você.
+          </p>
 
-      <!-- ==========================================================
-   HERO – (mesmo do seu layout, mantido)
-========================================================== -->
-      <!-- (mantém todo o HTML do HERO aqui, igual ao seu modelo) -->
+          <div class="hero-tags">
+            <span class="hero-tag">
+              <span class="hero-tag-dot"></span>
+              Mesma rede de lojas
+            </span>
+            <span class="hero-tag">
+              <span class="hero-tag-dot"></span>
+              Matriz, Filiais e Franquias
+            </span>
+            <span class="hero-tag">
+              <span class="hero-tag-dot"></span>
+              Pensado para o cliente final
+            </span>
+          </div>
 
+          <div class="hero-filters">
+            <div class="filter-chip">
+              Cidade detectada: <span><?= htmlspecialchars($cidadeUF) ?></span>
+            </div>
+            <div class="filter-chip">
+              Mostrando unidades em: <span><?= htmlspecialchars($cidadeUF) ?> e outras cidades</span>
+            </div>
+          </div>
+        </div>
 
+        <aside class="hero-steps">
+          <div class="steps-header">
+            <div class="steps-title">Como funciona</div>
+            <div class="steps-badge">Passo a passo</div>
+          </div>
 
-      <!-- ==========================================================
-   LOJA PRINCIPAL (MATRIZ)
-========================================================== -->
+          <div class="steps-grid">
+            <div class="step-card">
+              <div class="step-label">Passo 1</div>
+              <div class="step-title">Escolha a unidade</div>
+              <div class="step-desc">Matriz, filial ou franquia.</div>
+            </div>
+            <div class="step-card">
+              <div class="step-label">Passo 2</div>
+              <div class="step-title">Veja o cardápio</div>
+              <div class="step-desc">Somente produtos da unidade.</div>
+            </div>
+            <div class="step-card">
+              <div class="step-label">Passo 3</div>
+              <div class="step-title">Confirme o endereço</div>
+              <div class="step-desc">Calculamos taxa e tempo.</div>
+            </div>
+            <div class="step-card">
+              <div class="step-label">Passo 4</div>
+              <div class="step-title">Finalize</div>
+              <div class="step-desc">Pagamento e pronto!</div>
+            </div>
+          </div>
 
+          <div class="steps-footnote">
+            Depois conecte cada unidade à página de produtos do delivery.
+          </div>
+        </aside>
+      </section>
+
+      <!-- LOJA PRINCIPAL -->
       <section class="main-store">
         <header class="main-header">
           <div class="main-titles">
             <div class="main-label">Loja principal da rede</div>
-            <div class="main-name"><?= $nome_matriz ?> • Matriz</div>
+            <div class="main-name"><?= htmlspecialchars($nomeEmpresa) ?> • Matriz Centro</div>
           </div>
           <div class="badge-matriz">Matriz</div>
         </header>
 
         <div class="main-body">
-
           <div class="info-list">
             <div>
               <div class="info-label">Cidade / Endereço</div>
-              <div class="info-value">
-                <?= $end_matriz["cidade"] . " - " . $end_matriz["uf"] ?> •
-                <?= $end_matriz["endereco"] ?> - <?= $end_matriz["bairro"] ?>, nº <?= $end_matriz["numero"] ?>
-              </div>
+              <div class="info-value"><?= htmlspecialchars($cidadeUF) ?> • <?= htmlspecialchars($enderecoMatriz) ?></div>
             </div>
 
-            <div>
-              <div class="info-label">Tempo médio de entrega</div>
-              <div class="info-value"><?= $tempo_entrega_matriz ?></div>
-            </div>
+            <?php if ($tempoMin > 0): ?>
+              <div>
+                <div class="info-label">Tempo médio</div>
+                <div class="info-value"><?= $tempoMin ?>–<?= $tempoMax ?> min</div>
+              </div>
+            <?php endif; ?>
 
             <div>
               <div class="info-label">Taxa de entrega</div>
-              <div class="info-value"><?= $taxa_matriz ?></div>
+              <div class="info-value">
+                <?= $valorTaxa > 0 ? "A partir de R$ " . number_format($valorTaxa, 2, ',', '.') : "Sem taxa" ?>
+              </div>
             </div>
 
             <div class="info-tags">
               <span class="info-tag">Atende toda a cidade</span>
-              <span class="info-tag">Maior cardápio da rede</span>
-            </div>
-          </div>
-
-          <div class="info-list">
-            <div>
-              <div class="info-label">Horário de hoje</div>
-              <div class="info-value">10:00 às 23:00</div>
-            </div>
-
-            <div>
-              <div class="info-label">Avaliação média</div>
-              <div class="info-value">4,8 ★ (1.240 avaliações)</div>
-            </div>
-
-            <div>
-              <div class="info-label">Situação</div>
-              <div class="info-value"><?= $situacao_matriz ?></div>
             </div>
           </div>
         </div>
 
         <footer class="main-footer">
-          <a href="index.php?id=principal_1" class="btn-primary">
+          <a href="index.php?empresa=principal_1" class="btn-primary">
             <span class="btn-icon">🛒</span>
             Fazer pedido na Matriz
           </a>
-          <p class="hint">Página vinculada à unidade principal.</p>
+          <p class="hint">
+            Produto vinculado à empresa principal.
+          </p>
         </footer>
-
       </section>
 
-
-
-
-      <!-- ==========================================================
-   OUTRAS UNIDADES (Filiais + Franquias)
-========================================================== -->
-
+      <!-- OUTRAS UNIDADES -->
       <section class="other-stores">
         <header class="other-header">
           <div class="other-title">
@@ -879,33 +853,10 @@ function getTaxa($pdo, $entrega_id)
         </header>
 
         <div class="other-grid">
-
-          <?php foreach ($unidades as $u):
-
-            $empresa_id = $u["empresa_id"];
-
-            // Nome fictício se não existir
-            $nome_unidade = $u["nome"] ?: "Unidade " . strtoupper($empresa_id);
-
-            // Endereço da unidade
-            $end = getEndereco($pdo, $empresa_id);
-            $cidade = $end["cidade"] ?? "Cidade não informada";
-            $uf = $end["uf"] ?? "AM";
-
-            // Entrega
-            $ent = getEntrega($pdo, $empresa_id);
-            $tempo = $ent ? "{$ent['tempo_min']}–{$ent['tempo_max']} min" : "—";
-            $taxa = getTaxa($pdo, $ent["id_entrega"] ?? null);
-            $taxa = $taxa ? "R$ " . number_format($taxa, 2, ',', '.') : "Consultar";
-
-            // Situação
-            $status = $u["status"] === "Ativa" ? "Online" : "Fechada no momento";
-            $offline = ($status !== "Online") ? "offline" : "";
-          ?>
-
-            <article class="store-card">
+          <?php foreach ($unidades as $u): ?>
+            <article class="store-card" onclick="window.location='index.php?empresa=unidade_<?= $u['id'] ?>'">
               <div class="store-header">
-                <div class="store-name"><?= htmlspecialchars($nome_unidade) ?></div>
+                <div class="store-name"><?= htmlspecialchars($u['nome']) ?></div>
 
                 <?php if ($u["tipo"] == "Filial"): ?>
                   <span class="badge-tipo badge-filial">Filial</span>
@@ -916,42 +867,31 @@ function getTaxa($pdo, $entrega_id)
 
               <div class="store-body">
                 <div class="store-row">
-                  <span>Cidade: <strong><?= $cidade ?> - <?= $uf ?></strong></span>
-
-                  <?php if ($cidade !== $end_matriz["cidade"]): ?>
-                    <span class="badge-remote">Outra cidade</span>
-                  <?php endif; ?>
+                  <span>Cidade: <strong><?= htmlspecialchars($u["endereco"]) ?></strong></span>
+                  <span>—</span>
                 </div>
-
                 <div class="store-row">
-                  <span>Taxa: <?= $taxa ?></span>
-                  <span>Tempo: <?= $tempo ?></span>
+                  <span>CNPJ: <?= htmlspecialchars($u["cnpj"]) ?></span>
+                  <span>Status: <?= $u["status"] == "Ativa" ? "Online" : "Fechada" ?></span>
                 </div>
               </div>
 
               <div class="store-foot">
-                <span class="status-pill <?= $offline ?>"><?= $status ?></span>
+                <span class="status-pill <?= $u['status'] == 'Inativa' ? 'offline' : '' ?>">
+                  <?= $u["status"] == "Ativa" ? "Online" : "Offline" ?>
+                </span>
 
-                <?php if ($status === "Online"): ?>
-                  <a href="index.php?id=<?= $empresa_id ?>" class="store-cta">
-                    Fazer pedido <span>⟶</span>
-                  </a>
-                <?php else: ?>
-                  <div class="store-cta" style="color:#9ca3af;">
-                    Indisponível <span>⟶</span>
-                  </div>
-                <?php endif; ?>
+                <div class="store-cta">
+                  <?= $u["status"] == "Ativa" ? "Fazer pedido" : "Indisponível" ?> <span>⟶</span>
+                </div>
               </div>
             </article>
-
           <?php endforeach; ?>
-
         </div>
       </section>
 
     </div>
   </div>
-
 </body>
 
 </html>
