@@ -658,7 +658,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             texto += 'Enviado automaticamente pelo sistema.';
 
-            const numeroWhatsapp = '5597981434585'; // 55 + 97 + 981434585
+            const numeroWhatsapp = '559791434585'; // 55 + 97 + 981434585
             const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
             window.open(url, '_blank');
         });
