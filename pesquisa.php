@@ -286,7 +286,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     /* COMO FUNCIONA */
     .hero-steps {
-      border-radius: 18px;
+      border-radius: 9px;
       border: 1px solid var(--border);
       background: #ffffff;
       padding: 14px 16px 12px;
@@ -311,7 +311,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .steps-badge {
       font-size: 0.72rem;
       padding: 3px 8px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: #eef2ff;
       color: var(--accent);
       border: 1px solid rgba(129, 140, 248, 0.4);
