@@ -192,9 +192,7 @@ session_start();
             <!-- Campos ocultos hidden -->
             <input type="hidden" name="quantidade_itens" id="quantidade_itens" value="1 x">
             <input type="hidden" name="total_itens" id="total_itens" value="R$ 0.00">
-            <input type="hidden" name="opcionais_simples[]" id="opcionais_simples_hidden">
-<input type="hidden" name="opcao_selecao[]" id="opcao_selecao_hidden">
-
+            
 
             <!-- Botão "Adicionar" -->
             <button type="submit" id="btn-adicionar" name="btn-adicionar" value="btn-adicionar"
@@ -293,38 +291,6 @@ session_start();
             });
 
             document.addEventListener('DOMContentLoaded', atualizarValorTotal);
-            function atualizarInputsHidden() {
-
-    // OPCIONAIS SIMPLES
-    let simples = [];
-    document.querySelectorAll('.opcional-checkbox:checked').forEach(el=>{
-        simples.push({
-            nome: el.closest('.card-opcionais').querySelector('.name b').innerText,
-            preco: el.getAttribute('data-preco')
-        });
-    });
-    document.getElementById("opcionais_simples_hidden").value = JSON.stringify(simples);
-
-    // OPCIONAIS DAS SELEÇÕES
-    let selecao = [];
-    document.querySelectorAll('.opcao-checkbox:checked').forEach(el=>{
-        selecao.push({
-            nome: el.closest('.card-opcionais').querySelector('.name b').innerText,
-            preco: el.getAttribute('data-preco')
-        });
-    });
-    document.getElementById("opcao_selecao_hidden").value = JSON.stringify(selecao);
-}
-
-// atualiza sempre que mudar algo
-document.querySelectorAll('.opcional-checkbox, .opcao-checkbox')
-    .forEach(cb => cb.addEventListener('change', atualizarInputsHidden));
-
-document.querySelector('.btn-mais').addEventListener('click', atualizarInputsHidden);
-document.querySelector('.btn-menos').addEventListener('click', atualizarInputsHidden);
-
-document.addEventListener('DOMContentLoaded', atualizarInputsHidden);
-
 
         </script>
 
