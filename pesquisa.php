@@ -269,7 +269,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     .filter-chip {
       padding: 6px 10px;
-      border-radius:9px;
+      border-radius: 9px;
       border: 1px solid var(--border);
       background: #ffffff;
       font-size: 0.8rem;
@@ -831,7 +831,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <footer class="main-footer">
-          <a href="index.php?empresa=principal_1" class="btn-primary">
+          <a href="index.php?empresa=principal_1" target="_blank" class="btn-primary">
             <span class="btn-icon">🛒</span>
             Fazer pedido na Matriz
           </a>
@@ -852,7 +852,9 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         <div class="other-grid">
           <?php foreach ($unidades as $u): ?>
-            <article class="store-card" onclick="window.location='index.php?empresa=unidade_<?= $u['id'] ?>'">
+            <article
+              class="store-card"
+              onclick="window.open('index.php?empresa=unidade_<?= $u['id'] ?>', '_blank');">
               <div class="store-header">
                 <div class="store-name"><?= htmlspecialchars($u['nome']) ?></div>
 
@@ -885,6 +887,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
               </div>
             </article>
           <?php endforeach; ?>
+
         </div>
       </section>
 
