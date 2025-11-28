@@ -387,307 +387,84 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 
 <script type="text/javascript" src="./js/bootstrap.bundle.min.js"></script>
 
-<script type="text/javascript">
-const carrinhoPHP   = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
-const totalPedidoPHP = <?php echo json_encode($total_pedido); ?>;
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
-document.addEventListener('DOMContentLoaded', function () {
+    const btnFinalizar = document.getElementById("btn-finalizar-pedido");
+    if (!btnFinalizar) return;
 
-    // --------- ENDEREÇO ----------
-    const cardAddressEmpty   = document.getElementById('card-address-empty');
-    const cardAddressFilled  = document.getElementById('card-address-filled');
-    const resumoEnderecoL1   = document.getElementById('resumo_endereco_linha1');
-    const resumoEnderecoL2   = document.getElementById('resumo_endereco_linha2');
-    const enderecoTextoInput = document.getElementById('endereco_texto');
-    const modalEnderecoEl    = document.getElementById('modalEndereco');
-    let modalEndereco        = null;
-    if (typeof bootstrap !== 'undefined' && modalEnderecoEl) {
-        modalEndereco = new bootstrap.Modal(modalEnderecoEl);
-    }
+    btnFinalizar.addEventListener("click", function () {
 
-    function abrirModalEndereco() {
-        if (modalEndereco) modalEndereco.show();
-        else if (modalEnderecoEl) modalEnderecoEl.style.display = 'block';
-    }
-    function fecharModalEndereco() {
-        if (modalEndereco) modalEndereco.hide();
-        else if (modalEnderecoEl) modalEnderecoEl.style.display = 'none';
-    }
-
-    if (cardAddressEmpty) {
-        cardAddressEmpty.style.cursor = 'pointer';
-        cardAddressEmpty.addEventListener('click', abrirModalEndereco);
-    }
-    const btnEditEndereco = document.getElementById('btn-edit-endereco');
-    if (btnEditEndereco) {
-        btnEditEndereco.style.cursor = 'pointer';
-        btnEditEndereco.addEventListener('click', abrirModalEndereco);
-    }
-
-    const btnSalvarEndereco   = document.getElementById('btn-salvar-endereco');
-    const btnCancelarEndereco = document.getElementById('btn-cancelar-endereco');
-    const btnCloseEndereco    = document.getElementById('btn-close-endereco');
-
-    function salvarEndereco() {
-        const rua   = (document.getElementById('endereco_rua') || {}).value || '';
-        const num   = (document.getElementById('endereco_numero') || {}).value || '';
-        const bairro= (document.getElementById('endereco_bairro') || {}).value || '';
-        const cid   = (document.getElementById('endereco_cidade') || {}).value || '';
-        const cep   = (document.getElementById('endereco_cep') || {}).value || '';
-        const compl = (document.getElementById('endereco_complemento') || {}).value || '';
-        const ref   = (document.getElementById('endereco_referencia') || {}).value || '';
-
-        if (!rua.trim() || !num.trim() || !bairro.trim() || !cid.trim()) {
-            alert('Preencha rua, número, bairro e cidade.');
+        if (!carrinhoPHP || carrinhoPHP.length === 0) {
+            alert("Carrinho vazio");
             return;
         }
 
-        const linha1 = rua + ', ' + num + ' - ' + bairro;
-        let linha2   = cid;
-        if (cep.trim()) {
-            linha2 += ' - ' + cep;
-        }
+        const nome      = document.getElementById("cliente_nome").value.trim();
+        const telefone  = document.getElementById("cliente_telefone").value.trim();
+        const endereco  = document.getElementById("endereco_texto").value.trim();
+        const pagamento = document.getElementById("pagamento_texto").value.trim();
 
-        let textoEndereco = linha1 + ' - ' + linha2;
-        if (compl.trim()) textoEndereco += ' | Compl.: ' + compl.trim();
-        if (ref.trim())   textoEndereco += ' | Ref.: ' + ref.trim();
-
-        if (resumoEnderecoL1) resumoEnderecoL1.textContent = linha1;
-        if (resumoEnderecoL2) resumoEnderecoL2.textContent = linha2;
-        if (enderecoTextoInput) enderecoTextoInput.value   = textoEndereco;
-
-        if (cardAddressEmpty) cardAddressEmpty.classList.add('d-none');
-        if (cardAddressFilled) cardAddressFilled.classList.remove('d-none');
-
-        fecharModalEndereco();
-    }
-
-    if (btnSalvarEndereco)   btnSalvarEndereco.addEventListener('click', salvarEndereco);
-    if (btnCancelarEndereco) btnCancelarEndereco.addEventListener('click', fecharModalEndereco);
-    if (btnCloseEndereco)    btnCloseEndereco.addEventListener('click', fecharModalEndereco);
-
-    // --------- PAGAMENTO ----------
-    const cardPagamentoEmpty   = document.getElementById('card-pagamento-empty');
-    const cardPagamentoFilled  = document.getElementById('card-pagamento-filled');
-    const resumoPagamentoL1    = document.getElementById('resumo_pagamento_linha1');
-    const resumoPagamentoL2    = document.getElementById('resumo_pagamento_linha2');
-    const pagamentoTextoInput  = document.getElementById('pagamento_texto');
-
-    const modalPagamentoEl = document.getElementById('modalPagamento');
-    let modalPagamento     = null;
-    if (typeof bootstrap !== 'undefined' && modalPagamentoEl) {
-        modalPagamento = new bootstrap.Modal(modalPagamentoEl);
-    }
-
-    function abrirModalPagamento() {
-        if (modalPagamento) modalPagamento.show();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'block';
-    }
-    function fecharModalPagamento() {
-        if (modalPagamento) modalPagamento.hide();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'none';
-    }
-
-    if (cardPagamentoEmpty) {
-        cardPagamentoEmpty.style.cursor = 'pointer';
-        cardPagamentoEmpty.addEventListener('click', abrirModalPagamento);
-    }
-    const btnEditPagamento = document.getElementById('btn-edit-pagamento');
-    if (btnEditPagamento) {
-        btnEditPagamento.style.cursor = 'pointer';
-        btnEditPagamento.addEventListener('click', abrirModalPagamento);
-    }
-
-    const btnSalvarPagamento   = document.getElementById('btn-salvar-pagamento');
-    const btnCancelarPagamento = document.getElementById('btn-cancelar-pagamento');
-    const btnClosePagamento    = document.getElementById('btn-close-pagamento');
-
-    const inputDinheiro = document.getElementById('pag_dinheiro');
-    const inputCartao   = document.getElementById('pag_cartao');
-    const inputPix      = document.getElementById('pag_pix');
-    const grupoTroco    = document.getElementById('grupo_troco');
-    const inputTroco    = document.getElementById('pag_troco');
-
-    function atualizarVisibilidadeTroco() {
-        if (inputDinheiro && inputDinheiro.checked) {
-            if (grupoTroco) grupoTroco.style.display = 'block';
-        } else {
-            if (grupoTroco) grupoTroco.style.display = 'none';
-            if (inputTroco) inputTroco.value = '';
-        }
-    }
-
-    if (inputDinheiro) inputDinheiro.addEventListener('change', atualizarVisibilidadeTroco);
-    if (inputCartao)   inputCartao.addEventListener('change', atualizarVisibilidadeTroco);
-    if (inputPix)      inputPix.addEventListener('change', atualizarVisibilidadeTroco);
-
-    function salvarPagamento() {
-        let metodo = '';
-        let detalhe = '';
-
-        if (inputDinheiro && inputDinheiro.checked) {
-            metodo = 'Dinheiro';
-            if (inputTroco && inputTroco.value.trim()) {
-                detalhe = 'Troco para: R$ ' + inputTroco.value.trim();
-            } else {
-                detalhe = 'Levar troco, se necessário.';
-            }
-        } else if (inputCartao && inputCartao.checked) {
-            metodo = 'Cartão (crédito/débito)';
-            detalhe = 'Levar maquininha.';
-        } else if (inputPix && inputPix.checked) {
-            metodo = 'Pix';
-            detalhe = 'Cobrar chave na entrega.';
-        }
-
-        if (!metodo) {
-            alert('Selecione uma forma de pagamento.');
+        if (!nome || !telefone || !endereco || !pagamento) {
+            alert("Preencha todos os campos obrigatórios.");
             return;
         }
 
-        if (resumoPagamentoL1) resumoPagamentoL1.textContent = metodo;
-        if (resumoPagamentoL2) resumoPagamentoL2.textContent = detalhe;
-        if (pagamentoTextoInput) pagamentoTextoInput.value = metodo + (detalhe ? ' - ' + detalhe : '');
-
-        if (cardPagamentoEmpty) cardPagamentoEmpty.classList.add('d-none');
-        if (cardPagamentoFilled) cardPagamentoFilled.classList.remove('d-none');
-
-        fecharModalPagamento();
-    }
-
-    if (btnSalvarPagamento)   btnSalvarPagamento.addEventListener('click', salvarPagamento);
-    if (btnCancelarPagamento) btnCancelarPagamento.addEventListener('click', fecharModalPagamento);
-    if (btnClosePagamento)    btnClosePagamento.addEventListener('click', fecharModalPagamento);
-
-    // --------- FINALIZAR PEDIDO / WHATSAPP ----------
-    const btnFinalizar = document.getElementById('btn-finalizar-pedido');
-    if (btnFinalizar) {
-        btnFinalizar.addEventListener('click', function () {
-            if (!carrinhoPHP || !Array.isArray(carrinhoPHP) || carrinhoPHP.length === 0) {
-                alert('Seu carrinho está vazio.');
-                return;
-            }
-
-            const nome      = (document.getElementById('cliente_nome') || {}).value || '';
-            const telefone  = (document.getElementById('cliente_telefone') || {}).value || '';
-            const endereco  = (document.getElementById('endereco_texto') || {}).value || '';
-            const pagamento = (document.getElementById('pagamento_texto') || {}).value || '';
-
-            if (!nome.trim()) {
-                alert('Informe o seu nome.');
-                return;
-            }
-            if (!telefone.trim()) {
-                alert('Informe o número do seu celular.');
-                return;
-            }
-            if (!endereco.trim()) {
-                alert('Selecione e salve um endereço de entrega.');
-                return;
-            }
-            if (!pagamento.trim()) {
-                alert('Selecione e salve uma forma de pagamento.');
-                return;
-            }
-
-            let texto = '';
-            texto += 'NOVO PEDIDO - AÇAIDINHOS\n\n';
-            texto += 'Cliente: ' + nome.trim() + '\n';
-            texto += 'Telefone: ' + telefone.trim() + '\n\n';
-
-            texto += 'ITENS DO PEDIDO:\n';
-
-            carrinhoPHP.forEach(function (item, idx) {
-                if (!item) return;
-
-                const nomeItem  = item.nome || ('Item ' + (idx + 1));
-                const quantItem = item.quant || 1;
-                const precoItemNum = Number(item.preco || 0);
-                const precoItemTxt = 'R$ ' + precoItemNum.toFixed(2).replace('.', ',');
-
-                texto += '- ' + quantItem + 'x ' + nomeItem + ' - ' + precoItemTxt + '\n';
-
-                // Opcionais simples
-                if (Array.isArray(item.opc_simples) && item.opc_simples.length > 0) {
-                    texto += '  Adicionais:\n';
-                    item.opc_simples.forEach(function (opc) {
-                        if (!opc) return;
-                        const n = opc.nome || '';
-                        const pNum = Number(opc.preco || 0);
-                        const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
-                    });
-                }
-
-                // Opcionais de seleção
-                if (Array.isArray(item.opc_selecao) && item.opc_selecao.length > 0) {
-                    if (!(Array.isArray(item.opc_simples) && item.opc_simples.length > 0)) {
-                        texto += '  Adicionais:\n';
-                    }
-                    item.opc_selecao.forEach(function (opc) {
-                        if (!opc) return;
-                        const n = opc.nome || '';
-                        const pNum = Number(opc.preco || 0);
-                        const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
-                    });
-                }
-
-                // Observação
-                if (item.observacao) {
-                    texto += '  Observação: ' + item.observacao + '\n';
-                }
-
-                texto += '\n';
+        // Converter itens
+        let itensArr = [];
+        carrinhoPHP.forEach(item => {
+            itensArr.push({
+                nome: item.nome,
+                quant: item.quant,
+                preco_unit: item.preco,
+                observacao: item.observacao,
+                opcionais: [
+                    ...(item.opc_simples ?? []),
+                    ...(item.opc_selecao ?? [])
+                ]
             });
+        });
 
-            // Total
-            if (totalPedidoPHP !== null && totalPedidoPHP !== undefined) {
-                const totalNum = Number(totalPedidoPHP) || 0;
-                texto += 'TOTAL:\n';
-                texto += 'R$ ' + totalNum.toFixed(2).replace('.', ',') + '\n\n';
+        let totalPedido = Number(totalPedidoPHP);
+
+        // Enviar ao PHP
+        fetch("finalizar_pedido.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+                nome: nome,
+                telefone: telefone,
+                endereco: endereco,
+                pagamento: pagamento,
+                detalhe_pagamento: "",
+                total: totalPedido,
+                itens_json: JSON.stringify(itensArr)
+            })
+        })
+        .then(r => r.json())
+        .then(retorno => {
+
+            if (retorno.status === "ok") {
+
+                // 1) Empresa envia mensagem ao cliente
+                window.open(retorno.redirect, "_blank");
+
+                // 2) Redireciona cliente para página final
+                window.location.href = "pedido.php?id=" + retorno.pedido_id;
+
+            } else {
+                alert("Erro: " + retorno.erro);
             }
 
-            // Endereço
-            texto += 'ENDEREÇO DE ENTREGA:\n';
-            texto += endereco + '\n\n';
-
-            // Pagamento
-            texto += 'FORMA DE PAGAMENTO:\n';
-            texto += pagamento + '\n\n';
-
-            texto += 'Enviado automaticamente pelo sistema.';
-
-            const numeroWhatsapp = '559791434585'; //numero de telefone
-            const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-            fetch("finalizar_pedido.php", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-        nome: nome,
-        telefone: telefone,
-        endereco: endereco,
-        pagamento: pagamento,
-        detalhe_pagamento: detalhePagamento,
-        total: totalPedido,
-        itens_json: JSON.stringify(carrinhoPHP)
-    })
-})
-.then(res => res.json())
-.then(data => {
-    if (data.status === "ok") {
-        // Empresa envia msg para cliente
-        window.open(data.redirect, "_blank");
-
-        // Cliente é redirecionado
-        window.location.href = "pedido.php?id=" + data.pedido_id;
-    }
-});
-
+        })
+        .catch(e => {
+            alert("Falha de comunicação com servidor.");
+            console.log(e);
         });
-    }
+    });
 });
 </script>
+
 
 <script type="text/javascript" src="./js/item.js"></script>
 
