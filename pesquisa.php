@@ -244,7 +244,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .hero-tag {
       font-size: 0.75rem;
       padding: 5px 9px;
-      border-radius: 999px;
+      border-radius: 9px;
       border: 1px solid var(--border);
       color: var(--muted);
       display: inline-flex;
