@@ -478,6 +478,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
       font-weight: 550;
       letter-spacing: 0.04em;
       text-transform: uppercase;
+      text-decoration: none;
       background: linear-gradient(135deg, var(--accent), var(--accent-2));
       color: #ffffff;
       display: inline-flex;
