@@ -214,7 +214,7 @@ $unidades = $stmt->fetchAll(PDO::FETCH_ASSOC);
     .hero-kicker-dot {
       width: 6px;
       height: 6px;
-      border-radius: 999px;
+      border-radius: 9px;
       background: var(--accent);
     }
 
