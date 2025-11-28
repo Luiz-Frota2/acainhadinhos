@@ -1,6 +1,6 @@
 <?php
 session_start();
-require './assets/php/conexao.php'; // AJUSTE SE NECESSÁRIO
+require '../assets/php/conexao.php'; // AJUSTE SE NECESSÁRIO
 
 header("Content-Type: application/json");
 
