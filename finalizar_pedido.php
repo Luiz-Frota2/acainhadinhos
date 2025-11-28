@@ -21,7 +21,7 @@ $total     = $_POST['total'];
 $itens = json_decode($_POST['itens_json'], true);
 
 // Salvar pedido
-$sql = "INSERT INTO pedidos (nome_cliente, telefone_cliente, endereco, forma_pagamento, detalhe_pagamento, total)
+$sql = "INSERT INTO rascunho (nome_cliente, telefone_cliente, endereco, forma_pagamento, detalhe_pagamento, total)
         VALUES (?, ?, ?, ?, ?, ?)";
 $stmt = $pdo->prepare($sql);
 $stmt->execute([$nome, $telefone, $endereco, $pagamento, $detalhe, $total]);
@@ -29,7 +29,7 @@ $stmt->execute([$nome, $telefone, $endereco, $pagamento, $detalhe, $total]);
 $pedido_id = $pdo->lastInsertId();
 
 // Salvar itens
-$sql_item = "INSERT INTO pedidos_itens (pedido_id, nome_item, quantidade, preco_unitario, observacao, opcionais_json)
+$sql_item = "INSERT INTO rascunho_itens (pedido_id, nome_item, quantidade, preco_unitario, observacao, opcionais_json)
              VALUES (?, ?, ?, ?, ?, ?)";
 
 $stmt_item = $pdo->prepare($sql_item);
