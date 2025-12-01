@@ -9,14 +9,14 @@ $idSelecionado = $_GET['id'] ?? '';
 
 // Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) ||
-  !isset($_SESSION['nivel'])
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel'])
 ) {
-  header("Location: ../index.php?id=$idSelecionado");
-  exit;
+    header("Location: ../index.php?id=$idSelecionado");
+    exit;
 }
 
 // Conexão com o banco de dados
@@ -53,75 +53,77 @@ if (!empty($cpfUsuario)) {
 
 // Restante do código para buscar dados do usuário
 try {
-  if ($tipoUsuarioSessao === 'Admin') {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    if ($tipoUsuarioSessao === 'Admin') {
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
 }
 
 // Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
-  if ($_SESSION['tipo_empresa'] !== 'principal' && 
-      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
-    echo "<script>
+    if (
+        $_SESSION['tipo_empresa'] !== 'principal' &&
+        !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+    ) {
+        echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-    exit;
-  }
-  $id = 1;
+        exit;
+    }
+    $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $idUnidade = str_replace('unidade_', '', $idSelecionado);
-  
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
-                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-  
-  if (!$acessoPermitido) {
-    echo "<script>
+    $idUnidade = str_replace('unidade_', '', $idSelecionado);
+
+    $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+        ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
+    if (!$acessoPermitido) {
+        echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-    exit;
-  }
-  $id = $idUnidade;
+        exit;
+    }
+    $id = $idUnidade;
 } else {
-  echo "<script>
+    echo "<script>
         alert('Empresa não identificada!');
         window.location.href = '../index.php?id=$idSelecionado';
     </script>";
-  exit;
+    exit;
 }
 
 // Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico';
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
 }
 
 // Função para buscar o nome do funcionário pelo CPF
@@ -202,7 +204,7 @@ function obterNomeFuncionario($pdo, $cpf)
                 <div class="app-brand demo">
                     <a href="./dashboard.php?id=<?= urlencode($idSelecionado); ?>" class="app-brand-link">
 
-                     <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2" style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
 
                     <a href="javascript:void(0);"
@@ -290,6 +292,10 @@ function obterNomeFuncionario($pdo, $cpf)
                         <a href="../caixa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
                             <div data-i18n="Basic">Caixa</div>
+                        </a>
+                        <a href="../delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-cart"></i>
+                            <div data-i18n="Authentications">Delivery</div>
                         </a>
                     </li>
                     <li class="menu-item">
