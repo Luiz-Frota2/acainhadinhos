@@ -9,15 +9,15 @@ $idSelecionado = $_GET['id'] ?? '';
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) ||
-  !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
-  !isset($_SESSION['usuario_cpf']) // Verifica se o CPF está na sessão
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) || // Verifica se o nível está na sessão
+    !isset($_SESSION['usuario_cpf']) // Verifica se o CPF está na sessão
 ) {
-  header("Location: ../index.php?id=$idSelecionado");
-  exit;
+    header("Location: ../index.php?id=$idSelecionado");
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -30,81 +30,83 @@ $usuario_cpf = $_SESSION['usuario_cpf']; // Recupera o CPF da sessão
 $tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
-  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de contas_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de funcionarios_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+    if ($tipoUsuarioSessao === 'Admin') {
+        // Buscar na tabela de contas_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        // Buscar na tabela de funcionarios_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
-  // Para principal, verifica se é admin ou se pertence à mesma empresa
-  if ($_SESSION['tipo_empresa'] !== 'principal' && 
-      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
-    echo "<script>
+    // Para principal, verifica se é admin ou se pertence à mesma empresa
+    if (
+        $_SESSION['tipo_empresa'] !== 'principal' &&
+        !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+    ) {
+        echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-    exit;
-  }
-  $id = 1;
+        exit;
+    }
+    $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $idUnidade = str_replace('unidade_', '', $idSelecionado);
-  
-  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
-                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-  
-  if (!$acessoPermitido) {
-    echo "<script>
+    $idUnidade = str_replace('unidade_', '', $idSelecionado);
+
+    // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+    $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+        ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
+    if (!$acessoPermitido) {
+        echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
         </script>";
-    exit;
-  }
-  $id = $idUnidade;
+        exit;
+    }
+    $id = $idUnidade;
 } else {
-  echo "<script>
+    echo "<script>
         alert('Empresa não identificada!');
         window.location.href = '../index.php?id=$idSelecionado';
     </script>";
-  exit;
+    exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-  // Não mostra erro para o usuário para não quebrar a página
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
+    // Não mostra erro para o usuário para não quebrar a página
 }
 
 // ✅ Obter nome do funcionário usando o CPF da sessão
@@ -124,7 +126,8 @@ try {
 }
 
 // ✅ Função para buscar o nome do funcionário pelo CPF
-function obterNomeFuncionario($pdo, $cpf) {
+function obterNomeFuncionario($pdo, $cpf)
+{
     try {
         $stmt = $pdo->prepare("SELECT nome FROM funcionarios WHERE cpf = :cpf");
         $stmt->bindParam(':cpf', $cpf, PDO::PARAM_STR);
@@ -284,6 +287,10 @@ function obterNomeFuncionario($pdo, $cpf) {
                         <a href="../caixa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                             <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
                             <div data-i18n="Basic">Caixa</div>
+                        </a>
+                        <a href="./delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-cart"></i>
+                            <div data-i18n="Authentications">Delivery</div>
                         </a>
                     </li>
                     <li class="menu-item">
@@ -464,10 +471,10 @@ function obterNomeFuncionario($pdo, $cpf) {
                                                         </div>
 
                                                         <script>
-                                                            document.addEventListener('DOMContentLoaded', function () {
+                                                            document.addEventListener('DOMContentLoaded', function() {
                                                                 var modal = document.getElementById('detalhesAtestadoModal<?= $index ?>');
                                                                 if (modal) {
-                                                                    modal.addEventListener('show.bs.modal', function (event) {
+                                                                    modal.addEventListener('show.bs.modal', function(event) {
                                                                         var button = event.relatedTarget;
                                                                         var observacoes = button.getAttribute('data-observacoes') || '';
                                                                         var imagemAtestado = button.getAttribute('data-atestado') || '';

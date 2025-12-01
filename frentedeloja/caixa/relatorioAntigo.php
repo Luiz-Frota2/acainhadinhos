@@ -65,7 +65,6 @@ function obterNomeFuncionario($pdo, $cpf)
 
         if ($funcionario && !empty($funcionario['nome']) || !empty($funcionario['cpf'])) {
             return $funcionario['nome'];
-
         } else {
             return 'Funcionário não identificado';
         }
@@ -279,6 +278,10 @@ try {
                             <i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">SIstema de Ponto</div>
                         </a>
+                        <a href="./delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-cart"></i>
+                            <div data-i18n="Authentications">Delivery</div>
+                        </a>
                     </li>
                     <li class="menu-item">
                         <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
@@ -342,7 +345,7 @@ try {
                                             </div>
                                         </a>
                                     </li>
-                                   
+
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
@@ -371,9 +374,6 @@ try {
                     $stmt->bindParam(':cpf', $cpfUsuario, PDO::PARAM_STR);
                     $stmt->execute();
                     $aberturas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-
-
                 } catch (PDOException $e) {
                     echo "Erro ao buscar produtos: " . $e->getMessage();
                     exit;
@@ -809,111 +809,142 @@ try {
                         </footer>
 
                         <!-- / Footer -->
-                    </div>
                 </div>
             </div>
         </div>
-    <?php endif; ?>
+    </div>
+<?php endif; ?>
 
 
-    <!-- / Layout wrapper -->
+<!-- / Layout wrapper -->
 
-    <!-- Inclua ApexCharts antes dos scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<!-- Inclua ApexCharts antes dos scripts -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
-    <script>
-        const labels = <?= $json_labels ?>;
-        const valores = <?= $json_valores ?>;
-        const quantidades = <?= $json_quantidades ?>;
+<script>
+    const labels = <?= $json_labels ?>;
+    const valores = <?= $json_valores ?>;
+    const quantidades = <?= $json_quantidades ?>;
 
-        // Gráfico de Linha (Evolução das Vendas)
-        const optionsLinha = {
-            chart: { type: 'line', height: 350 },
-            series: [{ name: "Vendas", data: valores }],
-            xaxis: { categories: labels },
-            stroke: { curve: 'smooth', width: 3 },
+    // Gráfico de Linha (Evolução das Vendas)
+    const optionsLinha = {
+        chart: {
+            type: 'line',
+            height: 350
+        },
+        series: [{
+            name: "Vendas",
+            data: valores
+        }],
+        xaxis: {
+            categories: labels
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 3
+        },
+        colors: ['#696CFF'],
+        markers: {
+            size: 5,
             colors: ['#696CFF'],
-            markers: { size: 5, colors: ['#696CFF'], strokeWidth: 2 }
-        };
-        new ApexCharts(document.querySelector("#evolucaoDiariaChart"), optionsLinha).render();
+            strokeWidth: 2
+        }
+    };
+    new ApexCharts(document.querySelector("#evolucaoDiariaChart"), optionsLinha).render();
 
-        // Gráfico de Barras (Quantidade)
-        const optionsBarra = {
-            chart: { type: 'bar', height: 350 },
-            series: [{ name: "Vendas", data: quantidades }],
-            xaxis: { categories: labels },
-            plotOptions: { bar: { borderRadius: 6, columnWidth: '45%' } },
-            colors: ['#00C9A7'],
-            tooltip: { y: { formatter: val => val + " vendas" } }
-        };
-        new ApexCharts(document.querySelector("#graficoBarrasQuantidade"), optionsBarra).render();
+    // Gráfico de Barras (Quantidade)
+    const optionsBarra = {
+        chart: {
+            type: 'bar',
+            height: 350
+        },
+        series: [{
+            name: "Vendas",
+            data: quantidades
+        }],
+        xaxis: {
+            categories: labels
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 6,
+                columnWidth: '45%'
+            }
+        },
+        colors: ['#00C9A7'],
+        tooltip: {
+            y: {
+                formatter: val => val + " vendas"
+            }
+        }
+    };
+    new ApexCharts(document.querySelector("#graficoBarrasQuantidade"), optionsBarra).render();
 
-        // Gráfico de Pizza: Formas de Pagamento
+    // Gráfico de Pizza: Formas de Pagamento
 
-        const pizzaLabels = <?= $json_labels_pizza ?>;
-        const pizzaData = <?= $json_valores_pizza ?>;
+    const pizzaLabels = <?= $json_labels_pizza ?>;
+    const pizzaData = <?= $json_valores_pizza ?>;
 
 
-        const optionsPizza = {
-            chart: {
-                type: 'pie',
-                height: 250
-            },
-            labels: pizzaLabels,
-            series: pizzaData,
-            colors: ['#00C9A7', '#FFB547', '#FF6B6B', '#845EC2', '#FFC75F', '#0081CF'], // Pode adicionar mais cores se necessário
-            legend: {
-                position: 'bottom'
-            },
-            tooltip: {
-                y: {
-                    formatter: function (val) {
-                        return val + " pagamentos";
-                    }
+    const optionsPizza = {
+        chart: {
+            type: 'pie',
+            height: 250
+        },
+        labels: pizzaLabels,
+        series: pizzaData,
+        colors: ['#00C9A7', '#FFB547', '#FF6B6B', '#845EC2', '#FFC75F', '#0081CF'], // Pode adicionar mais cores se necessário
+        legend: {
+            position: 'bottom'
+        },
+        tooltip: {
+            y: {
+                formatter: function(val) {
+                    return val + " pagamentos";
                 }
             }
-        };
+        }
+    };
 
-        new ApexCharts(document.querySelector("#graficoPizzaPagamento"), optionsPizza).render();
+    new ApexCharts(document.querySelector("#graficoPizzaPagamento"), optionsPizza).render();
+</script>
 
-    </script>
-
-    <!-- Modal de Personalização -->
-    <div class="modal fade" id="modalPersonalizar" tabindex="-1" aria-labelledby="modalPersonalizarLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <form method="GET" class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalPersonalizarLabel">Selecionar Período Personalizado</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+<!-- Modal de Personalização -->
+<div class="modal fade" id="modalPersonalizar" tabindex="-1" aria-labelledby="modalPersonalizarLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="GET" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPersonalizarLabel">Selecionar Período Personalizado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="filtro" value="personalizado">
+                <div class="mb-3">
+                    <label for="dataInicial" class="form-label">Data Inicial</label>
+                    <input type="date" class="form-control" id="dataInicial" name="de" required>
                 </div>
-                <div class="modal-body">
-                    <input type="hidden" name="filtro" value="personalizado">
-                    <div class="mb-3">
-                        <label for="dataInicial" class="form-label">Data Inicial</label>
-                        <input type="date" class="form-control" id="dataInicial" name="de" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="dataFinal" class="form-label">Data Final</label>
-                        <input type="date" class="form-control" id="dataFinal" name="ate" required>
-                    </div>
+                <div class="mb-3">
+                    <label for="dataFinal" class="form-label">Data Final</label>
+                    <input type="date" class="form-control" id="dataFinal" name="ate" required>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Filtrar</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                </div>
-            </form>
-        </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary">Filtrar</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            </div>
+        </form>
     </div>
+</div>
 
 
 
-    <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
-    <script src="../../assets/vendor/libs/popper/popper.js"></script>
-    <script src="../../assets/vendor/js/bootstrap.js"></script>
-    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
-    <script src="../../assets/vendor/js/menu.js"></script>
-    <script src="../../assets/js/main.js"></script>
+<script src="../../assets/vendor/libs/jquery/jquery.js"></script>
+<script src="../../assets/vendor/libs/popper/popper.js"></script>
+<script src="../../assets/vendor/js/bootstrap.js"></script>
+<script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
+<script src="../../assets/vendor/js/menu.js"></script>
+<script src="../../assets/js/main.js"></script>
 </body>
 
 </html>
@@ -928,20 +959,20 @@ sql
 Copiar
 Editar
 CREATE TABLE aberturas (
-  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  responsavel VARCHAR(255) NOT NULL,
-  numero_caixa INT NOT NULL,
-  valor_abertura DECIMAL(10,2) NOT NULL,
-  valor_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  valor_sangrias DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  valor_suprimentos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  valor_liquido DECIMAL(10,2) AS (valor_total + valor_suprimentos - valor_sangrias) STORED,
-  abertura_datetime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  fechamento_datetime DATETIME DEFAULT NULL,
-  quantidade_vendas INT NOT NULL DEFAULT 0,
-  status ENUM('aberto', 'fechado') NOT NULL DEFAULT 'aberto',
-  empresa_id VARCHAR(40) NOT NULL,
-  cpf_responsavel VARCHAR(14) NOT NULL
+id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+responsavel VARCHAR(255) NOT NULL,
+numero_caixa INT NOT NULL,
+valor_abertura DECIMAL(10,2) NOT NULL,
+valor_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+valor_sangrias DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+valor_suprimentos DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+valor_liquido DECIMAL(10,2) AS (valor_total + valor_suprimentos - valor_sangrias) STORED,
+abertura_datetime DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+fechamento_datetime DATETIME DEFAULT NULL,
+quantidade_vendas INT NOT NULL DEFAULT 0,
+status ENUM('aberto', 'fechado') NOT NULL DEFAULT 'aberto',
+empresa_id VARCHAR(40) NOT NULL,
+cpf_responsavel VARCHAR(14) NOT NULL
 );
 Campos-chave:
 valor_liquido: calculado automaticamente.
@@ -959,14 +990,14 @@ sql
 Copiar
 Editar
 CREATE TABLE sangrias (
-  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  abertura_id INT NOT NULL,
-  valor DECIMAL(10,2) NOT NULL,
-  motivo VARCHAR(255),
-  data_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  operador VARCHAR(255) NOT NULL,
-  empresa_id VARCHAR(40) NOT NULL,
-  FOREIGN KEY (abertura_id) REFERENCES aberturas(id)
+id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+abertura_id INT NOT NULL,
+valor DECIMAL(10,2) NOT NULL,
+motivo VARCHAR(255),
+data_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+operador VARCHAR(255) NOT NULL,
+empresa_id VARCHAR(40) NOT NULL,
+FOREIGN KEY (abertura_id) REFERENCES aberturas(id)
 );
 Observações:
 valor deve ser menor ou igual ao saldo atual do caixa.
@@ -982,14 +1013,14 @@ sql
 Copiar
 Editar
 CREATE TABLE suprimentos (
-  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  abertura_id INT NOT NULL,
-  valor DECIMAL(10,2) NOT NULL,
-  motivo VARCHAR(255),
-  data_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  operador VARCHAR(255) NOT NULL,
-  empresa_id VARCHAR(40) NOT NULL,
-  FOREIGN KEY (abertura_id) REFERENCES aberturas(id)
+id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+abertura_id INT NOT NULL,
+valor DECIMAL(10,2) NOT NULL,
+motivo VARCHAR(255),
+data_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+operador VARCHAR(255) NOT NULL,
+empresa_id VARCHAR(40) NOT NULL,
+FOREIGN KEY (abertura_id) REFERENCES aberturas(id)
 );
 Observações:
 Pode ser usado para registrar troco extra ou entradas emergenciais.
@@ -1005,15 +1036,15 @@ sql
 Copiar
 Editar
 CREATE TABLE vendas (
-  id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  abertura_id INT NOT NULL,
-  codigo_venda VARCHAR(50) NOT NULL,
-  valor_total DECIMAL(10,2) NOT NULL,
-  data_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  operador VARCHAR(255) NOT NULL,
-  status ENUM('ativa', 'cancelada') NOT NULL DEFAULT 'ativa',
-  empresa_id VARCHAR(40) NOT NULL,
-  FOREIGN KEY (abertura_id) REFERENCES aberturas(id)
+id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+abertura_id INT NOT NULL,
+codigo_venda VARCHAR(50) NOT NULL,
+valor_total DECIMAL(10,2) NOT NULL,
+data_hora DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+operador VARCHAR(255) NOT NULL,
+status ENUM('ativa', 'cancelada') NOT NULL DEFAULT 'ativa',
+empresa_id VARCHAR(40) NOT NULL,
+FOREIGN KEY (abertura_id) REFERENCES aberturas(id)
 );
 Observações:
 status permite controlar cancelamentos.

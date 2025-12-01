@@ -56,8 +56,10 @@ try {
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
   // Para principal, verifica se é admin ou se pertence à mesma empresa
-  if ($_SESSION['tipo_empresa'] !== 'principal' && 
-      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
+  if (
+    $_SESSION['tipo_empresa'] !== 'principal' &&
+    !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+  ) {
     echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
@@ -67,11 +69,11 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
   $idUnidade = str_replace('unidade_', '', $idSelecionado);
-  
+
   // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
-                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-  
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
   if (!$acessoPermitido) {
     echo "<script>
             alert('Acesso negado!');
@@ -256,6 +258,10 @@ try {
               <i class="menu-icon tf-icons bx bx-group"></i>
               <div data-i18n="Authentications">SIstema de Ponto</div>
             </a>
+            <a href="./delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-cart"></i>
+              <div data-i18n="Authentications">Delivery</div>
+            </a>
           </li>
           <li class="menu-item">
             <a href="https://wa.me/92991515710" target="_blank" class="menu-link">
@@ -318,7 +324,7 @@ try {
                   <li>
                     <div class="dropdown-divider"></div>
                   </li>
-                  
+
                   <li>
                     <a class="dropdown-item" href="../logout.php?id=<?= urlencode($idSelecionado); ?>">
                       <i class="bx bx-power-off me-2"></i>
@@ -330,7 +336,7 @@ try {
               </li>
               <!--/ User -->
             </ul>
-            
+
           </div>
         </nav>
 

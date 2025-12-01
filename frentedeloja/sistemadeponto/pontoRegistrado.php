@@ -58,8 +58,10 @@ try {
 // ✅ Valida o tipo de empresa e o acesso permitido
 if (str_starts_with($idSelecionado, 'principal_')) {
   // Para principal, verifica se é admin ou se pertence à mesma empresa
-  if ($_SESSION['tipo_empresa'] !== 'principal' && 
-      !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')) {
+  if (
+    $_SESSION['tipo_empresa'] !== 'principal' &&
+    !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+  ) {
     echo "<script>
             alert('Acesso negado!');
             window.location.href = '../index.php?id=$idSelecionado';
@@ -69,11 +71,11 @@ if (str_starts_with($idSelecionado, 'principal_')) {
   $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
   $idUnidade = str_replace('unidade_', '', $idSelecionado);
-  
+
   // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) || 
-                    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-  
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
   if (!$acessoPermitido) {
     echo "<script>
             alert('Acesso negado!');
@@ -279,6 +281,10 @@ try {
             <a href="../caixa/index.php?id=<?= urldecode($idSelecionado); ?> " class="menu-link">
               <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
               <div data-i18n="Basic">Caixa</div>
+            </a>
+            <a href="./delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+              <i class="menu-icon tf-icons bx bx-cart"></i>
+              <div data-i18n="Authentications">Delivery</div>
             </a>
           </li>
           <li class="menu-item">
@@ -553,7 +559,7 @@ try {
           <script>
             // Modal de Fotos
             const modalFoto = document.getElementById('modalFoto');
-            modalFoto.addEventListener('show.bs.modal', function (event) {
+            modalFoto.addEventListener('show.bs.modal', function(event) {
               const button = event.relatedTarget;
               const fotoEntradaAM = button.getAttribute('data-fotoam') || '';
               const fotoSaidaIntervalo = button.getAttribute('data-fotoamS') || '';
@@ -568,7 +574,7 @@ try {
 
             // Modal de Mapas (Google Maps embed)
             const modalMapa = document.getElementById('modalMapa');
-            modalMapa.addEventListener('show.bs.modal', function (event) {
+            modalMapa.addEventListener('show.bs.modal', function(event) {
               const button = event.relatedTarget;
               const locam = button.getAttribute('data-locam') || '';
               const locamS = button.getAttribute('data-locamS') || '';

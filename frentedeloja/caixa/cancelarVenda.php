@@ -166,6 +166,7 @@ try {
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default" data-assets-path="../assets/">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport"
@@ -194,6 +195,7 @@ try {
     <!-- Config -->
     <script src="../../assets/js/config.js"></script>
 </head>
+
 <body>
     <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
@@ -292,6 +294,10 @@ try {
                             <i class="menu-icon tf-icons bx bx-group"></i>
                             <div data-i18n="Authentications">Sistema de Ponto</div>
                         </a>
+                        <a href="./delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+                            <i class="menu-icon tf-icons bx bx-cart"></i>
+                            <div data-i18n="Authentications">Delivery</div>
+                        </a>
                     </li>
 
                     <li class="menu-item">
@@ -382,12 +388,12 @@ try {
 
                     <!-- Alertas de retorno do processador -->
                     <?php
-                      $ok  = isset($_GET['ok']) ? (int)$_GET['ok'] : null;
-                      $msg = isset($_GET['msg']) ? trim((string)$_GET['msg']) : '';
-                      if ($ok !== null) {
-                          $cls = $ok ? 'alert-success' : 'alert-danger';
-                          echo '<div class="alert '.$cls.'">'.$msg.'</div>';
-                      }
+                    $ok  = isset($_GET['ok']) ? (int)$_GET['ok'] : null;
+                    $msg = isset($_GET['msg']) ? trim((string)$_GET['msg']) : '';
+                    if ($ok !== null) {
+                        $cls = $ok ? 'alert-success' : 'alert-danger';
+                        echo '<div class="alert ' . $cls . '">' . $msg . '</div>';
+                    }
                     ?>
 
                     <div class="card">
@@ -425,8 +431,8 @@ try {
                                                     </td>
                                                     <td>
                                                         <!-- Botão para abrir a modal com as 3 opções -->
-                                                        <button 
-                                                            type="button" 
+                                                        <button
+                                                            type="button"
                                                             class="btn btn-danger btn-cancelar-venda"
                                                             data-venda-id="<?= (int)$venda['id'] ?>"
                                                             data-empresa-id="<?= htmlspecialchars($idSelecionado) ?>"
@@ -459,79 +465,79 @@ try {
 
     <!-- Modal Única: 3 opções de cancelamento (envio para cancelar_venda_processa.php) -->
     <div class="modal fade" id="modalCancelarVenda" tabindex="-1" aria-labelledby="modalCancelarVendaLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold" id="modalCancelarVendaLabel">
-              Cancelar venda <span id="cv-venda-id-badge" class="badge bg-label-danger ms-1">#</span>
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-          </div>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="modalCancelarVendaLabel">
+                        Cancelar venda <span id="cv-venda-id-badge" class="badge bg-label-danger ms-1">#</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
 
-          <div class="modal-body pt-2">
-            <p class="mb-3 text-muted">
-              Selecione o tipo de cancelamento para a <strong>venda <span id="cv-venda-id-text">-</span></strong>.
-            </p>
+                <div class="modal-body pt-2">
+                    <p class="mb-3 text-muted">
+                        Selecione o tipo de cancelamento para a <strong>venda <span id="cv-venda-id-text">-</span></strong>.
+                    </p>
 
-            <!-- Opção 1: Interno -->
-            <form id="form-cv-interno" class="mb-2" method="post" action="cancelar_venda_processa.php">
-              <input type="hidden" name="id" value="">
-              <input type="hidden" name="venda_id" value="">
-              <input type="hidden" name="acao" value="interno">
-              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
-                <span class="d-flex align-items-start w-100 p-3">
-                  <i class="bx bx-x-circle fs-3 me-3"></i>
-                  <span>
-                    <span class="fw-semibold d-block">Cancelar venda (interno)</span>
-                    <small class="text-muted">Estorna a venda no sistema (estoque/financeiro), sem evento SEFAZ.</small>
-                  </span>
-                </span>
-              </button>
-            </form>
+                    <!-- Opção 1: Interno -->
+                    <form id="form-cv-interno" class="mb-2" method="post" action="cancelar_venda_processa.php">
+                        <input type="hidden" name="id" value="">
+                        <input type="hidden" name="venda_id" value="">
+                        <input type="hidden" name="acao" value="interno">
+                        <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                            <span class="d-flex align-items-start w-100 p-3">
+                                <i class="bx bx-x-circle fs-3 me-3"></i>
+                                <span>
+                                    <span class="fw-semibold d-block">Cancelar venda (interno)</span>
+                                    <small class="text-muted">Estorna a venda no sistema (estoque/financeiro), sem evento SEFAZ.</small>
+                                </span>
+                            </span>
+                        </button>
+                    </form>
 
-            <!-- Opção 2: Evento 110111 -->
-            <form id="form-cv-110111" class="mb-2" method="post" action="cancelar_venda_processa.php">
-              <input type="hidden" name="id" value="">
-              <input type="hidden" name="venda_id" value="">
-              <input type="hidden" name="acao" value="110111">
-              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
-                <span class="d-flex align-items-start w-100 p-3">
-                  <i class="bx bx-file-minus fs-3 me-3"></i>
-                  <span>
-                    <span class="fw-semibold d-block">Cancelar NFC-e — Evento 110111</span>
-                    <small class="text-muted">Envia o cancelamento oficial da NFC-e autorizada.</small>
-                  </span>
-                </span>
-              </button>
-            </form>
+                    <!-- Opção 2: Evento 110111 -->
+                    <form id="form-cv-110111" class="mb-2" method="post" action="cancelar_venda_processa.php">
+                        <input type="hidden" name="id" value="">
+                        <input type="hidden" name="venda_id" value="">
+                        <input type="hidden" name="acao" value="110111">
+                        <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                            <span class="d-flex align-items-start w-100 p-3">
+                                <i class="bx bx-file-minus fs-3 me-3"></i>
+                                <span>
+                                    <span class="fw-semibold d-block">Cancelar NFC-e — Evento 110111</span>
+                                    <small class="text-muted">Envia o cancelamento oficial da NFC-e autorizada.</small>
+                                </span>
+                            </span>
+                        </button>
+                    </form>
 
-            <!-- Opção 3: Inutilização 110112 -->
-            <form id="form-cv-110112" method="post" action="cancelar_venda_processa.php">
-              <input type="hidden" name="id" value="">
-              <input type="hidden" name="venda_id" value="">
-              <input type="hidden" name="acao" value="110112">
-              <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
-                <span class="d-flex align-items-start w-100 p-3">
-                  <i class="bx bx-block fs-3 me-3"></i>
-                  <span>
-                    <span class="fw-semibold d-block">Inutilizar numeração — 110112</span>
-                    <small class="text-muted">Para numeração sem uso. Não cancela NFC-e já autorizada.</small>
-                  </span>
-                </span>
-              </button>
-            </form>
+                    <!-- Opção 3: Inutilização 110112 -->
+                    <form id="form-cv-110112" method="post" action="cancelar_venda_processa.php">
+                        <input type="hidden" name="id" value="">
+                        <input type="hidden" name="venda_id" value="">
+                        <input type="hidden" name="acao" value="110112">
+                        <button type="submit" class="list-group-item list-group-item-action d-flex align-items-start w-100 btn btn-link p-0 text-start">
+                            <span class="d-flex align-items-start w-100 p-3">
+                                <i class="bx bx-block fs-3 me-3"></i>
+                                <span>
+                                    <span class="fw-semibold d-block">Inutilizar numeração — 110112</span>
+                                    <small class="text-muted">Para numeração sem uso. Não cancela NFC-e já autorizada.</small>
+                                </span>
+                            </span>
+                        </button>
+                    </form>
 
-            <div class="alert alert-info mt-3 mb-0" role="alert">
-              <i class="bx bx-info-circle me-2"></i>
-              <strong>Status NFC-e:</strong> <span id="cv-status-nfce">—</span>
+                    <div class="alert alert-info mt-3 mb-0" role="alert">
+                        <i class="bx bx-info-circle me-2"></i>
+                        <strong>Status NFC-e:</strong> <span id="cv-status-nfce">—</span>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fechar</button>
+                </div>
             </div>
-          </div>
-
-          <div class="modal-footer border-0 pt-0">
-            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fechar</button>
-          </div>
         </div>
-      </div>
     </div>
     <!-- /Modal -->
 
@@ -556,99 +562,102 @@ try {
     <script src="../../assets/js/main.js"></script>
 
     <script>
-    (function(){
-      // Preenche hidden inputs dos 3 formulários e abre a modal
-      document.addEventListener('click', function(ev){
-        const btn = ev.target.closest('.btn-cancelar-venda');
-        if (!btn) return;
+        (function() {
+            // Preenche hidden inputs dos 3 formulários e abre a modal
+            document.addEventListener('click', function(ev) {
+                const btn = ev.target.closest('.btn-cancelar-venda');
+                if (!btn) return;
 
-        const vendaId   = btn.getAttribute('data-venda-id') || '';
-        const empresaId = btn.getAttribute('data-empresa-id') || '';
-        const status    = btn.getAttribute('data-status') || '-';
+                const vendaId = btn.getAttribute('data-venda-id') || '';
+                const empresaId = btn.getAttribute('data-empresa-id') || '';
+                const status = btn.getAttribute('data-status') || '-';
 
-        document.getElementById('cv-venda-id-badge').textContent = '#' + vendaId;
-        document.getElementById('cv-venda-id-text').textContent  = '#' + vendaId;
-        document.getElementById('cv-status-nfce').textContent    = status;
+                document.getElementById('cv-venda-id-badge').textContent = '#' + vendaId;
+                document.getElementById('cv-venda-id-text').textContent = '#' + vendaId;
+                document.getElementById('cv-status-nfce').textContent = status;
 
-        // Preenche <input hidden> de cada form
-        ['form-cv-interno','form-cv-110111','form-cv-110112'].forEach(function(fid){
-          const f = document.getElementById(fid);
-          if (!f) return;
-          const idInput     = f.querySelector('input[name="id"]');
-          const vendaInput  = f.querySelector('input[name="venda_id"]');
-          if (idInput)    idInput.value = empresaId;
-          if (vendaInput) vendaInput.value = vendaId;
-        });
+                // Preenche <input hidden> de cada form
+                ['form-cv-interno', 'form-cv-110111', 'form-cv-110112'].forEach(function(fid) {
+                    const f = document.getElementById(fid);
+                    if (!f) return;
+                    const idInput = f.querySelector('input[name="id"]');
+                    const vendaInput = f.querySelector('input[name="venda_id"]');
+                    if (idInput) idInput.value = empresaId;
+                    if (vendaInput) vendaInput.value = vendaId;
+                });
 
-        // Abre modal via Bootstrap
-        const modalEl = document.getElementById('modalCancelarVenda');
-        const bsModal = new bootstrap.Modal(modalEl, { backdrop: 'static' });
-        bsModal.show();
-      });
-    })();
+                // Abre modal via Bootstrap
+                const modalEl = document.getElementById('modalCancelarVenda');
+                const bsModal = new bootstrap.Modal(modalEl, {
+                    backdrop: 'static'
+                });
+                bsModal.show();
+            });
+        })();
     </script>
 
-<?php
-  // Garante que a UI receba empresa_id e venda_id mesmo se vieram de sessão
-  if (!isset($_REQUEST['id']) && !empty($empresaId))   $_REQUEST['id'] = $_GET['id'] = $empresaId;
-  if (!isset($_REQUEST['venda_id']) && !empty($vendaId)) $_REQUEST['venda_id'] = $_GET['venda_id'] = (string)$vendaId;
+    <?php
+    // Garante que a UI receba empresa_id e venda_id mesmo se vieram de sessão
+    if (!isset($_REQUEST['id']) && !empty($empresaId))   $_REQUEST['id'] = $_GET['id'] = $empresaId;
+    if (!isset($_REQUEST['venda_id']) && !empty($vendaId)) $_REQUEST['venda_id'] = $_GET['venda_id'] = (string)$vendaId;
 
-  /* ========= inclui a UI de cancelamento (vários caminhos) ========= */
-  $__cv_paths = [
-    __DIR__ . '/cancelar_venda_ui.php',
-    __DIR__ . '/../nfce/cancelar_venda_ui.php',
-    __DIR__ . '/../frentedeloja/caixa/cancelar_venda_ui.php',
-    __DIR__ . '/../modals/cancelar_venda_ui.php',
-    __DIR__ . '/modals/cancelar_venda_ui.php',
-  ];
-  $__cv_included = false;
-  foreach ($__cv_paths as $__p) {
-    if (is_file($__p)) {
-      include $__p;
-      $__cv_included = true;
-      break;
+    /* ========= inclui a UI de cancelamento (vários caminhos) ========= */
+    $__cv_paths = [
+        __DIR__ . '/cancelar_venda_ui.php',
+        __DIR__ . '/../nfce/cancelar_venda_ui.php',
+        __DIR__ . '/../frentedeloja/caixa/cancelar_venda_ui.php',
+        __DIR__ . '/../modals/cancelar_venda_ui.php',
+        __DIR__ . '/modals/cancelar_venda_ui.php',
+    ];
+    $__cv_included = false;
+    foreach ($__cv_paths as $__p) {
+        if (is_file($__p)) {
+            include $__p;
+            $__cv_included = true;
+            break;
+        }
     }
-  }
 
-  /* ========= fallback minimal se o arquivo não existir ========= */
-  if (!$__cv_included): ?>
-    <div id="cv-overlay" class="fallback" style="display:none" aria-hidden="true">
-      <div class="cv-modal" role="dialog" aria-modal="true" style="display:none">
-        <h3>Cancelar venda</h3>
-        <p>Interface de cancelamento padrão não encontrada.</p>
-        <div class="cv-actions">
-          <button type="button" class="btn" onclick="cvClose()">Fechar</button>
+    /* ========= fallback minimal se o arquivo não existir ========= */
+    if (!$__cv_included): ?>
+        <div id="cv-overlay" class="fallback" style="display:none" aria-hidden="true">
+            <div class="cv-modal" role="dialog" aria-modal="true" style="display:none">
+                <h3>Cancelar venda</h3>
+                <p>Interface de cancelamento padrão não encontrada.</p>
+                <div class="cv-actions">
+                    <button type="button" class="btn" onclick="cvClose()">Fechar</button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-    <script>
-      if (typeof window.cvOpen !== 'function') {
-        window.cvOpen = function() {
-          var ov = document.getElementById('cv-overlay');
-          var md = ov ? ov.querySelector('.cv-modal') : null;
-          if (ov) {
-            ov.style.display = 'grid';
-            ov.removeAttribute('aria-hidden');
-          }
-          if (md) {
-            md.style.display = 'block';
-            md.focus && md.focus();
-          }
-        };
-      }
-      if (typeof window.cvClose !== 'function') {
-        window.cvClose = function() {
-          var ov = document.getElementById('cv-overlay');
-          var md = ov ? ov.querySelector('.cv-modal') : null;
-          if (md) md.style.display = 'none';
-          if (ov) {
-            ov.style.display = 'none';
-            ov.setAttribute('aria-hidden', 'true');
-          }
-        };
-      }
-    </script>
-  <?php endif; ?>
+        <script>
+            if (typeof window.cvOpen !== 'function') {
+                window.cvOpen = function() {
+                    var ov = document.getElementById('cv-overlay');
+                    var md = ov ? ov.querySelector('.cv-modal') : null;
+                    if (ov) {
+                        ov.style.display = 'grid';
+                        ov.removeAttribute('aria-hidden');
+                    }
+                    if (md) {
+                        md.style.display = 'block';
+                        md.focus && md.focus();
+                    }
+                };
+            }
+            if (typeof window.cvClose !== 'function') {
+                window.cvClose = function() {
+                    var ov = document.getElementById('cv-overlay');
+                    var md = ov ? ov.querySelector('.cv-modal') : null;
+                    if (md) md.style.display = 'none';
+                    if (ov) {
+                        ov.style.display = 'none';
+                        ov.setAttribute('aria-hidden', 'true');
+                    }
+                };
+            }
+        </script>
+    <?php endif; ?>
 
 </body>
+
 </html>
