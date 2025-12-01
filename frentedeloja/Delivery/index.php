@@ -8,19 +8,19 @@ session_start();
 $idSelecionado = $_GET['id'] ?? '';
 
 if (!$idSelecionado) {
-  header("Location: .././login.php");
-  exit;
+    header("Location: .././login.php");
+    exit;
 }
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id'])
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id'])
 ) {
-  header("Location: .././login.php?id=" . urlencode($idSelecionado));
-  exit;
+    header("Location: .././login.php?id=" . urlencode($idSelecionado));
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
@@ -32,21 +32,21 @@ $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
 
 try {
-  $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar usuário: " . $e->getMessage() . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
@@ -55,21 +55,21 @@ $idEmpresaSession = $_SESSION['empresa_id'];
 $tipoSession = $_SESSION['tipo_empresa'];
 
 if (str_starts_with($idSelecionado, 'principal_')) {
-  $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
 } elseif (str_starts_with($idSelecionado, 'filial_')) {
-  $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
 } elseif (str_starts_with($idSelecionado, 'franquia_')) {
-  $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
 }
 
 if (!$acessoPermitido) {
-  echo "<script>
+    echo "<script>
           alert('Acesso negado!');
           window.location.href = '.././login.php?id=" . urlencode($idSelecionado) . "';
         </script>";
-  exit;
+    exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
@@ -184,17 +184,17 @@ try {
                             </li>
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
+                                    <div data-i18n="Basic">Pedidos a Caminho</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="#" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Entregues</div>
                                 </a>
                             </li>
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Cancelados</div>
-                                </a>
-                            </li>
-                            <li class="menu-item">
-                                <a href="#" class="menu-link">
-                                    <div data-i18n="Basic">Pedidos Pendentes</div>
                                 </a>
                             </li>
                         </ul>
@@ -319,7 +319,7 @@ try {
                                             </div>
                                         </a>
                                     </li>
-                                  
+
                                     <li>
                                         <div class="dropdown-divider"></div>
                                     </li>
