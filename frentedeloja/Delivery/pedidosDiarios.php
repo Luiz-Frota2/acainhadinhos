@@ -347,7 +347,7 @@ try {
                 <!-- Content -->
                 <div class="container-xxl flex-grow-1 container-p-y">
 
-                    <h4 class="fw-bold mb-2">
+                    <h4 class="fw-bold mb-4">
                         <span class="text-muted fw-light">
                             <a href="#">Delivery</a> /
                         </span>
