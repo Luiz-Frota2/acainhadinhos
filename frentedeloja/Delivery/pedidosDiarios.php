@@ -232,7 +232,7 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./produtosAdicionados.php" class="menu-link">
+                                <a href="./produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
