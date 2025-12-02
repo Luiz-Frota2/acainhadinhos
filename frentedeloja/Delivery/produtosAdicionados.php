@@ -164,6 +164,85 @@ try {
     echo "<script>alert('Erro ao carregar produtos: " . addslashes($e->getMessage()) . "');</script>";
 }
 
+// =====================================================
+//  BUSCAR OPCIONAIS VINCULADOS AOS PRODUTOS
+// =====================================================
+
+// opcionais simples (tabela: opcionais)
+$opcionaisSimplesPorProduto = [];
+
+// seleções (grupos) por produto (tabela: opcionais_selecoes)
+$selecoesPorProduto = [];
+
+// opções por seleção (tabela: opcionais_opcoes)
+$opcoesPorSelecao = [];
+
+try {
+    // Opcionais simples
+    $stmt = $pdo->prepare("
+        SELECT id, id_produto, id_selecionado, nome, preco
+        FROM opcionais
+        WHERE id_selecionado = :id_sel
+    ");
+    $stmt->bindParam(':id_sel', $idSelecionado);
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as $row) {
+        $pid = (int)$row['id_produto'];
+        if (!isset($opcionaisSimplesPorProduto[$pid])) {
+            $opcionaisSimplesPorProduto[$pid] = [];
+        }
+        $opcionaisSimplesPorProduto[$pid][] = $row;
+    }
+} catch (PDOException $e) {
+    // Se der erro, apenas não mostra opcionais simples
+}
+
+try {
+    // Seleções (grupos de opcionais)
+    $stmt = $pdo->prepare("
+        SELECT id, id_produto, id_selecionado, titulo, minimo, maximo
+        FROM opcionais_selecoes
+        WHERE id_selecionado = :id_sel
+    ");
+    $stmt->bindParam(':id_sel', $idSelecionado);
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as $row) {
+        $pid = (int)$row['id_produto'];
+        if (!isset($selecoesPorProduto[$pid])) {
+            $selecoesPorProduto[$pid] = [];
+        }
+        $selecoesPorProduto[$pid][] = $row;
+    }
+} catch (PDOException $e) {
+    // Se der erro, apenas não mostra seleções
+}
+
+try {
+    // Opções de cada seleção
+    $stmt = $pdo->prepare("
+        SELECT id, id_selecao, id_selecionado, nome, preco
+        FROM opcionais_opcoes
+        WHERE id_selecionado = :id_sel
+    ");
+    $stmt->bindParam(':id_sel', $idSelecionado);
+    $stmt->execute();
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as $row) {
+        $idSelecao = (int)$row['id_selecao'];
+        if (!isset($opcoesPorSelecao[$idSelecao])) {
+            $opcoesPorSelecao[$idSelecao] = [];
+        }
+        $opcoesPorSelecao[$idSelecao][] = $row;
+    }
+} catch (PDOException $e) {
+    // Se der erro, apenas não mostra opções
+}
+
 // Função helper pra montar caminho da imagem do produto
 function caminhoImagemProduto(?string $arquivo): string
 {
@@ -233,6 +312,26 @@ function caminhoImagemProduto(?string $arquivo): string
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .lista-opcionais-titulo {
+            font-weight: 600;
+            margin-top: 1rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .lista-opcionais-subtitulo {
+            font-size: 0.85rem;
+            color: #777;
+        }
+
+        .lista-opcionais {
+            padding-left: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .lista-opcionais li {
+            margin-bottom: 0.15rem;
         }
     </style>
 </head>
@@ -511,6 +610,10 @@ function caminhoImagemProduto(?string $arquivo): string
 
                                             $imgArquivo = $produto['imagem_produto'] ?? '';
                                             $imgCaminho = caminhoImagemProduto($imgArquivo);
+
+                                            // Opcionais para este produto
+                                            $opcionaisSimples = $opcionaisSimplesPorProduto[$idProd] ?? [];
+                                            $selecoesProduto  = $selecoesPorProduto[$idProd] ?? [];
                                             ?>
                                             <tr>
                                                 <td><?= $idProd; ?></td>
@@ -617,6 +720,87 @@ function caminhoImagemProduto(?string $arquivo): string
                                                                     <label class="form-label mb-0">Data de cadastro:</label><br>
                                                                     <span><?= $dataCad; ?></span>
                                                                 </div>
+
+                                                                <?php if (!empty($opcionaisSimples) || !empty($selecoesProduto)): ?>
+                                                                    <div class="col-12">
+                                                                        <hr>
+                                                                        <h6>Opcionais / Adicionais</h6>
+                                                                    </div>
+
+                                                                    <?php if (!empty($opcionaisSimples)): ?>
+                                                                        <div class="col-12">
+                                                                            <div class="lista-opcionais-titulo">
+                                                                                Adicionais simples:
+                                                                            </div>
+                                                                            <ul class="lista-opcionais">
+                                                                                <?php foreach ($opcionaisSimples as $opc): ?>
+                                                                                    <?php
+                                                                                    $nomeOpc  = $opc['nome'] ?? '';
+                                                                                    $precoOpc = isset($opc['preco'])
+                                                                                        ? number_format((float)$opc['preco'], 2, ',', '.')
+                                                                                        : '0,00';
+                                                                                    ?>
+                                                                                    <li>
+                                                                                        <?= htmlspecialchars($nomeOpc); ?>
+                                                                                        <span class="text-muted">
+                                                                                            (+ R$ <?= $precoOpc; ?>)
+                                                                                        </span>
+                                                                                    </li>
+                                                                                <?php endforeach; ?>
+                                                                            </ul>
+                                                                        </div>
+                                                                    <?php endif; ?>
+
+                                                                    <?php if (!empty($selecoesProduto)): ?>
+                                                                        <div class="col-12">
+                                                                            <div class="lista-opcionais-titulo">
+                                                                                Grupos de seleção:
+                                                                            </div>
+                                                                            <?php foreach ($selecoesProduto as $sel): ?>
+                                                                                <?php
+                                                                                $idSelecao  = (int)$sel['id'];
+                                                                                $tituloSel  = $sel['titulo'] ?? '';
+                                                                                $minSel     = (int)$sel['minimo'];
+                                                                                $maxSel     = (int)$sel['maximo'];
+                                                                                $opcoesSel  = $opcoesPorSelecao[$idSelecao] ?? [];
+                                                                                ?>
+                                                                                <div class="mb-2">
+                                                                                    <div>
+                                                                                        <strong><?= htmlspecialchars($tituloSel); ?></strong><br>
+                                                                                        <span class="lista-opcionais-subtitulo">
+                                                                                            Mínimo: <?= $minSel; ?> |
+                                                                                            Máximo: <?= $maxSel; ?>
+                                                                                        </span>
+                                                                                    </div>
+
+                                                                                    <?php if (!empty($opcoesSel)): ?>
+                                                                                        <ul class="lista-opcionais mt-1">
+                                                                                            <?php foreach ($opcoesSel as $opc): ?>
+                                                                                                <?php
+                                                                                                $nomeOp  = $opc['nome'] ?? '';
+                                                                                                $precoOp = isset($opc['preco'])
+                                                                                                    ? number_format((float)$opc['preco'], 2, ',', '.')
+                                                                                                    : '0,00';
+                                                                                                ?>
+                                                                                                <li>
+                                                                                                    <?= htmlspecialchars($nomeOp); ?>
+                                                                                                    <span class="text-muted">
+                                                                                                        (+ R$ <?= $precoOp; ?>)
+                                                                                                    </span>
+                                                                                                </li>
+                                                                                            <?php endforeach; ?>
+                                                                                        </ul>
+                                                                                    <?php else: ?>
+                                                                                        <small class="text-muted">
+                                                                                            Nenhuma opção cadastrada para este grupo.
+                                                                                        </small>
+                                                                                    <?php endif; ?>
+                                                                                </div>
+                                                                            <?php endforeach; ?>
+                                                                        </div>
+                                                                    <?php endif; ?>
+                                                                <?php endif; ?>
+
                                                             </div>
                                                         </div>
                                                         <div class="modal-footer">
