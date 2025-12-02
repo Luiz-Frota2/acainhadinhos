@@ -54,11 +54,20 @@ try {
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido (AGORA SIMPLIFICADO)
-$idEmpresaSession  = $_SESSION['empresa_id'];   // ex: principal_1
-$tipoSession       = $_SESSION['tipo_empresa']; // ex: principal / filial / unidade / franquia
+// ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$idEmpresaSession = $_SESSION['empresa_id'];
+$tipoSession = $_SESSION['tipo_empresa'];
 
-$acessoPermitido = ($idEmpresaSession === $idSelecionado);
+if (str_starts_with($idSelecionado, 'principal_')) {
+    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
+} elseif (str_starts_with($idSelecionado, 'filial_')) {
+    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'unidade_')) {
+    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
+} elseif (str_starts_with($idSelecionado, 'franquia_')) {
+    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
+}
 
 if (!$acessoPermitido) {
     echo "<script>
@@ -86,20 +95,23 @@ try {
 
 // =====================================================
 //  BUSCAR CATEGORIAS E PRODUTOS DO CARDÁPIO
+//  Tabelas:
+//  adicionarCategoria(id_categoria, nome_categoria, empresa_id, tipo, data_cadastro)
+//  adicionarProdutos(id_produto, nome_produto, quantidade_produto, preco_produto,
+//                    imagem_produto, descricao_produto, data_cadastro, id_categoria, id_empresa)
 // =====================================================
 $categorias = [];
 $produtos   = [];
 
 try {
-    // TABELA adicionarCategoria:
-    // id_categoria, nome_categoria, empresa_id, tipo, data_cadastro
+    // Categorias da empresa
     $stmt = $pdo->prepare("
-        SELECT id_categoria, nome_categoria, tipo
-        FROM adicionarCategoria
-        WHERE empresa_id = :empresa_id
+        SELECT id_categoria, nome_categoria 
+        FROM adicionarCategoria 
+        WHERE empresa_id = :empresa_id 
         ORDER BY nome_categoria
     ");
-    $stmt->bindParam(':empresa_id', $idSelecionado); // ex: principal_1
+    $stmt->bindParam(':empresa_id', $idSelecionado);
     $stmt->execute();
     $categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -134,17 +146,6 @@ try {
     $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar produtos: " . addslashes($e->getMessage()) . "');</script>";
-}
-
-// Função helper pra montar caminho da imagem do produto
-function caminhoImagemProduto(?string $arquivo): string
-{
-    if (!$arquivo) {
-        return '';
-    }
-
-    // AJUSTE SE SEU CAMINHO FOR OUTRO
-    return '../../assets/img/produtos/' . $arquivo;
 }
 ?>
 
@@ -433,7 +434,7 @@ function caminhoImagemProduto(?string $arquivo): string
                             <h5 class="mb-2 mb-md-0">Lista de Produtos do Cardápio</h5>
 
                             <div class="d-flex flex-column flex-md-row gap-2">
-                                <!-- Filtro por categoria (visual, depois você liga) -->
+                                <!-- Filtro por categoria (apenas visual, você pode depois fazer o POST/GET) -->
                                 <select class="form-select form-select-sm">
                                     <option value="">Todas as categorias</option>
                                     <?php foreach ($categorias as $cat): ?>
@@ -494,8 +495,9 @@ function caminhoImagemProduto(?string $arquivo): string
                                             <tr>
                                                 <td><?= $idProd; ?></td>
                                                 <td>
-                                                    <?php if (!empty($imgArquivo)): ?>
-                                                        <img src="<?= htmlspecialchars($imgCaminho); ?>"
+                                                    <?php if (!empty($img)): ?>
+                                                        <!-- Ajuste o caminho conforme onde você salva as imagens -->
+                                                        <img src="<?= htmlspecialchars($img); ?>"
                                                              alt="<?= htmlspecialchars($nomeProd); ?>"
                                                              class="img-produto-lista">
                                                     <?php else: ?>
@@ -525,14 +527,14 @@ function caminhoImagemProduto(?string $arquivo): string
                                                     <div class="d-flex flex-wrap gap-2">
                                                         <!-- Ver Detalhes (modal) -->
                                                         <button class="btn btn-sm btn-outline-secondary"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#detalhesProduto<?= $idProd; ?>">
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#detalhesProduto<?= $idProd; ?>">
                                                             Ver
                                                         </button>
 
                                                         <!-- Editar (link para tela futura) -->
                                                         <a href="./editarProduto.php?id=<?= urlencode($idSelecionado); ?>&produto=<?= $idProd; ?>"
-                                                           class="btn btn-sm btn-outline-primary">
+                                                            class="btn btn-sm btn-outline-primary">
                                                             Editar
                                                         </a>
 
@@ -557,8 +559,8 @@ function caminhoImagemProduto(?string $arquivo): string
                                                         <div class="modal-body">
                                                             <div class="row g-3">
                                                                 <div class="col-12 d-flex align-items-center gap-3 mb-3">
-                                                                    <?php if (!empty($imgArquivo)): ?>
-                                                                        <img src="<?= htmlspecialchars($imgCaminho); ?>"
+                                                                    <?php if (!empty($img)): ?>
+                                                                        <img src="<?= htmlspecialchars($img); ?>"
                                                                              alt="<?= htmlspecialchars($nomeProd); ?>"
                                                                              class="img-produto-lista">
                                                                     <?php else: ?>
