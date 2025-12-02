@@ -853,9 +853,9 @@ function caminhoImagemProduto(?string $arquivo): string
 
                         <!-- Controles de paginação -->
                         <div class="d-flex justify-content-start align-items-center gap-2 m-3">
-                            <button class="btn btn-sm btn-outline-primary" id="prevPageAtestados">&laquo; Anterior</button>
-                            <div id="paginacaoAtestados" class="mx-2"></div>
-                            <button class="btn btn-sm btn-outline-primary" id="nextPageAtestados">Próxima &raquo;</button>
+                            <button class="btn btn-sm btn-outline-primary" id="prevPage">&laquo; Anterior</button>
+                            <div id="paginacao" class="d-flex"></div>
+                            <button class="btn btn-sm btn-outline-primary" id="nextPage">Próxima &raquo;</button>
                         </div>
 
                     </div>
