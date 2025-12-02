@@ -4,8 +4,13 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
+// ✅ Recupera o identificador vindo da URL OU da sessão
 $idSelecionado = $_GET['id'] ?? '';
+
+if (!$idSelecionado && isset($_SESSION['empresa_id'])) {
+    // Se não veio por GET, usa o da sessão
+    $idSelecionado = $_SESSION['empresa_id']; // ex: principal_1
+}
 
 if (!$idSelecionado) {
     header("Location: .././login.php");
@@ -29,7 +34,7 @@ require '../../assets/php/conexao.php';
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id  = $_SESSION['usuario_id'];
 
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -49,20 +54,11 @@ try {
     exit;
 }
 
-// ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$idEmpresaSession = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
+// ✅ Valida o tipo de empresa e o acesso permitido (AGORA SIMPLIFICADO)
+$idEmpresaSession  = $_SESSION['empresa_id'];   // ex: principal_1
+$tipoSession       = $_SESSION['tipo_empresa']; // ex: principal / filial / unidade / franquia
 
-if (str_starts_with($idSelecionado, 'principal_')) {
-    $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
-} elseif (str_starts_with($idSelecionado, 'filial_')) {
-    $acessoPermitido = ($tipoSession === 'filial' && $idEmpresaSession === $idSelecionado);
-} elseif (str_starts_with($idSelecionado, 'unidade_')) {
-    $acessoPermitido = ($tipoSession === 'unidade' && $idEmpresaSession === $idSelecionado);
-} elseif (str_starts_with($idSelecionado, 'franquia_')) {
-    $acessoPermitido = ($tipoSession === 'franquia' && $idEmpresaSession === $idSelecionado);
-}
+$acessoPermitido = ($idEmpresaSession === $idSelecionado);
 
 if (!$acessoPermitido) {
     echo "<script>
@@ -95,34 +91,60 @@ $categorias = [];
 $produtos   = [];
 
 try {
-    // Categorias da empresa
+    // TABELA adicionarCategoria:
+    // id_categoria, nome_categoria, empresa_id, tipo, data_cadastro
     $stmt = $pdo->prepare("
-        SELECT id_categoria, nome_categoria 
-        FROM adicionarCategoria 
-        WHERE empresa_id = :empresa_id 
+        SELECT id_categoria, nome_categoria, tipo
+        FROM adicionarCategoria
+        WHERE empresa_id = :empresa_id
         ORDER BY nome_categoria
     ");
-    $stmt->bindParam(':empresa_id', $idSelecionado);
+    $stmt->bindParam(':empresa_id', $idSelecionado); // ex: principal_1
     $stmt->execute();
     $categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    // Se der erro, apenas não exibe categorias
+    // Se der erro, só não exibe categorias
 }
 
 try {
-    // Produtos da empresa com nome da categoria
+    // TABELA adicionarProdutos:
+    // id_produto, nome_produto, quantidade_produto, preco_produto,
+    // imagem_produto, descricao_produto, data_cadastro, id_categoria, id_empresa
     $stmt = $pdo->prepare("
-        SELECT p.*, c.nome_categoria 
+        SELECT 
+            p.id_produto,
+            p.nome_produto,
+            p.quantidade_produto,
+            p.preco_produto,
+            p.imagem_produto,
+            p.descricao_produto,
+            p.data_cadastro,
+            p.id_categoria,
+            p.id_empresa,
+            c.nome_categoria,
+            c.tipo AS tipo_categoria
         FROM adicionarProdutos p
-        LEFT JOIN adicionarCategoria c ON p.id_categoria = c.id_categoria
+        LEFT JOIN adicionarCategoria c 
+               ON p.id_categoria = c.id_categoria
         WHERE p.id_empresa = :empresa_id
         ORDER BY p.data_cadastro DESC
     ");
-    $stmt->bindParam(':empresa_id', $idSelecionado);
+    $stmt->bindParam(':empresa_id', $idSelecionado); // ex: principal_1
     $stmt->execute();
     $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar produtos: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+// Função helper pra montar caminho da imagem do produto
+function caminhoImagemProduto(?string $arquivo): string
+{
+    if (!$arquivo) {
+        return '';
+    }
+
+    // AJUSTE SE SEU CAMINHO FOR OUTRO
+    return '../../assets/img/produtos/' . $arquivo;
 }
 ?>
 
@@ -147,7 +169,7 @@ try {
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&display=swap"
         rel="stylesheet" />
 
     <!-- Icons -->
@@ -245,12 +267,14 @@ try {
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./pedidosEntregues.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./pedidosEntregues.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Pedidos Entregues</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./pedidosCancelados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
+                                <a href="./pedidosCancelados.php?id=<?= urlencode($idSelecionado); ?>"
+                                    class="menu-link">
                                     <div data-i18n="Basic">Pedidos Cancelados</div>
                                 </a>
                             </li>
@@ -409,17 +433,18 @@ try {
                             <h5 class="mb-2 mb-md-0">Lista de Produtos do Cardápio</h5>
 
                             <div class="d-flex flex-column flex-md-row gap-2">
-                                <!-- Filtro por categoria (apenas visual, você pode depois fazer o POST/GET) -->
+                                <!-- Filtro por categoria (visual, depois você liga) -->
                                 <select class="form-select form-select-sm">
                                     <option value="">Todas as categorias</option>
                                     <?php foreach ($categorias as $cat): ?>
                                         <option value="<?= (int)$cat['id_categoria']; ?>">
                                             <?= htmlspecialchars($cat['nome_categoria']); ?>
+                                            (<?= htmlspecialchars($cat['tipo']); ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
 
-                                <!-- Botão adicionar produto (link futuro para tela de cadastro) -->
+                                <!-- Botão adicionar produto -->
                                 <a href="./adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>"
                                     class="btn btn-primary btn-sm">
                                     <i class="bx bx-plus"></i> Novo Produto
@@ -455,6 +480,7 @@ try {
                                             $idProd   = (int)$produto['id_produto'];
                                             $nomeProd = $produto['nome_produto'] ?? '';
                                             $catProd  = $produto['nome_categoria'] ?? 'Sem categoria';
+                                            $tipoCat  = $produto['tipo_categoria'] ?? '';
                                             $preco    = number_format((float)$produto['preco_produto'], 2, ',', '.');
                                             $qtd      = (int)$produto['quantidade_produto'];
                                             $desc     = $produto['descricao_produto'] ?? '';
@@ -462,14 +488,14 @@ try {
                                                 ? date('d/m/Y H:i', strtotime($produto['data_cadastro']))
                                                 : '-';
 
-                                            $img      = $produto['imagem_produto'] ?? '';
+                                            $imgArquivo = $produto['imagem_produto'] ?? '';
+                                            $imgCaminho = caminhoImagemProduto($imgArquivo);
                                             ?>
                                             <tr>
                                                 <td><?= $idProd; ?></td>
                                                 <td>
-                                                    <?php if (!empty($img)): ?>
-                                                        <!-- Ajuste o caminho conforme onde você salva as imagens -->
-                                                        <img src="<?= htmlspecialchars($img); ?>"
+                                                    <?php if (!empty($imgArquivo)): ?>
+                                                        <img src="<?= htmlspecialchars($imgCaminho); ?>"
                                                              alt="<?= htmlspecialchars($nomeProd); ?>"
                                                              class="img-produto-lista">
                                                     <?php else: ?>
@@ -481,6 +507,11 @@ try {
                                                     <span class="badge bg-label-primary">
                                                         <?= htmlspecialchars($catProd); ?>
                                                     </span>
+                                                    <?php if ($tipoCat): ?>
+                                                        <small class="text-muted d-block">
+                                                            tipo: <?= htmlspecialchars($tipoCat); ?>
+                                                        </small>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td><strong>R$ <?= $preco; ?></strong></td>
                                                 <td><?= $qtd; ?></td>
@@ -505,7 +536,7 @@ try {
                                                             Editar
                                                         </a>
 
-                                                        <!-- Excluir (apenas UI, você cria o processar depois) -->
+                                                        <!-- Excluir (somente UI por enquanto) -->
                                                         <button class="btn btn-sm btn-outline-danger">
                                                             Excluir
                                                         </button>
@@ -526,8 +557,8 @@ try {
                                                         <div class="modal-body">
                                                             <div class="row g-3">
                                                                 <div class="col-12 d-flex align-items-center gap-3 mb-3">
-                                                                    <?php if (!empty($img)): ?>
-                                                                        <img src="<?= htmlspecialchars($img); ?>"
+                                                                    <?php if (!empty($imgArquivo)): ?>
+                                                                        <img src="<?= htmlspecialchars($imgCaminho); ?>"
                                                                              alt="<?= htmlspecialchars($nomeProd); ?>"
                                                                              class="img-produto-lista">
                                                                     <?php else: ?>
@@ -548,6 +579,11 @@ try {
                                                                     <span class="badge bg-label-primary">
                                                                         <?= htmlspecialchars($catProd); ?>
                                                                     </span>
+                                                                    <?php if ($tipoCat): ?>
+                                                                        <small class="text-muted d-block">
+                                                                            tipo: <?= htmlspecialchars($tipoCat); ?>
+                                                                        </small>
+                                                                    <?php endif; ?>
                                                                 </div>
 
                                                                 <div class="col-md-6 col-12">
