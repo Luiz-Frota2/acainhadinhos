@@ -467,11 +467,6 @@ function caminhoImagemProduto(?string $arquivo): string
                                     <?php endforeach; ?>
                                 </select>
 
-                                <!-- Botão adicionar produto -->
-                                <a href="./adicionarProduto.php?id=<?= urlencode($idSelecionado); ?>"
-                                    class="btn btn-primary btn-sm">
-                                    <i class="bx bx-plus"></i> Novo Produto
-                                </a>
                             </div>
                         </div>
 
@@ -551,17 +546,6 @@ function caminhoImagemProduto(?string $arquivo): string
                                                                 data-bs-toggle="modal"
                                                                 data-bs-target="#detalhesProduto<?= $idProd; ?>">
                                                             Ver
-                                                        </button>
-
-                                                        <!-- Editar (link para tela futura) -->
-                                                        <a href="./editarProduto.php?id=<?= urlencode($idSelecionado); ?>&produto=<?= $idProd; ?>"
-                                                           class="btn btn-sm btn-outline-primary">
-                                                            Editar
-                                                        </a>
-
-                                                        <!-- Excluir (somente UI por enquanto) -->
-                                                        <button class="btn btn-sm btn-outline-danger">
-                                                            Excluir
                                                         </button>
                                                     </div>
                                                 </td>
