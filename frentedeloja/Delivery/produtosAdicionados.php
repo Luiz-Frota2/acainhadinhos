@@ -4,107 +4,112 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL
+// ✅ Recupera o identificador vindo da URL OU da sessão
 $idSelecionado = $_GET['id'] ?? '';
+
+if (empty($idSelecionado) && isset($_SESSION['empresa_id'])) {
+    $idSelecionado = $_SESSION['empresa_id']; // ex: principal_1, unidade_1 etc
+}
 
 // ✅ Verifica se a pessoa está logada
 if (
-  !isset($_SESSION['usuario_logado']) ||
-  !isset($_SESSION['empresa_id']) ||
-  !isset($_SESSION['tipo_empresa']) ||
-  !isset($_SESSION['usuario_id']) ||
-  !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
+    !isset($_SESSION['usuario_logado']) ||
+    !isset($_SESSION['empresa_id']) ||
+    !isset($_SESSION['tipo_empresa']) ||
+    !isset($_SESSION['usuario_id']) ||
+    !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
-  header("Location: ../index.php?id=$idSelecionado");
-  exit;
+    header("Location: ../index.php?id=" . urlencode($idSelecionado));
+    exit;
 }
 
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-$nomeUsuario = 'Usuário';
-$tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
-$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
+$nomeUsuario        = 'Usuário';
+$tipoUsuario        = 'Comum';
+$usuario_id         = $_SESSION['usuario_id'];
+$tipoUsuarioSessao  = $_SESSION['nivel'];        // "Admin" ou "Comum"
+$empresaSessao      = $_SESSION['empresa_id'];   // ex: principal_1, unidade_1
+$tipoEmpresaSessao  = $_SESSION['tipo_empresa']; // ex: principal, unidade, filial, franquia
 
 try {
-  // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
-  if ($tipoUsuarioSessao === 'Admin') {
-    // Buscar na tabela de contas_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
-  } else {
-    // Buscar na tabela de funcionarios_acesso
-    $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
-  }
+    // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
+    if ($tipoUsuarioSessao === 'Admin') {
+        // Buscar na tabela de contas_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
+    } else {
+        // Buscar na tabela de funcionarios_acesso
+        $stmt = $pdo->prepare("SELECT usuario, nivel FROM funcionarios_acesso WHERE id = :id");
+    }
 
-  $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
-  $stmt->execute();
-  $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt->bindParam(':id', $usuario_id, PDO::PARAM_INT);
+    $stmt->execute();
+    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($usuario) {
-    $nomeUsuario = $usuario['usuario'];
-    $tipoUsuario = ucfirst($usuario['nivel']);
-  } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
-    exit;
-  }
+    if ($usuario) {
+        $nomeUsuario = $usuario['usuario'];
+        $tipoUsuario = ucfirst($usuario['nivel']);
+    } else {
+        echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=" . addslashes($idSelecionado) . "';</script>";
+        exit;
+    }
 } catch (PDOException $e) {
-  echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
-  exit;
+    echo "<script>alert('Erro ao carregar nome e tipo do usuário: " . addslashes($e->getMessage()) . "'); history.back();</script>";
+    exit;
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
+$acessoPermitido = false;
+$id = null;
+
+// Admin da principal_1 pode acessar principal_1 e qualquer unidade_*
+$ehAdminPrincipal1 = ($tipoUsuarioSessao === 'Admin' && $empresaSessao === 'principal_1');
+
 if (str_starts_with($idSelecionado, 'principal_')) {
-  // Para principal, verifica se é admin ou se pertence à mesma empresa
-  if (
-    $_SESSION['tipo_empresa'] !== 'principal' &&
-    !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
-  ) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
-    exit;
-  }
-  $id = 1;
+    if ($empresaSessao === $idSelecionado || $ehAdminPrincipal1) {
+        $acessoPermitido = true;
+        $id = 1;
+    }
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-  $idUnidade = str_replace('unidade_', '', $idSelecionado);
-
-  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
-  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
-    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
-
-  if (!$acessoPermitido) {
-    echo "<script>
-            alert('Acesso negado!');
-            window.location.href = '../index.php?id=$idSelecionado';
-        </script>";
-    exit;
-  }
-  $id = $idUnidade;
+    if ($empresaSessao === $idSelecionado || $ehAdminPrincipal1) {
+        $acessoPermitido = true;
+        $id = (int)str_replace('unidade_', '', $idSelecionado);
+    }
+} elseif (str_starts_with($idSelecionado, 'filial_') || str_starts_with($idSelecionado, 'franquia_')) {
+    if ($empresaSessao === $idSelecionado) {
+        $acessoPermitido = true;
+        $id = $idSelecionado;
+    }
 } else {
-  echo "<script>
-        alert('Empresa não identificada!');
-        window.location.href = '../index.php?id=$idSelecionado';
+    if (!empty($idSelecionado) && $empresaSessao === $idSelecionado) {
+        $acessoPermitido = true;
+        $id = $idSelecionado;
+    }
+}
+
+if (!$acessoPermitido) {
+    echo "<script>
+        alert('Acesso negado!');
+        window.location.href = '../index.php?id=" . addslashes($idSelecionado) . "';
     </script>";
-  exit;
+    exit;
 }
 
 // ✅ Buscar imagem da empresa para usar como favicon
 $iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
-  $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
-  $stmt->bindParam(':id_selecionado', $idSelecionado);
-  $stmt->execute();
-  $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id_selecionado LIMIT 1");
+    $stmt->bindParam(':id_selecionado', $idSelecionado);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-  if ($empresa && !empty($empresa['imagem'])) {
-    $iconeEmpresa = $empresa['imagem'];
-  }
+    if ($empresa && !empty($empresa['imagem'])) {
+        $iconeEmpresa = $empresa['imagem'];
+    }
 } catch (PDOException $e) {
-  error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
-  // Não mostra erro para o usuário para não quebrar a página
+    error_log("Erro ao carregar ícone da empresa: " . $e->getMessage());
 }
 
 // =====================================================
@@ -166,7 +171,6 @@ function caminhoImagemProduto(?string $arquivo): string
         return '';
     }
 
-    // AJUSTE SE SEU CAMINHO FOR OUTRO
     return '../../assets/img/uploads/' . $arquivo;
 }
 ?>
@@ -344,7 +348,7 @@ function caminhoImagemProduto(?string $arquivo): string
                             </li>
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
-                                    <div data-i18n="Basic">Vendas< ?>/div>
+                                    <div data-i18n="Basic">Vendas</div>
                                 </a>
                             </li>
                         </ul>
@@ -356,7 +360,7 @@ function caminhoImagemProduto(?string $arquivo): string
                     </li>
                     <li class="menu-item">
                         <a href="../caixa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                            ?> <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
+                            <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
                             <div data-i18n="Basic">Caixa</div>
                         </a>
                     </li>
@@ -466,7 +470,6 @@ function caminhoImagemProduto(?string $arquivo): string
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-
                             </div>
                         </div>
 
@@ -514,8 +517,8 @@ function caminhoImagemProduto(?string $arquivo): string
                                                 <td>
                                                     <?php if (!empty($imgArquivo)): ?>
                                                         <img src="<?= htmlspecialchars($imgCaminho); ?>"
-                                                             alt="<?= htmlspecialchars($nomeProd); ?>"
-                                                             class="img-produto-lista">
+                                                            alt="<?= htmlspecialchars($nomeProd); ?>"
+                                                            class="img-produto-lista">
                                                     <?php else: ?>
                                                         <span class="badge bg-label-secondary">Sem imagem</span>
                                                     <?php endif; ?>
@@ -543,8 +546,8 @@ function caminhoImagemProduto(?string $arquivo): string
                                                     <div class="d-flex flex-wrap gap-2">
                                                         <!-- Ver Detalhes (modal) -->
                                                         <button class="btn btn-sm btn-outline-secondary"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#detalhesProduto<?= $idProd; ?>">
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#detalhesProduto<?= $idProd; ?>">
                                                             Ver
                                                         </button>
                                                     </div>
@@ -566,8 +569,8 @@ function caminhoImagemProduto(?string $arquivo): string
                                                                 <div class="col-12 d-flex align-items-center gap-3 mb-3">
                                                                     <?php if (!empty($imgArquivo)): ?>
                                                                         <img src="<?= htmlspecialchars($imgCaminho); ?>"
-                                                                             alt="<?= htmlspecialchars($nomeProd); ?>"
-                                                                             class="img-produto-lista">
+                                                                            alt="<?= htmlspecialchars($nomeProd); ?>"
+                                                                            class="img-produto-lista">
                                                                     <?php else: ?>
                                                                         <span class="badge bg-label-secondary">
                                                                             Sem imagem
