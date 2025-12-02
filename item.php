@@ -27,7 +27,7 @@ session_start();
     <header class="width-fix mt-3">
         <div class="card">
             <div class="d-flex">
-                <a href="./index.php" class="container-voltar">
+                <a href="./cardapio.php" class="container-voltar">
                     <i class="fas fa-arrow-left"></i>
                 </a>
                 <div class="infos text-center">
