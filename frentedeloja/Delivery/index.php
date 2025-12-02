@@ -178,22 +178,27 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="#" class="menu-link">
+                                <a href="./pedidosDiarios.php" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Diários</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="#" class="menu-link">
+                                <a href="./pedidosAceitos.php" class="menu-link">
+                                    <div data-i18n="Basic">Pedidos Aceitos</div>
+                                </a>
+                            </li>
+                            <li class="menu-item">
+                                <a href="./pedidosACaminho.php" class="menu-link">
                                     <div data-i18n="Basic">Pedidos a Caminho</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="#" class="menu-link">
+                                <a href="./pedidosEntregues.php" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Entregues</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="#" class="menu-link">
+                                <a href="./pedidosCancelados.php" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Cancelados</div>
                                 </a>
                             </li>
