@@ -508,6 +508,9 @@ function caminhoImagemProduto(?string $arquivo): string
                     <div class="navbar-nav-right d-flex align-items-center" id="navbar-collapse">
                         <div class="navbar-nav align-items-center">
                             <div class="nav-item d-flex align-items-center">
+                                <i class="bx bx-search fs-4 lh-0"></i>
+                                <input type="text" class="form-control border-0 shadow-none" id="searchInput" placeholder="Pesquisar..."
+                                    aria-label="Search..." />
                             </div>
                         </div>
 
@@ -577,7 +580,7 @@ function caminhoImagemProduto(?string $arquivo): string
                                 <form method="get" class="d-flex flex-row gap-2">
                                     <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado); ?>">
                                     <select name="categoria" class="form-select form-select-sm"
-                                            onchange="this.form.submit()">
+                                        onchange="this.form.submit()">
                                         <option value="">Todas as categorias</option>
                                         <?php foreach ($categorias as $cat): ?>
                                             <?php
@@ -593,9 +596,9 @@ function caminhoImagemProduto(?string $arquivo): string
 
                                     <!-- Botão limpar filtro (ícone de borracha) -->
                                     <button type="button"
-                                            class="btn btn-outline-secondary btn-sm d-flex align-items-center"
-                                            title="Limpar filtro"
-                                            onclick="window.location.href='produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>'">
+                                        class="btn btn-outline-secondary btn-sm d-flex align-items-center"
+                                        title="Limpar filtro"
+                                        onclick="window.location.href='produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>'">
                                         <i class="bx bx-eraser me-1"></i>
                                         Limpar
                                     </button>
@@ -618,7 +621,7 @@ function caminhoImagemProduto(?string $arquivo): string
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="produtosAdicionados">
                                     <?php if (empty($produtos)): ?>
                                         <tr>
                                             <td colspan="9" class="text-center text-muted py-4">
@@ -849,8 +852,87 @@ function caminhoImagemProduto(?string $arquivo): string
                         </div>
                     </div>
 
+                    <!-- Controles de paginação -->
+                    <div class="d-flex justify-content-start align-items-center gap-2 m-3">
+                        <button class="btn btn-sm btn-outline-primary" id="prevPageAtestados">&laquo; Anterior</button>
+                        <div id="paginacaoAtestados" class="mx-2"></div>
+                        <button class="btn btn-sm btn-outline-primary" id="nextPageAtestados">Próxima &raquo;</button>
+                    </div>
+
                 </div>
                 <!-- / Content -->
+
+
+                <script>
+                    const searchInput = document.getElementById('searchInput');
+                    const allRows = Array.from(document.querySelectorAll('#produtosAdicionados tr'));
+                    const rowsPerPage = 10;
+                    let currentPage = 1;
+
+                    function renderTable() {
+                        const filtro = searchInput.value.trim().toLowerCase();
+
+                        // 1. Filtra as linhas com base no texto das colunas
+                        const filteredRows = allRows.filter(row => {
+                            if (!filtro) return true;
+                            return Array.from(row.cells).some(cell =>
+                                cell.textContent.toLowerCase().includes(filtro)
+                            );
+                        });
+
+                        // 2. Calcula paginação
+                        const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+                        const startIndex = (currentPage - 1) * rowsPerPage;
+                        const endIndex = startIndex + rowsPerPage;
+
+                        // 3. Oculta todas as linhas
+                        allRows.forEach(row => row.style.display = 'none');
+
+                        // 4. Exibe apenas as filtradas da página atual
+                        filteredRows.slice(startIndex, endIndex).forEach(row => row.style.display = '');
+
+                        // 5. Renderiza botões de paginação
+                        const paginacao = document.getElementById('paginacao');
+                        paginacao.innerHTML = '';
+                        for (let i = 1; i <= totalPages; i++) {
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-sm ' + (i === currentPage ? 'btn-primary' : 'btn-outline-primary');
+                            btn.style.marginRight = '5px';
+                            btn.textContent = i;
+                            btn.onclick = () => {
+                                currentPage = i;
+                                renderTable();
+                            };
+                            paginacao.appendChild(btn);
+                        }
+
+                        // 6. Atualiza botões de navegação
+                        document.getElementById('prevPage').disabled = currentPage === 1;
+                        document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+                    }
+
+                    // Eventos dos botões
+                    document.getElementById('prevPage').addEventListener('click', () => {
+                        if (currentPage > 1) {
+                            currentPage--;
+                            renderTable();
+                        }
+                    });
+
+                    document.getElementById('nextPage').addEventListener('click', () => {
+                        currentPage++;
+                        renderTable();
+                    });
+
+                    // Evento da pesquisa
+                    searchInput.addEventListener('input', () => {
+                        currentPage = 1;
+                        renderTable();
+                    });
+
+                    // Inicializa a tabela
+                    renderTable();
+                </script>
 
                 <div class="content-backdrop fade"></div>
             </div>
