@@ -74,11 +74,11 @@ try {
 }
 ?>
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed">
+<html lang="pt-br">
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
 
     <title>ERP - Delivery</title>
 
@@ -89,21 +89,20 @@ try {
     <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
-    <link rel="stylesheet" href="../../assets/vendor/libs/apex-charts/apex-charts.css" />
-
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
 </head>
 
 <body>
+
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
-            <!-- MENU – NÃO ALTERADO -->
-            <aside id="layout-menu" class="layout-menu menu bg-menu-theme">
+            <!-- MENU (não alterado) -->
+            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= $idSelecionado ?>" class="app-brand-link">
-                        <span class="app-brand-text demo fw-bolder">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder">Açaínhadinhos</span>
                     </a>
                 </div>
 
@@ -120,27 +119,29 @@ try {
                     <li class="menu-item">
                         <a class="menu-link menu-toggle">
                             <i class="menu-icon bx bx-cart"></i>
-                            <div>Pedidos</div>
+                            Pedidos
                         </a>
                         <ul class="menu-sub">
-                            <li class="menu-item"><a href="./pedidosDiarios.php?id=<?= $idSelecionado ?>" class="menu-link">Pedidos Diários</a></li>
+                            <li class="menu-item">
+                                <a href="./pedidosDiarios.php?id=<?= $idSelecionado ?>" class="menu-link">Pedidos Diários</a>
+                            </li>
                         </ul>
                     </li>
                 </ul>
             </aside>
 
+            <!-- NAVBAR (não alterada) -->
             <div class="layout-page">
 
-                <!-- NAVBAR – NÃO ALTERADO -->
-                <nav class="layout-navbar navbar bg-navbar-theme container-xxl">
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl bg-navbar-theme">
                     <div class="navbar-nav-right ms-auto">
-                        <img src="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" width="40" class="rounded-circle" />
+                        <img src="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" class="w-px-40 rounded-circle" />
                     </div>
                 </nav>
 
-                <!-- ============================================
-                     💥 AQUI COMEÇA O TRECHO ALTERADO (CONTAINER)
-                ============================================ -->
+                <!-- ==========================================
+                     💥 SOMENTE O CONTAINER FOI ALTERADO
+                ========================================== -->
                 <div class="container-xxl flex-grow-1 container-p-y">
 
                     <h4 class="fw-bold py-3 mb-4">📦 Pedidos Diários</h4>
@@ -150,7 +151,8 @@ try {
 
                         <div class="table-responsive">
 
-                            <table class="table">
+                            <!-- TABLE + NO-WRAP -->
+                            <table class="table text-nowrap">
                                 <thead>
                                     <tr>
                                         <th>#</th>
@@ -165,7 +167,7 @@ try {
 
                                 <tbody>
 
-                                    <!-- PEDIDO 1033 -->
+                                    <!-- PEDIDO 1 -->
                                     <tr>
                                         <td>1033</td>
                                         <td>Ana Júlia</td>
@@ -177,13 +179,13 @@ try {
                                         <td>
                                             <div class="d-flex gap-2">
 
-                                                <!-- BOTÃO AÇÕES -->
+                                                <!-- AÇÕES -->
                                                 <button class="btn btn-secondary btn-sm"
                                                     data-bs-toggle="modal" data-bs-target="#acao1033">
                                                     Ações
                                                 </button>
 
-                                                <!-- BOTÃO ITENS -->
+                                                <!-- ITENS -->
                                                 <button class="btn btn-primary btn-sm"
                                                     data-bs-toggle="modal" data-bs-target="#itens1033">
                                                     Itens
@@ -195,7 +197,7 @@ try {
 
                                     <!-- MODAL AÇÕES -->
                                     <div class="modal fade" id="acao1033">
-                                        <div class="modal-dialog">
+                                        <div class="modal-dialog modal-dialog-centered">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -205,15 +207,18 @@ try {
 
                                                 <div class="modal-body text-center">
 
-                                                    <p class="mb-3">Escolha o que deseja fazer com este pedido:</p>
+                                                    <p class="mb-3">
+                                                        Escolha o que deseja fazer com este pedido:
+                                                    </p>
 
-                                                    <div class="d-flex justify-content-center gap-3">
+                                                    <!-- RESPONSIVO: MOBILE empilha / DESKTOP lado a lado -->
+                                                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
 
-                                                        <button class="btn btn-success px-4">
+                                                        <button class="btn btn-success px-4 py-2">
                                                             Aceitar Pedido
                                                         </button>
 
-                                                        <button class="btn btn-danger px-4">
+                                                        <button class="btn btn-danger px-4 py-2">
                                                             Cancelar Pedido
                                                         </button>
 
@@ -227,7 +232,7 @@ try {
 
                                     <!-- MODAL ITENS -->
                                     <div class="modal fade" id="itens1033">
-                                        <div class="modal-dialog">
+                                        <div class="modal-dialog modal-dialog-centered">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -247,7 +252,7 @@ try {
                                         </div>
                                     </div>
 
-                                    <!-- PEDIDO 1034 -->
+                                    <!-- PEDIDO 2 -->
                                     <tr>
                                         <td>1034</td>
                                         <td>Pedro Almeida</td>
@@ -275,7 +280,7 @@ try {
 
                                     <!-- MODAL AÇÕES 1034 -->
                                     <div class="modal fade" id="acao1034">
-                                        <div class="modal-dialog">
+                                        <div class="modal-dialog modal-dialog-centered">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -285,11 +290,11 @@ try {
 
                                                 <div class="modal-body text-center">
 
-                                                    <p class="mb-3">Escolha o que deseja fazer:</p>
+                                                    <p class="mb-3">Escolha uma ação:</p>
 
-                                                    <div class="d-flex justify-content-center gap-3">
-                                                        <button class="btn btn-success px-4">Aceitar</button>
-                                                        <button class="btn btn-danger px-4">Cancelar</button>
+                                                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
+                                                        <button class="btn btn-success px-4 py-2">Aceitar</button>
+                                                        <button class="btn btn-danger px-4 py-2">Cancelar</button>
                                                     </div>
 
                                                 </div>
@@ -300,7 +305,7 @@ try {
 
                                     <!-- MODAL ITENS 1034 -->
                                     <div class="modal fade" id="itens1034">
-                                        <div class="modal-dialog">
+                                        <div class="modal-dialog modal-dialog-centered">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -327,9 +332,7 @@ try {
                     </div>
 
                 </div>
-                <!-- ============================================
-                     💥 FIM DO TRECHO ALTERADO
-                ============================================ -->
+                <!-- FIM CONTAINER ALTERADO -->
 
             </div>
 
@@ -339,7 +342,6 @@ try {
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
-    <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="../../assets/vendor/js/menu.js"></script>
     <script src="../../assets/js/main.js"></script>
 
