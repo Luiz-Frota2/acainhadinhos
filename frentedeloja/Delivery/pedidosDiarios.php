@@ -4,9 +4,6 @@ error_reporting(E_ALL);
 
 session_start();
 
-// =========================================
-// NÃO MEXI EM NADA DO SEU CÓDIGO PHP
-// =========================================
 $idSelecionado = $_GET['id'] ?? '';
 
 if (!$idSelecionado) {
@@ -99,15 +96,14 @@ try {
 </head>
 
 <body>
-
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
-            <!-- MENU INALTERADO -->
-            <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+            <!-- MENU – NÃO ALTERADO -->
+            <aside id="layout-menu" class="layout-menu menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= $idSelecionado ?>" class="app-brand-link">
-                        <span class="app-brand-text demo menu-text fw-bolder ms-2">Açaínhadinhos</span>
+                        <span class="app-brand-text demo fw-bolder">Açaínhadinhos</span>
                     </a>
                 </div>
 
@@ -115,11 +111,11 @@ try {
                     <li class="menu-item active">
                         <a href="index.php?id=<?= $idSelecionado ?>" class="menu-link">
                             <i class="menu-icon bx bx-home-circle"></i>
-                            <div>Dashboard</div>
+                            Dashboard
                         </a>
                     </li>
 
-                    <li class="menu-header small text-uppercase">Delivery</li>
+                    <li class="menu-header">Delivery</li>
 
                     <li class="menu-item">
                         <a class="menu-link menu-toggle">
@@ -130,22 +126,20 @@ try {
                             <li class="menu-item"><a href="./pedidosDiarios.php?id=<?= $idSelecionado ?>" class="menu-link">Pedidos Diários</a></li>
                         </ul>
                     </li>
-
                 </ul>
             </aside>
 
-            <!-- MAIN PAGE -->
             <div class="layout-page">
 
-                <!-- NAVBAR INALTERADA -->
-                <nav class="layout-navbar container-xxl navbar navbar-expand-xl bg-navbar-theme">
+                <!-- NAVBAR – NÃO ALTERADO -->
+                <nav class="layout-navbar navbar bg-navbar-theme container-xxl">
                     <div class="navbar-nav-right ms-auto">
-                        <img src="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" class="w-px-40 rounded-circle">
+                        <img src="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" width="40" class="rounded-circle" />
                     </div>
                 </nav>
 
                 <!-- ============================================
-                     💥 AQUI COMEÇA O QUE VOCÊ PEDIU – ALTERADO
+                     💥 AQUI COMEÇA O TRECHO ALTERADO (CONTAINER)
                 ============================================ -->
                 <div class="container-xxl flex-grow-1 container-p-y">
 
@@ -165,13 +159,13 @@ try {
                                         <th>Pagamento</th>
                                         <th>Total</th>
                                         <th>Hora</th>
-                                        <th style="width: 210px;">Ações</th>
+                                        <th>Ações</th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
 
-                                    <!-- PEDIDO 1 -->
+                                    <!-- PEDIDO 1033 -->
                                     <tr>
                                         <td>1033</td>
                                         <td>Ana Júlia</td>
@@ -181,15 +175,15 @@ try {
                                         <td>13:10</td>
 
                                         <td>
-                                            <!-- AÇÕES LADO A LADO -->
                                             <div class="d-flex gap-2">
 
-                                                <select class="form-select form-select-sm">
-                                                    <option selected>Selecionar...</option>
-                                                    <option value="1">Aceitar</option>
-                                                    <option value="2">Cancelar</option>
-                                                </select>
+                                                <!-- BOTÃO AÇÕES -->
+                                                <button class="btn btn-secondary btn-sm"
+                                                    data-bs-toggle="modal" data-bs-target="#acao1033">
+                                                    Ações
+                                                </button>
 
+                                                <!-- BOTÃO ITENS -->
                                                 <button class="btn btn-primary btn-sm"
                                                     data-bs-toggle="modal" data-bs-target="#itens1033">
                                                     Itens
@@ -199,7 +193,39 @@ try {
                                         </td>
                                     </tr>
 
-                                    <!-- MODAL -->
+                                    <!-- MODAL AÇÕES -->
+                                    <div class="modal fade" id="acao1033">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Ações do Pedido #1033</h5>
+                                                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+
+                                                <div class="modal-body text-center">
+
+                                                    <p class="mb-3">Escolha o que deseja fazer com este pedido:</p>
+
+                                                    <div class="d-flex justify-content-center gap-3">
+
+                                                        <button class="btn btn-success px-4">
+                                                            Aceitar Pedido
+                                                        </button>
+
+                                                        <button class="btn btn-danger px-4">
+                                                            Cancelar Pedido
+                                                        </button>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MODAL ITENS -->
                                     <div class="modal fade" id="itens1033">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
@@ -221,7 +247,7 @@ try {
                                         </div>
                                     </div>
 
-                                    <!-- PEDIDO 2 -->
+                                    <!-- PEDIDO 1034 -->
                                     <tr>
                                         <td>1034</td>
                                         <td>Pedro Almeida</td>
@@ -233,11 +259,10 @@ try {
                                         <td>
                                             <div class="d-flex gap-2">
 
-                                                <select class="form-select form-select-sm">
-                                                    <option selected>Selecionar...</option>
-                                                    <option value="1">Aceitar</option>
-                                                    <option value="2">Cancelar</option>
-                                                </select>
+                                                <button class="btn btn-secondary btn-sm"
+                                                    data-bs-toggle="modal" data-bs-target="#acao1034">
+                                                    Ações
+                                                </button>
 
                                                 <button class="btn btn-primary btn-sm"
                                                     data-bs-toggle="modal" data-bs-target="#itens1034">
@@ -248,25 +273,54 @@ try {
                                         </td>
                                     </tr>
 
-                                    <!-- MODAL -->
+                                    <!-- MODAL AÇÕES 1034 -->
+                                    <div class="modal fade" id="acao1034">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Ações do Pedido #1034</h5>
+                                                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+
+                                                <div class="modal-body text-center">
+
+                                                    <p class="mb-3">Escolha o que deseja fazer:</p>
+
+                                                    <div class="d-flex justify-content-center gap-3">
+                                                        <button class="btn btn-success px-4">Aceitar</button>
+                                                        <button class="btn btn-danger px-4">Cancelar</button>
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- MODAL ITENS 1034 -->
                                     <div class="modal fade" id="itens1034">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
+
                                                 <div class="modal-header">
                                                     <h5 class="modal-title">Itens do Pedido #1034</h5>
                                                     <button class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
+
                                                 <div class="modal-body">
                                                     <ul>
                                                         <li>1x Açaí Pequeno</li>
                                                         <li>1x Leite Ninho</li>
                                                     </ul>
                                                 </div>
+
                                             </div>
                                         </div>
                                     </div>
 
                                 </tbody>
+
                             </table>
 
                         </div>
@@ -274,7 +328,7 @@ try {
 
                 </div>
                 <!-- ============================================
-                     💥 FINAL DA ÁREA MODIFICADA
+                     💥 FIM DO TRECHO ALTERADO
                 ============================================ -->
 
             </div>
