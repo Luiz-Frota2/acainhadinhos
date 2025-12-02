@@ -48,7 +48,7 @@ try {
             $nomeEmpresa = $empresa['nome_empresa'];
         }
         if (!empty($empresa['imagem'])) {
-            $imagemEmpresa = './assets/img/uploads/' . $empresa['imagem'];
+            $imagemEmpresa = './assets/img/empresa/' . $empresa['imagem'];
         }
     }
 } catch (PDOException $e) {
