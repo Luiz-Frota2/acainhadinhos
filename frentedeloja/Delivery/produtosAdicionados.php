@@ -576,10 +576,10 @@ function caminhoImagemProduto(?string $arquivo): string
 
                             <div class="d-flex flex-column flex-md-row gap-2">
                                 <!-- Filtro por categoria (FUNCIONAL) -->
-                                <form method="get" class="d-flex flex-column flex-md-row gap-2">
+                                <form method="get" class="d-flex flex-row gap-2">
                                     <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado); ?>">
                                     <select name="categoria" class="form-select form-select-sm"
-                                        onchange="this.form.submit()">
+                                            onchange="this.form.submit()">
                                         <option value="">Todas as categorias</option>
                                         <?php foreach ($categorias as $cat): ?>
                                             <?php
@@ -592,6 +592,15 @@ function caminhoImagemProduto(?string $arquivo): string
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+
+                                    <!-- Botão limpar filtro (ícone de borracha) -->
+                                    <button type="button"
+                                            class="btn btn-outline-secondary btn-sm d-flex align-items-center"
+                                            title="Limpar filtro"
+                                            onclick="window.location.href='produtosAdicionados.php?id=<?= urlencode($idSelecionado); ?>'">
+                                        <i class="bx bx-eraser me-1"></i>
+                                        Limpar
+                                    </button>
                                 </form>
                             </div>
                         </div>
