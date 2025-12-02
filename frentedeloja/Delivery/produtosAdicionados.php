@@ -29,7 +29,7 @@ require '../../assets/php/conexao.php';
 // ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
-$usuario_id = $_SESSION['usuario_id'];
+$usuario_id  = $_SESSION['usuario_id'];
 
 try {
     $stmt = $pdo->prepare("SELECT usuario, nivel FROM contas_acesso WHERE id = :id");
@@ -50,9 +50,9 @@ try {
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$idEmpresaSession = $_SESSION['empresa_id'];
-$tipoSession = $_SESSION['tipo_empresa'];
+$acessoPermitido   = false;
+$idEmpresaSession  = $_SESSION['empresa_id'];   // ex: principal_1
+$tipoSession       = $_SESSION['tipo_empresa']; // ex: principal / filial / unidade / franquia
 
 if (str_starts_with($idSelecionado, 'principal_')) {
     $acessoPermitido = ($tipoSession === 'principal' && $idEmpresaSession === 'principal_1');
@@ -90,19 +90,25 @@ try {
 
 // =====================================================
 //  BUSCAR CATEGORIAS E PRODUTOS DO CARDÁPIO
+//  Tabelas:
+//  adicionarCategoria(id_categoria, nome_categoria, empresa_id, tipo, data_cadastro)
+//  adicionarProdutos(id_produto, nome_produto, quantidade_produto, preco_produto,
+//                    imagem_produto, descricao_produto, data_cadastro, id_categoria, id_empresa)
 // =====================================================
 $categorias = [];
 $produtos   = [];
 
 try {
-    // Categorias da empresa
+    // Categorias da empresa + tipo (principal/filial/etc.)
     $stmt = $pdo->prepare("
-        SELECT id_categoria, nome_categoria 
-        FROM adicionarCategoria 
-        WHERE empresa_id = :empresa_id 
+        SELECT id_categoria, nome_categoria, tipo
+        FROM adicionarCategoria
+        WHERE empresa_id = :empresa_id
+          AND tipo       = :tipo
         ORDER BY nome_categoria
     ");
-    $stmt->bindParam(':empresa_id', $idSelecionado);
+    $stmt->bindParam(':empresa_id', $idSelecionado); // ex: principal_1
+    $stmt->bindParam(':tipo', $tipoSession);         // ex: principal
     $stmt->execute();
     $categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -112,17 +118,41 @@ try {
 try {
     // Produtos da empresa com nome da categoria
     $stmt = $pdo->prepare("
-        SELECT p.*, c.nome_categoria 
+        SELECT 
+            p.id_produto,
+            p.nome_produto,
+            p.quantidade_produto,
+            p.preco_produto,
+            p.imagem_produto,
+            p.descricao_produto,
+            p.data_cadastro,
+            p.id_categoria,
+            p.id_empresa,
+            c.nome_categoria,
+            c.tipo AS tipo_categoria
         FROM adicionarProdutos p
-        LEFT JOIN adicionarCategoria c ON p.id_categoria = c.id_categoria
+        LEFT JOIN adicionarCategoria c 
+               ON p.id_categoria = c.id_categoria
         WHERE p.id_empresa = :empresa_id
         ORDER BY p.data_cadastro DESC
     ");
-    $stmt->bindParam(':empresa_id', $idSelecionado);
+    $stmt->bindParam(':empresa_id', $idSelecionado); // ex: principal_1
     $stmt->execute();
     $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     echo "<script>alert('Erro ao carregar produtos: " . addslashes($e->getMessage()) . "');</script>";
+}
+
+// Função helper pra montar caminho da imagem do produto
+function caminhoImagemProduto(?string $arquivo): string
+{
+    if (!$arquivo) {
+        return '';
+    }
+
+    // AJUSTE AQUI se o caminho real for outro:
+    // ex: '../../assets/img/produtos/' . $arquivo
+    return '../../assets/img/produtos/' . $arquivo;
 }
 ?>
 
@@ -409,12 +439,13 @@ try {
                             <h5 class="mb-2 mb-md-0">Lista de Produtos do Cardápio</h5>
 
                             <div class="d-flex flex-column flex-md-row gap-2">
-                                <!-- Filtro por categoria (apenas visual, você pode depois fazer o POST/GET) -->
+                                <!-- Filtro por categoria (somente visual, depois você liga em GET/POST) -->
                                 <select class="form-select form-select-sm">
                                     <option value="">Todas as categorias</option>
                                     <?php foreach ($categorias as $cat): ?>
                                         <option value="<?= (int)$cat['id_categoria']; ?>">
                                             <?= htmlspecialchars($cat['nome_categoria']); ?>
+                                            (<?= htmlspecialchars($cat['tipo']); ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -455,6 +486,7 @@ try {
                                             $idProd   = (int)$produto['id_produto'];
                                             $nomeProd = $produto['nome_produto'] ?? '';
                                             $catProd  = $produto['nome_categoria'] ?? 'Sem categoria';
+                                            $tipoCat  = $produto['tipo_categoria'] ?? '';
                                             $preco    = number_format((float)$produto['preco_produto'], 2, ',', '.');
                                             $qtd      = (int)$produto['quantidade_produto'];
                                             $desc     = $produto['descricao_produto'] ?? '';
@@ -462,16 +494,16 @@ try {
                                                 ? date('d/m/Y H:i', strtotime($produto['data_cadastro']))
                                                 : '-';
 
-                                            $img      = $produto['imagem_produto'] ?? '';
+                                            $imgArquivo = $produto['imagem_produto'] ?? '';
+                                            $imgCaminho = caminhoImagemProduto($imgArquivo);
                                             ?>
                                             <tr>
                                                 <td><?= $idProd; ?></td>
                                                 <td>
-                                                    <?php if (!empty($img)): ?>
-                                                        <!-- Ajuste o caminho conforme onde você salva as imagens -->
-                                                        <img src="<?= htmlspecialchars($img); ?>"
-                                                             alt="<?= htmlspecialchars($nomeProd); ?>"
-                                                             class="img-produto-lista">
+                                                    <?php if (!empty($imgArquivo)): ?>
+                                                        <img src="<?= htmlspecialchars($imgCaminho); ?>"
+                                                            alt="<?= htmlspecialchars($nomeProd); ?>"
+                                                            class="img-produto-lista">
                                                     <?php else: ?>
                                                         <span class="badge bg-label-secondary">Sem imagem</span>
                                                     <?php endif; ?>
@@ -481,6 +513,11 @@ try {
                                                     <span class="badge bg-label-primary">
                                                         <?= htmlspecialchars($catProd); ?>
                                                     </span>
+                                                    <?php if ($tipoCat): ?>
+                                                        <small class="text-muted d-block">
+                                                            tipo: <?= htmlspecialchars($tipoCat); ?>
+                                                        </small>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td><strong>R$ <?= $preco; ?></strong></td>
                                                 <td><?= $qtd; ?></td>
@@ -494,14 +531,14 @@ try {
                                                     <div class="d-flex flex-wrap gap-2">
                                                         <!-- Ver Detalhes (modal) -->
                                                         <button class="btn btn-sm btn-outline-secondary"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#detalhesProduto<?= $idProd; ?>">
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#detalhesProduto<?= $idProd; ?>">
                                                             Ver
                                                         </button>
 
                                                         <!-- Editar (link para tela futura) -->
                                                         <a href="./editarProduto.php?id=<?= urlencode($idSelecionado); ?>&produto=<?= $idProd; ?>"
-                                                           class="btn btn-sm btn-outline-primary">
+                                                            class="btn btn-sm btn-outline-primary">
                                                             Editar
                                                         </a>
 
@@ -526,10 +563,10 @@ try {
                                                         <div class="modal-body">
                                                             <div class="row g-3">
                                                                 <div class="col-12 d-flex align-items-center gap-3 mb-3">
-                                                                    <?php if (!empty($img)): ?>
-                                                                        <img src="<?= htmlspecialchars($img); ?>"
-                                                                             alt="<?= htmlspecialchars($nomeProd); ?>"
-                                                                             class="img-produto-lista">
+                                                                    <?php if (!empty($imgArquivo)): ?>
+                                                                        <img src="<?= htmlspecialchars($imgCaminho); ?>"
+                                                                            alt="<?= htmlspecialchars($nomeProd); ?>"
+                                                                            class="img-produto-lista">
                                                                     <?php else: ?>
                                                                         <span class="badge bg-label-secondary">
                                                                             Sem imagem
@@ -548,6 +585,11 @@ try {
                                                                     <span class="badge bg-label-primary">
                                                                         <?= htmlspecialchars($catProd); ?>
                                                                     </span>
+                                                                    <?php if ($tipoCat): ?>
+                                                                        <small class="text-muted d-block">
+                                                                            tipo: <?= htmlspecialchars($tipoCat); ?>
+                                                                        </small>
+                                                                    <?php endif; ?>
                                                                 </div>
 
                                                                 <div class="col-md-6 col-12">
