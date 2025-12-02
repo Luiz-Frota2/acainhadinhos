@@ -11,6 +11,12 @@ if (empty($idSelecionado) && isset($_SESSION['empresa_id'])) {
     $idSelecionado = $_SESSION['empresa_id']; // ex: principal_1, unidade_1 etc
 }
 
+// ✅ Filtro de categoria (opcional)
+$categoriaFiltro = null;
+if (isset($_GET['categoria']) && $_GET['categoria'] !== '') {
+    $categoriaFiltro = (int) $_GET['categoria'];
+}
+
 // ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
@@ -135,10 +141,8 @@ try {
 }
 
 try {
-    // TABELA adicionarProdutos:
-    // id_produto, nome_produto, quantidade_produto, preco_produto,
-    // imagem_produto, descricao_produto, data_cadastro, id_categoria, id_empresa
-    $stmt = $pdo->prepare("
+    // Produtos com filtro opcional de categoria
+    $sqlProdutos = "
         SELECT 
             p.id_produto,
             p.nome_produto,
@@ -155,9 +159,21 @@ try {
         LEFT JOIN adicionarCategoria c 
                ON p.id_categoria = c.id_categoria
         WHERE p.id_empresa = :empresa_id
-        ORDER BY p.data_cadastro DESC
-    ");
-    $stmt->bindParam(':empresa_id', $idSelecionado); // ex: principal_1
+    ";
+
+    if (!is_null($categoriaFiltro) && $categoriaFiltro > 0) {
+        $sqlProdutos .= " AND p.id_categoria = :categoria_id ";
+    }
+
+    $sqlProdutos .= " ORDER BY p.data_cadastro DESC";
+
+    $stmt = $pdo->prepare($sqlProdutos);
+    $stmt->bindParam(':empresa_id', $idSelecionado);
+
+    if (!is_null($categoriaFiltro) && $categoriaFiltro > 0) {
+        $stmt->bindParam(':categoria_id', $categoriaFiltro, PDO::PARAM_INT);
+    }
+
     $stmt->execute();
     $produtos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
@@ -559,16 +575,24 @@ function caminhoImagemProduto(?string $arquivo): string
                             <h5 class="mb-2 mb-md-0">Lista de Produtos do Cardápio</h5>
 
                             <div class="d-flex flex-column flex-md-row gap-2">
-                                <!-- Filtro por categoria (visual, depois você liga) -->
-                                <select class="form-select form-select-sm">
-                                    <option value="">Todas as categorias</option>
-                                    <?php foreach ($categorias as $cat): ?>
-                                        <option value="<?= (int)$cat['id_categoria']; ?>">
-                                            <?= htmlspecialchars($cat['nome_categoria']); ?>
-                                            (<?= htmlspecialchars($cat['tipo']); ?>)
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <!-- Filtro por categoria (FUNCIONAL) -->
+                                <form method="get" class="d-flex flex-column flex-md-row gap-2">
+                                    <input type="hidden" name="id" value="<?= htmlspecialchars($idSelecionado); ?>">
+                                    <select name="categoria" class="form-select form-select-sm"
+                                        onchange="this.form.submit()">
+                                        <option value="">Todas as categorias</option>
+                                        <?php foreach ($categorias as $cat): ?>
+                                            <?php
+                                            $idCat = (int)$cat['id_categoria'];
+                                            $selected = ($categoriaFiltro === $idCat) ? 'selected' : '';
+                                            ?>
+                                            <option value="<?= $idCat; ?>" <?= $selected; ?>>
+                                                <?= htmlspecialchars($cat['nome_categoria']); ?>
+                                                (<?= htmlspecialchars($cat['tipo']); ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </form>
                             </div>
                         </div>
 
