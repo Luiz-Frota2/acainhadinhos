@@ -235,7 +235,7 @@ try {
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
                                     <div data-i18n="Basic">Mais Vendidos</div>
-               ?>                   </a>
+                                </a>
                             </li>
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
@@ -244,7 +244,7 @@ try {
                             </li>
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
-                                    <div data-i18n="Basic">Vendas<  ?>/div>
+                                    <div data-i18n="Basic">Vendas< ?>/div>
                                 </a>
                             </li>
                         </ul>
@@ -256,7 +256,7 @@ try {
                     </li>
                     <li class="menu-item">
                         <a href="../caixa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-      ?>                        <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
+                            ?> <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
                             <div data-i18n="Basic">Caixa</div>
                         </a>
                     </li>
