@@ -318,7 +318,6 @@ function caminhoImagemProduto(?string $arquivo): string
         .img-produto-lista {
             width: 70px;
             height: 70px;
-            border-radius: 8px;
             border: 1px solid #ddd;
         }
 
