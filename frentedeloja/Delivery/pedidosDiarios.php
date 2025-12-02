@@ -79,7 +79,6 @@ try {
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-
     <title>ERP - Delivery</title>
 
     <link rel="icon" href="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" />
@@ -89,6 +88,13 @@ try {
     <link rel="stylesheet" href="../../assets/vendor/css/theme-default.css" />
     <link rel="stylesheet" href="../../assets/css/demo.css" />
     <link rel="stylesheet" href="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css" />
+
+    <style>
+        .modal-dialog-top {
+            margin-top: 20px !important;
+        }
+    </style>
+
     <script src="../../assets/vendor/js/helpers.js"></script>
     <script src="../../assets/js/config.js"></script>
 </head>
@@ -102,7 +108,7 @@ try {
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= $idSelecionado ?>" class="app-brand-link">
-                        <span class="app-brand-text demo menu-text fw-bolder">Açaínhadinhos</span>
+                        <span class="app-brand-text demo fw-bolder">Açaínhadinhos</span>
                     </a>
                 </div>
 
@@ -139,9 +145,9 @@ try {
                     </div>
                 </nav>
 
-                <!-- ==========================================
-                     💥 SOMENTE O CONTAINER FOI ALTERADO
-                ========================================== -->
+                <!-- ==========================================================
+                     💥 AQUI COMEÇA O CONTAINER QUE FOI ALTERADO
+                ========================================================== -->
                 <div class="container-xxl flex-grow-1 container-p-y">
 
                     <h4 class="fw-bold py-3 mb-4">📦 Pedidos Diários</h4>
@@ -150,8 +156,6 @@ try {
                         <h5 class="card-header">Pedidos Recebidos Hoje</h5>
 
                         <div class="table-responsive">
-
-                            <!-- TABLE + NO-WRAP -->
                             <table class="table text-nowrap">
                                 <thead>
                                     <tr>
@@ -195,9 +199,9 @@ try {
                                         </td>
                                     </tr>
 
-                                    <!-- MODAL AÇÕES -->
+                                    <!-- MODAL AÇÕES 1033 -->
                                     <div class="modal fade" id="acao1033">
-                                        <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -205,24 +209,18 @@ try {
                                                     <button class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
 
-                                                <div class="modal-body text-center">
+                                                <div class="modal-body">
 
-                                                    <p class="mb-3">
-                                                        Escolha o que deseja fazer com este pedido:
-                                                    </p>
+                                                    <label class="form-label">Selecione uma ação:</label>
+                                                    <select class="form-select">
+                                                        <option selected disabled>Selecionar ação...</option>
+                                                        <option value="aceitar">Aceitar Pedido</option>
+                                                        <option value="cancelar">Cancelar Pedido</option>
+                                                    </select>
 
-                                                    <!-- RESPONSIVO: MOBILE empilha / DESKTOP lado a lado -->
-                                                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-
-                                                        <button class="btn btn-success px-4 py-2">
-                                                            Aceitar Pedido
-                                                        </button>
-
-                                                        <button class="btn btn-danger px-4 py-2">
-                                                            Cancelar Pedido
-                                                        </button>
-
-                                                    </div>
+                                                    <button class="btn btn-primary mt-3 w-100">
+                                                        Confirmar
+                                                    </button>
 
                                                 </div>
 
@@ -230,9 +228,9 @@ try {
                                         </div>
                                     </div>
 
-                                    <!-- MODAL ITENS -->
+                                    <!-- MODAL ITENS 1033 -->
                                     <div class="modal fade" id="itens1033">
-                                        <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -280,7 +278,7 @@ try {
 
                                     <!-- MODAL AÇÕES 1034 -->
                                     <div class="modal fade" id="acao1034">
-                                        <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -288,14 +286,18 @@ try {
                                                     <button class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
 
-                                                <div class="modal-body text-center">
+                                                <div class="modal-body">
 
-                                                    <p class="mb-3">Escolha uma ação:</p>
+                                                    <label class="form-label">Selecione uma ação:</label>
+                                                    <select class="form-select">
+                                                        <option selected disabled>Selecionar ação...</option>
+                                                        <option value="aceitar">Aceitar Pedido</option>
+                                                        <option value="cancelar">Cancelar Pedido</option>
+                                                    </select>
 
-                                                    <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center">
-                                                        <button class="btn btn-success px-4 py-2">Aceitar</button>
-                                                        <button class="btn btn-danger px-4 py-2">Cancelar</button>
-                                                    </div>
+                                                    <button class="btn btn-primary mt-3 w-100">
+                                                        Confirmar
+                                                    </button>
 
                                                 </div>
 
@@ -305,7 +307,7 @@ try {
 
                                     <!-- MODAL ITENS 1034 -->
                                     <div class="modal fade" id="itens1034">
-                                        <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
@@ -325,17 +327,15 @@ try {
                                     </div>
 
                                 </tbody>
-
                             </table>
 
                         </div>
                     </div>
 
                 </div>
-                <!-- FIM CONTAINER ALTERADO -->
+                <!-- FIM DO CONTAINER ALTERADO -->
 
             </div>
-
         </div>
     </div>
 
