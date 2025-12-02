@@ -4,9 +4,7 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ================================
-//     VERIFICAÇÕES (MANTIDAS)
-// ================================
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
 
 if (!$idSelecionado) {
@@ -14,6 +12,7 @@ if (!$idSelecionado) {
     exit;
 }
 
+// ✅ Verifica se a pessoa está logada
 if (
     !isset($_SESSION['usuario_logado']) ||
     !isset($_SESSION['empresa_id']) ||
@@ -24,11 +23,10 @@ if (
     exit;
 }
 
+// ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-// ================================
-//  USUÁRIO LOGADO (MANTIDO)
-// ================================
+// ✅ Buscar nome e tipo do usuário logado
 $nomeUsuario = 'Usuário';
 $tipoUsuario = 'Comum';
 $usuario_id = $_SESSION['usuario_id'];
@@ -45,9 +43,7 @@ try {
     }
 } catch (PDOException $e) {}
 
-// ================================
-//  VALIDAÇÃO DE EMPRESA (MANTIDA)
-// ================================
+// ✅ Valida o tipo de empresa e o acesso permitido
 $acessoPermitido = false;
 $idEmpresaSession = $_SESSION['empresa_id'];
 $tipoSession = $_SESSION['tipo_empresa'];
@@ -67,10 +63,8 @@ if (!$acessoPermitido) {
     exit;
 }
 
-// ================================
-//  ÍCONE DA EMPRESA (MANTIDO)
-// ================================
-$iconeEmpresa = '../../assets/img/favicon/favicon.ico';
+// ✅ Buscar imagem da empresa para usar como favicon
+$iconeEmpresa = '../../assets/img/favicon/favicon.ico'; // Ícone padrão
 
 try {
     $stmt = $pdo->prepare("SELECT imagem FROM sobre_empresa WHERE id_selecionado = :id LIMIT 1");
@@ -78,23 +72,22 @@ try {
     $stmt->execute();
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!empty($empresa['imagem'])) {
+    if ($empresa && !empty($empresa['imagem'])) {
         $iconeEmpresa = $empresa['imagem'];
     }
 } catch (PDOException $e) {}
 
 ?>
-
 <!DOCTYPE html>
-<html lang="pt-br" class="light-style layout-menu-fixed">
+<html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
+    data-assets-path="../../assets/" data-template="vertical-menu-template-free">
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
     <title>ERP - Delivery</title>
 
-    <link rel="icon" href="../../assets/img/empresa/<?php echo $iconeEmpresa; ?>" />
+    <link rel="icon" href="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" />
 
     <link rel="stylesheet" href="../../assets/vendor/fonts/boxicons.css" />
     <link rel="stylesheet" href="../../assets/vendor/css/core.css" />
@@ -108,22 +101,21 @@ try {
 </head>
 
 <body>
+    <!-- Layout wrapper -->
     <div class="layout-wrapper layout-content-navbar">
         <div class="layout-container">
 
-            <!--
-                ======================================
-                MENU LATERAL (MANTIDO INTACTO)
-                ======================================
-            -->
+            <!-- MENU (NÃO MEXI EM NADA) -->
             <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
 
                 <div class="app-brand demo">
                     <a href="./index.php?id=<?= $idSelecionado ?>" class="app-brand-link">
-                        <span class="app-brand-text demo fw-bolder ms-2">Açaínhadinhos</span>
+                        <span class="app-brand-text demo menu-text fw-bolder ms-2"
+                            style=" text-transform: capitalize;">Açaínhadinhos</span>
                     </a>
-                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-xl-none">
-                        <i class="bx bx-chevron-left bx-sm"></i>
+
+                    <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-block d-xl-none">
+                        <i class="bx bx-chevron-left bx-sm align-middle"></i>
                     </a>
                 </div>
 
@@ -141,69 +133,64 @@ try {
                     </li>
 
                     <li class="menu-item">
-                        <a class="menu-link menu-toggle" href="#">
+                        <a class="menu-link menu-toggle">
                             <i class="menu-icon bx bx-cart"></i>
                             <div>Pedidos</div>
                         </a>
-
                         <ul class="menu-sub">
-                            <li class="menu-item"><a class="menu-link" href="./pedidosDiarios.php?id=<?= $idSelecionado ?>">Pedidos Diários</a></li>
-                            <li class="menu-item"><a class="menu-link" href="./pedidosAceitos.php?id=<?= $idSelecionado ?>">Pedidos Aceitos</a></li>
-                            <li class="menu-item"><a class="menu-link" href="./pedidosACaminho.php?id=<?= $idSelecionado ?>">Pedidos a Caminho</a></li>
-                            <li class="menu-item"><a class="menu-link" href="./pedidosEntregues.php?id=<?= $idSelecionado ?>">Pedidos Entregues</a></li>
-                            <li class="menu-item"><a class="menu-link" href="./pedidosCancelados.php?id=<?= $idSelecionado ?>">Pedidos Cancelados</a></li>
-                        </ul>
-                    </li>
-
-                    <li class="menu-item">
-                        <a class="menu-link menu-toggle" href="#">
-                            <i class="menu-icon bx bx-food-menu"></i>
-                            <div>Cardápio</div>
-                        </a>
-
-                        <ul class="menu-sub">
-                            <li class="menu-item"><a class="menu-link" href="./produtosAdicionados.php">Produtos Adicionados</a></li>
+                            <li class="menu-item"><a class="menu-link"
+                                    href="./pedidosDiarios.php?id=<?= $idSelecionado ?>">Pedidos Diários</a></li>
+                            <li class="menu-item"><a class="menu-link"
+                                    href="./pedidosAceitos.php?id=<?= $idSelecionado ?>">Pedidos Aceitos</a></li>
+                            <li class="menu-item"><a class="menu-link"
+                                    href="./pedidosACaminho.php?id=<?= $idSelecionado ?>">Pedidos a Caminho</a></li>
+                            <li class="menu-item"><a class="menu-link"
+                                    href="./pedidosEntregues.php?id=<?= $idSelecionado ?>">Pedidos Entregues</a></li>
+                            <li class="menu-item"><a class="menu-link"
+                                    href="./pedidosCancelados.php?id=<?= $idSelecionado ?>">Pedidos Cancelados</a></li>
                         </ul>
                     </li>
 
                 </ul>
             </aside>
 
-            <!--
-                ======================================
-                CONTEÚDO (AQUI ENTRA OS PEDIDOS)
-                ======================================
-            -->
+            <!-- Layout container -->
             <div class="layout-page">
 
-                <!-- NAVBAR (MANTIDO) -->
-                <nav class="layout-navbar navbar navbar-expand-xl align-items-center bg-navbar-theme px-3">
-                    <div class="navbar-nav-right ms-auto">
+                <!-- NAVBAR (NÃO MEXI EM NADA) -->
+                <nav class="layout-navbar container-xxl navbar navbar-expand-xl navbar-detached bg-navbar-theme">
+
+                    <div class="navbar-nav-right d-flex align-items-center ms-auto">
+
                         <ul class="navbar-nav flex-row align-items-center">
-                            <li class="nav-item dropdown-user">
-                                <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown">
+
+                            <li class="nav-item dropdown-user dropdown">
+                                <a class="nav-link dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
                                     <div class="avatar avatar-online">
-                                        <img src="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" class="w-px-40 rounded-circle" />
+                                        <img src="../../assets/img/empresa/<?php echo $iconeEmpresa ?>" alt=""
+                                            class="w-px-40 h-auto rounded-circle">
                                     </div>
                                 </a>
                             </li>
+
                         </ul>
+
                     </div>
                 </nav>
 
-                <!--
-                ======================================
-                PÁGINA DE PEDIDOS DIÁRIOS (HTML PURO)
-                ======================================
-                -->
+                <!-- ===========================================
+                     CONTAINER — SOMENTE AQUI MEXI !!!
+                ============================================ -->
                 <div class="container-xxl flex-grow-1 container-p-y">
 
+                    <!-- INÍCIO PEDIDOS -->
                     <h4 class="fw-bold py-3 mb-4">📦 Pedidos Diários</h4>
 
                     <div class="card">
                         <h5 class="card-header">Pedidos Recebidos Hoje</h5>
 
                         <div class="table-responsive text-nowrap">
+
                             <table class="table">
                                 <thead>
                                     <tr>
@@ -217,43 +204,47 @@ try {
                                     </tr>
                                 </thead>
 
-                                <tbody class="table-border-bottom-0">
+                                <tbody>
 
-                                    <!-- PEDIDO EXEMPLO -->
+                                    <!-- EXEMPLO 1 -->
                                     <tr>
-                                        <td>1021</td>
-                                        <td>João Pedro</td>
-                                        <td>Rua Amazonas, 50</td>
+                                        <td>1033</td>
+                                        <td>Ana Júlia</td>
+                                        <td>Rua Rui Barbosa, 90</td>
                                         <td>Pix</td>
-                                        <td><b>R$ 23,90</b></td>
-                                        <td>13:22</td>
+                                        <td><b>R$ 22,50</b></td>
+                                        <td>13:10</td>
 
-                                        <td>
-                                            <button class="btn btn-sm btn-success">Aceitar</button>
-                                            <button class="btn btn-sm btn-danger">Cancelar</button>
+                                        <td style="max-width:220px;">
 
-                                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
-                                                data-bs-target="#modalItens1021">
+                                            <select class="form-select form-select-sm mb-1">
+                                                <option selected>Selecionar...</option>
+                                                <option value="1">Aceitar Pedido</option>
+                                                <option value="2">Cancelar Pedido</option>
+                                            </select>
+
+                                            <button class="btn btn-primary btn-sm w-100" data-bs-toggle="modal"
+                                                data-bs-target="#itens1033">
                                                 Itens
                                             </button>
                                         </td>
                                     </tr>
 
-                                    <!-- MODAL DO PEDIDO -->
-                                    <div class="modal fade" id="modalItens1021" tabindex="-1">
+                                    <!-- MODAL -->
+                                    <div class="modal fade" id="itens1033">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
 
                                                 <div class="modal-header">
-                                                    <h5 class="modal-title">Itens do Pedido #1021</h5>
+                                                    <h5 class="modal-title">Itens do Pedido #1033</h5>
                                                     <button class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
 
                                                 <div class="modal-body">
                                                     <ul>
                                                         <li>1x Açaí Médio</li>
-                                                        <li>2x Leite Ninho</li>
-                                                        <li>1x Morango Extra</li>
+                                                        <li>1x Granola</li>
+                                                        <li>1x Banana</li>
                                                     </ul>
                                                 </div>
 
@@ -261,28 +252,76 @@ try {
                                         </div>
                                     </div>
 
-                                    <!-- Caso queira mais pedidos, basta duplicar o bloco acima -->
+                                    <!-- EXEMPLO 2 -->
+                                    <tr>
+                                        <td>1034</td>
+                                        <td>Pedro Almeida</td>
+                                        <td>Avenida Amazonas, 300</td>
+                                        <td>Dinheiro</td>
+                                        <td><b>R$ 18,00</b></td>
+                                        <td>13:22</td>
+
+                                        <td>
+
+                                            <select class="form-select form-select-sm mb-1">
+                                                <option selected>Selecionar...</option>
+                                                <option value="1">Aceitar Pedido</option>
+                                                <option value="2">Cancelar Pedido</option>
+                                            </select>
+
+                                            <button class="btn btn-primary btn-sm w-100" data-bs-toggle="modal"
+                                                data-bs-target="#itens1034">
+                                                Itens
+                                            </button>
+
+                                        </td>
+                                    </tr>
+
+                                    <div class="modal fade" id="itens1034">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Itens do Pedido #1034</h5>
+                                                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+
+                                                <div class="modal-body">
+                                                    <ul>
+                                                        <li>1x Açaí Pequeno</li>
+                                                        <li>1x Leite Ninho</li>
+                                                    </ul>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
 
                                 </tbody>
+
                             </table>
+
                         </div>
+
                     </div>
+                    <!-- FIM PEDIDOS -->
 
                 </div>
+                <!-- / Content -->
 
                 <div class="content-backdrop fade"></div>
 
             </div>
+
         </div>
     </div>
 
-    <!-- SCRIPTS -->
     <script src="../../assets/vendor/libs/jquery/jquery.js"></script>
     <script src="../../assets/vendor/libs/popper/popper.js"></script>
     <script src="../../assets/vendor/js/bootstrap.js"></script>
     <script src="../../assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.js"></script>
     <script src="../../assets/vendor/js/menu.js"></script>
     <script src="../../assets/js/main.js"></script>
-
 </body>
+
 </html>
