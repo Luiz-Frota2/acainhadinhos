@@ -4,13 +4,8 @@ error_reporting(E_ALL);
 
 session_start();
 
-// ✅ Recupera o identificador vindo da URL OU da sessão
+// ✅ Recupera o identificador vindo da URL
 $idSelecionado = $_GET['id'] ?? '';
-
-if (empty($idSelecionado) && isset($_SESSION['empresa_id'])) {
-    // Se não veio via GET, usa o da sessão (ex: principal_1, unidade_1 etc)
-    $idSelecionado = $_SESSION['empresa_id'];
-}
 
 // ✅ Verifica se a pessoa está logada
 if (
@@ -20,19 +15,17 @@ if (
   !isset($_SESSION['usuario_id']) ||
   !isset($_SESSION['nivel']) // Verifica se o nível está na sessão
 ) {
-  header("Location: ../index.php?id=" . urlencode($idSelecionado));
+  header("Location: ../index.php?id=$idSelecionado");
   exit;
 }
 
 // ✅ Conexão com o banco de dados
 require '../../assets/php/conexao.php';
 
-$nomeUsuario        = 'Usuário';
-$tipoUsuario        = 'Comum';
-$usuario_id         = $_SESSION['usuario_id'];
-$tipoUsuarioSessao  = $_SESSION['nivel'];        // "Admin" ou "Comum"
-$empresaSessao      = $_SESSION['empresa_id'];   // ex: principal_1, unidade_1
-$tipoEmpresaSessao  = $_SESSION['tipo_empresa']; // ex: principal, unidade, filial, franquia
+$nomeUsuario = 'Usuário';
+$tipoUsuario = 'Comum';
+$usuario_id = $_SESSION['usuario_id'];
+$tipoUsuarioSessao = $_SESSION['nivel']; // "Admin" ou "Comum"
 
 try {
   // Verifica se é um usuário de contas_acesso (Admin) ou funcionarios_acesso
@@ -52,7 +45,7 @@ try {
     $nomeUsuario = $usuario['usuario'];
     $tipoUsuario = ucfirst($usuario['nivel']);
   } else {
-    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=" . addslashes($idSelecionado) . "';</script>";
+    echo "<script>alert('Usuário não encontrado.'); window.location.href = './index.php?id=$idSelecionado';</script>";
     exit;
   }
 } catch (PDOException $e) {
@@ -61,42 +54,38 @@ try {
 }
 
 // ✅ Valida o tipo de empresa e o acesso permitido
-$acessoPermitido = false;
-$id = null;
-
-// Admin da principal_1 pode acessar principal_1 e qualquer unidade_*
-$ehAdminPrincipal1 = ($tipoUsuarioSessao === 'Admin' && $empresaSessao === 'principal_1');
-
 if (str_starts_with($idSelecionado, 'principal_')) {
-    // Pode acessar se for da mesma empresa OU admin da principal_1
-    if ($empresaSessao === $idSelecionado || $ehAdminPrincipal1) {
-        $acessoPermitido = true;
-        $id = 1; // se você usar esse id em outro lugar
-    }
+  // Para principal, verifica se é admin ou se pertence à mesma empresa
+  if (
+    $_SESSION['tipo_empresa'] !== 'principal' &&
+    !($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1')
+  ) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = 1;
 } elseif (str_starts_with($idSelecionado, 'unidade_')) {
-    // unidade_1, unidade_2, etc
-    if ($empresaSessao === $idSelecionado || $ehAdminPrincipal1) {
-        $acessoPermitido = true;
-        $id = (int)str_replace('unidade_', '', $idSelecionado);
-    }
-} elseif (str_starts_with($idSelecionado, 'filial_') || str_starts_with($idSelecionado, 'franquia_')) {
-    // Se você tiver filial_ / franquia_ no futuro, mesma regra: só a própria empresa
-    if ($empresaSessao === $idSelecionado) {
-        $acessoPermitido = true;
-        $id = $idSelecionado;
-    }
-} else {
-    // Qualquer outro formato: tenta pelo menos validar se é a mesma empresa da sessão
-    if (!empty($idSelecionado) && $empresaSessao === $idSelecionado) {
-        $acessoPermitido = true;
-        $id = $idSelecionado;
-    }
-}
+  $idUnidade = str_replace('unidade_', '', $idSelecionado);
 
-if (!$acessoPermitido) {
+  // Verifica se o usuário pertence à mesma unidade ou é admin da principal_1
+  $acessoPermitido = ($_SESSION['empresa_id'] === $idSelecionado) ||
+    ($tipoUsuarioSessao === 'Admin' && $_SESSION['empresa_id'] === 'principal_1');
+
+  if (!$acessoPermitido) {
+    echo "<script>
+            alert('Acesso negado!');
+            window.location.href = '../index.php?id=$idSelecionado';
+        </script>";
+    exit;
+  }
+  $id = $idUnidade;
+} else {
   echo "<script>
-        alert('Acesso negado!');
-        window.location.href = '../index.php?id=" . addslashes($idSelecionado) . "';
+        alert('Empresa não identificada!');
+        window.location.href = '../index.php?id=$idSelecionado';
     </script>";
   exit;
 }
