@@ -49,7 +49,7 @@ try {
     if ($info) {
         if (!empty($info['nome_empresa']))  $nomeEmpresa = $info['nome_empresa'];
         if (!empty($info['sobre_empresa'])) $sobreTexto = $info['sobre_empresa'];
-        if (!empty($info['imagem']))        $imagemEmpresa = "./assets/img/uploads/" . $info['imagem'];
+        if (!empty($info['imagem']))        $imagemEmpresa = "./assets/img/empresa/" . $info['imagem'];
     }
 } catch (PDOException $e) {
 }
