@@ -178,27 +178,27 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="./pedidosDiarios.php" class="menu-link">
+                                <a href="./pedidosDiarios.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Diários</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./pedidosAceitos.php" class="menu-link">
+                                <a href="./pedidosAceitos.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Aceitos</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./pedidosACaminho.php" class="menu-link">
+                                <a href="./pedidosACaminho.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Pedidos a Caminho</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./pedidosEntregues.php" class="menu-link">
+                                <a href="./pedidosEntregues.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Entregues</div>
                                 </a>
                             </li>
                             <li class="menu-item">
-                                <a href="./pedidosCancelados.php" class="menu-link">
+                                <a href="./pedidosCancelados.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
                                     <div data-i18n="Basic">Pedidos Cancelados</div>
                                 </a>
                             </li>
@@ -213,7 +213,7 @@ try {
                         </a>
                         <ul class="menu-sub">
                             <li class="menu-item">
-                                <a href="#" class="menu-link">
+                                <a href="./produtosAdicionados.php" class="menu-link">
                                     <div data-i18n="Basic">Produtos Adicionados</div>
                                 </a>
                             </li>
@@ -235,7 +235,7 @@ try {
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
                                     <div data-i18n="Basic">Mais Vendidos</div>
-                                </a>
+               ?>                   </a>
                             </li>
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
@@ -244,7 +244,7 @@ try {
                             </li>
                             <li class="menu-item">
                                 <a href="#" class="menu-link">
-                                    <div data-i18n="Basic">Vendas</div>
+                                    <div data-i18n="Basic">Vendas<  ?>/div>
                                 </a>
                             </li>
                         </ul>
@@ -256,7 +256,7 @@ try {
                     </li>
                     <li class="menu-item">
                         <a href="../caixa/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link">
-                            <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
+      ?>                        <i class="menu-icon tf-icons bx bx-barcode-reader"></i>
                             <div data-i18n="Basic">Caixa</div>
                         </a>
                     </li>
