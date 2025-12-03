@@ -591,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             let texto = '';
-            texto += 'NOVO PEDIDO - AÇAIDINHOS\n\n';
+            texto += 'NOVO PEDIDO - AÇAIDINHOS %0A%0A';
             texto += 'Cliente: ' + nome.trim() + '\n';
             texto += 'Telefone: ' + telefone.trim() + '\n\n';
 
