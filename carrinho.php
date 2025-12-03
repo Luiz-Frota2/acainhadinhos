@@ -6,14 +6,11 @@ require './assets/php/conexao.php';
    1. PEGAR EMPRESA E PRODUTO DA URL
    =========================================== */
 $empresaID   = $_GET['empresa'] ?? null;
-$id_produto  = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if (!$empresaID) {
     die('Empresa não informada.');
 }
-if ($id_produto <= 0) {
-    die('Produto não informado.');
-}
+
 
 /* ===========================================
    2. BUSCAR DADOS DA EMPRESA (NOME + LOGO)
