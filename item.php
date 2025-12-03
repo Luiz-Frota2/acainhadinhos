@@ -148,7 +148,7 @@ $imgProduto = !empty($produto['imagem_produto'])
         </div>
     </header>
 
-    <form action="add_to_cart.php?empresa=<?=($empresaID) ?>" method="POST" id="form-item">
+    <form action="add_to_cart.php?empresa=<?= urlencode($empresaID) ?>" method="POST" id="form-item">
 
    
         <input type="hidden" name="id_produto" value="<?= (int)$id_produto ?>">
