@@ -155,94 +155,6 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
-
-    <style>
-        /* ====== BOTTOM SHEET DA FORMA DE PAGAMENTO ====== */
-        #modalPagamento {
-            padding: 0 !important;
-        }
-
-        #modalPagamento .modal-dialog {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            margin: 0;
-            width: 100%;
-            max-width: 100%;
-            display: block;
-            transform: translateY(100%);
-            transition: transform 0.3s ease-out;
-            pointer-events: auto;
-        }
-
-        /* Quando a modal abre, ela sobe de baixo pra cima */
-        #modalPagamento.show .modal-dialog {
-            transform: translateY(0);
-        }
-
-        #modalPagamento .modal-content {
-            border-radius: 16px 16px 0 0;
-            border: none;
-            box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.25);
-        }
-
-        #modalPagamento .modal-header {
-            border-bottom: none;
-            padding-top: 0.75rem;
-            padding-bottom: 0.25rem;
-            text-align: center;
-        }
-
-        #modalPagamento .modal-header .modal-title {
-            width: 100%;
-            text-align: center;
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        #modalPagamento .btn-close {
-            position: absolute;
-            right: 1rem;
-            top: 0.75rem;
-        }
-
-        #modalPagamento .modal-body {
-            max-height: 60vh;
-            overflow-y: auto;
-            padding-bottom: 1rem;
-        }
-
-        #modalPagamento .container-check {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-        }
-
-        #modalPagamento .container-check + .container-check {
-            margin-top: 0.5rem;
-        }
-
-        #modalPagamento .modal-footer {
-            border-top: none;
-            padding-top: 0.5rem;
-            padding-bottom: 1rem;
-        }
-
-        @media (min-width: 768px) {
-            #modalPagamento .modal-dialog {
-                max-width: 420px;
-                left: 50%;
-                right: auto;
-                transform: translate(-50%, 100%);
-            }
-
-            #modalPagamento.show .modal-dialog {
-                transform: translate(-50%, 0);
-            }
-        }
-    </style>
-
 </head>
 
 <body>
@@ -588,54 +500,25 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
         </div>
     </div>
 
-<!-- MODAL PAGAMENTO -->
-<div class="modal fade" id="modalPagamento" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Forma de pagamento</h5>
-                <button type="button" class="btn-close" id="btn-close-pagamento" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-2">
-                    <label class="container-check w-100">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span>Dinheiro</span>
-                            <input type="radio" name="forma_pagamento" value="Dinheiro" id="pag_dinheiro" />
-                        </div>
-                        <span class="checkmark"></span>
-                    </label>
-                </div>
-                <div class="mb-2" id="grupo_troco" style="display:none;">
-                    <label class="form-label mb-1">Troco para quanto?</label>
-                    <input type="text" class="form-control" id="pag_troco" placeholder="Ex: 50,00" />
-                </div>
-                <div class="mb-2">
-                    <label class="container-check w-100">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span>Cartão (crédito/débito)</span>
-                            <input type="radio" name="forma_pagamento" value="Cartão" id="pag_cartao" />
-                        </div>
-                        <span class="checkmark"></span>
-                    </label>
-                </div>
-                <div class="mb-0">
-                    <label class="container-check w-100">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span>Pix</span>
-                            <input type="radio" name="forma_pagamento" value="Pix" id="pag_pix" />
-                        </div>
-                        <span class="checkmark"></span>
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-cancelar-pagamento">Cancelar</button>
-                <button type="button" class="btn btn-yellow btn-sm" id="btn-salvar-pagamento">Salvar forma de pagamento</button>
-            </div>
+    <!-- ============ MODAL PAGAMENTO (BACKDROP CENTRAL) ============ -->
+    <div class="modal-actions hidden" id="modalPagamento">
+        <div class="backdrop" onclick="fecharModalPagamento()"></div>
+        <div class="width-fix container-modal-actions">
+            <?php if ($formasPagamento['pix']): ?>
+                <a href="#!" onclick="selecionarFormaPagamento('Pix')">Pix</a>
+            <?php endif; ?>
+
+            <?php if ($formasPagamento['dinheiro']): ?>
+                <a href="#!" onclick="selecionarFormaPagamento('Dinheiro')">Dinheiro</a>
+            <?php endif; ?>
+
+            <?php if ($temCartao): ?>
+                <a href="#!" onclick="selecionarFormaPagamento('Cartão')">Cartão</a>
+            <?php endif; ?>
+
+            <a href="#!" class="color-red" onclick="selecionarFormaPagamento('')">Remover</a>
         </div>
     </div>
-</div>
 
     <section class="menu-bottom disabled hidden" id="menu-bottom-closed">
         <p class="mb-0"><b>Loja fechada no momento.</b></p>
@@ -648,19 +531,36 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
         const carrinhoPHP = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
         const totalPedidoPHP = <?php echo json_encode($total_pedido); ?>;
 
-document.addEventListener('DOMContentLoaded', function () {
+        // Globais de pagamento
+        let formaPagamentoSelecionada = '';
+        let detalhePagamentoSelecionado = '';
 
-    // --------- ENDEREÇO ----------
-    const cardAddressEmpty   = document.getElementById('card-address-empty');
-    const cardAddressFilled  = document.getElementById('card-address-filled');
-    const resumoEnderecoL1   = document.getElementById('resumo_endereco_linha1');
-    const resumoEnderecoL2   = document.getElementById('resumo_endereco_linha2');
-    const enderecoTextoInput = document.getElementById('endereco_texto');
-    const modalEnderecoEl    = document.getElementById('modalEndereco');
-    let modalEndereco        = null;
-    if (typeof bootstrap !== 'undefined' && modalEnderecoEl) {
-        modalEndereco = new bootstrap.Modal(modalEnderecoEl);
-    }
+        document.addEventListener('DOMContentLoaded', function() {
+            // ========= TIPO ENTREGA / RETIRADA =========
+            const chkEntrega = document.getElementById('chk_tipo_entrega');
+            const chkRetirada = document.getElementById('chk_tipo_retirada');
+
+            if (chkEntrega && chkRetirada) {
+                chkEntrega.addEventListener('change', () => {
+                    if (chkEntrega.checked) chkRetirada.checked = false;
+                });
+                chkRetirada.addEventListener('change', () => {
+                    if (chkRetirada.checked) chkEntrega.checked = false;
+                });
+            }
+
+            // ========= ENDEREÇO =========
+            const cardAddressEmpty = document.getElementById('card-address-empty');
+            const cardAddressFilled = document.getElementById('card-address-filled');
+            const resumoEnderecoL1 = document.getElementById('resumo_endereco_linha1');
+            const resumoEnderecoL2 = document.getElementById('resumo_endereco_linha2');
+            const enderecoTextoInput = document.getElementById('endereco_texto');
+
+            const modalEnderecoEl = document.getElementById('modalEndereco');
+            let modalEndereco = null;
+            if (typeof bootstrap !== 'undefined' && modalEnderecoEl) {
+                modalEndereco = new bootstrap.Modal(modalEnderecoEl);
+            }
 
             function abrirModalEndereco() {
                 if (modalEndereco) modalEndereco.show();
@@ -722,27 +622,12 @@ document.addEventListener('DOMContentLoaded', function () {
             if (btnCancelarEndereco) btnCancelarEndereco.addEventListener('click', fecharModalEndereco);
             if (btnCloseEndereco) btnCloseEndereco.addEventListener('click', fecharModalEndereco);
 
-    // --------- PAGAMENTO ----------
-    const cardPagamentoEmpty   = document.getElementById('card-pagamento-empty');
-    const cardPagamentoFilled  = document.getElementById('card-pagamento-filled');
-    const resumoPagamentoL1    = document.getElementById('resumo_pagamento_linha1');
-    const resumoPagamentoL2    = document.getElementById('resumo_pagamento_linha2');
-    const pagamentoTextoInput  = document.getElementById('pagamento_texto');
-
-    const modalPagamentoEl = document.getElementById('modalPagamento');
-    let modalPagamento     = null;
-    if (typeof bootstrap !== 'undefined' && modalPagamentoEl) {
-        modalPagamento = new bootstrap.Modal(modalPagamentoEl);
-    }
-
-    function abrirModalPagamento() {
-        if (modalPagamento) modalPagamento.show();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'block';
-    }
-    function fecharModalPagamento() {
-        if (modalPagamento) modalPagamento.hide();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'none';
-    }
+            // ========= PAGAMENTO =========
+            const cardPagamentoEmpty = document.getElementById('card-pagamento-empty');
+            const cardPagamentoFilled = document.getElementById('card-pagamento-filled');
+            const resumoPagamentoL1 = document.getElementById('resumo_pagamento_linha1');
+            const resumoPagamentoL2 = document.getElementById('resumo_pagamento_linha2');
+            const pagamentoTextoInput = document.getElementById('pagamento_texto');
 
             if (cardPagamentoEmpty) {
                 cardPagamentoEmpty.style.cursor = 'pointer';
@@ -754,75 +639,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 btnEditPagamento.addEventListener('click', abrirModalPagamento);
             }
 
-    const btnSalvarPagamento   = document.getElementById('btn-salvar-pagamento');
-    const btnCancelarPagamento = document.getElementById('btn-cancelar-pagamento');
-    const btnClosePagamento    = document.getElementById('btn-close-pagamento');
-
-    const inputDinheiro = document.getElementById('pag_dinheiro');
-    const inputCartao   = document.getElementById('pag_cartao');
-    const inputPix      = document.getElementById('pag_pix');
-    const grupoTroco    = document.getElementById('grupo_troco');
-    const inputTroco    = document.getElementById('pag_troco');
-
-    function atualizarVisibilidadeTroco() {
-        if (inputDinheiro && inputDinheiro.checked) {
-            if (grupoTroco) grupoTroco.style.display = 'block';
-        } else {
-            if (grupoTroco) grupoTroco.style.display = 'none';
-            if (inputTroco) inputTroco.value = '';
-        }
-    }
-
-    if (inputDinheiro) inputDinheiro.addEventListener('change', atualizarVisibilidadeTroco);
-    if (inputCartao)   inputCartao.addEventListener('change', atualizarVisibilidadeTroco);
-    if (inputPix)      inputPix.addEventListener('change', atualizarVisibilidadeTroco);
-
-    function salvarPagamento() {
-        let metodo = '';
-        let detalhe = '';
-
-        if (inputDinheiro && inputDinheiro.checked) {
-            metodo = 'Dinheiro';
-            if (inputTroco && inputTroco.value.trim()) {
-                detalhe = 'Troco para: R$ ' + inputTroco.value.trim();
-            } else {
-                detalhe = 'Levar troco, se necessário.';
-            }
-        } else if (inputCartao && inputCartao.checked) {
-            metodo = 'Cartão (crédito/débito)';
-            detalhe = 'Levar maquininha.';
-        } else if (inputPix && inputPix.checked) {
-            metodo = 'Pix';
-            detalhe = 'Cobrar chave na entrega.';
-        }
-
-        if (!metodo) {
-            alert('Selecione uma forma de pagamento.');
-            return;
-        }
-
-        if (resumoPagamentoL1) resumoPagamentoL1.textContent = metodo;
-        if (resumoPagamentoL2) resumoPagamentoL2.textContent = detalhe;
-        if (pagamentoTextoInput) pagamentoTextoInput.value = metodo + (detalhe ? ' - ' + detalhe : '');
-
-        if (cardPagamentoEmpty) cardPagamentoEmpty.classList.add('d-none');
-        if (cardPagamentoFilled) cardPagamentoFilled.classList.remove('d-none');
-
-        fecharModalPagamento();
-    }
-
-    if (btnSalvarPagamento)   btnSalvarPagamento.addEventListener('click', salvarPagamento);
-    if (btnCancelarPagamento) btnCancelarPagamento.addEventListener('click', fecharModalPagamento);
-    if (btnClosePagamento)    btnClosePagamento.addEventListener('click', fecharModalPagamento);
-
-    // --------- FINALIZAR PEDIDO / WHATSAPP + RASCUNHO ----------
-    const btnFinalizar = document.getElementById('btn-finalizar-pedido');
-    if (btnFinalizar) {
-        btnFinalizar.addEventListener('click', function () {
-            if (!carrinhoPHP || !Array.isArray(carrinhoPHP) || carrinhoPHP.length === 0) {
-                alert('Seu carrinho está vazio.');
-                return;
-            }
+            // ========= FINALIZAR / WHATSAPP =========
+            const btnFinalizar = document.getElementById('btn-finalizar-pedido');
+            if (btnFinalizar) {
+                btnFinalizar.addEventListener('click', function() {
+                    if (!carrinhoPHP || !Array.isArray(carrinhoPHP) || carrinhoPHP.length === 0) {
+                        alert('Seu carrinho está vazio.');
+                        return;
+                    }
 
                     const nome = (document.getElementById('cliente_nome') || {}).value || '';
                     const telefone = (document.getElementById('cliente_telefone') || {}).value || '';
