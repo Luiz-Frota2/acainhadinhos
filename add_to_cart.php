@@ -46,6 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $_SESSION['carrinho'][] = $item;
 }
 
-header("Location: carrinho.php?empresa='$empresaID'");
+header("Location: carrinho.php?empresa=$empresaID");
 exit;
 ?>
