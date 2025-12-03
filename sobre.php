@@ -49,7 +49,7 @@ try {
     if ($info) {
         if (!empty($info['nome_empresa']))  $nomeEmpresa = $info['nome_empresa'];
         if (!empty($info['sobre_empresa'])) $sobreTexto = $info['sobre_empresa'];
-        if (!empty($info['imagem']))        $imagemEmpresa = "./assets/img/uploads/" . $info['imagem'];
+        if (!empty($info['imagem']))        $imagemEmpresa = "./assets/img/empresa/" . $info['imagem'];
     }
 } catch (PDOException $e) {
 }
@@ -144,7 +144,7 @@ try {
         <div class="card">
             <div class="d-flex">
 
-                <a href="./index.php?empresa=<?= urlencode($empresaID) ?>" class="container-voltar">
+                <a href="./cardapio.php?empresa=<?= urlencode($empresaID) ?>" class="container-voltar">
                     <i class="fas fa-arrow-left"></i>
                 </a>
 
@@ -268,7 +268,7 @@ try {
     </section>
 
     <!-- BOTÃO VOLTAR -->
-    <a href="./index.php?empresa=<?= urlencode($empresaID) ?>"
+    <a href="./cardapio.php?empresa=<?= urlencode($empresaID) ?>"
         class="btn btn-yellow btn-full voltar">
         Voltar para o cardápio
     </a>

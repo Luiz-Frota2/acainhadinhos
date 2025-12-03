@@ -196,7 +196,7 @@ try {
               <i class="menu-icon tf-icons bx bx-calendar-check"></i>
               <div data-i18n="Authentications">Sistema de Ponto</div>
             </a>
-            <a href="./delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
+            <a href="./Delivery/index.php?id=<?= urlencode($idSelecionado); ?>" class="menu-link ">
               <i class="menu-icon tf-icons bx bx-cart"></i>
               <div data-i18n="Authentications">Delivery</div>
             </a>

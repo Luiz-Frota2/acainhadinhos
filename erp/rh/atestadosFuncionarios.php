@@ -575,7 +575,6 @@ try {
               </div>
             </div>
 
-
             <!-- Controles de paginação -->
             <div class="d-flex justify-content-start align-items-center gap-2 m-3">
               <button class="btn btn-sm btn-outline-primary" id="prevPageAtestados">&laquo; Anterior</button>
