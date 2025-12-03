@@ -1,5 +1,14 @@
 <?php
 session_start();
+require './assets/php/conexao.php';
+/* ===========================================
+   1. PEGAR EMPRESA E PRODUTO DA URL
+   =========================================== */
+$empresaID   = $_GET['empresa'] ?? null;
+
+if (!$empresaID) {
+    die('Empresa não informada.');
+}
 
 if (isset($_POST['index'])) {
     $index = $_POST['index'];
@@ -10,6 +19,6 @@ if (isset($_POST['index'])) {
     }
 }
 
-header('Location: carrinho.php');
+header("Location: carrinho.php?empresa='urlencode($empresaID)'");
 exit;
 ?>

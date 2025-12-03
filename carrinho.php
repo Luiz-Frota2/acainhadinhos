@@ -169,7 +169,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                     </div>
 
                     <!-- AÇÕES DO ITEM (remover) -->
-                    <form action="remove_from_cart.php" method="post" style="margin-top:5px;">
+                    <form action="remove_from_cart.php?empresa=<?= urlencode($empresaID) ?>" method="post" style="margin-top:5px;">
                         <input type="hidden" name="index" value="<?= $idx ?>">
                         <div class="detalhes-produto-edit">
                             <button type="submit" class="btn btn-link text-danger p-0" title="Excluir">
