@@ -1,6 +1,50 @@
 <?php
 session_start();
 
+require './assets/php/conexao.php';
+/* ===========================================
+   1. PEGAR EMPRESA E PRODUTO DA URL
+   =========================================== */
+$empresaID   = $_GET['empresa'] ?? null;
+$id_produto  = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if (!$empresaID) {
+    die('Empresa não informada.');
+}
+if ($id_produto <= 0) {
+    die('Produto não informado.');
+}
+
+/* ===========================================
+   2. BUSCAR DADOS DA EMPRESA (NOME + LOGO)
+   =========================================== */
+$nomeEmpresa   = 'Açaidinhos';
+$imagemEmpresa = './assets/img/favicon/logo.png';
+
+try {
+    $sql = "SELECT nome_empresa, imagem 
+            FROM sobre_empresa 
+            WHERE id_selecionado = :id 
+            LIMIT 1";
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':id', $empresaID);
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($empresa) {
+        if (!empty($empresa['nome_empresa'])) {
+            $nomeEmpresa = $empresa['nome_empresa'];
+        }
+        if (!empty($empresa['imagem'])) {
+            // caminho da logo da empresa
+            $imagemEmpresa = './assets/img/empresa/' . $empresa['imagem'];
+        }
+    }
+} catch (PDOException $e) {
+    // Se der erro, mantém padrão
+}
+
+
 // Calcula total
 $total_pedido = 0.0;
 if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
