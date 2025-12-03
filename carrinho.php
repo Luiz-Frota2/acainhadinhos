@@ -61,88 +61,93 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
+
     <style>
-    /* BOTTOM SHEET da forma de pagamento */
-    #modalPagamento {
-        padding: 0 !important;
-    }
+        /* ====== BOTTOM SHEET DA FORMA DE PAGAMENTO ====== */
+        #modalPagamento {
+            padding: 0 !important;
+        }
 
-    #modalPagamento .modal-dialog {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        margin: 0;
-        width: 100%;
-        max-width: 100%;
-        display: block;
-        transform: translateY(100%);
-        transition: transform 0.3s ease-out;
-    }
-
-    #modalPagamento.show .modal-dialog {
-        transform: translateY(0);
-    }
-
-    #modalPagamento .modal-content {
-        border-radius: 16px 16px 0 0;
-        border: none;
-        box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.25);
-    }
-
-    #modalPagamento .modal-header {
-        border-bottom: none;
-        padding-top: 0.75rem;
-        padding-bottom: 0.25rem;
-        text-align: center;
-    }
-
-    #modalPagamento .modal-header .modal-title {
-        width: 100%;
-        text-align: center;
-        font-weight: 600;
-        font-size: 1rem;
-    }
-
-    #modalPagamento .btn-close {
-        position: absolute;
-        right: 1rem;
-        top: 0.75rem;
-    }
-
-    #modalPagamento .modal-body {
-        max-height: 60vh;
-        overflow-y: auto;
-        padding-bottom: 1rem;
-    }
-
-    #modalPagamento .container-check {
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: 0.75rem 1rem;
-    }
-
-    #modalPagamento .container-check + .container-check {
-        margin-top: 0.5rem;
-    }
-
-    #modalPagamento .modal-footer {
-        border-top: none;
-        padding-top: 0.5rem;
-        padding-bottom: 1rem;
-    }
-
-    @media (min-width: 768px) {
         #modalPagamento .modal-dialog {
-            max-width: 420px;
-            left: 50%;
-            transform: translate(-50%, 100%);
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: 0;
+            width: 100%;
+            max-width: 100%;
+            display: block;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            pointer-events: auto;
         }
 
+        /* Quando a modal abre, ela sobe de baixo pra cima */
         #modalPagamento.show .modal-dialog {
-            transform: translate(-50%, 0);
+            transform: translateY(0);
         }
-    }
-</style>
+
+        #modalPagamento .modal-content {
+            border-radius: 16px 16px 0 0;
+            border: none;
+            box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.25);
+        }
+
+        #modalPagamento .modal-header {
+            border-bottom: none;
+            padding-top: 0.75rem;
+            padding-bottom: 0.25rem;
+            text-align: center;
+        }
+
+        #modalPagamento .modal-header .modal-title {
+            width: 100%;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        #modalPagamento .btn-close {
+            position: absolute;
+            right: 1rem;
+            top: 0.75rem;
+        }
+
+        #modalPagamento .modal-body {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-bottom: 1rem;
+        }
+
+        #modalPagamento .container-check {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+        }
+
+        #modalPagamento .container-check + .container-check {
+            margin-top: 0.5rem;
+        }
+
+        #modalPagamento .modal-footer {
+            border-top: none;
+            padding-top: 0.5rem;
+            padding-bottom: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            #modalPagamento .modal-dialog {
+                max-width: 420px;
+                left: 50%;
+                right: auto;
+                transform: translate(-50%, 100%);
+            }
+
+            #modalPagamento.show .modal-dialog {
+                transform: translate(-50%, 0);
+            }
+        }
+    </style>
 
 </head>
 <body>
@@ -456,9 +461,9 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
     </div>
 </div>
 
-<!-- MODAL PAGAMENTO -->
+<!-- MODAL PAGAMENTO (SEM modal-dialog-centered) -->
 <div class="modal fade" id="modalPagamento" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Forma de pagamento</h5>
@@ -524,7 +529,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const resumoEnderecoL2   = document.getElementById('resumo_endereco_linha2');
     const enderecoTextoInput = document.getElementById('endereco_texto');
     const modalEnderecoEl    = document.getElementById('modalEndereco');
-    const btnFinalizar         = document.getElementById('btn-finalizar-pedido');
+    const btnFinalizar       = document.getElementById('btn-finalizar-pedido');
+
     let modalEndereco        = null;
     if (typeof bootstrap !== 'undefined' && modalEnderecoEl) {
         modalEndereco = new bootstrap.Modal(modalEnderecoEl);
@@ -604,20 +610,20 @@ document.addEventListener('DOMContentLoaded', function () {
         modalPagamento = new bootstrap.Modal(modalPagamentoEl);
     }
 
- function abrirModalPagamento() {
-    // Ao abrir a modal de pagamento, escondemos o botão "Fazer pedido"
-    if (btnFinalizar) btnFinalizar.classList.add('d-none');
+    function abrirModalPagamento() {
+        // Ao abrir a modal de pagamento, escondemos o botão "Fazer pedido"
+        if (btnFinalizar) btnFinalizar.classList.add('d-none');
 
-    if (modalPagamento) modalPagamento.show();
-    else if (modalPagamentoEl) modalPagamentoEl.style.display = 'block';
-}
-function fecharModalPagamento() {
-    // Ao fechar a modal, exibimos novamente o botão "Fazer pedido"
-    if (btnFinalizar) btnFinalizar.classList.remove('d-none');
+        if (modalPagamento) modalPagamento.show();
+        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'block';
+    }
+    function fecharModalPagamento() {
+        // Ao fechar a modal, exibimos novamente o botão "Fazer pedido"
+        if (btnFinalizar) btnFinalizar.classList.remove('d-none');
 
-    if (modalPagamento) modalPagamento.hide();
-    else if (modalPagamentoEl) modalPagamentoEl.style.display = 'none';
-}
+        if (modalPagamento) modalPagamento.hide();
+        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'none';
+    }
 
     if (cardPagamentoEmpty) {
         cardPagamentoEmpty.style.cursor = 'pointer';
@@ -691,7 +697,6 @@ function fecharModalPagamento() {
     if (btnClosePagamento)    btnClosePagamento.addEventListener('click', fecharModalPagamento);
 
     // --------- FINALIZAR PEDIDO / WHATSAPP + RASCUNHO ----------
- 
     if (btnFinalizar) {
         btnFinalizar.addEventListener('click', function () {
             if (!carrinhoPHP || !Array.isArray(carrinhoPHP) || carrinhoPHP.length === 0) {
