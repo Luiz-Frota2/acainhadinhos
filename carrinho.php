@@ -650,7 +650,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Endereço
             texto += 'ENDEREÇO DE ENTREGA:\n';
-            texto += endereco + '\n\\n';
+            texto += endereco + '\n\n';
 
             // Pagamento
             texto += 'FORMA DE PAGAMENTO:\n';
