@@ -559,7 +559,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnCancelarPagamento) btnCancelarPagamento.addEventListener('click', fecharModalPagamento);
     if (btnClosePagamento)    btnClosePagamento.addEventListener('click', fecharModalPagamento);
 
-    // --------- FINALIZAR PEDIDO / WHATSAPP ----------
+    // --------- FINALIZAR PEDIDO / WHATSAPP + RASCUNHO ----------
     const btnFinalizar = document.getElementById('btn-finalizar-pedido');
     if (btnFinalizar) {
         btnFinalizar.addEventListener('click', function () {
@@ -588,6 +588,29 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!pagamento.trim()) {
                 alert('Selecione e salve uma forma de pagamento.');
                 return;
+            }
+
+            // Forma/detalhe de pagamento para gravar no banco
+            let formaPagamento   = '';
+            let detalhePagamento = '';
+
+            if (inputDinheiro && inputDinheiro.checked) {
+                formaPagamento = 'Dinheiro';
+                if (inputTroco && inputTroco.value.trim()) {
+                    detalhePagamento = 'Troco para: R$ ' + inputTroco.value.trim();
+                } else {
+                    detalhePagamento = 'Levar troco, se necessário.';
+                }
+            } else if (inputCartao && inputCartao.checked) {
+                formaPagamento = 'Cartão (crédito/débito)';
+                detalhePagamento = 'Levar maquininha.';
+            } else if (inputPix && inputPix.checked) {
+                formaPagamento = 'Pix';
+                detalhePagamento = 'Cobrar chave na entrega.';
+            } else {
+                // fallback: grava o texto completo se por algum motivo o rádio não estiver marcado
+                formaPagamento = pagamento;
+                detalhePagamento = '';
             }
 
             let texto = '';
@@ -658,9 +681,37 @@ document.addEventListener('DOMContentLoaded', function () {
 
             texto += 'Enviado automaticamente pelo sistema.';
 
-            const numeroWhatsapp = '559791434585'; // 55 + 97 + 981434585
-            const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-            window.open(url, '_blank');
+            // --------- SALVA RASCUNHO NO BANCO ANTES DO WHATSAPP ----------
+            const dados = new FormData();
+            dados.append('nome', nome.trim());
+            dados.append('telefone', telefone.trim());
+            dados.append('endereco', endereco.trim());
+            dados.append('forma_pagamento', formaPagamento);
+            dados.append('detalhe_pagamento', detalhePagamento);
+            dados.append('total', String(totalPedidoPHP || 0));
+            dados.append('itens_json', JSON.stringify(carrinhoPHP || []));
+
+            fetch('salvar_rascunho.php', {
+                method: 'POST',
+                body: dados
+            })
+            .then(function (response) {
+                // Mesmo se der erro no JSON, segue pro WhatsApp
+                return response.json().catch(function () {
+                    return {};
+                });
+            })
+            .then(function (data) {
+                const numeroWhatsapp = '559791434585';
+                const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
+                window.open(url, '_blank');
+            })
+            .catch(function (erro) {
+                console.error('Falha ao salvar rascunho:', erro);
+                const numeroWhatsapp = '559791434585';
+                const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
+                window.open(url, '_blank');
+            });
         });
     }
 });
