@@ -524,6 +524,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const resumoEnderecoL2   = document.getElementById('resumo_endereco_linha2');
     const enderecoTextoInput = document.getElementById('endereco_texto');
     const modalEnderecoEl    = document.getElementById('modalEndereco');
+    const btnFinalizar         = document.getElementById('btn-finalizar-pedido');
     let modalEndereco        = null;
     if (typeof bootstrap !== 'undefined' && modalEnderecoEl) {
         modalEndereco = new bootstrap.Modal(modalEnderecoEl);
@@ -603,14 +604,20 @@ document.addEventListener('DOMContentLoaded', function () {
         modalPagamento = new bootstrap.Modal(modalPagamentoEl);
     }
 
-    function abrirModalPagamento() {
-        if (modalPagamento) modalPagamento.show();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'block';
-    }
-    function fecharModalPagamento() {
-        if (modalPagamento) modalPagamento.hide();
-        else if (modalPagamentoEl) modalPagamentoEl.style.display = 'none';
-    }
+ function abrirModalPagamento() {
+    // Ao abrir a modal de pagamento, escondemos o botão "Fazer pedido"
+    if (btnFinalizar) btnFinalizar.classList.add('d-none');
+
+    if (modalPagamento) modalPagamento.show();
+    else if (modalPagamentoEl) modalPagamentoEl.style.display = 'block';
+}
+function fecharModalPagamento() {
+    // Ao fechar a modal, exibimos novamente o botão "Fazer pedido"
+    if (btnFinalizar) btnFinalizar.classList.remove('d-none');
+
+    if (modalPagamento) modalPagamento.hide();
+    else if (modalPagamentoEl) modalPagamentoEl.style.display = 'none';
+}
 
     if (cardPagamentoEmpty) {
         cardPagamentoEmpty.style.cursor = 'pointer';
@@ -684,7 +691,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (btnClosePagamento)    btnClosePagamento.addEventListener('click', fecharModalPagamento);
 
     // --------- FINALIZAR PEDIDO / WHATSAPP + RASCUNHO ----------
-    const btnFinalizar = document.getElementById('btn-finalizar-pedido');
+ 
     if (btnFinalizar) {
         btnFinalizar.addEventListener('click', function () {
             if (!carrinhoPHP || !Array.isArray(carrinhoPHP) || carrinhoPHP.length === 0) {
