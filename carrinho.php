@@ -591,11 +591,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             let texto = '';
-            texto += 'NOVO PEDIDO - AÇAIDINHOS\\n\\n';
-            texto += 'Cliente: ' + nome.trim() + '\\n';
-            texto += 'Telefone: ' + telefone.trim() + '\\n\\n';
+            texto += 'NOVO PEDIDO - AÇAIDINHOS\n\n';
+            texto += 'Cliente: ' + nome.trim() + '\n';
+            texto += 'Telefone: ' + telefone.trim() + '\n\n';
 
-            texto += 'ITENS DO PEDIDO:\\n';
+            texto += 'ITENS DO PEDIDO:\n';
 
             carrinhoPHP.forEach(function (item, idx) {
                 if (!item) return;
@@ -605,56 +605,56 @@ document.addEventListener('DOMContentLoaded', function () {
                 const precoItemNum = Number(item.preco || 0);
                 const precoItemTxt = 'R$ ' + precoItemNum.toFixed(2).replace('.', ',');
 
-                texto += '- ' + quantItem + 'x ' + nomeItem + ' - ' + precoItemTxt + '\\n';
+                texto += '- ' + quantItem + 'x ' + nomeItem + ' - ' + precoItemTxt + '\n';
 
                 // Opcionais simples
                 if (Array.isArray(item.opc_simples) && item.opc_simples.length > 0) {
-                    texto += '  Adicionais:\\n';
+                    texto += '  Adicionais:\n';
                     item.opc_simples.forEach(function (opc) {
                         if (!opc) return;
                         const n = opc.nome || '';
                         const pNum = Number(opc.preco || 0);
                         const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\\n';
+                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
                     });
                 }
 
                 // Opcionais de seleção
                 if (Array.isArray(item.opc_selecao) && item.opc_selecao.length > 0) {
                     if (!(Array.isArray(item.opc_simples) && item.opc_simples.length > 0)) {
-                        texto += '  Adicionais:\\n';
+                        texto += '  Adicionais:\n';
                     }
                     item.opc_selecao.forEach(function (opc) {
                         if (!opc) return;
                         const n = opc.nome || '';
                         const pNum = Number(opc.preco || 0);
                         const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\\n';
+                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
                     });
                 }
 
                 // Observação
                 if (item.observacao) {
-                    texto += '  Observação: ' + item.observacao + '\\n';
+                    texto += '  Observação: ' + item.observacao + '\n';
                 }
 
-                texto += '\\n';
+                texto += '\n';
             });
 
             // Total
             if (totalPedidoPHP !== null && totalPedidoPHP !== undefined) {
                 const totalNum = Number(totalPedidoPHP) || 0;
-                texto += 'TOTAL:\\n';
-                texto += 'R$ ' + totalNum.toFixed(2).replace('.', ',') + '\\n\\n';
+                texto += 'TOTAL:\n';
+                texto += 'R$ ' + totalNum.toFixed(2).replace('.', ',') + '\n\n';
             }
 
             // Endereço
-            texto += 'ENDEREÇO DE ENTREGA:\\n';
-            texto += endereco + '\\n\\n';
+            texto += 'ENDEREÇO DE ENTREGA:\n';
+            texto += endereco + '\n\\n';
 
             // Pagamento
-            texto += 'FORMA DE PAGAMENTO:\\n';
-            texto += pagamento + '\\n\\n';
+            texto += 'FORMA DE PAGAMENTO:\n';
+            texto += pagamento + '\n\n';
 
             texto += 'Enviado automaticamente pelo sistema.';
 
