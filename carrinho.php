@@ -61,112 +61,88 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
-    <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Açaidinhos - Carrinho</title>
-
-    <link rel="stylesheet" href="./assets/css/cardapio/animate.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
-    <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
-
-    <!-- ESTILO ESPECÍFICO DA MODAL DE PAGAMENTO (BOTTOM SHEET) -->
     <style>
-        /* Faz a modal de pagamento virar um bottom sheet fixo no rodapé */
-        #modalPagamento {
-            padding: 0 !important;
-        }
+    /* BOTTOM SHEET da forma de pagamento */
+    #modalPagamento {
+        padding: 0 !important;
+    }
 
+    #modalPagamento .modal-dialog {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        margin: 0;
+        width: 100%;
+        max-width: 100%;
+        display: block;
+        transform: translateY(100%);
+        transition: transform 0.3s ease-out;
+    }
+
+    #modalPagamento.show .modal-dialog {
+        transform: translateY(0);
+    }
+
+    #modalPagamento .modal-content {
+        border-radius: 16px 16px 0 0;
+        border: none;
+        box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.25);
+    }
+
+    #modalPagamento .modal-header {
+        border-bottom: none;
+        padding-top: 0.75rem;
+        padding-bottom: 0.25rem;
+        text-align: center;
+    }
+
+    #modalPagamento .modal-header .modal-title {
+        width: 100%;
+        text-align: center;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    #modalPagamento .btn-close {
+        position: absolute;
+        right: 1rem;
+        top: 0.75rem;
+    }
+
+    #modalPagamento .modal-body {
+        max-height: 60vh;
+        overflow-y: auto;
+        padding-bottom: 1rem;
+    }
+
+    #modalPagamento .container-check {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+    }
+
+    #modalPagamento .container-check + .container-check {
+        margin-top: 0.5rem;
+    }
+
+    #modalPagamento .modal-footer {
+        border-top: none;
+        padding-top: 0.5rem;
+        padding-bottom: 1rem;
+    }
+
+    @media (min-width: 768px) {
         #modalPagamento .modal-dialog {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            margin: 0;
-            width: 100%;
-            max-width: 100%;
-            display: block;
-            transform: translateY(100%);
-            transition: transform 0.3s ease-out;
+            max-width: 420px;
+            left: 50%;
+            transform: translate(-50%, 100%);
         }
 
-        /* Quando a modal está aberta (.show), ela sobe de baixo pra cima */
         #modalPagamento.show .modal-dialog {
-            transform: translateY(0);
+            transform: translate(-50%, 0);
         }
-
-        #modalPagamento .modal-content {
-            border-radius: 16px 16px 0 0;
-            border: none;
-            box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.25);
-        }
-
-        #modalPagamento .modal-header {
-            border-bottom: none;
-            padding-top: 0.75rem;
-            padding-bottom: 0.25rem;
-            text-align: center;
-        }
-
-        #modalPagamento .modal-header .modal-title {
-            width: 100%;
-            text-align: center;
-            font-weight: 600;
-            font-size: 1rem;
-        }
-
-        #modalPagamento .btn-close {
-            position: absolute;
-            right: 1rem;
-            top: 0.75rem;
-        }
-
-        #modalPagamento .modal-body {
-            max-height: 60vh;
-            overflow-y: auto;
-            padding-bottom: 1rem;
-        }
-
-        /* Deixa as opções de pagamento com cara de botãozinho grande */
-        #modalPagamento .container-check {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-        }
-
-        #modalPagamento .container-check + .container-check {
-            margin-top: 0.5rem;
-        }
-
-        #modalPagamento .container-check .d-flex {
-            width: 100%;
-        }
-
-        #modalPagamento .container-check span {
-            font-size: 0.95rem;
-        }
-
-        #modalPagamento .modal-footer {
-            border-top: none;
-            padding-top: 0.5rem;
-            padding-bottom: 1rem;
-        }
-
-        /* Em telas maiores, a folha fica mais estreita e centralizada,
-           mas continua subindo de baixo */
-        @media (min-width: 768px) {
-            #modalPagamento .modal-dialog {
-                max-width: 420px;
-                left: 50%;
-                transform: translate(-50%, 100%);
-            }
-
-            #modalPagamento.show .modal-dialog {
-                transform: translate(-50%, 0);
-            }
-        }
-    </style>
-</head>
+    }
+</style>
 
 </head>
 <body>
