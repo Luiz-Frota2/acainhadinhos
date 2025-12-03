@@ -28,7 +28,7 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 <header class="width-fix mt-5">
     <div class="card">
         <div class="d-flex align-items-center">
-            <a href="./index.php" class="container-voltar">
+            <a href="./cardad.php" class="container-voltar">
                 <i class="fas fa-arrow-left"></i>
             </a>
             <div class="infos text-center">
