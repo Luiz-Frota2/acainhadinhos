@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
+    // sua conexão, que você já usa nos outros arquivos
     require './assets/php/conexao.php';
 } catch (Exception $e) {
     http_response_code(500);
@@ -24,7 +25,7 @@ try {
     exit;
 }
 
-// Coleta e trata dados básicos
+// Dados recebidos do carrinho.js / carrinho.php
 $nome              = trim($_POST['nome'] ?? '');
 $telefone          = trim($_POST['telefone'] ?? '');
 $endereco          = trim($_POST['endereco'] ?? '');
@@ -32,7 +33,7 @@ $forma_pagamento   = trim($_POST['forma_pagamento'] ?? '');
 $detalhe_pagamento = trim($_POST['detalhe_pagamento'] ?? '');
 $total             = isset($_POST['total']) ? floatval($_POST['total']) : 0;
 
-// Itens em JSON vindos do carrinho (carrinhoPHP)
+// Itens (vem como JSON da sessão do carrinho)
 $itens_json = $_POST['itens_json'] ?? '[]';
 $itens      = json_decode($itens_json, true);
 if (!is_array($itens)) {
@@ -66,7 +67,7 @@ try {
         ':total'             => $total
     ]);
 
-    // ID do registro criado
+    // ID do rascunho criado
     $pedidoId = $pdo->lastInsertId();
 
     // ========== 2) INSERE ITENS NA TABELA RASCUNHO_ITENS ==========
@@ -77,19 +78,17 @@ try {
         $stmtItem = $pdo->prepare($sqlItem);
 
         foreach ($itens as $item) {
-            if (!$item || !is_array($item)) {
-                continue;
-            }
+            if (!is_array($item)) continue;
 
             $nomeItem   = $item['nome'] ?? 'Item';
             $quantidade = isset($item['quant']) ? (int)$item['quant'] : 1;
             $precoTotal = isset($item['preco']) ? (float)$item['preco'] : 0.0;
             $observacao = $item['observacao'] ?? '';
 
-            // Calcula preço unitário: total / quantidade
+            // Preço unitário (total do item dividido pela quantidade)
             $precoUnitario = $quantidade > 0 ? ($precoTotal / $quantidade) : $precoTotal;
 
-            // Junta opcionais simples + seleções em um único JSON
+            // Junta opcionais simples + seleção em um JSON
             $opcSimples = $item['opc_simples'] ?? [];
             $opcSelecao = $item['opc_selecao'] ?? [];
             $opcionais  = [

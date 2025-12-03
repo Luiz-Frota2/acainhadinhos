@@ -14,34 +14,60 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carrinho - Açaidinhos</title>
+    <title>Açaidinhos - Carrinho</title>
 
+    <link rel="stylesheet" href="./assets/css/cardapio/animate.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
 </head>
-
 <body>
 
-<header class="header-top width-fix">
-    <p class="title mb-1"><b>Meu carrinho</b></p>
-    <p class="sub-title mb-0">Confira os itens antes de finalizar.</p>
+<div class="bg-top pedido"></div>
+
+<header class="width-fix mt-5">
+    <div class="card">
+        <div class="d-flex align-items-center">
+            <a href="./index.php" class="container-voltar">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div class="infos text-center">
+                <h1 class="mb-0"><b>Seu carrinho</b></h1>
+            </div>
+        </div>
+    </div>
 </header>
 
-<section class="width-fix mt-3">
+<section class="carrinho width-fix mt-4">
+
+    <div class="card card-address mb-3">
+        <div class="img-icon-details">
+            <i class="fas fa-cart-plus"></i>
+        </div>
+        <div class="infos">
+            <?php if (!empty($_SESSION['carrinho'])): ?>
+                <p class="name mb-0"><b>Itens no seu carrinho</b></p>
+                <span class="text mb-0">Finalize seu pedido</span>
+            <?php else: ?>
+                <p class="name mb-0"><b>Seu carrinho está vazio</b></p>
+                <span class="text mb-0">Adicione itens ao carrinho</span>
+            <?php endif; ?>
+        </div>
+        <div class="icon-edit">
+            <i class="fas fa-store"></i>
+        </div>
+    </div>
+
     <?php if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])): ?>
-        <?php foreach ($_SESSION['carrinho'] as $index => $item): ?>
+        <?php foreach ($_SESSION['carrinho'] as $idx => $item): ?>
             <?php
-                $nome  = $item['nome']  ?? '';
-                $preco = isset($item['preco']) ? (float)$item['preco'] : 0;
-                $quant = isset($item['quant']) ? (int)$item['quant'] : 1;
-                $obs   = $item['observacao'] ?? '';
-
-                $opcSimples = $item['opc_simples'] ?? [];
-                $opcSelecao = $item['opc_selecao'] ?? [];
+            $nome       = $item['nome']         ?? '';
+            $preco      = isset($item['preco']) ? (float)$item['preco'] : 0;
+            $quant      = isset($item['quant']) ? (int)$item['quant'] : 1;
+            $obs        = trim($item['observacao'] ?? '');
+            $opcSimples = is_array($item['opc_simples'] ?? null) ? $item['opc_simples'] : [];
+            $opcSelecao = is_array($item['opc_selecao'] ?? null) ? $item['opc_selecao'] : [];
             ?>
-
             <div class="card mb-2 pr-0">
                 <div class="container-detalhes">
                     <div class="detalhes-produto">
@@ -72,15 +98,8 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                             <?php endforeach; ?>
                         <?php endif; ?>
 
-                        <!-- OPCIONAIS DE SELEÇÃO -->
+                        <!-- OPCIONAIS DAS SELEÇÕES -->
                         <?php if (!empty($opcSelecao)): ?>
-                            <?php if (empty($opcSimples)): ?>
-                                <div class="infos-produto">
-                                    <p class="name-opcional mb-0">
-                                        Adicionais:
-                                    </p>
-                                </div>
-                            <?php endif; ?>
                             <?php foreach ($opcSelecao as $op): ?>
                                 <?php
                                 $opNome  = $op['nome']  ?? '';
@@ -98,20 +117,31 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                         <?php endif; ?>
 
                         <!-- OBSERVAÇÃO -->
-                        <?php if (!empty($obs)): ?>
-                            <div class="infos-produto mt-1">
-                                <p class="name-opcional mb-0">
-                                    <b>Obs:</b> <?= nl2br(htmlspecialchars($obs)) ?>
+                        <?php if ($obs !== ''): ?>
+                            <div class="infos-produto">
+                                <p class="obs-opcional mb-0">
+                                    Observação: <?= htmlspecialchars($obs) ?>
                                 </p>
                             </div>
                         <?php endif; ?>
+
                     </div>
+
+                    <!-- AÇÕES DO ITEM (remover) -->
+                    <form action="remove_from_cart.php" method="post" style="margin-top:5px;">
+                        <input type="hidden" name="index" value="<?= $idx ?>">
+                        <div class="detalhes-produto-edit">
+                            <button type="submit" class="btn btn-link text-danger p-0" title="Excluir">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </form>
+
                 </div>
             </div>
         <?php endforeach; ?>
-
     <?php else: ?>
-        <div class="card card-empty">
+        <div class="card mb-2 pr-0">
             <div class="container-detalhes">
                 <div class="detalhes-produto">
                     <div class="infos-produto">
@@ -139,34 +169,45 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
             </div>
             <div class="checks">
                 <label class="container-check">
-                    <input type="radio" name="tipo_entrega" checked />
+                    <input type="checkbox" />
+                    <span class="checkmark"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card card-opcionais mt-2">
+            <div class="infos-produto-opcional">
+                <p class="name mb-0"><b>Retirar no estabelecimento</b></p>
+            </div>
+            <div class="checks">
+                <label class="container-check">
+                    <input type="checkbox" />
                     <span class="checkmark"></span>
                 </label>
             </div>
         </div>
     </div>
 
-    <!-- ENDEREÇO -->
+    <!-- ENDEREÇO (com modal) -->
     <div class="container-group mb-5">
         <span class="badge">Obrigatório</span>
-        <p class="title-categoria mb-0"><b>Endereço de entrega</b></p>
-        <span class="sub-title-categoria">Clique para adicionar o endereço completo.</span>
 
-        <!-- Card endereço vazio -->
-        <div class="card card-address mt-2" id="card-address-empty">
-            <div class="icon" style="background:#eee;">
-                <i class="fas fa-map-marker-alt" style="color:#666;"></i>
-            </div>
-            <div class="infos">
-                <p class="name mb-0"><b>Adicionar endereço</b></p>
-                <span class="text mb-0">Clique para informar rua, número, bairro...</span>
+        <p class="title-categoria mb-0"><b>Qual o seu endereço?</b></p>
+        <span class="sub-title-categoria">Informe o endereço da entrega</span>
+
+        <!-- Card quando nenhum endereço -->
+        <div class="card card-select mt-2" id="card-address-empty">
+            <div class="infos-produto-opcional">
+                <p class="mb-0 color-primary">
+                    <i class="fas fa-plus-circle"></i>&nbsp; Nenhum endereço selecionado
+                </p>
             </div>
         </div>
 
-        <!-- Card endereço preenchido -->
+        <!-- Card com endereço preenchido -->
         <div class="card card-address mt-2 d-none" id="card-address-filled">
-            <div class="icon" style="background:#6c2dc7;color:#fff;">
-                <i class="fas fa-map-marker-alt"></i>
+            <div class="img-icon-details">
+                <i class="fas fa-map-marked-alt"></i>
             </div>
             <div class="infos">
                 <p class="name mb-0"><b id="resumo_endereco_linha1"></b></p>
@@ -192,33 +233,31 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
     <!-- Telefone -->
     <div class="container-group mb-5">
         <span class="badge">Obrigatório</span>
-        <p class="title-categoria mb-0"><b>Celular / WhatsApp</b></p>
-        <span class="sub-title-categoria">Nós podemos entrar em contato por qual número?</span>
+        <p class="title-categoria mb-0"><b>Número do seu celular</b></p>
+        <span class="sub-title-categoria">Para contato sobre o pedido</span>
         <input type="text" class="form-control mt-2" id="cliente_telefone" name="cliente_telefone"
-               placeholder="* Informe o número com DDD">
+               placeholder="(00) 00000-0000">
     </div>
 
-    <!-- FORMA DE PAGAMENTO -->
+    <!-- Pagamento (com modal) -->
     <div class="container-group mb-5">
         <span class="badge">Obrigatório</span>
-        <p class="title-categoria mb-0"><b>Forma de pagamento</b></p>
-        <span class="sub-title-categoria">Clique para selecionar a forma de pagamento.</span>
+        <p class="title-categoria mb-0"><b>Como você prefere pagar?</b></p>
+        <span class="sub-title-categoria">Pagamento na entrega</span>
 
-        <!-- Card pagamento vazio -->
-        <div class="card card-address mt-2" id="card-pagamento-empty">
-            <div class="icon" style="background:#eee;">
-                <i class="fas fa-wallet" style="color:#666;"></i>
-            </div>
-            <div class="infos">
-                <p class="name mb-0"><b>Selecionar pagamento</b></p>
-                <span class="text mb-0">Clique para escolher como deseja pagar.</span>
+        <!-- Card quando nenhuma forma selecionada -->
+        <div class="card card-select mt-2" id="card-pagamento-empty">
+            <div class="infos-produto-opcional">
+                <p class="mb-0 color-primary">
+                    <i class="fas fa-plus-circle"></i>&nbsp; Nenhuma forma selecionada
+                </p>
             </div>
         </div>
 
-        <!-- Card pagamento preenchido -->
+        <!-- Card com forma selecionada -->
         <div class="card card-address mt-2 d-none" id="card-pagamento-filled">
-            <div class="icon" style="background:#6c2dc7;color:#fff;">
-                <i class="fas fa-wallet"></i>
+            <div class="img-icon-details">
+                <i class="fas fa-credit-card"></i>
             </div>
             <div class="infos">
                 <p class="name mb-0"><b id="resumo_pagamento_linha1"></b></p>
@@ -230,9 +269,6 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
         </div>
 
         <input type="hidden" id="pagamento_texto" name="pagamento_texto" />
-        <!-- Campos extras para gravar de forma separada no banco -->
-        <input type="hidden" id="pagamento_metodo" name="pagamento_metodo" />
-        <input type="hidden" id="pagamento_detalhe" name="pagamento_detalhe" />
     </div>
 
 </section>
@@ -254,37 +290,43 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
             </div>
             <div class="modal-body">
                 <div class="mb-2">
-                    <label class="form-label mb-1">Rua</label>
-                    <input type="text" class="form-control" id="end_rua" placeholder="Ex: Rua Manaus">
+                    <label class="form-label mb-1">Rua / Avenida</label>
+                    <input type="text" class="form-control" id="endereco_rua" placeholder="Ex: Rua Projetada A" />
                 </div>
-                <div class="mb-2">
-                    <label class="form-label mb-1">Número</label>
-                    <input type="text" class="form-control" id="end_numero" placeholder="Ex: 123">
+                <div class="row">
+                    <div class="col-6 mb-2">
+                        <label class="form-label mb-1">Número</label>
+                        <input type="text" class="form-control" id="endereco_numero" placeholder="Ex: 123" />
+                    </div>
+                    <div class="col-6 mb-2">
+                        <label class="form-label mb-1">Bairro</label>
+                        <input type="text" class="form-control" id="endereco_bairro" placeholder="Ex: Centro" />
+                    </div>
                 </div>
-                <div class="mb-2">
-                    <label class="form-label mb-1">Bairro</label>
-                    <input type="text" class="form-control" id="end_bairro" placeholder="Ex: Centro">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label mb-1">Cidade</label>
-                    <input type="text" class="form-control" id="end_cidade" placeholder="Ex: Coari">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label mb-1">CEP</label>
-                    <input type="text" class="form-control" id="end_cep" placeholder="Ex: 69460-000">
+                <div class="row">
+                    <div class="col-7 mb-2">
+                        <label class="form-label mb-1">Cidade</label>
+                        <input type="text" class="form-control" id="endereco_cidade" placeholder="Ex: Coari-AM" />
+                    </div>
+                    <div class="col-5 mb-2">
+                        <label class="form-label mb-1">CEP</label>
+                        <input type="text" class="form-control" id="endereco_cep" placeholder="XXXXX-XXX" />
+                    </div>
                 </div>
                 <div class="mb-2">
                     <label class="form-label mb-1">Complemento</label>
-                    <input type="text" class="form-control" id="end_complemento" placeholder="Ex: Casa azul, apto...">
+                    <input type="text" class="form-control" id="endereco_complemento"
+                           placeholder="Casa, apto, ponto de referência..." />
                 </div>
-                <div class="mb-2">
-                    <label class="form-label mb-1">Ponto de referência</label>
-                    <input type="text" class="form-control" id="end_referencia" placeholder="Ex: Próximo à escola...">
+                <div class="mb-0">
+                    <label class="form-label mb-1">Referência</label>
+                    <input type="text" class="form-control" id="endereco_referencia"
+                           placeholder="Ex: Próximo à praça, escola..." />
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-outline-secondary" id="btn-cancelar-endereco">Cancelar</button>
-                <button class="btn btn-yellow" id="btn-salvar-endereco">Salvar endereço</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-cancelar-endereco">Cancelar</button>
+                <button type="button" class="btn btn-yellow btn-sm" id="btn-salvar-endereco">Salvar endereço</button>
             </div>
         </div>
     </div>
@@ -299,42 +341,48 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
                 <button type="button" class="btn-close" id="btn-close-pagamento" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="radio" name="pagamento" id="pag_dinheiro" value="dinheiro">
-                    <label class="form-check-label" for="pag_dinheiro">
-                        Dinheiro
+                <div class="mb-2">
+                    <label class="container-check w-100">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Dinheiro</span>
+                            <input type="radio" name="forma_pagamento" value="Dinheiro" id="pag_dinheiro" />
+                        </div>
+                        <span class="checkmark"></span>
                     </label>
                 </div>
-
                 <div class="mb-2" id="grupo_troco" style="display:none;">
                     <label class="form-label mb-1">Troco para quanto?</label>
-                    <input type="text" class="form-control" id="pag_troco" placeholder="Ex: R$ 50,00">
+                    <input type="text" class="form-control" id="pag_troco" placeholder="Ex: 50,00" />
                 </div>
-
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="radio" name="pagamento" id="pag_cartao" value="cartao">
-                    <label class="form-check-label" for="pag_cartao">
-                        Cartão (crédito/débito)
+                <div class="mb-2">
+                    <label class="container-check w-100">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Cartão (crédito/débito)</span>
+                            <input type="radio" name="forma_pagamento" value="Cartão" id="pag_cartao" />
+                        </div>
+                        <span class="checkmark"></span>
                     </label>
                 </div>
-
-                <div class="form-check mb-2">
-                    <input class="form-check-input" type="radio" name="pagamento" id="pag_pix" value="pix">
-                    <label class="form-check-label" for="pag_pix">
-                        Pix
+                <div class="mb-0">
+                    <label class="container-check w-100">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Pix</span>
+                            <input type="radio" name="forma_pagamento" value="Pix" id="pag_pix" />
+                        </div>
+                        <span class="checkmark"></span>
                     </label>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-outline-secondary" id="btn-cancelar-pagamento">Cancelar</button>
-                <button class="btn btn-yellow" id="btn-salvar-pagamento">Salvar pagamento</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-cancelar-pagamento">Cancelar</button>
+                <button type="button" class="btn btn-yellow btn-sm" id="btn-salvar-pagamento">Salvar forma de pagamento</button>
             </div>
         </div>
     </div>
 </div>
 
-<section class="loja-status-bottom width-fix">
-    <p class="mb-0"><b>Loja aberta agora!</b></p>
+<section class="menu-bottom disabled hidden" id="menu-bottom-closed">
+    <p class="mb-0"><b>Loja fechada no momento.</b></p>
 </section>
 
 <script type="text/javascript" src="./js/bootstrap.bundle.min.js"></script>
@@ -367,10 +415,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (cardAddressEmpty) {
+        cardAddressEmpty.style.cursor = 'pointer';
         cardAddressEmpty.addEventListener('click', abrirModalEndereco);
     }
     const btnEditEndereco = document.getElementById('btn-edit-endereco');
     if (btnEditEndereco) {
+        btnEditEndereco.style.cursor = 'pointer';
         btnEditEndereco.addEventListener('click', abrirModalEndereco);
     }
 
@@ -378,25 +428,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnCancelarEndereco = document.getElementById('btn-cancelar-endereco');
     const btnCloseEndereco    = document.getElementById('btn-close-endereco');
 
-    const inputRua   = document.getElementById('end_rua');
-    const inputNum   = document.getElementById('end_numero');
-    const inputBairro= document.getElementById('end_bairro');
-    const inputCidade= document.getElementById('end_cidade');
-    const inputCEP   = document.getElementById('end_cep');
-    const inputCompl = document.getElementById('end_complemento');
-    const inputRef   = document.getElementById('end_referencia');
-
     function salvarEndereco() {
-        const rua   = (inputRua   && inputRua.value)   ? inputRua.value   : '';
-        const num   = (inputNum   && inputNum.value)   ? inputNum.value   : '';
-        const bairro= (inputBairro&& inputBairro.value)? inputBairro.value: '';
-        const cid   = (inputCidade&& inputCidade.value)? inputCidade.value: '';
-        const cep   = (inputCEP   && inputCEP.value)   ? inputCEP.value   : '';
-        const compl = (inputCompl && inputCompl.value) ? inputCompl.value : '';
-        const ref   = (inputRef   && inputRef.value)   ? inputRef.value   : '';
+        const rua   = (document.getElementById('endereco_rua') || {}).value || '';
+        const num   = (document.getElementById('endereco_numero') || {}).value || '';
+        const bairro= (document.getElementById('endereco_bairro') || {}).value || '';
+        const cid   = (document.getElementById('endereco_cidade') || {}).value || '';
+        const cep   = (document.getElementById('endereco_cep') || {}).value || '';
+        const compl = (document.getElementById('endereco_complemento') || {}).value || '';
+        const ref   = (document.getElementById('endereco_referencia') || {}).value || '';
 
         if (!rua.trim() || !num.trim() || !bairro.trim() || !cid.trim()) {
-            alert('Preencha, pelo menos, Rua, Número, Bairro e Cidade.');
+            alert('Preencha rua, número, bairro e cidade.');
             return;
         }
 
@@ -430,8 +472,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const resumoPagamentoL1    = document.getElementById('resumo_pagamento_linha1');
     const resumoPagamentoL2    = document.getElementById('resumo_pagamento_linha2');
     const pagamentoTextoInput  = document.getElementById('pagamento_texto');
-    const pagamentoMetodoInput = document.getElementById('pagamento_metodo');
-    const pagamentoDetalheInput = document.getElementById('pagamento_detalhe');
 
     const modalPagamentoEl = document.getElementById('modalPagamento');
     let modalPagamento     = null;
@@ -452,8 +492,9 @@ document.addEventListener('DOMContentLoaded', function () {
         cardPagamentoEmpty.style.cursor = 'pointer';
         cardPagamentoEmpty.addEventListener('click', abrirModalPagamento);
     }
-    const btnEditPagamento = document.getElementById('btn-edit-pagamento')
+    const btnEditPagamento = document.getElementById('btn-edit-pagamento');
     if (btnEditPagamento) {
+        btnEditPagamento.style.cursor = 'pointer';
         btnEditPagamento.addEventListener('click', abrirModalPagamento);
     }
 
@@ -507,8 +548,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (resumoPagamentoL1) resumoPagamentoL1.textContent = metodo;
         if (resumoPagamentoL2) resumoPagamentoL2.textContent = detalhe;
         if (pagamentoTextoInput) pagamentoTextoInput.value = metodo + (detalhe ? ' - ' + detalhe : '');
-        if (pagamentoMetodoInput)  pagamentoMetodoInput.value  = metodo;
-        if (pagamentoDetalheInput) pagamentoDetalheInput.value = detalhe;
 
         if (cardPagamentoEmpty) cardPagamentoEmpty.classList.add('d-none');
         if (cardPagamentoFilled) cardPagamentoFilled.classList.remove('d-none');
@@ -533,8 +572,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const telefone  = (document.getElementById('cliente_telefone') || {}).value || '';
             const endereco  = (document.getElementById('endereco_texto') || {}).value || '';
             const pagamento = (document.getElementById('pagamento_texto') || {}).value || '';
-            const formaPagamento   = (document.getElementById('pagamento_metodo') || {}).value || '';
-            const detalhePagamento = (document.getElementById('pagamento_detalhe') || {}).value || '';
 
             if (!nome.trim()) {
                 alert('Informe o seu nome.');
@@ -554,11 +591,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             let texto = '';
-            texto += 'NOVO PEDIDO - AÇAIDINHOS \\n';
-            texto += 'Cliente: ' + nome.trim() + '\\n';
-            texto += 'Telefone: ' + telefone.trim() + '\\n\\n';
+            texto += 'NOVO PEDIDO - AÇAIDINHOS \n';
+            texto += 'Cliente: ' + nome.trim() + '\n';
+            texto += 'Telefone: ' + telefone.trim() + '\n\n';
 
-            texto += 'ITENS DO PEDIDO:\\n';
+            texto += 'ITENS DO PEDIDO:\n';
 
             carrinhoPHP.forEach(function (item, idx) {
                 if (!item) return;
@@ -568,90 +605,62 @@ document.addEventListener('DOMContentLoaded', function () {
                 const precoItemNum = Number(item.preco || 0);
                 const precoItemTxt = 'R$ ' + precoItemNum.toFixed(2).replace('.', ',');
 
-                texto += '- ' + quantItem + 'x ' + nomeItem + ' - ' + precoItemTxt + '\\n';
+                texto += '- ' + quantItem + 'x ' + nomeItem + ' - ' + precoItemTxt + '\n';
 
                 // Opcionais simples
                 if (Array.isArray(item.opc_simples) && item.opc_simples.length > 0) {
-                    texto += '  Adicionais:\\n';
+                    texto += '  Adicionais:\n';
                     item.opc_simples.forEach(function (opc) {
                         if (!opc) return;
                         const n = opc.nome || '';
                         const pNum = Number(opc.preco || 0);
                         const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\\n';
+                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
                     });
                 }
 
                 // Opcionais de seleção
                 if (Array.isArray(item.opc_selecao) && item.opc_selecao.length > 0) {
                     if (!(Array.isArray(item.opc_simples) && item.opc_simples.length > 0)) {
-                        texto += '  Adicionais:\\n';
+                        texto += '  Adicionais:\n';
                     }
                     item.opc_selecao.forEach(function (opc) {
                         if (!opc) return;
                         const n = opc.nome || '';
                         const pNum = Number(opc.preco || 0);
                         const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
-                        texto += '   - ' + n + ' (+' + pTxt + ')\\n';
+                        texto += '   - ' + n + ' (+' + pTxt + ')\n';
                     });
                 }
 
                 // Observação
                 if (item.observacao) {
-                    texto += '  Observação: ' + item.observacao + '\\n';
+                    texto += '  Observação: ' + item.observacao + '\n';
                 }
 
-                texto += '\\n';
+                texto += '\n';
             });
 
             // Total
             if (totalPedidoPHP !== null && totalPedidoPHP !== undefined) {
                 const totalNum = Number(totalPedidoPHP) || 0;
-                texto += 'TOTAL:\\n';
-                texto += 'R$ ' + totalNum.toFixed(2).replace('.', ',') + '\\n\\n';
+                texto += 'TOTAL:\n';
+                texto += 'R$ ' + totalNum.toFixed(2).replace('.', ',') + '\n\n';
             }
 
             // Endereço
-            texto += 'ENDEREÇO DE ENTREGA:\\n';
-            texto += endereco + '\\n\\n';
+            texto += 'ENDEREÇO DE ENTREGA:\n';
+            texto += endereco + '\n\n';
 
             // Pagamento
-            texto += 'FORMA DE PAGAMENTO:\\n';
-            texto += pagamento + '\\n\\n';
+            texto += 'FORMA DE PAGAMENTO:\n';
+            texto += pagamento + '\n\n';
 
             texto += 'Enviado automaticamente pelo sistema.';
 
-            // ----- PRIMEIRO SALVA NO BANCO (rascunho/rascunho_itens) -----
-            const dados = new FormData();
-            dados.append('nome', nome.trim());
-            dados.append('telefone', telefone.trim());
-            dados.append('endereco', endereco.trim());
-            dados.append('forma_pagamento', formaPagamento || pagamento.trim());
-            dados.append('detalhe_pagamento', detalhePagamento);
-            dados.append('total', String(totalPedidoPHP || 0));
-            dados.append('itens_json', JSON.stringify(carrinhoPHP || []));
-
-            fetch('salvar_rascunho.php', {
-                method: 'POST',
-                body: dados
-            })
-            .then(function (response) {
-                // Mesmo se der algum erro no backend, vamos tentar seguir com o WhatsApp
-                return response.json().catch(function () {
-                    return {};
-                });
-            })
-            .then(function (data) {
-                const numeroWhatsapp = '559791434585'; // 55 + 97 + 981434585
-                const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-                window.open(url, '_blank');
-            })
-            .catch(function (erro) {
-                console.error('Falha ao salvar rascunho:', erro);
-                const numeroWhatsapp = '559791434585';
-                const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-                window.open(url, '_blank');
-            });
+            const numeroWhatsapp = '559791434585'; // 55 + 97 + 981434585
+            const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
+            window.open(url, '_blank');
         });
     }
 });
