@@ -19,6 +19,6 @@ if (isset($_POST['index'])) {
     }
 }
 
-header("Location: carrinho.php?empresa='urlencode($empresaID)'");
+header("Location: carrinho.php?empresa=$empresaID");
 exit;
 ?>
