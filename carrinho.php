@@ -897,15 +897,22 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                     texto += 'ENDEREÇO:\n' + enderecoFinal + '\n\n';
                     texto += 'FORMA DE PAGAMENTO:\n' + pagamento + '\n\n';
                     texto += 'Enviado automaticamente pelo sistema.';
+const dados = new FormData();
+dados.append('nome', nome.trim());
+dados.append('telefone', telefone.trim());
+dados.append('endereco', enderecoFinal);
+dados.append('forma_pagamento', formaPagamentoSelecionada);
+dados.append('detalhe_pagamento', detalhePagamentoSelecionado);
+dados.append('total', String(totalFinalNum || 0));
+dados.append('itens_json', JSON.stringify(carrinhoPHP || []));
 
-                    const dados = new FormData();
-                    dados.append('nome', nome.trim());
-                    dados.append('telefone', telefone.trim());
-                    dados.append('endereco', enderecoFinal);
-                    dados.append('forma_pagamento', formaPagamentoSelecionada);
-                    dados.append('detalhe_pagamento', detalhePagamentoSelecionado);
-                    dados.append('total', String(totalFinalNum || 0));
-                    dados.append('itens_json', JSON.stringify(carrinhoPHP || []));
+// NOVO: taxa de entrega só se for ENTREGA
+let taxaParaSalvar = 0;
+if (modoEntrega === 'Entrega') {
+    taxaParaSalvar = Number(taxaEntregaPHP || 0);
+}
+dados.append('taxa_entrega', String(taxaParaSalvar));
+
 
                     fetch('salvar_rascunho.php?empresa=<?= urlencode($empresaID) ?>', {
                             method: 'POST',
