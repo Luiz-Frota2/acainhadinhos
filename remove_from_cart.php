@@ -19,7 +19,7 @@ if (isset($_POST['index'])) {
         $_SESSION['carrinho'] = array_values($_SESSION['carrinho']); // reorganiza os índices
 
         $_SESSION['flash_msg']  = 'Item removido do carrinho.';
-        $_SESSION['flash_tipo'] = 'success';
+        $_SESSION['flash_tipo'] = 'error';
     } else {
         $_SESSION['flash_msg']  = 'Não foi possível remover o item.';
         $_SESSION['flash_tipo'] = 'error';
