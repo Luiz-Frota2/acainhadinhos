@@ -51,23 +51,22 @@ if (!empty($_SESSION['carrinho']) && is_array($_SESSION['carrinho'])) {
 
 /* ===========================================
    4. CONFIGURAÇÕES ENTREGA / RETIRADA
+   (usando entregas, entrega_taxas, entrega_taxas_unica,
+    configuracoes_retirada)
    =========================================== */
 $temEntrega        = false;
 $textoEntrega      = '';
 $taxaEntregaValor  = 0.0;
+$modoTaxaEntrega   = 'nenhum'; // sem_taxa | taxa_unica | nenhum
 
 $temRetirada       = false;
 $textoRetirada     = '';
 
 try {
-    // ENTREGAS
-    $sql = "SELECT e.id_entrega, e.entrega, e.tempo_min, e.tempo_max,
-                   tu.taxa_unica, tu.valor_taxa
-            FROM entregas e
-            LEFT JOIN entrega_taxas_unica tu 
-                   ON tu.id_entrega = e.id_entrega
-                  AND tu.taxa_unica = 1
-            WHERE e.id_empresa = :emp
+    // ================= ENTREGAS =================
+    $sql = "SELECT id_entrega, entrega, tempo_min, tempo_max
+            FROM entregas
+            WHERE id_empresa = :emp
             LIMIT 1";
     $stmt = $pdo->prepare($sql);
     $stmt->bindValue(':emp', $empresaID);
@@ -76,18 +75,57 @@ try {
 
     if ($entCfg && (int)$entCfg['entrega'] === 1) {
         $temEntrega = true;
-        if ((int)$entCfg['tempo_min'] > 0 && (int)$entCfg['tempo_max'] > 0) {
-            $textoEntrega = 'Entrega (' . $entCfg['tempo_min'] . '-' . $entCfg['tempo_max'] . 'min)';
+        $idEntrega  = (int)$entCfg['id_entrega'];
+
+        // Texto da entrega
+        $tMin = (int)$entCfg['tempo_min'];
+        $tMax = (int)$entCfg['tempo_max'];
+        if ($tMin > 0 && $tMax > 0) {
+            $textoEntrega = 'Entrega (' . $tMin . '-' . $tMax . 'min)';
         } else {
             $textoEntrega = 'Entrega';
         }
 
-        if (!empty($entCfg['taxa_unica']) && (int)$entCfg['taxa_unica'] === 1) {
-            $taxaEntregaValor = (float)$entCfg['valor_taxa'];
+        // ----- CONFIGURAÇÃO DA TAXA -----
+        $sql = "SELECT sem_taxa, taxa_unica, idSelecionado
+                FROM entrega_taxas
+                WHERE id_entrega = :id
+                LIMIT 1";
+        $stmt = $pdo->prepare($sql);
+        $stmt->bindValue(':id', $idEntrega, PDO::PARAM_INT);
+        $stmt->execute();
+        $taxCfg = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($taxCfg) {
+            $semTaxa   = (int)$taxCfg['sem_taxa']   === 1;
+            $taxaUnica = (int)$taxCfg['taxa_unica'] === 1;
+
+            if ($semTaxa) {
+                // Sem taxa, mesmo que exista registro na tabela de valor
+                $modoTaxaEntrega  = 'sem_taxa';
+                $taxaEntregaValor = 0.0;
+            } elseif ($taxaUnica) {
+                $modoTaxaEntrega = 'taxa_unica';
+
+                // Busca valor da taxa única
+                $sql = "SELECT valor_taxa
+                        FROM entrega_taxas_unica
+                        WHERE id_entrega = :id
+                          AND taxa_unica = 1
+                        LIMIT 1";
+                $stmt = $pdo->prepare($sql);
+                $stmt->bindValue(':id', $idEntrega, PDO::PARAM_INT);
+                $stmt->execute();
+                $unica = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($unica && isset($unica['valor_taxa'])) {
+                    $taxaEntregaValor = (float)$unica['valor_taxa'];
+                }
+            }
         }
     }
 
-    // RETIRADA
+    // ================= RETIRADA =================
     $sql = "SELECT retirada, tempo_min, tempo_max
             FROM configuracoes_retirada
             WHERE id_empresa = :emp
@@ -99,8 +137,10 @@ try {
 
     if ($retCfg && (int)$retCfg['retirada'] === 1) {
         $temRetirada = true;
-        if ((int)$retCfg['tempo_min'] > 0 && (int)$retCfg['tempo_max'] > 0) {
-            $textoRetirada = 'Retirar no estabelecimento (' . $retCfg['tempo_min'] . '-' . $retCfg['tempo_max'] . 'min)';
+        $tMin = (int)$retCfg['tempo_min'];
+        $tMax = (int)$retCfg['tempo_max'];
+        if ($tMin > 0 && $tMax > 0) {
+            $textoRetirada = 'Retirar no estabelecimento (' . $tMin . '-' . $tMax . 'min)';
         } else {
             $textoRetirada = 'Retirar no estabelecimento';
         }
@@ -529,27 +569,27 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
 
     <script>
         // Dados do PHP
-        const carrinhoPHP = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
+        const carrinhoPHP    = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
         const totalPedidoPHP = <?php echo json_encode($total_pedido); ?>;
         const taxaEntregaPHP = <?php echo json_encode($taxaEntregaValor); ?>;
-        const empresaID = <?php echo json_encode($empresaID); ?>;
+        const empresaID      = <?php echo json_encode($empresaID); ?>;
 
         // Keys para localStorage (por empresa)
-        const STORAGE_ENDERECO_KEY = 'pedido_endereco_' + empresaID;
+        const STORAGE_ENDERECO_KEY  = 'pedido_endereco_'  + empresaID;
         const STORAGE_PAGAMENTO_KEY = 'pedido_pagamento_' + empresaID;
 
         // Globais de pagamento
-        let formaPagamentoSelecionada = '';
+        let formaPagamentoSelecionada   = '';
         let detalhePagamentoSelecionado = '';
 
         document.addEventListener('DOMContentLoaded', function() {
             const baseTotalItens = Number(totalPedidoPHP || 0);
 
             // ========= ELEMENTOS GERAIS =========
-            const chkEntrega = document.getElementById('chk_tipo_entrega');
-            const chkRetirada = document.getElementById('chk_tipo_retirada');
+            const chkEntrega      = document.getElementById('chk_tipo_entrega');
+            const chkRetirada     = document.getElementById('chk_tipo_retirada');
             const cardTaxaEntrega = document.getElementById('card-taxa-entrega');
-            const spanTotalBotao = document.getElementById('valor_total_pedido');
+            const spanTotalBotao  = document.getElementById('valor_total_pedido');
 
             function calcularTotalPedido() {
                 let total = baseTotalItens;
@@ -591,10 +631,10 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
             }
 
             // ========= ENDEREÇO =========
-            const cardAddressEmpty = document.getElementById('card-address-empty');
-            const cardAddressFilled = document.getElementById('card-address-filled');
-            const resumoEnderecoL1 = document.getElementById('resumo_endereco_linha1');
-            const resumoEnderecoL2 = document.getElementById('resumo_endereco_linha2');
+            const cardAddressEmpty   = document.getElementById('card-address-empty');
+            const cardAddressFilled  = document.getElementById('card-address-filled');
+            const resumoEnderecoL1   = document.getElementById('resumo_endereco_linha1');
+            const resumoEnderecoL2   = document.getElementById('resumo_endereco_linha2');
             const enderecoTextoInput = document.getElementById('endereco_texto');
 
             const modalEnderecoEl = document.getElementById('modalEndereco');
@@ -621,9 +661,9 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                 btnEditEndereco.addEventListener('click', abrirModalEndereco);
             }
 
-            const btnSalvarEndereco = document.getElementById('btn-salvar-endereco');
+            const btnSalvarEndereco   = document.getElementById('btn-salvar-endereco');
             const btnCancelarEndereco = document.getElementById('btn-cancelar-endereco');
-            const btnCloseEndereco = document.getElementById('btn-close-endereco');
+            const btnCloseEndereco    = document.getElementById('btn-close-endereco');
 
             function montarResumoEndereco(rua, num, bairro, cid, cep, compl, ref) {
                 const linha1 = rua + ', ' + num + ' - ' + bairro;
@@ -634,24 +674,24 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
 
                 let textoEndereco = linha1 + ' - ' + linha2;
                 if (compl.trim()) textoEndereco += ' | Compl.: ' + compl.trim();
-                if (ref.trim()) textoEndereco += ' | Ref.: ' + ref.trim();
+                if (ref.trim())   textoEndereco += ' | Ref.: '   + ref.trim();
 
                 if (resumoEnderecoL1) resumoEnderecoL1.textContent = linha1;
                 if (resumoEnderecoL2) resumoEnderecoL2.textContent = linha2;
-                if (enderecoTextoInput) enderecoTextoInput.value = textoEndereco;
+                if (enderecoTextoInput) enderecoTextoInput.value   = textoEndereco;
 
-                if (cardAddressEmpty) cardAddressEmpty.classList.add('d-none');
+                if (cardAddressEmpty)  cardAddressEmpty.classList.add('d-none');
                 if (cardAddressFilled) cardAddressFilled.classList.remove('d-none');
             }
 
             function salvarEndereco() {
-                const rua = (document.getElementById('endereco_rua') || {}).value || '';
-                const num = (document.getElementById('endereco_numero') || {}).value || '';
+                const rua  = (document.getElementById('endereco_rua')  || {}).value || '';
+                const num  = (document.getElementById('endereco_numero') || {}).value || '';
                 const bairro = (document.getElementById('endereco_bairro') || {}).value || '';
-                const cid = (document.getElementById('endereco_cidade') || {}).value || '';
-                const cep = (document.getElementById('endereco_cep') || {}).value || '';
+                const cid  = (document.getElementById('endereco_cidade') || {}).value || '';
+                const cep  = (document.getElementById('endereco_cep')   || {}).value || '';
                 const compl = (document.getElementById('endereco_complemento') || {}).value || '';
-                const ref = (document.getElementById('endereco_referencia') || {}).value || '';
+                const ref   = (document.getElementById('endereco_referencia')  || {}).value || '';
 
                 if (!rua.trim() || !num.trim() || !bairro.trim() || !cid.trim()) {
                     alert('Preencha rua, número, bairro e cidade.');
@@ -676,9 +716,9 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                 fecharModalEndereco();
             }
 
-            if (btnSalvarEndereco) btnSalvarEndereco.addEventListener('click', salvarEndereco);
+            if (btnSalvarEndereco)   btnSalvarEndereco.addEventListener('click', salvarEndereco);
             if (btnCancelarEndereco) btnCancelarEndereco.addEventListener('click', fecharModalEndereco);
-            if (btnCloseEndereco) btnCloseEndereco.addEventListener('click', fecharModalEndereco);
+            if (btnCloseEndereco)    btnCloseEndereco.addEventListener('click', fecharModalEndereco);
 
             // Carregar endereço do localStorage (se existir)
             (function carregarEnderecoLocalStorage() {
@@ -686,35 +726,33 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                     const raw = localStorage.getItem(STORAGE_ENDERECO_KEY);
                     if (!raw) return;
                     const dados = JSON.parse(raw) || {};
-                    const rua = dados.rua || '';
-                    const num = dados.numero || '';
+                    const rua   = dados.rua || '';
+                    const num   = dados.numero || '';
                     const bairro = dados.bairro || '';
-                    const cid = dados.cidade || '';
-                    const cep = dados.cep || '';
+                    const cid   = dados.cidade || '';
+                    const cep   = dados.cep || '';
                     const compl = dados.complemento || '';
-                    const ref = dados.referencia || '';
+                    const ref   = dados.referencia || '';
 
                     if (rua && num && bairro && cid) {
-                        // Preenche os inputs do modal
-                        if (document.getElementById('endereco_rua')) document.getElementById('endereco_rua').value = rua;
-                        if (document.getElementById('endereco_numero')) document.getElementById('endereco_numero').value = num;
-                        if (document.getElementById('endereco_bairro')) document.getElementById('endereco_bairro').value = bairro;
-                        if (document.getElementById('endereco_cidade')) document.getElementById('endereco_cidade').value = cid;
-                        if (document.getElementById('endereco_cep')) document.getElementById('endereco_cep').value = cep;
+                        if (document.getElementById('endereco_rua'))         document.getElementById('endereco_rua').value         = rua;
+                        if (document.getElementById('endereco_numero'))      document.getElementById('endereco_numero').value      = num;
+                        if (document.getElementById('endereco_bairro'))      document.getElementById('endereco_bairro').value      = bairro;
+                        if (document.getElementById('endereco_cidade'))      document.getElementById('endereco_cidade').value      = cid;
+                        if (document.getElementById('endereco_cep'))         document.getElementById('endereco_cep').value         = cep;
                         if (document.getElementById('endereco_complemento')) document.getElementById('endereco_complemento').value = compl;
-                        if (document.getElementById('endereco_referencia')) document.getElementById('endereco_referencia').value = ref;
+                        if (document.getElementById('endereco_referencia'))  document.getElementById('endereco_referencia').value  = ref;
 
-                        // Monta o resumo direto
                         montarResumoEndereco(rua, num, bairro, cid, cep, compl, ref);
                     }
                 } catch (e) {}
             })();
 
             // ========= PAGAMENTO =========
-            const cardPagamentoEmpty = document.getElementById('card-pagamento-empty');
+            const cardPagamentoEmpty  = document.getElementById('card-pagamento-empty');
             const cardPagamentoFilled = document.getElementById('card-pagamento-filled');
-            const resumoPagamentoL1 = document.getElementById('resumo_pagamento_linha1');
-            const resumoPagamentoL2 = document.getElementById('resumo_pagamento_linha2');
+            const resumoPagamentoL1   = document.getElementById('resumo_pagamento_linha1');
+            const resumoPagamentoL2   = document.getElementById('resumo_pagamento_linha2');
             const pagamentoTextoInput = document.getElementById('pagamento_texto');
 
             if (cardPagamentoEmpty) {
@@ -732,12 +770,11 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                 try {
                     const raw = localStorage.getItem(STORAGE_PAGAMENTO_KEY);
                     if (!raw) return;
-                    const dados = JSON.parse(raw) || {};
-                    const forma = dados.forma || '';
+                    const dados   = JSON.parse(raw) || {};
+                    const forma   = dados.forma   || '';
                     const detalhe = dados.detalhe || '';
 
                     if (forma) {
-                        // passa detalhe para evitar novo prompt de troco
                         selecionarFormaPagamento(forma, detalhe);
                     }
                 } catch (e) {}
@@ -752,12 +789,12 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                         return;
                     }
 
-                    const nome = (document.getElementById('cliente_nome') || {}).value || '';
-                    const telefone = (document.getElementById('cliente_telefone') || {}).value || '';
-                    const endereco = (document.getElementById('endereco_texto') || {}).value || '';
-                    const pagamento = (document.getElementById('pagamento_texto') || {}).value || '';
+                    const nome      = (document.getElementById('cliente_nome')      || {}).value || '';
+                    const telefone  = (document.getElementById('cliente_telefone')  || {}).value || '';
+                    const endereco  = (document.getElementById('endereco_texto')    || {}).value || '';
+                    const pagamento = (document.getElementById('pagamento_texto')   || {}).value || '';
 
-                    const tipoEntregaCheck = document.getElementById('chk_tipo_entrega');
+                    const tipoEntregaCheck  = document.getElementById('chk_tipo_entrega');
                     const tipoRetiradaCheck = document.getElementById('chk_tipo_retirada');
                     let modoEntrega = '';
                     if (tipoEntregaCheck && tipoEntregaCheck.checked) modoEntrega = 'Entrega';
@@ -799,8 +836,8 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                     carrinhoPHP.forEach(function(item, idx) {
                         if (!item) return;
 
-                        const nomeItem = item.nome || ('Item ' + (idx + 1));
-                        const quantItem = item.quant || 1;
+                        const nomeItem     = item.nome || ('Item ' + (idx + 1));
+                        const quantItem    = item.quant || 1;
                         const precoItemNum = Number(item.preco || 0);
                         const precoItemTxt = 'R$ ' + precoItemNum.toFixed(2).replace('.', ',');
 
@@ -810,7 +847,7 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                             texto += '  Adicionais:\n';
                             item.opc_simples.forEach(function(opc) {
                                 if (!opc) return;
-                                const n = opc.nome || '';
+                                const n   = opc.nome  || '';
                                 const pNum = Number(opc.preco || 0);
                                 const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
                                 texto += '   - ' + n + ' (+' + pTxt + ')\n';
@@ -823,7 +860,7 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                             }
                             item.opc_selecao.forEach(function(opc) {
                                 if (!opc) return;
-                                const n = opc.nome || '';
+                                const n   = opc.nome || '';
                                 const pNum = Number(opc.preco || 0);
                                 const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
                                 texto += '   - ' + n + ' (+' + pTxt + ')\n';
@@ -837,7 +874,7 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                         texto += '\n';
                     });
 
-                    const taxaNum = Number(taxaEntregaPHP || 0);
+                    const taxaNum       = Number(taxaEntregaPHP || 0);
                     const totalItensNum = baseTotalItens;
                     const totalFinalNum = calcularTotalPedido();
 
@@ -910,17 +947,17 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
         // tipo: 'Pix', 'Dinheiro', 'Cartão' ou ''
         // detalheForcado: usado quando vem do localStorage (para não pedir troco novamente)
         function selecionarFormaPagamento(tipo, detalheForcado) {
-            const cardEmpty = document.getElementById('card-pagamento-empty');
+            const cardEmpty  = document.getElementById('card-pagamento-empty');
             const cardFilled = document.getElementById('card-pagamento-filled');
-            const lbl1 = document.getElementById('resumo_pagamento_linha1');
-            const lbl2 = document.getElementById('resumo_pagamento_linha2');
+            const lbl1       = document.getElementById('resumo_pagamento_linha1');
+            const lbl2       = document.getElementById('resumo_pagamento_linha2');
             const inputHidden = document.getElementById('pagamento_texto');
 
             if (!tipo) {
-                formaPagamentoSelecionada = '';
+                formaPagamentoSelecionada   = '';
                 detalhePagamentoSelecionado = '';
 
-                if (cardEmpty) cardEmpty.classList.remove('d-none');
+                if (cardEmpty)  cardEmpty.classList.remove('d-none');
                 if (cardFilled) cardFilled.classList.add('d-none');
                 if (lbl1) lbl1.textContent = '';
                 if (lbl2) lbl2.textContent = '';
@@ -937,10 +974,8 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
             formaPagamentoSelecionada = tipo;
 
             if (detalheForcado !== undefined && detalheForcado !== null && detalheForcado !== '') {
-                // Já temos o detalhe (veio do localStorage)
                 detalhePagamentoSelecionado = detalheForcado;
             } else {
-                // Fluxo normal (novo)
                 if (tipo === 'Pix') {
                     detalhePagamentoSelecionado = 'Pagamento via Pix na entrega.';
                 } else if (tipo === 'Dinheiro') {
@@ -958,7 +993,7 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                 }
             }
 
-            if (cardEmpty) cardEmpty.classList.add('d-none');
+            if (cardEmpty)  cardEmpty.classList.add('d-none');
             if (cardFilled) cardFilled.classList.remove('d-none');
             if (lbl1) lbl1.textContent = formaPagamentoSelecionada;
             if (lbl2) lbl2.textContent = detalhePagamentoSelecionado;
@@ -971,7 +1006,6 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                 inputHidden.value = txt;
             }
 
-            // Salva forma de pagamento no localStorage
             try {
                 localStorage.setItem(STORAGE_PAGAMENTO_KEY, JSON.stringify({
                     forma: formaPagamentoSelecionada,
