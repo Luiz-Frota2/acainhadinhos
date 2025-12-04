@@ -3,6 +3,15 @@ session_start();
 require './assets/php/conexao.php';
 
 /* ===========================================
+   0. MENSAGEM (FLASH) DA SESSÃO
+   =========================================== */
+$flashMsg  = $_SESSION['flash_msg']  ?? null;
+$flashTipo = $_SESSION['flash_tipo'] ?? 'sucesso';
+
+// Limpa para não repetir
+unset($_SESSION['flash_msg'], $_SESSION['flash_tipo']);
+
+/* ===========================================
    1. PEGAR EMPRESA E PRODUTO DA URL
    =========================================== */
 $empresaID   = $_GET['empresa'] ?? null;
@@ -125,9 +134,125 @@ $imgProduto = !empty($produto['imagem_produto'])
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
 
+    <style>
+        /* TOAST - MENSAGEM FLUTUANTE COM EFEITO DESCENDO */
+        .toast-msg {
+            position: fixed;
+            top: -120px; /* começa fora da tela pra "descer" */
+            right: 20px;
+            max-width: 360px;
+            background: #28a745;
+            color: #fff;
+            padding: 14px 18px;
+            border-radius: 10px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            z-index: 9999;
+            opacity: 0;
+            transform: translateY(0);
+        }
+
+        .toast-msg-error {
+            background: #dc3545;
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            margin-top: 2px;
+        }
+
+        .toast-content strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 15px;
+        }
+
+        .toast-content span {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+
+        .toast-show {
+            animation: slideDownToast 0.35s ease-out forwards;
+        }
+
+        .toast-hide {
+            animation: slideUpToast 0.3s ease-in forwards;
+        }
+
+        @keyframes slideDownToast {
+            from {
+                top: -120px;
+                opacity: 0;
+            }
+            to {
+                top: 20px;
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUpToast {
+            from {
+                top: 20px;
+                opacity: 1;
+            }
+            to {
+                top: -120px;
+                opacity: 0;
+            }
+        }
+
+        /* MOBILE: centraliza na tela, mas ainda com efeito "descendo um pouco" */
+        @media (max-width: 768px) {
+            .toast-msg {
+                left: 50%;
+                right: auto;
+                top: 35%;
+                transform: translateX(-50%);
+                width: 80%;
+                text-align: left;
+            }
+
+            @keyframes slideDownToast {
+                from {
+                    top: 0%;
+                    opacity: 0;
+                }
+                to {
+                    top: 35%;
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideUpToast {
+                from {
+                    top: 35%;
+                    opacity: 1;
+                }
+                to {
+                    top: 0%;
+                    opacity: 0;
+                }
+            }
+        }
+    </style>
 </head>
 
 <body>
+
+    <?php if (!empty($flashMsg)): ?>
+        <div id="toast-msg" class="toast-msg <?= ($flashTipo === 'erro' ? 'toast-msg-error' : '') ?>">
+            <div class="toast-icon">
+                <?= ($flashTipo === 'erro' ? '!' : '✓') ?>
+            </div>
+            <div class="toast-content">
+                <strong><?= ($flashTipo === 'erro' ? 'Ops...' : 'Tudo certo!') ?></strong>
+                <span><?= htmlspecialchars($flashMsg) ?></span>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <div class="container-mensagens" id="container-mensagens-erro"></div>
     <div class="container-mensagens-success" id="container-mensagens-success"></div>
@@ -150,7 +275,6 @@ $imgProduto = !empty($produto['imagem_produto'])
 
     <form action="add_to_cart.php?empresa=<?= urlencode($empresaID) ?>" method="POST" id="form-item">
 
-   
         <input type="hidden" name="id_produto" value="<?= (int)$id_produto ?>">
 
         <section class="imagem width-fix mt-4">
@@ -355,6 +479,26 @@ $imgProduto = !empty($produto['imagem_produto'])
         });
 
         calcular();
+
+        // ======= TOAST: MOSTRAR, ESPERAR E IR PRO CARRINHO =======
+        (function() {
+            const toast = document.getElementById('toast-msg');
+            if (!toast) return;
+
+            // mostra com animação descendo
+            toast.classList.add('toast-show');
+
+            // depois de um tempo, anima pra subir e some
+            setTimeout(() => {
+                toast.classList.remove('toast-show');
+                toast.classList.add('toast-hide');
+            }, 1500);
+
+            // e depois redireciona para o carrinho
+            setTimeout(() => {
+                window.location.href = "carrinho.php?empresa=<?= urlencode($empresaID) ?>";
+            }, 2200);
+        })();
     </script>
 
     <script src="./js/bootstrap.bundle.min.js"></script>
