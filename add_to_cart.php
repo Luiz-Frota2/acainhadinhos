@@ -12,151 +12,59 @@ if (!$empresaID) {
     die('Empresa não informada.');
 }
 
-$mensagem  = '';
-$sucesso   = false;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    // Trata campos básicos
-    $nome   = $_POST['nome']              ?? '';
-    $preco  = isset($_POST['total_itens'])      ? floatval($_POST['total_itens'])     : 0;
-    $quant  = isset($_POST['quantidade_itens']) ? intval($_POST['quantidade_itens'])  : 1;
-    $obs    = $_POST['observacao']        ?? '';
-
-    // Trata opcionais (JSON vindo do item.php)
-    $opc_simples_json = $_POST['opc_simples'] ?? '[]';
-    $opc_selecao_json = $_POST['opc_selecao'] ?? '[]';
-
-    $opc_simples = json_decode($opc_simples_json, true);
-    $opc_selecao = json_decode($opc_selecao_json, true);
-
-    if (!is_array($opc_simples)) $opc_simples = [];
-    if (!is_array($opc_selecao)) $opc_selecao = [];
-
-    $item = [
-        'nome'         => $nome,
-        'preco'        => $preco,
-        'quant'        => $quant,
-        'observacao'   => $obs,
-        'opc_simples'  => $opc_simples,
-        'opc_selecao'  => $opc_selecao
-    ];
-
-    if (!isset($_SESSION['carrinho']) || !is_array($_SESSION['carrinho'])) {
-        $_SESSION['carrinho'] = [];
-    }
-
-    $_SESSION['carrinho'][] = $item;
-
-    $mensagem = 'Produto adicionado ao carrinho com sucesso!';
-    $sucesso  = true;
-} else {
-    $mensagem = 'Requisição inválida.';
+/* ===========================================
+   2. VERIFICAR MÉTODO E DADOS
+   =========================================== */
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $_SESSION['flash_msg']  = 'Requisição inválida.';
+    $_SESSION['flash_tipo'] = 'erro';
+    header("Location: cardapio.php?empresa=" . urlencode($empresaID));
+    exit;
 }
 
-?>
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <title>Açaidinhos - Carrinho</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+$id_produto = isset($_POST['id_produto']) ? (int)$_POST['id_produto'] : 0;
+if ($id_produto <= 0) {
+    $_SESSION['flash_msg']  = 'Produto não informado.';
+    $_SESSION['flash_tipo'] = 'erro';
+    header("Location: cardapio.php?empresa=" . urlencode($empresaID));
+    exit;
+}
 
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f5f5f5;
-        }
+// Trata campos básicos
+$nome   = $_POST['nome']              ?? '';
+$preco  = isset($_POST['total_itens'])      ? floatval($_POST['total_itens'])     : 0;
+$quant  = isset($_POST['quantidade_itens']) ? intval($_POST['quantidade_itens'])  : 1;
+$obs    = $_POST['observacao']        ?? '';
 
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            max-width: 360px;
-            background: #28a745;
-            color: #fff;
-            padding: 16px 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            z-index: 9999;
-            animation: fadeIn 0.3s ease-out;
-        }
+// Trata opcionais (JSON vindo do item.php)
+$opc_simples_json = $_POST['opc_simples'] ?? '[]';
+$opc_selecao_json = $_POST['opc_selecao'] ?? '[]';
 
-        .toast.toast-error {
-            background: #dc3545;
-        }
+$opc_simples = json_decode($opc_simples_json, true);
+$opc_selecao = json_decode($opc_selecao_json, true);
 
-        .toast-icon {
-            font-size: 20px;
-            margin-top: 2px;
-        }
+if (!is_array($opc_simples)) $opc_simples = [];
+if (!is_array($opc_selecao)) $opc_selecao = [];
 
-        .toast-content strong {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 15px;
-        }
+$item = [
+    'nome'         => $nome,
+    'preco'        => $preco,
+    'quant'        => $quant,
+    'observacao'   => $obs,
+    'opc_simples'  => $opc_simples,
+    'opc_selecao'  => $opc_selecao
+];
 
-        .toast-content span {
-            font-size: 14px;
-            opacity: 0.95;
-        }
+if (!isset($_SESSION['carrinho']) || !is_array($_SESSION['carrinho'])) {
+    $_SESSION['carrinho'] = [];
+}
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+$_SESSION['carrinho'][] = $item;
 
-        /* MOBILE: centraliza a mensagem */
-        @media (max-width: 768px) {
-            .toast {
-                top: 50%;
-                right: auto;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                width: 80%;
-            }
-        }
-    </style>
-</head>
-<body>
+// Mensagem de sucesso para o item.php
+$_SESSION['flash_msg']  = 'Produto adicionado ao carrinho com sucesso!';
+$_SESSION['flash_tipo'] = 'sucesso';
 
-<div id="toast" class="toast <?php if (!$sucesso) echo 'toast-error'; ?>">
-    <div class="toast-icon">
-        <?php if ($sucesso): ?>
-            ✓
-        <?php else: ?>
-            !
-        <?php endif; ?>
-    </div>
-    <div class="toast-content">
-        <strong><?php echo $sucesso ? 'Tudo certo!' : 'Ops...'; ?></strong>
-        <span><?php echo htmlspecialchars($mensagem); ?></span>
-    </div>
-</div>
-
-<script>
-    // URL do carrinho (ajuste o nome do arquivo se o seu carrinho tiver outro nome)
-    const urlCarrinho = "carrinho.php?empresa=<?= urlencode($empresaID) ?>";
-
-    // Tempo para redirecionar (ms)
-    const tempoRedirecionar = <?= $sucesso ? 1800 : 2000 ?>;
-
-    setTimeout(() => {
-        window.location.href = urlCarrinho;
-    }, tempoRedirecionar);
-</script>
-
-</body>
-</html>
+// Volta para o item.php (onde terá o toast + redirecionamento pro carrinho)
+header("Location: item.php?empresa=" . urlencode($empresaID) . "&id=" . $id_produto);
+exit;
