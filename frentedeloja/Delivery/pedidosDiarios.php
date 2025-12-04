@@ -107,6 +107,127 @@ try {
   // Não mostra erro para o usuário para não quebrar a página
 }
 
+// ===============================
+// 1. ATUALIZAR STATUS DO PEDIDO
+// ===============================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pedido_id'], $_POST['novo_status'])) {
+    $pedidoId     = (int) $_POST['pedido_id'];
+    $novoStatus   = $_POST['novo_status'] ?? '';
+    $empresaSessao = $_SESSION['empresa_id'] ?? '';
+
+    // status permitidos exatamente como estão na tabela
+    $statusPermitidos = ['pendente', 'aceito', 'cancelado', 'entergue'];
+
+    if ($pedidoId > 0 && in_array($novoStatus, $statusPermitidos, true) && !empty($empresaSessao)) {
+        try {
+            $stmtUpdate = $pdo->prepare("
+                UPDATE rascunho 
+                SET status = :status 
+                WHERE id = :id 
+                  AND empresa_id = :empresa_id
+            ");
+            $stmtUpdate->execute([
+                ':status'      => $novoStatus,
+                ':id'          => $pedidoId,
+                ':empresa_id'  => $empresaSessao
+            ]);
+        } catch (PDOException $e) {
+            error_log("Erro ao atualizar status do pedido: " . $e->getMessage());
+        }
+    }
+
+    // Redireciona para evitar re-envio de formulário
+    header("Location: pedidosDiarios.php?id=" . urlencode($idSelecionado));
+    exit;
+}
+
+// ===============================
+// 2. BUSCAR PEDIDOS PENDENTES DO DIA
+// ===============================
+
+// empresa_id do usuário logado
+$empresaLogada = $idSelecionado ?? '';
+
+// Se quiser vincular ao id da URL também, pode forçar aqui:
+// $empresaLogada = $idSelecionado;
+
+$pedidos = [];
+$itensPorPedido = [];
+
+if (!empty($empresaLogada)) {
+    try {
+        // Somente pedidos PENDENTES do DIA (data_pedido = hoje)
+        $sqlPedidos = "
+            SELECT 
+                id,
+                empresa_id,
+                nome_cliente,
+                telefone_cliente,
+                endereco,
+                forma_pagamento,
+                detalhe_pagamento,
+                total,
+                taxa_entrega,
+                data_pedido,
+                status
+            FROM rascunho
+            WHERE empresa_id = :empresa_id
+              AND status = 'pendente'
+              AND DATE(data_pedido) = CURDATE()
+            ORDER BY data_pedido DESC
+        ";
+
+        $stmtPedidos = $pdo->prepare($sqlPedidos);
+        $stmtPedidos->execute([
+            ':empresa_id' => $empresaLogada
+        ]);
+
+        $pedidos = $stmtPedidos->fetchAll(PDO::FETCH_ASSOC);
+
+        // ===============================
+        // 3. BUSCAR ITENS DE TODOS OS PEDIDOS DE UMA VEZ
+        // ===============================
+        if (!empty($pedidos)) {
+            $idsPedidos = array_column($pedidos, 'id');
+
+            // Monta placeholders para IN (?,?,?,...)
+            $placeholders = implode(',', array_fill(0, count($idsPedidos), '?'));
+
+            $sqlItens = "
+                SELECT 
+                    id,
+                    empresa_id,
+                    pedido_id,
+                    nome_item,
+                    quantidade,
+                    preco_unitario,
+                    observacao,
+                    opcionais_json
+                FROM rascunho_itens
+                WHERE empresa_id = ?
+                  AND pedido_id IN ($placeholders)
+                ORDER BY id ASC
+            ";
+
+            $params = array_merge([$empresaLogada], $idsPedidos);
+
+            $stmtItens = $pdo->prepare($sqlItens);
+            $stmtItens->execute($params);
+
+            while ($row = $stmtItens->fetch(PDO::FETCH_ASSOC)) {
+                $pedidoId = (int) $row['pedido_id'];
+                if (!isset($itensPorPedido[$pedidoId])) {
+                    $itensPorPedido[$pedidoId] = [];
+                }
+                $itensPorPedido[$pedidoId][] = $row;
+            }
+        }
+    } catch (PDOException $e) {
+        error_log("Erro ao buscar pedidos: " . $e->getMessage());
+    }
+}
+
+
 ?>
 <!DOCTYPE html>
 <html lang="pt-br" class="light-style layout-menu-fixed" dir="ltr" data-theme="theme-default"
@@ -378,176 +499,179 @@ try {
 
                         <div class="table-responsive">
                             <table class="table text-nowrap">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Cliente</th>
-                                        <th>Endereço</th>
-                                        <th>Pagamento</th>
-                                        <th>Total</th>
-                                        <th>Hora</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
+                                       <thead>
+            <tr>
+                <th>#</th>
+                <th>Cliente</th>
+                <th>Endereço</th>
+                <th>Pagamento</th>
+                <th>Total</th>
+                <th>Hora</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
 
-                                <tbody>
+        <tbody>
+            <?php if (empty($pedidos)): ?>
+                <tr>
+                    <td colspan="7" class="text-center">
+                        Nenhum pedido pendente recebido hoje.
+                    </td>
+                </tr>
+            <?php else: ?>
+                <?php foreach ($pedidos as $pedido): ?>
+                    <?php
+                        $idPedido   = (int) $pedido['id'];
+                        $itens      = $itensPorPedido[$idPedido] ?? [];
+                        $totalGeral = (float) $pedido['total'] + (float) $pedido['taxa_entrega'];
+                    ?>
+                    <tr>
+                        <td>#<?= htmlspecialchars($idPedido); ?></td>
 
-                                    <!-- PEDIDO 1 -->
-                                    <tr>
-                                        <td>1033</td>
-                                        <td>Ana Júlia</td>
-                                        <td>Rua Rui Barbosa, 90</td>
-                                        <td>Pix</td>
-                                        <td><b>R$ 22,50</b></td>
-                                        <td>13:10</td>
+                        <td>
+                            <?= htmlspecialchars($pedido['nome_cliente']); ?><br>
+                            <small><?= htmlspecialchars($pedido['telefone_cliente']); ?></small>
+                        </td>
 
-                                        <td>
-                                            <div class="d-flex gap-2">
+                        <td><?= nl2br(htmlspecialchars($pedido['endereco'])); ?></td>
 
-                                                <!-- AÇÕES -->
-                                                <button class="btn btn-secondary btn-sm"
-                                                    data-bs-toggle="modal" data-bs-target="#acao1033">
-                                                    Ações
-                                                </button>
+                        <td>
+                            <?= htmlspecialchars($pedido['forma_pagamento']); ?><br>
+                            <?php if (!empty($pedido['detalhe_pagamento'])): ?>
+                                <small><?= htmlspecialchars($pedido['detalhe_pagamento']); ?></small>
+                            <?php endif; ?>
+                        </td>
 
-                                                <!-- ITENS -->
-                                                <button class="btn btn-primary btn-sm"
-                                                    data-bs-toggle="modal" data-bs-target="#itens1033">
-                                                    Itens
-                                                </button>
+                        <td><b>R$ <?= number_format($totalGeral, 2, ',', '.'); ?></b></td>
 
-                                            </div>
-                                        </td>
-                                    </tr>
+                        <td><?= date('H:i', strtotime($pedido['data_pedido'])); ?></td>
 
-                                    <!-- MODAL AÇÕES 1033 -->
-                                    <div class="modal fade" id="acao1033">
-                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
-                                            <div class="modal-content">
+                        <td>
+                            <div class="d-flex gap-2">
+                                <!-- AÇÕES -->
+                                <button class="btn btn-secondary btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#acao<?= $idPedido; ?>">
+                                    Ações
+                                </button>
 
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Ações do Pedido #1033</h5>
-                                                    <button class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
+                                <!-- ITENS -->
+                                <button class="btn btn-primary btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#itens<?= $idPedido; ?>">
+                                    Itens
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
 
-                                                <div class="modal-body">
+                    <!-- MODAL AÇÕES (DINÂMICO) -->
+                    <div class="modal fade" id="acao<?= $idPedido; ?>">
+                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
+                            <div class="modal-content">
 
-                                                    <label class="form-label">Selecione uma ação:</label>
-                                                    <select class="form-select">
-                                                        <option selected disabled>Selecionar ação...</option>
-                                                        <option value="aceitar">Aceitar Pedido</option>
-                                                        <option value="cancelar">Cancelar Pedido</option>
-                                                    </select>
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Ações do Pedido #<?= $idPedido; ?></h5>
+                                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
 
-                                                    <button class="btn btn-primary mt-3 w-100">
-                                                        Confirmar
-                                                    </button>
+                                <div class="modal-body">
+                                    <form method="post" action="pedidosDiarios.php?id=<?= urlencode($idSelecionado); ?>">
+                                        <input type="hidden" name="pedido_id" value="<?= $idPedido; ?>">
 
-                                                </div>
+                                        <label class="form-label">Selecione uma ação:</label>
+                                        <select class="form-select" name="novo_status" required>
+                                            <option value="" disabled selected>Selecionar ação...</option>
 
-                                            </div>
-                                        </div>
-                                    </div>
+                                            <?php if ($pedido['status'] === 'pendente'): ?>
+                                                <option value="aceito">Aceitar Pedido</option>
+                                            <?php endif; ?>
 
-                                    <!-- MODAL ITENS 1033 -->
-                                    <div class="modal fade" id="itens1033">
-                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
-                                            <div class="modal-content">
+                                            <?php if ($pedido['status'] !== 'cancelado'): ?>
+                                                <option value="cancelado">Cancelar Pedido</option>
+                                            <?php endif; ?>
 
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Itens do Pedido #1033</h5>
-                                                    <button class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
+                                            <?php if ($pedido['status'] !== 'entergue'): ?>
+                                                <option value="entergue">Marcar como Entregue</option>
+                                            <?php endif; ?>
+                                        </select>
 
-                                                <div class="modal-body">
-                                                    <ul>
-                                                        <li>1x Açaí Médio</li>
-                                                        <li>2x Leite Ninho</li>
-                                                        <li>1x Banana</li>
-                                                    </ul>
-                                                </div>
+                                        <button type="submit" class="btn btn-primary mt-3 w-100">
+                                            Confirmar
+                                        </button>
+                                    </form>
+                                </div>
 
-                                            </div>
-                                        </div>
-                                    </div>
+                            </div>
+                        </div>
+                    </div>
 
-                                    <!-- PEDIDO 2 -->
-                                    <tr>
-                                        <td>1034</td>
-                                        <td>Pedro Almeida</td>
-                                        <td>Avenida Amazonas, 300</td>
-                                        <td>Dinheiro</td>
-                                        <td><b>R$ 18,00</b></td>
-                                        <td>13:22</td>
+                    <!-- MODAL ITENS (DINÂMICO) -->
+                    <div class="modal fade" id="itens<?= $idPedido; ?>">
+                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
+                            <div class="modal-content">
 
-                                        <td>
-                                            <div class="d-flex gap-2">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Itens do Pedido #<?= $idPedido; ?></h5>
+                                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
 
-                                                <button class="btn btn-secondary btn-sm"
-                                                    data-bs-toggle="modal" data-bs-target="#acao1034">
-                                                    Ações
-                                                </button>
+                                <div class="modal-body">
+                                    <?php if (empty($itens)): ?>
+                                        <p>Este pedido não possui itens cadastrados.</p>
+                                    <?php else: ?>
+                                        <ul class="list-group">
+                                            <?php foreach ($itens as $item): ?>
+                                                <?php
+                                                    $linha = (int) $item['quantidade'] . 'x ' . $item['nome_item'];
+                                                    $valor = (float) $item['preco_unitario'];
+                                                    $opcionaisTexto = '';
 
-                                                <button class="btn btn-primary btn-sm"
-                                                    data-bs-toggle="modal" data-bs-target="#itens1034">
-                                                    Itens
-                                                </button>
+                                                    if (!empty($item['opcionais_json'])) {
+                                                        $ops = json_decode($item['opcionais_json'], true);
+                                                        if (is_array($ops) && !empty($ops)) {
+                                                            $textoOps = [];
+                                                            foreach ($ops as $op) {
+                                                                // aqui depende do formato do seu JSON;
+                                                                // vou tentar pegar "nome" se existir,
+                                                                // senão converte em texto genérico:
+                                                                if (is_array($op) && isset($op['nome'])) {
+                                                                    $textoOps[] = $op['nome'];
+                                                                } else {
+                                                                    $textoOps[] = (string) $op;
+                                                                }
+                                                            }
+                                                            if (!empty($textoOps)) {
+                                                                $opcionaisTexto = implode(', ', $textoOps);
+                                                            }
+                                                        }
+                                                    }
+                                                ?>
+                                                <li class="list-group-item">
+                                                    <b><?= htmlspecialchars($linha); ?></b><br>
+                                                    <small>R$ <?= number_format($valor, 2, ',', '.'); ?></small>
 
-                                            </div>
-                                        </td>
-                                    </tr>
+                                                    <?php if (!empty($opcionaisTexto)): ?>
+                                                        <br><small><b>Opcionais:</b> <?= htmlspecialchars($opcionaisTexto); ?></small>
+                                                    <?php endif; ?>
 
-                                    <!-- MODAL AÇÕES 1034 -->
-                                    <div class="modal fade" id="acao1034">
-                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
-                                            <div class="modal-content">
+                                                    <?php if (!empty($item['observacao'])): ?>
+                                                        <br><small><b>Obs:</b> <?= nl2br(htmlspecialchars($item['observacao'])); ?></small>
+                                                    <?php endif; ?>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php endif; ?>
+                                </div>
 
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Ações do Pedido #1034</h5>
-                                                    <button class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                                                <div class="modal-body">
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
 
-                                                    <label class="form-label">Selecione uma ação:</label>
-                                                    <select class="form-select">
-                                                        <option selected disabled>Selecionar ação...</option>
-                                                        <option value="aceitar">Aceitar Pedido</option>
-                                                        <option value="cancelar">Cancelar Pedido</option>
-                                                    </select>
-
-                                                    <button class="btn btn-primary mt-3 w-100">
-                                                        Confirmar
-                                                    </button>
-
-                                                </div>
-
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- MODAL ITENS 1034 -->
-                                    <div class="modal fade" id="itens1034">
-                                        <div class="modal-dialog modal-dialog-scrollable modal-dialog-top">
-                                            <div class="modal-content">
-
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Itens do Pedido #1034</h5>
-                                                    <button class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
-
-                                                <div class="modal-body">
-                                                    <ul>
-                                                        <li>1x Açaí Pequeno</li>
-                                                        <li>1x Leite Ninho</li>
-                                                    </ul>
-                                                </div>
-
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </tbody>
                             </table>
 
                         </div>
