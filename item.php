@@ -124,7 +124,6 @@ $imgProduto = !empty($produto['imagem_produto'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
-
 </head>
 
 <body>
@@ -150,7 +149,6 @@ $imgProduto = !empty($produto['imagem_produto'])
 
     <form action="add_to_cart.php?empresa=<?= urlencode($empresaID) ?>" method="POST" id="form-item">
 
-   
         <input type="hidden" name="id_produto" value="<?= (int)$id_produto ?>">
 
         <section class="imagem width-fix mt-4">
