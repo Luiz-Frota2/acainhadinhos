@@ -13,8 +13,19 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+// Empresa (vem via GET na URL salvar_rascunho.php?empresa=...)
+$empresaID = $_GET['empresa'] ?? null;
+if (!$empresaID) {
+    http_response_code(400);
+    echo json_encode([
+        'status'   => 'erro',
+        'mensagem' => 'Empresa não informada.'
+    ]);
+    exit;
+}
+
+// Conexão com o banco
 try {
-    // sua conexão, que você já usa nos outros arquivos
     require './assets/php/conexao.php';
 } catch (Exception $e) {
     http_response_code(500);
@@ -54,11 +65,13 @@ try {
     $pdo->beginTransaction();
 
     // ========== 1) INSERE NA TABELA RASCUNHO ==========
+    // NOVO: empresa_id
     $sqlRascunho = "INSERT INTO rascunho
-        (nome_cliente, telefone_cliente, endereco, forma_pagamento, detalhe_pagamento, total)
-        VALUES (:nome, :telefone, :endereco, :forma_pagamento, :detalhe_pagamento, :total)";
+        (empresa_id, nome_cliente, telefone_cliente, endereco, forma_pagamento, detalhe_pagamento, total)
+        VALUES (:empresa_id, :nome, :telefone, :endereco, :forma_pagamento, :detalhe_pagamento, :total)";
     $stmt = $pdo->prepare($sqlRascunho);
     $stmt->execute([
+        ':empresa_id'        => $empresaID,
         ':nome'              => $nome,
         ':telefone'          => $telefone,
         ':endereco'          => $endereco,
@@ -72,9 +85,10 @@ try {
 
     // ========== 2) INSERE ITENS NA TABELA RASCUNHO_ITENS ==========
     if (!empty($itens)) {
+        // NOVO: empresa_id também na tabela de itens
         $sqlItem = "INSERT INTO rascunho_itens
-            (pedido_id, nome_item, quantidade, preco_unitario, observacao, opcionais_json)
-            VALUES (:pedido_id, :nome_item, :quantidade, :preco_unitario, :observacao, :opcionais_json)";
+            (empresa_id, pedido_id, nome_item, quantidade, preco_unitario, observacao, opcionais_json)
+            VALUES (:empresa_id, :pedido_id, :nome_item, :quantidade, :preco_unitario, :observacao, :opcionais_json)";
         $stmtItem = $pdo->prepare($sqlItem);
 
         foreach ($itens as $item) {
@@ -98,12 +112,13 @@ try {
             $opcionaisJson = json_encode($opcionais, JSON_UNESCAPED_UNICODE);
 
             $stmtItem->execute([
-                ':pedido_id'      => $pedidoId,
-                ':nome_item'      => $nomeItem,
-                ':quantidade'     => $quantidade,
-                ':preco_unitario' => $precoUnitario,
-                ':observacao'     => $observacao,
-                ':opcionais_json' => $opcionaisJson
+                ':empresa_id'        => $empresaID,
+                ':pedido_id'         => $pedidoId,
+                ':nome_item'         => $nomeItem,
+                ':quantidade'        => $quantidade,
+                ':preco_unitario'    => $precoUnitario,
+                ':observacao'        => $observacao,
+                ':opcionais_json'    => $opcionaisJson
             ]);
         }
     }
