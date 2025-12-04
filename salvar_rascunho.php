@@ -126,7 +126,12 @@ try {
         }
     }
 
-    $pdo->commit();
+     $pdo->commit();
+
+    // LIMPAR CARRINHO DA SESSÃO DEPOIS DE FINALIZAR
+    if (isset($_SESSION['carrinho'])) {
+        unset($_SESSION['carrinho']);
+    }
 
     echo json_encode([
         'status'        => 'ok',
@@ -136,10 +141,12 @@ try {
     ]);
     exit;
 
+
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    
 
     http_response_code(500);
     echo json_encode([

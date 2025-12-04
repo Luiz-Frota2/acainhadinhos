@@ -923,11 +923,23 @@ dados.append('taxa_entrega', String(taxaParaSalvar));
                                 return {};
                             });
                         })
-                        .then(function() {
-                            const numeroWhatsapp = '559791434585';
-                            const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-                            window.open(url, '_blank');
-                        })
+                            .then(function(resposta) {
+        // aqui já salvou no banco e limpou a sessão
+        const numeroWhatsapp = '559791434585';
+        const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
+        window.open(url, '_blank');
+
+        // Depois de alguns milissegundos, recarrega a página do carrinho
+        // (ou manda de volta pro cardápio, como preferir)
+        setTimeout(function () {
+            // opção A: recarregar o carrinho vazio
+            // window.location.reload();
+
+            // opção B: voltar para o cardápio da empresa
+            window.location.href = './cardapio.php?empresa=<?= urlencode($empresaID) ?>';
+        }, 500);
+    })
+
                         .catch(function() {
                             const numeroWhatsapp = '559791434585';
                             const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
