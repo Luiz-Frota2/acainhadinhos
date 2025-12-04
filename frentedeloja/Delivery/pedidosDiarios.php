@@ -623,29 +623,60 @@ if (!empty($empresaLogada)) {
                                         <ul class="list-group">
                                             <?php foreach ($itens as $item): ?>
                                                 <?php
-                                                    $linha = (int) $item['quantidade'] . 'x ' . $item['nome_item'];
-                                                    $valor = (float) $item['preco_unitario'];
-                                                    $opcionaisTexto = '';
+                                                   $linha = (int) $item['quantidade'] . 'x ' . $item['nome_item'];
+$valor = (float) $item['preco_unitario'];
+$opcionaisTexto = '';
 
-                                                    if (!empty($item['opcionais_json'])) {
-                                                        $ops = json_decode($item['opcionais_json'], true);
-                                                        if (is_array($ops) && !empty($ops)) {
-                                                            $textoOps = [];
-                                                            foreach ($ops as $op) {
-                                                                // aqui depende do formato do seu JSON;
-                                                                // vou tentar pegar "nome" se existir,
-                                                                // senão converte em texto genérico:
-                                                                if (is_array($op) && isset($op['nome'])) {
-                                                                    $textoOps[] = $op['nome'];
-                                                                } else {
-                                                                    $textoOps[] = (string) $op;
-                                                                }
-                                                            }
-                                                            if (!empty($textoOps)) {
-                                                                $opcionaisTexto = implode(', ', $textoOps);
-                                                            }
-                                                        }
-                                                    }
+if (!empty($item['opcionais_json'])) {
+    $opsDecoded = json_decode($item['opcionais_json'], true);
+
+    $nomes = [];
+
+    if (is_array($opsDecoded) && !empty($opsDecoded)) {
+
+        // Se vier um único objeto associativo, transforma em array de 1
+        if (array_keys($opsDecoded) !== range(0, count($opsDecoded) - 1)) {
+            $opsDecoded = [$opsDecoded];
+        }
+
+        foreach ($opsDecoded as $op) {
+            // Se não for array, é um valor simples (string, número, etc.)
+            if (!is_array($op)) {
+                $nomes[] = (string) $op;
+                continue;
+            }
+
+            $capturado = false;
+
+            // tenta pegar campos mais comuns
+            foreach (['nome', 'nome_opcional', 'descricao', 'label', 'titulo'] as $campo) {
+                if (isset($op[$campo]) && !is_array($op[$campo])) {
+                    $nomes[] = (string) $op[$campo];
+                    $capturado = true;
+                    break;
+                }
+            }
+
+            if ($capturado) {
+                continue;
+            }
+
+            // se ainda não capturou, pega o primeiro valor escalar desse array
+            foreach ($op as $valorBruto) {
+                if (!is_array($valorBruto)) {
+                    $nomes[] = (string) $valorBruto;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!empty($nomes)) {
+        // aqui temos APENAS STRINGS dentro de $nomes
+        $opcionaisTexto = implode(', ', $nomes);
+    }
+}
+
                                                 ?>
                                                 <li class="list-group-item">
                                                     <b><?= htmlspecialchars($linha); ?></b><br>
