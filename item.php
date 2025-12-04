@@ -5,11 +5,8 @@ require './assets/php/conexao.php';
 /* ===========================================
    0. MENSAGEM (FLASH) DA SESSÃO
    =========================================== */
-$flashMsg  = $_SESSION['flash_msg']  ?? null;
-$flashTipo = $_SESSION['flash_tipo'] ?? 'sucesso';
-
-// Limpa para não repetir
-unset($_SESSION['flash_msg'], $_SESSION['flash_tipo']);
+$flashMsg = $_SESSION['flash_msg'] ?? null;
+unset($_SESSION['flash_msg']); // limpa pra não repetir
 
 /* ===========================================
    1. PEGAR EMPRESA E PRODUTO DA URL
@@ -45,12 +42,11 @@ try {
             $nomeEmpresa = $empresa['nome_empresa'];
         }
         if (!empty($empresa['imagem'])) {
-            // caminho da logo da empresa
             $imagemEmpresa = './assets/img/empresa/' . $empresa['imagem'];
         }
     }
 } catch (PDOException $e) {
-    // Se der erro, mantém padrão
+    // mantém padrão se der erro
 }
 
 /* ===========================================
@@ -113,10 +109,10 @@ try {
     $selecoes = [];
 }
 
-// Função para imagem do produto
+// Imagem do produto
 $imgProduto = !empty($produto['imagem_produto'])
     ? './assets/img/uploads/' . $produto['imagem_produto']
-    : $imagemEmpresa; // se não tiver imagem do produto, usa logo da empresa
+    : $imagemEmpresa;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -135,7 +131,7 @@ $imgProduto = !empty($produto['imagem_produto'])
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
 
     <style>
-        /* TOAST - MENSAGEM FLUTUANTE COM EFEITO DESCENDO */
+        /* TOAST - MENSAGEM COM EFEITO DESCENDO */
         .toast-msg {
             position: fixed;
             top: -120px; /* começa fora da tela pra "descer" */
@@ -147,31 +143,12 @@ $imgProduto = !empty($produto['imagem_produto'])
             border-radius: 10px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.18);
             display: flex;
-            align-items: flex-start;
-            gap: 10px;
+            align-items: center;
+            justify-content: center;
             z-index: 9999;
             opacity: 0;
-            transform: translateY(0);
-        }
-
-        .toast-msg-error {
-            background: #dc3545;
-        }
-
-        .toast-icon {
-            font-size: 20px;
-            margin-top: 2px;
-        }
-
-        .toast-content strong {
-            display: block;
-            margin-bottom: 4px;
-            font-size: 15px;
-        }
-
-        .toast-content span {
+            text-align: center;
             font-size: 14px;
-            opacity: 0.95;
         }
 
         .toast-show {
@@ -204,7 +181,7 @@ $imgProduto = !empty($produto['imagem_produto'])
             }
         }
 
-        /* MOBILE: centraliza na tela, mas ainda com efeito "descendo um pouco" */
+        /* MOBILE: centraliza na tela, ainda com efeito descendo */
         @media (max-width: 768px) {
             .toast-msg {
                 left: 50%;
@@ -212,7 +189,6 @@ $imgProduto = !empty($produto['imagem_produto'])
                 top: 35%;
                 transform: translateX(-50%);
                 width: 80%;
-                text-align: left;
             }
 
             @keyframes slideDownToast {
@@ -243,14 +219,8 @@ $imgProduto = !empty($produto['imagem_produto'])
 <body>
 
     <?php if (!empty($flashMsg)): ?>
-        <div id="toast-msg" class="toast-msg <?= ($flashTipo === 'erro' ? 'toast-msg-error' : '') ?>">
-            <div class="toast-icon">
-                <?= ($flashTipo === 'erro' ? '!' : '✓') ?>
-            </div>
-            <div class="toast-content">
-                <strong><?= ($flashTipo === 'erro' ? 'Ops...' : 'Tudo certo!') ?></strong>
-                <span><?= htmlspecialchars($flashMsg) ?></span>
-            </div>
+        <div id="toast-msg" class="toast-msg">
+            <?= htmlspecialchars($flashMsg) ?>
         </div>
     <?php endif; ?>
 
