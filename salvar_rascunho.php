@@ -44,6 +44,9 @@ $forma_pagamento   = trim($_POST['forma_pagamento'] ?? '');
 $detalhe_pagamento = trim($_POST['detalhe_pagamento'] ?? '');
 $total             = isset($_POST['total']) ? floatval($_POST['total']) : 0;
 
+// NOVO: taxa de entrega (se não enviar nada, vira 0)
+$taxaEntrega       = isset($_POST['taxa_entrega']) ? floatval($_POST['taxa_entrega']) : 0;
+
 // Itens (vem como JSON da sessão do carrinho)
 $itens_json = $_POST['itens_json'] ?? '[]';
 $itens      = json_decode($itens_json, true);
@@ -65,10 +68,10 @@ try {
     $pdo->beginTransaction();
 
     // ========== 1) INSERE NA TABELA RASCUNHO ==========
-    // NOVO: empresa_id
+    // Incluindo empresa_id e taxa_entrega
     $sqlRascunho = "INSERT INTO rascunho
-        (empresa_id, nome_cliente, telefone_cliente, endereco, forma_pagamento, detalhe_pagamento, total)
-        VALUES (:empresa_id, :nome, :telefone, :endereco, :forma_pagamento, :detalhe_pagamento, :total)";
+        (empresa_id, nome_cliente, telefone_cliente, endereco, forma_pagamento, detalhe_pagamento, total, taxa_entrega)
+        VALUES (:empresa_id, :nome, :telefone, :endereco, :forma_pagamento, :detalhe_pagamento, :total, :taxa_entrega)";
     $stmt = $pdo->prepare($sqlRascunho);
     $stmt->execute([
         ':empresa_id'        => $empresaID,
@@ -77,7 +80,8 @@ try {
         ':endereco'          => $endereco,
         ':forma_pagamento'   => $forma_pagamento,
         ':detalhe_pagamento' => $detalhe_pagamento,
-        ':total'             => $total
+        ':total'             => $total,
+        ':taxa_entrega'      => $taxaEntrega
     ]);
 
     // ID do rascunho criado
@@ -85,7 +89,6 @@ try {
 
     // ========== 2) INSERE ITENS NA TABELA RASCUNHO_ITENS ==========
     if (!empty($itens)) {
-        // NOVO: empresa_id também na tabela de itens
         $sqlItem = "INSERT INTO rascunho_itens
             (empresa_id, pedido_id, nome_item, quantidade, preco_unitario, observacao, opcionais_json)
             VALUES (:empresa_id, :pedido_id, :nome_item, :quantidade, :preco_unitario, :observacao, :opcionais_json)";
@@ -126,9 +129,10 @@ try {
     $pdo->commit();
 
     echo json_encode([
-        'status'    => 'ok',
-        'mensagem'  => 'Rascunho salvo com sucesso.',
-        'pedido_id' => $pedidoId
+        'status'        => 'ok',
+        'mensagem'      => 'Rascunho salvo com sucesso.',
+        'pedido_id'     => $pedidoId,
+        'taxa_entrega'  => $taxaEntrega
     ]);
     exit;
 
