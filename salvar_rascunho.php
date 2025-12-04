@@ -36,18 +36,24 @@ try {
     exit;
 }
 
-// Identificador do cliente (para diferenciar pedidos por navegador/aparelho)
-$clienteSessao = session_id();
-
-// Dados recebidos do carrinho.php
+// Dados recebidos do carrinho.js / carrinho.php
 $nome              = trim($_POST['nome'] ?? '');
 $telefone          = trim($_POST['telefone'] ?? '');
 $endereco          = trim($_POST['endereco'] ?? '');
 $forma_pagamento   = trim($_POST['forma_pagamento'] ?? '');
 $detalhe_pagamento = trim($_POST['detalhe_pagamento'] ?? '');
-$total             = isset($_POST['total']) ? floatval($_POST['total']) : 0.0;
-$taxaEntrega       = isset($_POST['taxa_entrega']) ? floatval($_POST['taxa_entrega']) : 0.0;
+$total             = isset($_POST['total']) ? floatval($_POST['total']) : 0;
 
+// NOVO: identificador do cliente (por sessão/aparelho)
+$clienteSessao     = trim($_POST['cliente_sessao'] ?? '');
+if (strlen($clienteSessao) > 64) {
+    $clienteSessao = substr($clienteSessao, 0, 64);
+}
+
+// NOVO: taxa de entrega (se não enviar nada, vira 0)
+$taxaEntrega       = isset($_POST['taxa_entrega']) ? floatval($_POST['taxa_entrega']) : 0;
+
+// Itens (vem como JSON da sessão do carrinho)
 $itens_json = $_POST['itens_json'] ?? '[]';
 $itens      = json_decode($itens_json, true);
 if (!is_array($itens)) {
@@ -67,11 +73,11 @@ if ($nome === '' || $telefone === '' || $endereco === '' || $forma_pagamento ===
 try {
     $pdo->beginTransaction();
 
-    // ATENÇÃO: tabela rascunho precisa ter a coluna cliente_sessao (VARCHAR, por ex.)
+    // ========== 1) INSERE NA TABELA RASCUNHO ==========
+    // Incluindo empresa_id, cliente_sessao e taxa_entrega
     $sqlRascunho = "INSERT INTO rascunho
         (empresa_id, cliente_sessao, nome_cliente, telefone_cliente, endereco, forma_pagamento, detalhe_pagamento, total, taxa_entrega)
         VALUES (:empresa_id, :cliente_sessao, :nome, :telefone, :endereco, :forma_pagamento, :detalhe_pagamento, :total, :taxa_entrega)";
-
     $stmt = $pdo->prepare($sqlRascunho);
     $stmt->execute([
         ':empresa_id'        => $empresaID,
@@ -85,8 +91,10 @@ try {
         ':taxa_entrega'      => $taxaEntrega
     ]);
 
+    // ID do rascunho criado
     $pedidoId = $pdo->lastInsertId();
 
+    // ========== 2) INSERE ITENS NA TABELA RASCUNHO_ITENS ==========
     if (!empty($itens)) {
         $sqlItem = "INSERT INTO rascunho_itens
             (empresa_id, pedido_id, nome_item, quantidade, preco_unitario, observacao, opcionais_json)
@@ -101,8 +109,10 @@ try {
             $precoTotal = isset($item['preco']) ? (float)$item['preco'] : 0.0;
             $observacao = $item['observacao'] ?? '';
 
+            // Preço unitário (total do item dividido pela quantidade)
             $precoUnitario = $quantidade > 0 ? ($precoTotal / $quantidade) : $precoTotal;
 
+            // Junta opcionais simples + seleção em um JSON
             $opcSimples = $item['opc_simples'] ?? [];
             $opcSelecao = $item['opc_selecao'] ?? [];
             $opcionais  = [
@@ -112,20 +122,20 @@ try {
             $opcionaisJson = json_encode($opcionais, JSON_UNESCAPED_UNICODE);
 
             $stmtItem->execute([
-                ':empresa_id'        => $empresaID,
-                ':pedido_id'         => $pedidoId,
-                ':nome_item'         => $nomeItem,
-                ':quantidade'        => $quantidade,
-                ':preco_unitario'    => $precoUnitario,
-                ':observacao'        => $observacao,
-                ':opcionais_json'    => $opcionaisJson
+                ':empresa_id'     => $empresaID,
+                ':pedido_id'      => $pedidoId,
+                ':nome_item'      => $nomeItem,
+                ':quantidade'     => $quantidade,
+                ':preco_unitario' => $precoUnitario,
+                ':observacao'     => $observacao,
+                ':opcionais_json' => $opcionaisJson
             ]);
         }
     }
 
     $pdo->commit();
 
-    // SUCESSO: limpa carrinho
+    // LIMPAR CARRINHO DA SESSÃO DEPOIS DE FINALIZAR (apenas em sucesso)
     if (isset($_SESSION['carrinho'])) {
         unset($_SESSION['carrinho']);
     }
@@ -134,8 +144,7 @@ try {
         'status'        => 'ok',
         'mensagem'      => 'Rascunho salvo com sucesso.',
         'pedido_id'     => $pedidoId,
-        'taxa_entrega'  => $taxaEntrega,
-        'cliente_sessao'=> $clienteSessao
+        'taxa_entrega'  => $taxaEntrega
     ]);
     exit;
 
@@ -144,12 +153,14 @@ try {
         $pdo->rollBack();
     }
 
-    // ERRO: não limpa carrinho, pra poder tentar de novo
+    // NÃO limpa o carrinho em caso de erro:
     http_response_code(500);
     echo json_encode([
         'status'   => 'erro',
-        'mensagem' => 'Erro ao salvar rascunho.',
+        'mensagem' => 'Erro ao salvar rascunho. Tente novamente.',
         'detalhe'  => $e->getMessage()
     ]);
     exit;
 }
+
+?>

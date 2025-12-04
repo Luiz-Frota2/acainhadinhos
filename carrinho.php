@@ -3,13 +3,6 @@ session_start();
 require './assets/php/conexao.php';
 
 /* ===========================================
-   0. MENSAGEM (FLASH) DA SESSÃO
-   =========================================== */
-$flashMsg  = $_SESSION['flash_msg']  ?? null;
-$flashTipo = $_SESSION['flash_tipo'] ?? 'sucesso';
-unset($_SESSION['flash_msg'], $_SESSION['flash_tipo']);
-
-/* ===========================================
    1. PEGAR EMPRESA DA URL
    =========================================== */
 $empresaID = $_GET['empresa'] ?? null;
@@ -17,6 +10,25 @@ $empresaID = $_GET['empresa'] ?? null;
 if (!$empresaID) {
     die('Empresa não informada.');
 }
+
+/* ===========================================
+   FLASH MESSAGE (remover item, etc)
+   =========================================== */
+$flashMsg  = $_SESSION['flash_msg']  ?? '';
+$flashTipo = $_SESSION['flash_tipo'] ?? '';
+unset($_SESSION['flash_msg'], $_SESSION['flash_tipo']);
+
+/* ===========================================
+   IDENTIFICADOR DO CLIENTE (por aparelho)
+   =========================================== */
+if (!isset($_SESSION['cliente_sessao'])) {
+    try {
+        $_SESSION['cliente_sessao'] = bin2hex(random_bytes(16));
+    } catch (Exception $e) {
+        $_SESSION['cliente_sessao'] = uniqid('cli_', true);
+    }
+}
+$clienteSessao = $_SESSION['cliente_sessao'];
 
 /* ===========================================
    2. BUSCAR DADOS DA EMPRESA (NOME + LOGO)
@@ -152,7 +164,7 @@ try {
 }
 
 /* ===========================================
-   5. FORMAS DE PAGAMENTO DA EMPRESA
+   5. FORMAS DE PAGAMENTO
    =========================================== */
 $formasPagamento = [
     'dinheiro' => false,
@@ -178,6 +190,7 @@ try {
         $formasPagamento['credito']  = !empty($fp['cartaoCredito']);
     }
 } catch (PDOException $e) {
+    // segue sem formas, se der erro
 }
 
 $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
@@ -197,94 +210,46 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
     <link rel="stylesheet" href="./assets/css/cardapio/bootstrap.min.css" />
     <link rel="stylesheet" href="./assets/css/cardapio/main.css" />
 
+    <!-- TOAST / MENSAGENS -->
     <style>
-        /* TOAST - MENSAGEM COM EFEITO DESCENDO */
         .toast-msg {
             position: fixed;
-            top: -120px;
-            right: 20px;
-            max-width: 360px;
+            z-index: 9999;
+            padding: 10px 16px;
+            border-radius: 8px;
             background: #28a745;
             color: #fff;
-            padding: 14px 18px;
-            border-radius: 10px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
             opacity: 0;
-            text-align: center;
-            font-size: 14px;
+            transition: opacity .3s ease, transform .3s ease;
+            pointer-events: none;
         }
+        .toast-success { background: #28a745; }
+        .toast-error { background: #dc3545; }
+        .toast-show { opacity: 1; }
 
-        .toast-msg-error {
-            background: #dc3545;
-        }
-
-        .toast-show {
-            animation: slideDownToast 0.35s ease-out forwards;
-        }
-
-        .toast-hide {
-            animation: slideUpToast 0.3s ease-in forwards;
-        }
-
-        @keyframes slideDownToast {
-            from {
-                top: -120px;
-                opacity: 0;
-            }
-
-            to {
-                top: 20px;
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideUpToast {
-            from {
-                top: 20px;
-                opacity: 1;
-            }
-
-            to {
-                top: -120px;
-                opacity: 0;
-            }
-        }
-
-        @media (max-width: 768px) {
+        /* Desktop: canto superior direito */
+        @media (min-width: 768px) {
             .toast-msg {
+                top: 20px;
+                right: 20px;
+                transform: translateY(-20px);
+            }
+            .toast-msg.toast-show {
+                transform: translateY(0);
+            }
+        }
+
+        /* Mobile: centro da tela */
+        @media (max-width: 767.98px) {
+            .toast-msg {
+                top: 50%;
                 left: 50%;
-                right: auto;
-                top: 35%;
-                transform: translateX(-50%);
-                width: 80%;
+                transform: translate(-50%, -60%) scale(.95);
             }
-
-            @keyframes slideDownToast {
-                from {
-                    top: 0%;
-                    opacity: 0;
-                }
-
-                to {
-                    top: 35%;
-                    opacity: 1;
-                }
-            }
-
-            @keyframes slideUpToast {
-                from {
-                    top: 35%;
-                    opacity: 1;
-                }
-
-                to {
-                    top: 0%;
-                    opacity: 0;
-                }
+            .toast-msg.toast-show {
+                transform: translate(-50%, -50%) scale(1);
             }
         }
     </style>
@@ -292,11 +257,12 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
 
 <body>
 
-    <?php if (!empty($flashMsg)): ?>
-        <div id="toast-msg" class="toast-msg <?= $flashTipo === 'erro' ? 'toast-msg-error' : '' ?>">
-            <?= htmlspecialchars($flashMsg) ?>
-        </div>
-    <?php endif; ?>
+    <!-- Container da msg flutuante -->
+    <div id="toast-msg" class="toast-msg"></div>
+    <!-- Dados da flash message (PHP) -->
+    <div id="flash-data"
+         data-msg="<?= htmlspecialchars($flashMsg) ?>"
+         data-tipo="<?= htmlspecialchars($flashTipo) ?>"></div>
 
     <div class="bg-top pedido"></div>
 
@@ -587,9 +553,77 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
         Fazer pedido <span id="valor_total_pedido">R$ <?= $valor_total_formatado ?></span>
     </button>
 
-    <!-- ============ MODAL ENDEREÇO (BOOTSTRAP) ============ -->
-    <!-- (mantive igual ao seu, só não repito aqui para não estourar token; use o mesmo bloco que você já tinha) -->
-    <!-- ... TODO bloco de modalEndereco e modalPagamento permanece igual ao seu anterior ... -->
+    <!-- MODAL ENDEREÇO -->
+    <div class="modal fade" id="modalEndereco" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Endereço de entrega</h5>
+                    <button type="button" class="btn-close" id="btn-close-endereco" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2">
+                        <label class="form-label mb-1">Rua / Avenida</label>
+                        <input type="text" class="form-control" id="endereco_rua" placeholder="Ex: Rua Projetada A" />
+                    </div>
+                    <div class="row">
+                        <div class="col-6 mb-2">
+                            <label class="form-label mb-1">Número</label>
+                            <input type="text" class="form-control" id="endereco_numero" placeholder="Ex: 123" />
+                        </div>
+                        <div class="col-6 mb-2">
+                            <label class="form-label mb-1">Bairro</label>
+                            <input type="text" class="form-control" id="endereco_bairro" placeholder="Ex: Centro" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-7 mb-2">
+                            <label class="form-label mb-1">Cidade</label>
+                            <input type="text" class="form-control" id="endereco_cidade" placeholder="Ex: Coari-AM" />
+                        </div>
+                        <div class="col-5 mb-2">
+                            <label class="form-label mb-1">CEP</label>
+                            <input type="text" class="form-control" id="endereco_cep" placeholder="XXXXX-XXX" />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label mb-1">Complemento</label>
+                        <input type="text" class="form-control" id="endereco_complemento"
+                               placeholder="Casa, apto, ponto de referência..." />
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label mb-1">Referência</label>
+                        <input type="text" class="form-control" id="endereco_referencia"
+                               placeholder="Próximo à praça, escola..." />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cancelar-endereco">Cancelar</button>
+                    <button type="button" class="btn btn-yellow btn-sm" id="btn-salvar-endereco">Salvar endereço</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PAGAMENTO (BACKDROP CENTRAL) -->
+    <div class="modal-actions hidden" id="modalPagamento">
+        <div class="backdrop" onclick="fecharModalPagamento()"></div>
+        <div class="width-fix container-modal-actions">
+            <?php if ($formasPagamento['pix']): ?>
+                <a href="#!" onclick="selecionarFormaPagamento('Pix')">Pix</a>
+            <?php endif; ?>
+
+            <?php if ($formasPagamento['dinheiro']): ?>
+                <a href="#!" onclick="selecionarFormaPagamento('Dinheiro')">Dinheiro</a>
+            <?php endif; ?>
+
+            <?php if ($temCartao): ?>
+                <a href="#!" onclick="selecionarFormaPagamento('Cartão')">Cartão</a>
+            <?php endif; ?>
+
+            <a href="#!" class="color-red" onclick="selecionarFormaPagamento('')">Remover</a>
+        </div>
+    </div>
 
     <section class="menu-bottom disabled hidden" id="menu-bottom-closed">
         <p class="mb-0"><b>Loja fechada no momento.</b></p>
@@ -598,59 +632,67 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
     <script src="./js/bootstrap.bundle.min.js"></script>
 
     <script>
-        const carrinhoPHP = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
-        const totalPedidoPHP = <?php echo json_encode($total_pedido); ?>;
-        const taxaEntregaPHP = <?php echo json_encode($taxaEntregaValor); ?>;
-        const empresaID = <?php echo json_encode($empresaID); ?>;
+        // Dados do PHP
+        const carrinhoPHP     = <?php echo json_encode($_SESSION['carrinho'] ?? []); ?>;
+        const totalPedidoPHP  = <?php echo json_encode($total_pedido); ?>;
+        const taxaEntregaPHP  = <?php echo json_encode($taxaEntregaValor); ?>;
+        const empresaID       = <?php echo json_encode($empresaID); ?>;
+        const clienteSessao   = <?php echo json_encode($clienteSessao); ?>;
 
-        const STORAGE_ENDERECO_KEY = 'pedido_endereco_' + empresaID;
+        // Keys para localStorage (por empresa)
+        const STORAGE_ENDERECO_KEY  = 'pedido_endereco_'  + empresaID;
         const STORAGE_PAGAMENTO_KEY = 'pedido_pagamento_' + empresaID;
 
-        let formaPagamentoSelecionada = '';
+        // Globais de pagamento
+        let formaPagamentoSelecionada   = '';
         let detalhePagamentoSelecionado = '';
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // ====== FUNÇÃO TOAST REUTILIZÁVEL ======
-            function showToast(msg, isError = false, redirectUrl = null, redirectDelay = 2200) {
-                let toast = document.getElementById('toast-msg');
-                if (!toast) {
-                    toast = document.createElement('div');
-                    toast.id = 'toast-msg';
-                    toast.className = 'toast-msg';
-                    document.body.appendChild(toast);
-                }
+        // ======= FUNÇÃO DE TOAST / MENSAGEM =======
+        function showToast(message, type = 'success', redirectUrl = null) {
+            const toast = document.getElementById('toast-msg');
+            if (!toast) return;
 
-                toast.textContent = msg;
-                toast.classList.remove('toast-hide', 'toast-msg-error');
+            toast.textContent = message;
 
-                if (isError) {
-                    toast.classList.add('toast-msg-error');
-                }
+            toast.classList.remove('toast-success', 'toast-error', 'toast-show');
 
+            if (type === 'error') {
+                toast.classList.add('toast-error');
+            } else {
+                toast.classList.add('toast-success');
+            }
+
+            // pequena espera para aplicar a transição
+            setTimeout(() => {
                 toast.classList.add('toast-show');
+            }, 10);
 
-                setTimeout(() => {
-                    toast.classList.remove('toast-show');
-                    toast.classList.add('toast-hide');
-                }, 1500);
+            const hideTime = redirectUrl ? 1200 : 2000;
 
+            setTimeout(() => {
+                toast.classList.remove('toast-show');
                 if (redirectUrl) {
-                    setTimeout(() => {
-                        window.location.href = redirectUrl;
-                    }, redirectDelay || 2200);
+                    window.location.href = redirectUrl;
                 }
-            }
+            }, hideTime);
+        }
 
-            // Se veio mensagem de sessão (remover item, etc.), anima ela
-            const toastInicial = document.getElementById('toast-msg');
-            if (toastInicial && toastInicial.textContent.trim() !== '') {
-                showToast(toastInicial.textContent.trim(), toastInicial.classList.contains('toast-msg-error'));
-            }
-
+        document.addEventListener('DOMContentLoaded', function() {
             const baseTotalItens = Number(totalPedidoPHP || 0);
 
-            const chkEntrega = document.getElementById('chk_tipo_entrega');
-            const chkRetirada = document.getElementById('chk_tipo_retirada');
+            // Mostrar flash do PHP (ex: remoção de item)
+            const flashEl = document.getElementById('flash-data');
+            if (flashEl) {
+                const msg  = flashEl.dataset.msg || '';
+                const tipo = flashEl.dataset.tipo || 'success';
+                if (msg) {
+                    showToast(msg, tipo);
+                }
+            }
+
+            // ========= ELEMENTOS GERAIS =========
+            const chkEntrega     = document.getElementById('chk_tipo_entrega');
+            const chkRetirada    = document.getElementById('chk_tipo_retirada');
             const cardTaxaEntrega = document.getElementById('card-taxa-entrega');
             const spanTotalBotao = document.getElementById('valor_total_pedido');
 
@@ -681,7 +723,7 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                 }
             }
 
-            // ENTREGA/RETIRADA
+            // ========= TIPO ENTREGA / RETIRADA =========
             if (chkEntrega && chkRetirada) {
                 chkEntrega.addEventListener('change', () => {
                     if (chkEntrega.checked) chkRetirada.checked = false;
@@ -693,51 +735,194 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                 });
             }
 
-            // ====== (Mantenha aqui todo o resto do seu JS de endereço, pagamento, etc. IGUAL estava) ======
-            // Por causa de limite de caracteres eu não repito tudo, mas você pode colar o JS que já tinha
-            // (endereço, localStorage, modalPagamento, etc.) exatamente como estava antes desta parte.
+            // ========= ENDEREÇO =========
+            const cardAddressEmpty  = document.getElementById('card-address-empty');
+            const cardAddressFilled = document.getElementById('card-address-filled');
+            const resumoEnderecoL1  = document.getElementById('resumo_endereco_linha1');
+            const resumoEnderecoL2  = document.getElementById('resumo_endereco_linha2');
+            const enderecoTextoInput = document.getElementById('endereco_texto');
 
-            // === FINALIZAR / WHATSAPP ===
+            const modalEnderecoEl = document.getElementById('modalEndereco');
+            let modalEndereco = null;
+            if (typeof bootstrap !== 'undefined' && modalEnderecoEl) {
+                modalEndereco = new bootstrap.Modal(modalEnderecoEl);
+            }
+
+            function abrirModalEndereco() {
+                if (modalEndereco) modalEndereco.show();
+            }
+
+            function fecharModalEndereco() {
+                if (modalEndereco) modalEndereco.hide();
+            }
+
+            if (cardAddressEmpty) {
+                cardAddressEmpty.style.cursor = 'pointer';
+                cardAddressEmpty.addEventListener('click', abrirModalEndereco);
+            }
+            const btnEditEndereco = document.getElementById('btn-edit-endereco');
+            if (btnEditEndereco) {
+                btnEditEndereco.style.cursor = 'pointer';
+                btnEditEndereco.addEventListener('click', abrirModalEndereco);
+            }
+
+            const btnSalvarEndereco   = document.getElementById('btn-salvar-endereco');
+            const btnCancelarEndereco = document.getElementById('btn-cancelar-endereco');
+            const btnCloseEndereco    = document.getElementById('btn-close-endereco');
+
+            function montarResumoEndereco(rua, num, bairro, cid, cep, compl, ref) {
+                const linha1 = rua + ', ' + num + ' - ' + bairro;
+                let linha2   = cid;
+                if (cep.trim()) {
+                    linha2 += ' - ' + cep;
+                }
+
+                let textoEndereco = linha1 + ' - ' + linha2;
+                if (compl.trim()) textoEndereco += ' | Compl.: ' + compl.trim();
+                if (ref.trim())   textoEndereco += ' | Ref.: '   + ref.trim();
+
+                if (resumoEnderecoL1) resumoEnderecoL1.textContent = linha1;
+                if (resumoEnderecoL2) resumoEnderecoL2.textContent = linha2;
+                if (enderecoTextoInput) enderecoTextoInput.value   = textoEndereco;
+
+                if (cardAddressEmpty)  cardAddressEmpty.classList.add('d-none');
+                if (cardAddressFilled) cardAddressFilled.classList.remove('d-none');
+            }
+
+            function salvarEndereco() {
+                const rua   = (document.getElementById('endereco_rua') || {}).value || '';
+                const num   = (document.getElementById('endereco_numero') || {}).value || '';
+                const bairro= (document.getElementById('endereco_bairro') || {}).value || '';
+                const cid   = (document.getElementById('endereco_cidade') || {}).value || '';
+                const cep   = (document.getElementById('endereco_cep') || {}).value || '';
+                const compl = (document.getElementById('endereco_complemento') || {}).value || '';
+                const ref   = (document.getElementById('endereco_referencia') || {}).value || '';
+
+                if (!rua.trim() || !num.trim() || !bairro.trim() || !cid.trim()) {
+                    alert('Preencha rua, número, bairro e cidade.');
+                    return;
+                }
+
+                montarResumoEndereco(rua, num, bairro, cid, cep, compl, ref);
+
+                try {
+                    localStorage.setItem(STORAGE_ENDERECO_KEY, JSON.stringify({
+                        rua: rua,
+                        numero: num,
+                        bairro: bairro,
+                        cidade: cid,
+                        cep: cep,
+                        complemento: compl,
+                        referencia: ref
+                    }));
+                } catch (e) {}
+
+                fecharModalEndereco();
+            }
+
+            if (btnSalvarEndereco)   btnSalvarEndereco.addEventListener('click', salvarEndereco);
+            if (btnCancelarEndereco) btnCancelarEndereco.addEventListener('click', fecharModalEndereco);
+            if (btnCloseEndereco)    btnCloseEndereco.addEventListener('click', fecharModalEndereco);
+
+            (function carregarEnderecoLocalStorage() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_ENDERECO_KEY);
+                    if (!raw) return;
+                    const dados = JSON.parse(raw) || {};
+                    const rua   = dados.rua   || '';
+                    const num   = dados.numero|| '';
+                    const bairro= dados.bairro|| '';
+                    const cid   = dados.cidade|| '';
+                    const cep   = dados.cep   || '';
+                    const compl = dados.complemento || '';
+                    const ref   = dados.referencia  || '';
+
+                    if (rua && num && bairro && cid) {
+                        if (document.getElementById('endereco_rua'))        document.getElementById('endereco_rua').value        = rua;
+                        if (document.getElementById('endereco_numero'))     document.getElementById('endereco_numero').value     = num;
+                        if (document.getElementById('endereco_bairro'))     document.getElementById('endereco_bairro').value     = bairro;
+                        if (document.getElementById('endereco_cidade'))     document.getElementById('endereco_cidade').value     = cid;
+                        if (document.getElementById('endereco_cep'))        document.getElementById('endereco_cep').value        = cep;
+                        if (document.getElementById('endereco_complemento'))document.getElementById('endereco_complemento').value= compl;
+                        if (document.getElementById('endereco_referencia')) document.getElementById('endereco_referencia').value = ref;
+
+                        montarResumoEndereco(rua, num, bairro, cid, cep, compl, ref);
+                    }
+                } catch (e) {}
+            })();
+
+            // ========= PAGAMENTO =========
+            const cardPagamentoEmpty  = document.getElementById('card-pagamento-empty');
+            const cardPagamentoFilled = document.getElementById('card-pagamento-filled');
+            const resumoPagamentoL1   = document.getElementById('resumo_pagamento_linha1');
+            const resumoPagamentoL2   = document.getElementById('resumo_pagamento_linha2');
+            const pagamentoTextoInput = document.getElementById('pagamento_texto');
+
+            if (cardPagamentoEmpty) {
+                cardPagamentoEmpty.style.cursor = 'pointer';
+                cardPagamentoEmpty.addEventListener('click', abrirModalPagamento);
+            }
+            const btnEditPagamento = document.getElementById('btn-edit-pagamento');
+            if (btnEditPagamento) {
+                btnEditPagamento.style.cursor = 'pointer';
+                btnEditPagamento.addEventListener('click', abrirModalPagamento);
+            }
+
+            (function carregarPagamentoLocalStorage() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_PAGAMENTO_KEY);
+                    if (!raw) return;
+                    const dados   = JSON.parse(raw) || {};
+                    const forma   = dados.forma   || '';
+                    const detalhe = dados.detalhe || '';
+
+                    if (forma) {
+                        selecionarFormaPagamento(forma, detalhe);
+                    }
+                } catch (e) {}
+            })();
+
+            // ========= FINALIZAR / WHATSAPP =========
             const btnFinalizar = document.getElementById('btn-finalizar-pedido');
             if (btnFinalizar) {
                 btnFinalizar.addEventListener('click', function() {
                     if (!carrinhoPHP || !Array.isArray(carrinhoPHP) || carrinhoPHP.length === 0) {
-                        showToast('Seu carrinho está vazio.', true);
+                        alert('Seu carrinho está vazio.');
                         return;
                     }
 
-                    const nome = (document.getElementById('cliente_nome') || {}).value || '';
+                    const nome     = (document.getElementById('cliente_nome') || {}).value || '';
                     const telefone = (document.getElementById('cliente_telefone') || {}).value || '';
                     const endereco = (document.getElementById('endereco_texto') || {}).value || '';
                     const pagamento = (document.getElementById('pagamento_texto') || {}).value || '';
 
-                    const tipoEntregaCheck = document.getElementById('chk_tipo_entrega');
+                    const tipoEntregaCheck  = document.getElementById('chk_tipo_entrega');
                     const tipoRetiradaCheck = document.getElementById('chk_tipo_retirada');
-                    let modoEntrega = '';
+                    let   modoEntrega       = '';
                     if (tipoEntregaCheck && tipoEntregaCheck.checked) modoEntrega = 'Entrega';
                     if (tipoRetiradaCheck && tipoRetiradaCheck.checked) modoEntrega = 'Retirada';
 
                     if (!modoEntrega) {
-                        showToast('Selecione Entrega ou Retirada.', true);
+                        alert('Selecione Entrega ou Retirada.');
                         return;
                     }
 
                     if (!nome.trim()) {
-                        showToast('Informe o seu nome.', true);
+                        alert('Informe o seu nome.');
                         return;
                     }
                     if (!telefone.trim()) {
-                        showToast('Informe o número do seu celular.', true);
+                        alert('Informe o número do seu celular.');
                         return;
                     }
 
                     if (modoEntrega === 'Entrega' && !endereco.trim()) {
-                        showToast('Selecione e salve um endereço de entrega.', true);
+                        alert('Selecione e salve um endereço de entrega.');
                         return;
                     }
 
                     if (!pagamento.trim() || !formaPagamentoSelecionada) {
-                        showToast('Selecione uma forma de pagamento.', true);
+                        alert('Selecione uma forma de pagamento.');
                         return;
                     }
 
@@ -745,15 +930,18 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                     texto += 'NOVO PEDIDO - <?= addslashes($nomeEmpresa) ?>\n';
                     texto += 'Tipo: ' + modoEntrega + '\n';
                     texto += 'Cliente: ' + nome.trim() + '\n';
-                    texto += 'Telefone: ' + telefone.trim() + '\n\n';
+                    texto += 'Telefone: ' + telefone.trim() + '\n';
+                    texto += 'ID do cliente: ' + (clienteSessao || '') + '\n\n';
+
                     texto += 'ITENS DO PEDIDO:\n';
 
                     carrinhoPHP.forEach(function(item, idx) {
                         if (!item) return;
-                        const nomeItem = item.nome || ('Item ' + (idx + 1));
-                        const quantItem = item.quant || 1;
-                        const precoItemNum = Number(item.preco || 0);
-                        const precoItemTxt = 'R$ ' + precoItemNum.toFixed(2).replace('.', ',');
+
+                        const nomeItem    = item.nome || ('Item ' + (idx + 1));
+                        const quantItem   = item.quant || 1;
+                        const precoItemNum= Number(item.preco || 0);
+                        const precoItemTxt= 'R$ ' + precoItemNum.toFixed(2).replace('.', ',');
 
                         texto += '- ' + quantItem + 'x ' + nomeItem + ' - ' + precoItemTxt + '\n';
 
@@ -761,9 +949,9 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                             texto += '  Adicionais:\n';
                             item.opc_simples.forEach(function(opc) {
                                 if (!opc) return;
-                                const n = opc.nome || '';
-                                const pNum = Number(opc.preco || 0);
-                                const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
+                                const n   = opc.nome || '';
+                                const pNum= Number(opc.preco || 0);
+                                const pTxt= 'R$ ' + pNum.toFixed(2).replace('.', ',');
                                 texto += '   - ' + n + ' (+' + pTxt + ')\n';
                             });
                         }
@@ -774,9 +962,9 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                             }
                             item.opc_selecao.forEach(function(opc) {
                                 if (!opc) return;
-                                const n = opc.nome || '';
-                                const pNum = Number(opc.preco || 0);
-                                const pTxt = 'R$ ' + pNum.toFixed(2).replace('.', ',');
+                                const n   = opc.nome || '';
+                                const pNum= Number(opc.preco || 0);
+                                const pTxt= 'R$ ' + pNum.toFixed(2).replace('.', ',');
                                 texto += '   - ' + n + ' (+' + pTxt + ')\n';
                             });
                         }
@@ -788,7 +976,7 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                         texto += '\n';
                     });
 
-                    const taxaNum = Number(taxaEntregaPHP || 0);
+                    const taxaNum       = Number(taxaEntregaPHP || 0);
                     const totalItensNum = baseTotalItens;
                     const totalFinalNum = calcularTotalPedido();
 
@@ -820,6 +1008,7 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                     dados.append('detalhe_pagamento', detalhePagamentoSelecionado);
                     dados.append('total', String(totalFinalNum || 0));
                     dados.append('itens_json', JSON.stringify(carrinhoPHP || []));
+                    dados.append('cliente_sessao', clienteSessao || '');
 
                     let taxaParaSalvar = 0;
                     if (modoEntrega === 'Entrega') {
@@ -828,39 +1017,44 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
                     dados.append('taxa_entrega', String(taxaParaSalvar));
 
                     fetch('salvar_rascunho.php?empresa=<?= urlencode($empresaID) ?>', {
-                            method: 'POST',
-                            body: dados
-                        })
-                        .then(function(response) {
-                            return response.json().catch(function() {
-                                return null;
-                            });
-                        })
-                        .then(function(resposta) {
-                            if (!resposta || !resposta.status || resposta.status !== 'ok') {
-                                // ERRO NO SERVIDOR -> NÃO VAI PRO WPP, NÃO LIMPA CARRINHO
-                                showToast('Erro ao finalizar o pedido. Tente novamente.', true);
-                                return;
-                            }
-
-                            // SUCESSO: abre WhatsApp, mostra toast e redireciona pro pedido.php
-                            const numeroWhatsapp = '559791434585';
-                            const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
-                            window.open(url, '_blank');
-
-                            showToast('Pedido enviado com sucesso!', false, 'pedido.php?empresa=<?= urlencode($empresaID) ?>', 2200);
-                        })
-                        .catch(function() {
-                            // ERRO DE REDE / FETCH
-                            showToast('Erro de comunicação. Verifique sua conexão e tente novamente.', true);
+                        method: 'POST',
+                        body: dados
+                    })
+                    .then(function(response) {
+                        return response.json().catch(function() {
+                            return {};
                         });
+                    })
+                    .then(function(resposta) {
+                        // Se não veio status ok, NÃO abre WhatsApp, mostra erro e mantém carrinho
+                        if (!resposta || resposta.status !== 'ok') {
+                            const msg = (resposta && resposta.mensagem)
+                                ? resposta.mensagem
+                                : 'Erro ao salvar pedido. Tente novamente.';
+                            showToast(msg, 'error');
+                            return;
+                        }
+
+                        // SUCESSO -> abre WhatsApp, mostra msg, espera e vai pra pedido.php
+                        const numeroWhatsapp = '559791434585';
+                        const url = 'https://wa.me/' + numeroWhatsapp + '?text=' + encodeURIComponent(texto);
+                        window.open(url, '_blank');
+
+                        showToast('Pedido enviado com sucesso!', 'success',
+                            './pedido.php?empresa=<?= urlencode($empresaID) ?>');
+                    })
+                    .catch(function() {
+                        // Erro de comunicação: não vai pro WhatsApp
+                        showToast('Erro de comunicação. Verifique sua conexão e tente novamente.', 'error');
+                    });
                 });
             }
 
+            // Atualiza total na carga inicial
             atualizarResumoTotal();
         });
 
-        // === Funções de modal de pagamento/endereço (mantenha as mesmas que você já tem) ===
+        // ========= MODAL PAGAMENTO (BACKDROP) =========
         function abrirModalPagamento() {
             const el = document.getElementById('modalPagamento');
             if (el) el.classList.remove('hidden');
@@ -871,13 +1065,79 @@ $temCartao = $formasPagamento['debito'] || $formasPagamento['credito'];
             if (el) el.classList.add('hidden');
         }
 
+        // tipo: 'Pix', 'Dinheiro', 'Cartão' ou ''
         function selecionarFormaPagamento(tipo, detalheForcado) {
-            // ... (mantenha o que você já tinha aqui)
+            const cardEmpty   = document.getElementById('card-pagamento-empty');
+            const cardFilled  = document.getElementById('card-pagamento-filled');
+            const lbl1        = document.getElementById('resumo_pagamento_linha1');
+            const lbl2        = document.getElementById('resumo_pagamento_linha2');
+            const inputHidden = document.getElementById('pagamento_texto');
+
+            if (!tipo) {
+                formaPagamentoSelecionada   = '';
+                detalhePagamentoSelecionado = '';
+
+                if (cardEmpty)  cardEmpty.classList.remove('d-none');
+                if (cardFilled) cardFilled.classList.add('d-none');
+                if (lbl1) lbl1.textContent = '';
+                if (lbl2) lbl2.textContent = '';
+                if (inputHidden) inputHidden.value = '';
+
+                try {
+                    localStorage.removeItem(STORAGE_PAGAMENTO_KEY);
+                } catch (e) {}
+
+                fecharModalPagamento();
+                return;
+            }
+
+            formaPagamentoSelecionada = tipo;
+
+            if (detalheForcado !== undefined && detalheForcado !== null && detalheForcado !== '') {
+                detalhePagamentoSelecionado = detalheForcado;
+            } else {
+                if (tipo === 'Pix') {
+                    detalhePagamentoSelecionado = 'Pagamento via Pix na entrega.';
+                } else if (tipo === 'Dinheiro') {
+                    let troco = prompt('Qual o valor do troco? (deixe em branco se não precisar)');
+                    if (troco && troco.trim() !== '' && !isNaN(troco.replace(',', '.'))) {
+                        const tNum = parseFloat(troco.replace(',', '.'));
+                        detalhePagamentoSelecionado = 'Dinheiro - troco para R$ ' + tNum.toFixed(2).replace('.', ',');
+                    } else {
+                        detalhePagamentoSelecionado = 'Pagamento em dinheiro, sem troco informado.';
+                    }
+                } else if (tipo === 'Cartão') {
+                    detalhePagamentoSelecionado = 'Cartão (débito/crédito) na entrega.';
+                } else {
+                    detalhePagamentoSelecionado = '';
+                }
+            }
+
+            if (cardEmpty)  cardEmpty.classList.add('d-none');
+            if (cardFilled) cardFilled.classList.remove('d-none');
+            if (lbl1) lbl1.textContent = formaPagamentoSelecionada;
+            if (lbl2) lbl2.textContent = detalhePagamentoSelecionado;
+
+            if (inputHidden) {
+                let txt = formaPagamentoSelecionada;
+                if (detalhePagamentoSelecionado) {
+                    txt += ' - ' + detalhePagamentoSelecionado;
+                }
+                inputHidden.value = txt;
+            }
+
+            try {
+                localStorage.setItem(STORAGE_PAGAMENTO_KEY, JSON.stringify({
+                    forma: formaPagamentoSelecionada,
+                    detalhe: detalhePagamentoSelecionado
+                }));
+            } catch (e) {}
+
+            fecharModalPagamento();
         }
     </script>
 
     <script src="./js/item.js"></script>
 
 </body>
-
 </html>
